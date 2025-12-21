@@ -1,5 +1,7 @@
 # OpenNote
 
+<img src="./assets/demo.gif" width="800" />
+
 A notebook app that you can host on your local machine for daily use. It is built with Rust and supports semantic search natively, making knowledge management much more efficient. 
 
 The project is still new. Please feel free to raise issues or contribute. 
