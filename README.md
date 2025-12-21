@@ -117,7 +117,7 @@ In `backend/config.prod.json` (create one and copy and paste the json below if y
 
 ### Setting up the project
 
-The project comes with a `build_and_deploy.sh` script at the root. You need Docker installed to get it deploying the notebook for you. 
+The project comes with a `build_and_deploy.sh` script at the root. You need Docker installed to get it deploying the notebook for you. Notice that, you need Flutter and Rust setup in your environment before launching the script, otherwise it will fail. 
 
 If you would like to specify a different place to store data. You may change the following:
 ```sh
