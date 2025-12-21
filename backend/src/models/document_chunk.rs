@@ -52,7 +52,9 @@ impl DocumentChunk {
             }
 
             if remaining.is_empty() {
-                sentences.push(sentence);
+                if !sentence.is_empty() {
+                    sentences.push(sentence);
+                }
                 break;
             }
         }
@@ -72,11 +74,11 @@ impl DocumentChunk {
 
         for sentence in content.split(terminator) {
             let words: Vec<&str> = jieba.cut(sentence, false);
-
+            
             if words.len() > chunk_max_words {
-                let sentences = Self::split_by_n(words, chunk_max_words);
-                for sentence in sentences {
-                    let mut to_push: String = sentence;
+                let sentences_split_by_n = Self::split_by_n(words, chunk_max_words);
+                for sentence_split_by_n in sentences_split_by_n {
+                    let mut to_push: String = sentence_split_by_n;
                     to_push.push(terminator);
 
                     chunks.push(DocumentChunk::new(
@@ -110,14 +112,13 @@ impl From<DocumentChunk> for PointStruct {
             NamedVectors::default()
                 .add_vector("dense_text_vector", value.dense_text_vector.clone())
                 .add_vector(
-                    "sparse_text_vector", 
-                    qdrant_client::qdrant::Document { 
+                    "sparse_text_vector",
+                    qdrant_client::qdrant::Document {
                         text: value.content.clone(),
                         model: "qdrant/bm25".into(),
                         ..Default::default()
-                    }
-                )
-            ,
+                    },
+                ),
             Payload::try_from(serde_json::to_value(value).unwrap()).unwrap(),
         )
     }
@@ -160,9 +161,9 @@ pub struct DocumentChunkSearchResult {
 
 impl From<RetrievedPoint> for DocumentChunkSearchResult {
     fn from(value: RetrievedPoint) -> Self {
-        Self { 
-            document_chunk: value.into(), 
-            score: 0.0 
+        Self {
+            document_chunk: value.into(),
+            score: 0.0,
         }
     }
 }
@@ -184,5 +185,101 @@ impl GetIndexableFields for DocumentChunk {
             IndexableField::Keyword("collection_metadata_id".to_string()),
             IndexableField::Keyword("id".to_string()),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_by_n() {
+        let words = vec!["a", "b", "c", "d", "e"];
+        let result = DocumentChunk::split_by_n(words, 2);
+
+        // split_by_n concatenates words without separator
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], "ab");
+        assert_eq!(result[1], "cd");
+        assert_eq!(result[2], "e");
+    }
+
+    #[test]
+    fn test_split_by_n_exact() {
+        let words = vec!["a", "b", "c", "d"];
+        let result = DocumentChunk::split_by_n(words, 2);
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], "ab");
+        assert_eq!(result[1], "cd");
+    }
+
+    #[test]
+    fn test_slice_document_by_period_english() {
+        let content = "Hello world. This is a test.";
+        // Jieba cuts "Hello world" -> ["Hello", " ", "world"] (3 tokens) usually
+        // Let's use a small max_words to trigger split if possible, or large to keep sentences intact.
+
+        let chunks = DocumentChunk::slice_document_by_period(content, 100, "doc1", "col1");
+
+        // "Hello world" (sentence 1) -> < 100 words -> push "Hello world."
+        // " This is a test" (sentence 2) -> < 100 words -> push " This is a test."
+        // "" (sentence 3, trailing split) -> 0 words -> push "."
+
+        // Note: split behavior depends on trailing char.
+        // "a.b.".split('.') -> "a", "b", ""
+
+        // So we expect 3 chunks if the logic holds.
+        // However, if the sentence is empty (words len 0), it still pushes a chunk with just terminator.
+        // Let's verify if we want to filter out empty chunks. The code doesn't seem to filter.
+
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].content, "Hello world.");
+        assert_eq!(chunks[1].content, " This is a test.");
+        assert_eq!(chunks[2].content, ".");
+
+        assert_eq!(chunks[0].document_metadata_id, "doc1");
+        assert_eq!(chunks[0].collection_metadata_id, "col1");
+    }
+
+    #[test]
+    fn test_slice_document_by_period_chinese() {
+        let content = "你好世界。这是一个测试。";
+        let chunks = DocumentChunk::slice_document_by_period(content, 100, "doc1", "col1");
+
+        // "你好世界" -> push "你好世界。"
+        // "这是一个测试" -> push "这是一个测试。"
+        // "" -> push "。"
+
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].content, "你好世界。");
+        assert_eq!(chunks[1].content, "这是一个测试。");
+        assert_eq!(chunks[2].content, "。");
+    }
+
+    #[test]
+    fn test_slice_document_long_sentence() {
+        // Construct a long sentence without periods
+        let long_text = "word ".repeat(10); // 10 "word "
+        // "word " might be split by jieba into ["word", " "] or just ["word "] depending on HMM.
+        // Assuming jieba behavior, let's just assume it produces multiple tokens.
+
+        // Let's set max words to a small number to force splitting
+        let chunks = DocumentChunk::slice_document_by_period(&long_text, 2, "doc1", "col1");
+
+        // If "word " repeats 10 times, and we split by '.', we get one big sentence (plus empty trailing if we had a dot, but we don't).
+        // Since we don't have a dot, we check the terminator logic.
+        // let terminator: char = if content.contains('。') { '。' } else { '.' };
+        // It will use '.'
+        // "word word ..." split by '.' gives the whole string as one item.
+
+        // Inside: jieba.cut(sentence)
+        // If it produces > 2 words, it calls split_by_n(words, 2)
+        // Then it pushes each part + terminator.
+
+        assert!(chunks.len() == 10);
+        for chunk in &chunks {
+            assert!(chunk.content.ends_with('.'));
+        }
     }
 }

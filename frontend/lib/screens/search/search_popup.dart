@@ -252,6 +252,7 @@ class _SearchPopupState extends State<SearchPopup> {
               result.documentChunk.documentMetadataId,
               collectionId: result.documentChunk.collectionMetadataId,
               highlightText: result.documentChunk.content,
+              highlightChunkId: result.documentChunk.id,
             );
             Navigator.pop(context);
           },

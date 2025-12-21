@@ -30,6 +30,13 @@ class ActiveItem {
   ActiveItem(this.type, this.id);
 }
 
+class SearchHighlight {
+  final String text;
+  final String? chunkId;
+
+  SearchHighlight(this.text, {this.chunkId});
+}
+
 class AppState extends ChangeNotifier {
   final Dio dio = Dio();
   final CollectionManagementService collections = CollectionManagementService();
@@ -50,9 +57,10 @@ class AppState extends ChangeNotifier {
   
   // Document Content Cache
   final Map<String, String> documentContentCache = {};
-  
+  final Map<String, Map<String, int>> documentChunkOffsets = {};
+
   // Search Highlights
-  final Map<String, String> searchHighlights = {};
+  final Map<String, SearchHighlight> searchHighlights = {};
 
   // Tab Management
   final List<String> openDocumentIds = [];
@@ -69,6 +77,7 @@ class AppState extends ChangeNotifier {
 
   void updateDocumentDraft(String docId, String content) {
     documentContentCache[docId] = content;
+    documentChunkOffsets.remove(docId);
   }
   
   Future<void> saveActiveDocument() async {
@@ -393,13 +402,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> openDocument(String documentId, {String? highlightText, String? collectionId}) async {
+  Future<void> openDocument(String documentId,
+      {String? highlightText,
+      String? highlightChunkId,
+      String? collectionId}) async {
     if (!openDocumentIds.contains(documentId)) {
       openDocumentIds.add(documentId);
     }
-    
+
     if (highlightText != null) {
-      searchHighlights[documentId] = highlightText;
+      searchHighlights[documentId] =
+          SearchHighlight(highlightText, chunkId: highlightChunkId);
     }
 
     // Ensure we have metadata if possible
@@ -420,6 +433,16 @@ class AppState extends ChangeNotifier {
         final chunks = await documents.getDocument(dio, documentId);
         final fullContent = chunks.map((c) => c.content).join('');
         documentContentCache[documentId] = fullContent;
+
+        // Calculate chunk offsets
+        int currentOffset = 0;
+        final Map<String, int> offsets = {};
+        for (final chunk in chunks) {
+          offsets[chunk.id] = currentOffset;
+          currentOffset += chunk.content.length;
+        }
+        documentChunkOffsets[documentId] = offsets;
+
         notifyListeners();
       } catch (e) {
         print("Error loading document content: $e");

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 class ContentArea extends StatelessWidget {
@@ -148,13 +149,26 @@ class _DocumentEditorState extends State<DocumentEditor> {
     final appState = AppStateScope.of(context);
     final highlight = appState.searchHighlights[widget.documentId];
     if (highlight != null && _controller.text.isNotEmpty) {
-      int index = _controller.text.indexOf(highlight);
-      int length = highlight.length;
+      final highlightText = highlight.text;
+      int index = -1;
+      int length = highlightText.length;
+
+      // Try chunk offset
+      if (highlight.chunkId != null) {
+        final offsets = appState.documentChunkOffsets[widget.documentId];
+        if (offsets != null && offsets.containsKey(highlight.chunkId)) {
+          index = offsets[highlight.chunkId]!;
+        }
+      }
+
+      if (index == -1) {
+        index = _controller.text.indexOf(highlightText);
+      }
 
       // Fallback 1: Try matching the first 50 characters
       // This handles cases where the chunk is long and may have minor tail differences
-      if (index == -1 && highlight.length > 50) {
-        final shortHighlight = highlight.substring(0, 50);
+      if (index == -1 && highlightText.length > 50) {
+        final shortHighlight = highlightText.substring(0, 50);
         index = _controller.text.indexOf(shortHighlight);
         if (index != -1) {
           length = 50;
@@ -163,7 +177,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
 
       // Fallback 2: Try matching segments to avoid newline mismatch (\r\n vs \n)
       if (index == -1) {
-        final parts = highlight.split(RegExp(r'[\r\n]+'));
+        final parts = highlightText.split(RegExp(r'[\r\n]+'));
         String? bestPart;
         // Find the first significant part
         for (final part in parts) {
