@@ -78,7 +78,7 @@ You may also refer to their official document for more in-depth setup tutorial: 
 
 ### Configure the project
 
-In `backend/config.prod.json`:
+In `backend/config.prod.json` (create one and copy and paste the json below if you don't see it):
 
 ```json
 {
