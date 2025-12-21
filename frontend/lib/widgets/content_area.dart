@@ -120,7 +120,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
     final appState = AppStateScope.of(context);
     final content = appState.documentContentCache[widget.documentId] ?? '';
     bool contentUpdated = false;
-    
+
     // Only update if drastically different to avoid cursor jump?
     // Or simpler: only update if controller is empty (initial load).
     // If user is typing, we shouldn't overwrite unless it's a remote update.
@@ -140,7 +140,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
     }
 
     if (contentUpdated || content.isNotEmpty) {
-       _checkHighlight();
+      _checkHighlight();
     }
   }
 
@@ -148,24 +148,63 @@ class _DocumentEditorState extends State<DocumentEditor> {
     final appState = AppStateScope.of(context);
     final highlight = appState.searchHighlights[widget.documentId];
     if (highlight != null && _controller.text.isNotEmpty) {
-      final index = _controller.text.indexOf(highlight);
+      int index = _controller.text.indexOf(highlight);
+      int length = highlight.length;
+
+      // Fallback 1: Try matching the first 50 characters
+      // This handles cases where the chunk is long and may have minor tail differences
+      if (index == -1 && highlight.length > 50) {
+        final shortHighlight = highlight.substring(0, 50);
+        index = _controller.text.indexOf(shortHighlight);
+        if (index != -1) {
+          length = 50;
+        }
+      }
+
+      // Fallback 2: Try matching segments to avoid newline mismatch (\r\n vs \n)
+      if (index == -1) {
+        final parts = highlight.split(RegExp(r'[\r\n]+'));
+        String? bestPart;
+        // Find the first significant part
+        for (final part in parts) {
+          if (part.length > 15) {
+            bestPart = part;
+            break;
+          }
+        }
+        // If no long part found, take the longest one available
+        if (bestPart == null && parts.isNotEmpty) {
+          // Create a copy to sort
+          final sortedParts = List<String>.from(parts)
+            ..sort((a, b) => b.length.compareTo(a.length));
+          if (sortedParts.isNotEmpty) bestPart = sortedParts.first;
+        }
+
+        if (bestPart != null && bestPart.isNotEmpty) {
+          index = _controller.text.indexOf(bestPart);
+          if (index != -1) {
+            length = bestPart.length;
+          }
+        }
+      }
+
       if (index != -1) {
         // Clear highlight from state so we don't jump again
         appState.searchHighlights.remove(widget.documentId);
-        
+
         // Calculate selection
         final selection = TextSelection(
           baseOffset: index,
-          extentOffset: index + highlight.length,
+          extentOffset: index + length,
         );
-        
+
         _controller.selection = selection;
-        
+
         // Ensure focus and scroll
         WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-                _focusNode.requestFocus();
-            }
+          if (mounted) {
+            _focusNode.requestFocus();
+          }
         });
       }
     }
