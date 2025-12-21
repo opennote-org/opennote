@@ -1,0 +1,35 @@
+# Rust
+/target/
+# Cargo.lock - Recommended to commit for applications
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Data
+/data/
+*.db
+*.sqlite
+
+# Config (optionally ignore sensitive configs)
+config.json
+config.prod.json
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Build artifacts
+*.pdb

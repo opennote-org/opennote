@@ -1,0 +1,15 @@
+.dart_tool/
+.git/
+.github/
+.idea/
+.vscode/
+android/
+build/
+ios/
+linux/
+macos/
+test/
+windows/
+doc/
+*.iml
+.DS_Store
