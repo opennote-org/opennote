@@ -222,8 +222,7 @@ class _SearchPopupState extends State<SearchPopup> {
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           title: Text(
-            result.documentChunk.content,
-            maxLines: 2,
+            result.documentChunk.content.trim(),
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),

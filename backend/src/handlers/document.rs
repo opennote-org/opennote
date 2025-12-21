@@ -415,8 +415,8 @@ pub async fn update_document_content(
         let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
             &request.content,
             user_configurations.search.document_chunk_size,
-            &request.document_metadata_id,
-            &request.collection_metadata_id,
+            &metadata.metadata_id,
+            &metadata.collection_metadata_id,
         );
 
         metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
