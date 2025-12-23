@@ -22,6 +22,18 @@ pub struct DocumentChunk {
     pub dense_text_vector: Vec<f32>,
 }
 
+impl Default for DocumentChunk {
+    fn default() -> Self {
+        Self {
+            id: "".to_string(),
+            document_metadata_id: "".to_string(),
+            collection_metadata_id: "".to_string(),
+            content: "".to_string(),
+            dense_text_vector: vec![],
+        }
+    }
+}
+
 impl DocumentChunk {
     pub fn new(content: String, document_metadata_id: &str, collection_metadata_id: &str) -> Self {
         Self {
@@ -74,7 +86,7 @@ impl DocumentChunk {
 
         for sentence in content.split(terminator) {
             let words: Vec<&str> = jieba.cut(sentence, false);
-            
+
             if words.len() > chunk_max_words {
                 let sentences_split_by_n = Self::split_by_n(words, chunk_max_words);
                 for sentence_split_by_n in sentences_split_by_n {
@@ -154,16 +166,29 @@ impl From<RetrievedPoint> for DocumentChunk {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DocumentChunkSearchResult {
+    pub document_title: Option<String>,
+    pub collection_title: Option<String>,
     pub document_chunk: DocumentChunk,
     /// Similarity score
     pub score: f32,
+}
+
+impl Default for DocumentChunkSearchResult {
+    fn default() -> Self {
+        Self {
+            document_title: None,
+            collection_title: None,
+            document_chunk: DocumentChunk::default(),
+            score: 0.0,
+        }
+    }
 }
 
 impl From<RetrievedPoint> for DocumentChunkSearchResult {
     fn from(value: RetrievedPoint) -> Self {
         Self {
             document_chunk: value.into(),
-            score: 0.0,
+            ..Default::default()
         }
     }
 }
@@ -173,6 +198,7 @@ impl From<ScoredPoint> for DocumentChunkSearchResult {
         Self {
             document_chunk: DocumentChunk::from(value.payload),
             score: value.score,
+            ..Default::default()
         }
     }
 }

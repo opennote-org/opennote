@@ -5,8 +5,11 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
     app_state::AppState,
+    documents::document_chunk::DocumentChunkSearchResult,
     handler_operations::retrieve_document_ids_by_scope,
-    search::{keyword::search_documents, semantic::search_documents_semantically},
+    search::{
+        build_search_results, keyword::search_documents, semantic::search_documents_semantically,
+    },
     utilities::acquire_data,
 };
 
@@ -40,8 +43,16 @@ pub async fn intelligent_search(
     )
     .await
     {
-        Ok(result) => {
-            return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &result)));
+        Ok(results) => {
+            let metadata_storage = metadata_storage.lock().await;
+            let results: Vec<DocumentChunkSearchResult> = build_search_results(
+                Some(results),
+                None,
+                &metadata_storage.collections,
+                &metadata_storage.documents,
+            );
+
+            return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &results)));
         }
         Err(error) => {
             error!("Failed when trying searching: {}", error);
@@ -79,8 +90,16 @@ pub async fn search(
     )
     .await
     {
-        Ok(result) => {
-            return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &result)));
+        Ok(results) => {
+            let metadata_storage = metadata_storage.lock().await;
+            let results: Vec<DocumentChunkSearchResult> = build_search_results(
+                None,
+                Some(results),
+                &metadata_storage.collections,
+                &metadata_storage.documents,
+            );
+
+            return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &results)));
         }
         Err(error) => {
             error!("Failed when trying searching: {}", error);

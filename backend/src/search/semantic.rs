@@ -1,10 +1,9 @@
 use anyhow::Result;
 use qdrant_client::{
-    qdrant::{Condition, Filter, QueryPointsBuilder, SearchParamsBuilder}, Qdrant
+    qdrant::{Condition, Filter, QueryPointsBuilder, ScoredPoint, SearchParamsBuilder}, Qdrant
 };
 
 use crate::{
-    documents::document_chunk::DocumentChunkSearchResult,
     embedder::send_vectorization_queries, search::build_search_conditions,
 };
 
@@ -18,7 +17,7 @@ pub async fn search_documents_semantically(
     api_key: &str,
     model: &str,
     encoding_format: &str,
-) -> Result<Vec<DocumentChunkSearchResult>> {
+) -> Result<Vec<ScoredPoint>> {
     // Convert to vec
     let vectors: Vec<Vec<f32>> = send_vectorization_queries(
         base_url,
@@ -43,9 +42,5 @@ pub async fn search_documents_semantically(
         )
         .await?;
 
-    Ok(response
-        .result
-        .into_iter()
-        .map(|item| DocumentChunkSearchResult::from(item))
-        .collect())
+    Ok(response.result)
 }

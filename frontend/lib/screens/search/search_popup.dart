@@ -135,6 +135,52 @@ class _SearchPopupState extends State<SearchPopup> {
     );
   }
 
+  Widget _buildHighlightedText(String text, String query) {
+    if (query.isEmpty || !_isKeywordSearch) {
+      return Text(
+        text,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+        maxLines: 1000,
+      );
+    }
+
+    final List<InlineSpan> spans = [];
+    final String lowercaseText = text.toLowerCase();
+    final String lowercaseQuery = query.toLowerCase();
+
+    int start = 0;
+    int indexOfHighlight = lowercaseText.indexOf(lowercaseQuery);
+
+    while (indexOfHighlight != -1) {
+      if (indexOfHighlight > start) {
+        spans.add(TextSpan(text: text.substring(start, indexOfHighlight)));
+      }
+
+      spans.add(TextSpan(
+        text: text.substring(indexOfHighlight, indexOfHighlight + query.length),
+        style: TextStyle(
+          backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+          color: Theme.of(context).colorScheme.onTertiaryContainer,
+        ),
+      ));
+
+      start = indexOfHighlight + query.length;
+      indexOfHighlight = lowercaseText.indexOf(lowercaseQuery, start);
+    }
+
+    if (start < text.length) {
+      spans.add(TextSpan(text: text.substring(start)));
+    }
+
+    return Text.rich(
+      TextSpan(
+        children: spans,
+      ),
+      style: const TextStyle(fontWeight: FontWeight.w500),
+      maxLines: 1000,
+    );
+  }
+
   Widget _buildResults() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -173,17 +219,20 @@ class _SearchPopupState extends State<SearchPopup> {
         final result = _results[index];
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          title: Text(
+          title: _buildHighlightedText(
             result.documentChunk.content.trim(),
-            style: const TextStyle(fontWeight: FontWeight.w500),
-            maxLines: 1000,
+            _queryController.text.trim(),
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 8.0,
               children: [
-                Icon(Icons.description_outlined, size: 14, color: Theme.of(context).colorScheme.secondary),
-                const SizedBox(width: 4),
+                Text(
+                'From ${result.documentTitle ?? '???'} > ${result.collectionTitle ?? '???'}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.secondary),
+                ),
                 Text(
                   'Score: ${(result.score * 100).toStringAsFixed(0)}%',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.secondary),

@@ -10,12 +10,11 @@ enum SearchScope { document, collection, userspace }
 @JsonSerializable(fieldRename: FieldRename.snake)
 class DocumentChunkSearchResult {
   DocumentChunk documentChunk;
+  String? collectionTitle;
+  String? documentTitle;
   double score;
 
-  DocumentChunkSearchResult({
-    required this.documentChunk,
-    required this.score,
-  });
+  DocumentChunkSearchResult({required this.documentChunk, required this.score, required this.collectionTitle, required this.documentTitle});
 
   factory DocumentChunkSearchResult.fromJson(Map<String, dynamic> json) => _$DocumentChunkSearchResultFromJson(json);
 

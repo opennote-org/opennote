@@ -1,10 +1,9 @@
 use anyhow::Result;
 use qdrant_client::{
-    Qdrant,
-    qdrant::{Condition, Filter, QueryPointsBuilder, ScrollPointsBuilder, ScrollResponse},
+    qdrant::{Condition, Filter, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse}, Qdrant
 };
 
-use crate::{documents::document_chunk::DocumentChunkSearchResult, search::build_search_conditions};
+use crate::search::build_search_conditions;
 
 /// This is reserved for sparse vector searches
 #[allow(dead_code)]
@@ -14,7 +13,7 @@ pub async fn search_documents_with_sparse_vector(
     index: &str,
     query: &str,
     top_n: usize,
-) -> Result<Vec<DocumentChunkSearchResult>> {
+) -> Result<Vec<ScoredPoint>> {
     let conditions: Vec<Condition> = build_search_conditions(document_metadata_ids);
 
     let response = client
@@ -34,11 +33,7 @@ pub async fn search_documents_with_sparse_vector(
         )
         .await?;
 
-    Ok(response
-        .result
-        .into_iter()
-        .map(|item| DocumentChunkSearchResult::from(item))
-        .collect())
+    Ok(response.result)
 }
 
 pub async fn search_documents(
@@ -47,7 +42,7 @@ pub async fn search_documents(
     index: &str,
     query: &str,
     top_n: usize,
-) -> Result<Vec<DocumentChunkSearchResult>> {
+) -> Result<Vec<RetrievedPoint>> {
     let conditions: Vec<Condition> = build_search_conditions(document_metadata_ids);
 
     let response: ScrollResponse = client
@@ -65,9 +60,5 @@ pub async fn search_documents(
         )
         .await?;
 
-    Ok(response
-        .result
-        .into_iter()
-        .map(|item| DocumentChunkSearchResult::from(item))
-        .collect())
+    Ok(response.result)
 }
