@@ -7,7 +7,7 @@ use qdrant_client::{
     Qdrant,
     qdrant::{
         Condition, DeletePointsBuilder, Filter, PointStruct, QueryPointsBuilder,
-        SearchParamsBuilder, UpsertPointsBuilder,
+        ScrollPointsBuilder, ScrollResponse, SearchParamsBuilder, UpsertPointsBuilder,
     },
 };
 use tokio::sync::{Mutex, MutexGuard};
@@ -116,9 +116,10 @@ pub async fn delete_documents_from_database(
     for id in document_ids.iter() {
         match metadata_storage.remove_document(id).await {
             Some(result) => {
-                conditions.push(
-                    Condition::matches("document_metadata_id", result.metadata_id)
-                );
+                conditions.push(Condition::matches(
+                    "document_metadata_id",
+                    result.metadata_id,
+                ));
             }
             None => {
                 let message: String =
@@ -198,6 +199,60 @@ pub async fn intelligent_search_documents(
         .collect())
 }
 
+/// This is reserved for sparse vector searches
+#[allow(dead_code)]
+pub async fn search_documents_with_sparse_vector(
+    client: &Qdrant,
+    metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+    user_information_storage: &mut MutexGuard<'_, UserInformationStorage>,
+    index: &str,
+    query: &SearchDocumentRequest,
+) -> Result<Vec<DocumentChunkSearchResult>> {
+    let mut conditions: Vec<Condition> = Vec::new();
+    let document_metadata_ids: Vec<&String> = match query.scope.search_scope {
+        SearchScope::Userspace => {
+            let collection_ids: Vec<&String> =
+                user_information_storage.get_resource_ids_by_username(&query.scope.id);
+            let mut document_metadata_ids: Vec<&String> = Vec::new();
+
+            for id in collection_ids {
+                document_metadata_ids.extend(metadata_storage.get_document_ids_by_collection(id));
+            }
+
+            document_metadata_ids
+        }
+        SearchScope::Collection => metadata_storage.get_document_ids_by_collection(&query.scope.id),
+        SearchScope::Document => vec![&query.scope.id],
+    };
+
+    for id in document_metadata_ids {
+        conditions.push(Condition::matches("document_metadata_id", id.to_string()));
+    }
+
+    let response = client
+        .query(
+            QueryPointsBuilder::new(index)
+                .using("sparse_text_vector")
+                .with_payload(true)
+                .query(qdrant_client::qdrant::Query::new_nearest(
+                    qdrant_client::qdrant::Document {
+                        text: query.query.clone(),
+                        model: "qdrant/bm25".into(),
+                        ..Default::default()
+                    },
+                ))
+                .limit(query.top_n as u64)
+                .filter(Filter::any(conditions)),
+        )
+        .await?;
+
+    Ok(response
+        .result
+        .into_iter()
+        .map(|item| DocumentChunkSearchResult::from(item))
+        .collect())
+}
+
 pub async fn search_documents(
     client: &Qdrant,
     metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
@@ -226,31 +281,14 @@ pub async fn search_documents(
         conditions.push(Condition::matches("document_metadata_id", id.to_string()));
     }
 
-    // conditions.push(Condition::matches_text_any("content", query.query.clone()));
+    conditions.push(Condition::matches_text_any("content", query.query.clone()));
 
-    // let response: ScrollResponse = client
-    //     .scroll(
-    //         ScrollPointsBuilder::new(index)
-    //             .filter(Filter::must(conditions))
-    //             .limit(query.top_n as u32)
-    //             .build(),
-    //     )
-    //     .await?;
-
-    let response = client
-        .query(
-            QueryPointsBuilder::new(index)
-                .using("sparse_text_vector")
-                .with_payload(true)
-                .query(qdrant_client::qdrant::Query::new_nearest(
-                    qdrant_client::qdrant::Document {
-                        text: query.query.clone(),
-                        model: "qdrant/bm25".into(),
-                        ..Default::default()
-                    },
-                ))
-                .limit(query.top_n as u64)
-                .filter(Filter::any(conditions)),
+    let response: ScrollResponse = client
+        .scroll(
+            ScrollPointsBuilder::new(index)
+                .filter(Filter::must(conditions))
+                .limit(query.top_n as u32)
+                .build(),
         )
         .await?;
 
