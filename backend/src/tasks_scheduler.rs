@@ -6,7 +6,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::callbacks::TaskStatus;
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, Ord, Eq)]
+pub enum TaskStatus {
+    InProgress,
+    Completed,
+    Failed,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskRecord {
@@ -67,7 +72,12 @@ impl TasksScheduler {
         false
     }
 
-    pub fn update_status_by_task_id(&mut self, task_id: &str, new_status: TaskStatus, message: Option<String>) -> bool {
+    pub fn update_status_by_task_id(
+        &mut self,
+        task_id: &str,
+        new_status: TaskStatus,
+        message: Option<String>,
+    ) -> bool {
         if let Some(task) = self
             .registered_tasks
             .iter_mut()

@@ -7,16 +7,12 @@ use serde_json::json;
 use tokio::sync::RwLock;
 
 use crate::{
+    api_models::{callbacks::GenericResponse, collection::{
+        CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
+        GetCollectionsQuery, UpdateCollectionMetadataRequest,
+    }},
     app_state::AppState,
-    callbacks::GenericResponse,
-    models::{
-        collection_metadata::CollectionMetadata,
-        queries::GetCollectionsQuery,
-        requests::{
-            CreateCollectionRequest, DeleteCollectionRequest, UpdateCollectionMetadataRequest,
-        },
-        responses::CreateCollectionResponse,
-    },
+    documents::collection_metadata::CollectionMetadata,
     utilities::acquire_data,
 };
 
@@ -133,10 +129,7 @@ pub async fn delete_collection(
         .await
     {
         Ok(_) => {}
-        Err(error) => log::error!(
-            "Qdrant cannot delete documents due to {}",
-            error
-        ),
+        Err(error) => log::error!("Qdrant cannot delete documents due to {}", error),
     }
 
     return Ok(HttpResponse::Ok().json(GenericResponse::succeed(

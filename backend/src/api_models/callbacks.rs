@@ -1,12 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, Ord, Eq)]
-pub enum TaskStatus {
-    InProgress,
-    Completed,
-    Failed,
-}
+use crate::tasks_scheduler::TaskStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetrieveTaskResultRequest {

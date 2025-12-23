@@ -2,9 +2,12 @@ use actix_web::{HttpResponse, Result, web};
 use tokio::sync::RwLock;
 
 use crate::{
+    api_models::{
+        callbacks::{GenericResponse, RetrieveTaskResultRequest},
+        general::{HealthResponse, InfoResponse},
+    },
     app_state::AppState,
-    callbacks::{GenericResponse, RetrieveTaskResultRequest, TaskStatus},
-    models::{HealthResponse, InfoResponse},
+    tasks_scheduler::TaskStatus,
 };
 
 pub async fn health_check() -> Result<HttpResponse> {

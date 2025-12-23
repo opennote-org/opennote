@@ -12,6 +12,8 @@ class ConfigurationPopup extends StatefulWidget {
 class _ConfigurationPopupState extends State<ConfigurationPopup> {
   bool _isLoading = true;
   final TextEditingController _chunkSizeController = TextEditingController();
+  final TextEditingController _topNController = TextEditingController();
+  late SupportedSearchMethod _defaultSearchMethodController;
   final UserManagementService _userService = UserManagementService();
 
   @override
@@ -29,9 +31,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("User not logged in")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User not logged in")));
       }
       return;
     }
@@ -41,6 +41,8 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
       if (mounted) {
         setState(() {
           _chunkSizeController.text = config.search.documentChunkSize.toString();
+          _defaultSearchMethodController = config.search.defaultSearchMethod;
+          _topNController.text = config.search.topN.toString();
           _isLoading = false;
         });
       }
@@ -49,9 +51,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to load configs: $e")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to load configs: $e")));
       }
     }
   }
@@ -61,12 +61,16 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
     final username = appState.username;
 
     if (username == null) return;
-    
+
     final int? chunkSize = int.tryParse(_chunkSizeController.text);
     if (chunkSize == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid chunk size")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid chunk size")));
+      return;
+    }
+    
+    final int? topN = int.tryParse(_topNController.text);
+    if (topN == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid chunk size")));
       return;
     }
 
@@ -75,25 +79,21 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
     });
 
     final newConfig = UserConfigurations(
-      search: SearchConfiguration(documentChunkSize: chunkSize),
+      search: SearchConfiguration(documentChunkSize: chunkSize, defaultSearchMethod: _defaultSearchMethodController, topN: topN),
     );
 
     try {
       await _userService.updateUserConfigurations(appState.dio, username, newConfig);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Configurations updated")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Configurations updated")));
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update configs: $e")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update configs: $e")));
       }
     }
   }
@@ -109,10 +109,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Configuration",
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text("Configuration", style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 24),
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
@@ -120,8 +117,17 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Search Settings",
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text("Search Settings", style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _topNController,
+                    decoration: const InputDecoration(
+                      labelText: "Top N",
+                      border: OutlineInputBorder(),
+                      helperText: "How many search results to get after typing in a search query",
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _chunkSizeController,
@@ -132,23 +138,34 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
+                  const SizedBox(height: 16),
+                  DropdownMenu<SupportedSearchMethod>(
+                    label: Text("Default Search Method"),
+                    initialSelection: _defaultSearchMethodController,
+                    onSelected: (selection) {
+                      if (selection != null) {
+                        setState(() {
+                          _defaultSearchMethodController = selection;
+                        });
+                      }
+                    },
+                    helperText: "The default way of searching",
+                    dropdownMenuEntries: [
+                      DropdownMenuEntry(value: SupportedSearchMethod.semantic, label: "Semantic"),
+                      DropdownMenuEntry(value: SupportedSearchMethod.keyword, label: "Keyword"),
+                    ],
+                  ),
                 ],
               ),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("Cancel"),
-                ),
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("Cancel")),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _isLoading ? null : _saveConfigurations,
-                  child: const Text("Save"),
-                ),
+                FilledButton(onPressed: _isLoading ? null : _saveConfigurations, child: const Text("Save")),
               ],
-            )
+            ),
           ],
         ),
       ),

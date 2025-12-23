@@ -11,8 +11,15 @@ use serde_json::json;
 use tokio::sync::RwLock;
 
 use crate::{
+    api_models::{
+        callbacks::GenericResponse,
+        document::{
+            AddDocumentRequest, AddDocumentResponse, DeleteDocumentRequest, DeleteDocumentResponse,
+            GetDocumentRequest, GetDocumentsMetadataQuery, UpdateDocumentContentRequest,
+            UpdateDocumentMetadataRequest, UpdateDocumentResponse,
+        },
+    },
     app_state::AppState,
-    callbacks::GenericResponse,
     configurations::user::UserConfigurations,
     connectors::{
         models::ImportTaskIntermediate,
@@ -23,19 +30,11 @@ use crate::{
         traits::Connector,
         webpage::WebpageConnector,
     },
-    documents::operations::{
+    documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
+    handler_operations::{
         add_document_chunks_to_database, delete_documents_from_database, preprocess_document,
     },
-    models::{
-        document_chunk::DocumentChunk,
-        document_metadata::DocumentMetadata,
-        queries::GetDocumentsMetadataQuery,
-        requests::{
-            AddDocumentRequest, DeleteDocumentRequest, GetDocumentRequest,
-            UpdateDocumentContentRequest, UpdateDocumentMetadataRequest,
-        },
-        responses::{AddDocumentResponse, DeleteDocumentResponse, UpdateDocumentResponse},
-    },
+    tasks_scheduler::TaskStatus,
     utilities::acquire_data,
 };
 
@@ -73,7 +72,7 @@ pub async fn add_document(
                 );
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
-                    crate::callbacks::TaskStatus::Failed,
+                    TaskStatus::Failed,
                     Some(error.to_string()),
                 );
                 return;
@@ -105,7 +104,7 @@ pub async fn add_document(
                 error!("Failed when trying saving a document: {}", error);
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
-                    crate::callbacks::TaskStatus::Failed,
+                    TaskStatus::Failed,
                     Some(error.to_string()),
                 );
                 return;
@@ -161,7 +160,7 @@ pub async fn import_documents(
                 );
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
-                    crate::callbacks::TaskStatus::Failed,
+                    TaskStatus::Failed,
                     Some(error.to_string()),
                 );
                 return;
@@ -301,7 +300,7 @@ pub async fn delete_document(
             Err(_) => {
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
-                    crate::callbacks::TaskStatus::Failed,
+                    TaskStatus::Failed,
                     None,
                 );
                 return;
@@ -380,7 +379,7 @@ pub async fn update_document_content(
                 );
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
-                    crate::callbacks::TaskStatus::Failed,
+                    TaskStatus::Failed,
                     Some(error.to_string()),
                 );
                 return;
@@ -399,7 +398,7 @@ pub async fn update_document_content(
             Err(error) => {
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
-                    crate::callbacks::TaskStatus::Failed,
+                    TaskStatus::Failed,
                     Some(error.to_string()),
                 );
                 return;
@@ -435,7 +434,7 @@ pub async fn update_document_content(
             Err(error) => {
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
-                    crate::callbacks::TaskStatus::Failed,
+                    TaskStatus::Failed,
                     Some(error.to_string()),
                 );
                 return;

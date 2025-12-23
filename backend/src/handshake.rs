@@ -5,7 +5,13 @@ use anyhow::{Result, anyhow};
 use crate::{configurations::system::EmbedderConfig, embedder::send_vectorization_queries};
 
 pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> {
-    match send_vectorization_queries(config, &vec!["a test string".to_string()]).await {
+    match send_vectorization_queries(
+        &config.base_url,
+        &config.api_key,
+        &config.model,
+        &config.encoding_format,
+        &vec!["a test string".to_string()],
+    ).await {
         Ok(result) => {
             if let Some(vector) = result.get(0) {
                 if !(vector.len() == config.dimensions) {

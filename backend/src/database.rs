@@ -11,11 +11,7 @@ use qdrant_client::{
 };
 
 use crate::{
-    configurations::system::Config,
-    models::{
-        document_chunk::DocumentChunk,
-        traits::{GetIndexableFields, IndexableField},
-    },
+    configurations::system::Config, documents::{document_chunk::DocumentChunk, traits::{GetIndexableFields, IndexableField}},
 };
 
 #[derive(Clone)]

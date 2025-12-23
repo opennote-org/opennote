@@ -1,17 +1,16 @@
 import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:notes/services/search.dart';
+import 'package:notes/services/user.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 class SearchPopup extends StatefulWidget {
   final String scopeId;
   final SearchScope scope;
 
-  const SearchPopup({
-    super.key,
-    required this.scopeId,
-    required this.scope,
-  });
+  const SearchPopup({super.key, required this.scopeId, required this.scope});
 
   @override
   State<SearchPopup> createState() => _SearchPopupState();
@@ -22,57 +21,16 @@ class _SearchPopupState extends State<SearchPopup> {
   List<DocumentChunkSearchResult> _results = [];
   bool _isLoading = false;
   bool _isKeywordSearch = false;
+  bool _isInitialized = false;
+  int _topN = 10;
   Timer? _debounce;
 
   @override
-  void dispose() {
-    _queryController.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String query) {
-    if (_debounce?.isActive ?? false) _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 250), () {
-      _search();
-    });
-  }
-
-  Future<void> _search() async {
-    final query = _queryController.text.trim();
-    if (query.isEmpty) {
-      setState(() => _results = []);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final appState = AppStateScope.of(context);
-      final searchService = SearchService();
-      final results = _isKeywordSearch
-          ? await searchService.keywordSearch(
-              appState.dio,
-              query: query,
-              scope: widget.scope,
-              scopeId: widget.scopeId,
-            )
-          : await searchService.intelligentSearch(
-              appState.dio,
-              query: query,
-              scope: widget.scope,
-              scopeId: widget.scopeId,
-            );
-      setState(() {
-        _results = results;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search failed: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      _initializeData();
+      _isInitialized = true;
     }
   }
 
@@ -88,26 +46,30 @@ class _SearchPopupState extends State<SearchPopup> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Column(
             children: [
               _buildHeader(),
               const Divider(height: 1),
-              Expanded(
-                child: _buildResults(),
-              ),
+              Expanded(child: _buildResults()),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
   }
 
   Widget _buildHeader() {
@@ -125,10 +87,7 @@ class _SearchPopupState extends State<SearchPopup> {
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
                     fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   textInputAction: TextInputAction.search,
@@ -138,10 +97,7 @@ class _SearchPopupState extends State<SearchPopup> {
                 ),
               ),
               const SizedBox(width: 12),
-              IconButton.filledTonal(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
+              IconButton.filledTonal(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ],
           ),
           const SizedBox(height: 12),
@@ -193,9 +149,7 @@ class _SearchPopupState extends State<SearchPopup> {
             const SizedBox(height: 16),
             Text(
               'No results found',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
             ),
           ],
         ),
@@ -206,9 +160,7 @@ class _SearchPopupState extends State<SearchPopup> {
       return Center(
         child: Text(
           'Type to search...',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.outline),
         ),
       );
     }
@@ -223,24 +175,18 @@ class _SearchPopupState extends State<SearchPopup> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           title: Text(
             result.documentChunk.content.trim(),
-            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w500),
+            maxLines: 1000,
           ),
           subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.only(top: 8),
             child: Row(
               children: [
-                Icon(
-                  Icons.description_outlined,
-                  size: 14,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
+                Icon(Icons.description_outlined, size: 14, color: Theme.of(context).colorScheme.secondary),
                 const SizedBox(width: 4),
                 Text(
                   'Score: ${(result.score * 100).toStringAsFixed(0)}%',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.secondary),
                 ),
               ],
             ),
@@ -259,5 +205,54 @@ class _SearchPopupState extends State<SearchPopup> {
         );
       },
     );
+  }
+
+  Future<void> _initializeData() async {
+    final appState = AppStateScope.of(context);
+    final configuations = await appState.users.getUserConfigurations(Dio(), appState.username!);
+
+    if (!mounted) return;
+    setState(() {
+      if (configuations.search.defaultSearchMethod == SupportedSearchMethod.semantic) {
+        _isKeywordSearch = false;
+      } else if (configuations.search.defaultSearchMethod == SupportedSearchMethod.keyword) {
+        _isKeywordSearch = true;
+      }
+      
+      _topN = configuations.search.topN;
+    });
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      _search();
+    });
+  }
+
+  Future<void> _search() async {
+    final query = _queryController.text.trim();
+    if (query.isEmpty) {
+      setState(() => _results = []);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final appState = AppStateScope.of(context);
+      final searchService = SearchService();
+      final results = _isKeywordSearch
+          ? await searchService.keywordSearch(appState.dio, query: query, scope: widget.scope, scopeId: widget.scopeId, topN: _topN)
+          : await searchService.intelligentSearch(appState.dio, query: query, scope: widget.scope, scopeId: widget.scopeId, topN: _topN);
+      setState(() {
+        _results = results;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Search failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

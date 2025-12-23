@@ -1,4 +1,3 @@
-mod callbacks;
 mod connectors;
 mod database;
 mod documents;
@@ -7,13 +6,15 @@ mod handlers;
 mod handshake;
 mod identities;
 mod metadata_storage;
-mod models;
 mod routes;
 mod tasks_scheduler;
 mod traits;
 mod utilities;
 mod app_state;
 mod configurations;
+mod search;
+mod api_models;
+mod handler_operations;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};

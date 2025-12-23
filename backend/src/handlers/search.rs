@@ -3,8 +3,10 @@ use log::error;
 use tokio::sync::RwLock;
 
 use crate::{
-    app_state::AppState, callbacks::GenericResponse,
-    documents::operations::{intelligent_search_documents, search_documents}, models::requests::SearchDocumentRequest,
+    api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
+    app_state::AppState,
+    handler_operations::retrieve_document_ids_by_scope,
+    search::{keyword::search_documents, semantic::search_documents_semantically},
     utilities::acquire_data,
 };
 
@@ -18,13 +20,23 @@ pub async fn intelligent_search(
     let (index_name, db_client, metadata_storage, _, config, user_information_storage) =
         acquire_data(&data).await;
 
-    match intelligent_search_documents(
-        &db_client,
+    let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
         &mut metadata_storage.lock().await,
         &mut user_information_storage.lock().await,
+        request.0.scope.search_scope,
+        &request.0.scope.id,
+    );
+
+    match search_documents_semantically(
+        &db_client,
+        document_metadata_ids,
         &index_name,
-        &config.embedder,
-        &request,
+        &request.0.query,
+        request.0.top_n,
+        &config.embedder.base_url,
+        &config.embedder.api_key,
+        &config.embedder.model,
+        &config.embedder.encoding_format,
     )
     .await
     {
@@ -51,12 +63,19 @@ pub async fn search(
     let (index_name, db_client, metadata_storage, _, _, user_information_storage) =
         acquire_data(&data).await;
 
-    match search_documents(
-        &db_client,
+    let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
         &mut metadata_storage.lock().await,
         &mut user_information_storage.lock().await,
+        request.0.scope.search_scope,
+        &request.0.scope.id,
+    );
+
+    match search_documents(
+        &db_client,
+        document_metadata_ids,
         &index_name,
-        &request,
+        &request.0.query,
+        request.0.top_n,
     )
     .await
     {

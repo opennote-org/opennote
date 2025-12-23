@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
-use crate::{configurations::user::UserConfigurations, identities::user::User, traits::LoadAndSave};
+use crate::{
+    configurations::user::UserConfigurations, identities::user::User, traits::LoadAndSave,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInformationStorage {
@@ -97,9 +99,9 @@ impl UserInformationStorage {
     ) -> Result<()> {
         if let Some(user) = self.users.iter_mut().find(|user| user.username == username) {
             user.configuration = user_configurations;
+            self.save().await?;
+            return Ok(());
         }
-
-        self.save().await?;
 
         Err(anyhow!("User `{}` does not exist", username))
     }

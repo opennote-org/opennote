@@ -9,11 +9,26 @@ part of 'user.dart';
 SearchConfiguration _$SearchConfigurationFromJson(Map<String, dynamic> json) =>
     SearchConfiguration(
       documentChunkSize: (json['document_chunk_size'] as num).toInt(),
+      defaultSearchMethod: $enumDecode(
+        _$SupportedSearchMethodEnumMap,
+        json['default_search_method'],
+      ),
+      topN: (json['top_n'] as num).toInt(),
     );
 
 Map<String, dynamic> _$SearchConfigurationToJson(
   SearchConfiguration instance,
-) => <String, dynamic>{'document_chunk_size': instance.documentChunkSize};
+) => <String, dynamic>{
+  'document_chunk_size': instance.documentChunkSize,
+  'default_search_method':
+      _$SupportedSearchMethodEnumMap[instance.defaultSearchMethod]!,
+  'top_n': instance.topN,
+};
+
+const _$SupportedSearchMethodEnumMap = {
+  SupportedSearchMethod.keyword: 'keyword',
+  SupportedSearchMethod.semantic: 'semantic',
+};
 
 UserConfigurations _$UserConfigurationsFromJson(Map<String, dynamic> json) =>
     UserConfigurations(

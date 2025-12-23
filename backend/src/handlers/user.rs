@@ -2,12 +2,15 @@ use actix_web::{HttpResponse, Result, web};
 use tokio::sync::RwLock;
 
 use crate::{
-    app_state::AppState, callbacks::GenericResponse, models::{
-        requests::{
-            CreateUserRequest, GetUserConfigurationsRequest, LoginRequest, UpdateUserConfigurationsRequest
+    api_models::{
+        callbacks::GenericResponse,
+        user::{
+            CreateUserRequest, GetUserConfigurationsRequest, LoginRequest, LoginResponse,
+            UpdateUserConfigurationsRequest,
         },
-        responses::LoginResponse,
-    }, utilities::acquire_data
+    },
+    app_state::AppState,
+    utilities::acquire_data,
 };
 
 // Sync endpoint

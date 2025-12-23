@@ -5,7 +5,7 @@ use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    models::{
+    documents::{
         collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
         traits::ValidateDataMutabilitiesForAPICaller,
     },
