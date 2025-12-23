@@ -328,9 +328,10 @@ class AppState extends ChangeNotifier {
     _addTask(taskId, "Creating document '$title'");
   }
 
-  Future<void> importDocuments(List<Map<String, dynamic>> imports) async {
-    if (currentCollectionId == null || username == null) return;
-    final taskId = await documents.importDocuments(dio, username!, currentCollectionId!, imports);
+  Future<void> importDocuments(List<Map<String, dynamic>> imports, {String? collectionId}) async {
+    final targetCollectionId = collectionId ?? currentCollectionId;
+    if (targetCollectionId == null || username == null) return;
+    final taskId = await documents.importDocuments(dio, username!, targetCollectionId, imports);
     _addTask(taskId, "Importing ${imports.length} documents");
   }
 

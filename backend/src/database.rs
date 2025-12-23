@@ -5,13 +5,17 @@ use qdrant_client::{
     config::QdrantConfig,
     qdrant::{
         CreateCollectionBuilder, CreateFieldIndexCollectionBuilder, FieldType,
-        SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
-        VectorParamsBuilder, VectorsConfigBuilder,
+        SparseVectorParamsBuilder, SparseVectorsConfigBuilder, TextIndexParamsBuilder,
+        TokenizerType, VectorParamsBuilder, VectorsConfigBuilder,
     },
 };
 
 use crate::{
-    configurations::system::Config, documents::{document_chunk::DocumentChunk, traits::{GetIndexableFields, IndexableField}},
+    configurations::system::Config,
+    documents::{
+        document_chunk::DocumentChunk,
+        traits::{GetIndexableFields, IndexableField},
+    },
 };
 
 #[derive(Clone)]
@@ -32,12 +36,10 @@ impl Database {
                 qdrant_client::qdrant::Distance::Cosine,
             ),
         );
-        
+
         let mut sparse_vector_config = SparseVectorsConfigBuilder::default();
-        sparse_vector_config.add_named_vector_params(
-            "sparse_text_vector", 
-            SparseVectorParamsBuilder::default()
-        );
+        sparse_vector_config
+            .add_named_vector_params("sparse_text_vector", SparseVectorParamsBuilder::default());
 
         match client
             .create_collection(
@@ -77,12 +79,20 @@ impl Database {
                         .await?;
                 }
                 IndexableField::FullText(field) => {
+                    let text_index_params =
+                        TextIndexParamsBuilder::new(TokenizerType::Multilingual)
+                            .phrase_matching(true)
+                            .build();
+
                     client
-                        .create_field_index(CreateFieldIndexCollectionBuilder::new(
-                            &configuration.database.index,
-                            field,
-                            FieldType::Text,
-                        ))
+                        .create_field_index(
+                            CreateFieldIndexCollectionBuilder::new(
+                                &configuration.database.index,
+                                field,
+                                FieldType::Text,
+                            )
+                            .field_index_params(text_index_params),
+                        )
                         .await?;
                 }
             }
