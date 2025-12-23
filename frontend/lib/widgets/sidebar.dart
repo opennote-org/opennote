@@ -52,16 +52,11 @@ class Sidebar extends StatelessWidget {
               width: double.infinity,
               child: TextButton.icon(
                 onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const ConfigurationPopup(),
-                  );
+                  showDialog(context: context, builder: (context) => const ConfigurationPopup());
                 },
                 icon: const Icon(Icons.settings),
                 label: const Text('Configuration'),
-                style: TextButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                ),
+                style: TextButton.styleFrom(alignment: Alignment.centerLeft),
               ),
             ),
           ),
@@ -100,6 +95,27 @@ class CollectionNode extends StatefulWidget {
 
 class _CollectionNodeState extends State<CollectionNode> {
   bool _isExpanded = false;
+
+  void _showDocumentMenu(BuildContext context, Offset position, DocumentMetadata doc) {
+    final appState = AppStateScope.of(context);
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      items: [
+        const PopupMenuItem(value: 'rename', child: Text('Rename')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    ).then((value) async {
+      if (value == 'delete') {
+        appState.deleteDocument(doc.metadataId);
+      } else if (value == 'rename') {
+        final title = await _showNameDialog(context, 'Rename Document', initialValue: doc.title);
+        if (title != null && title.isNotEmpty) {
+          appState.renameDocument(doc.metadataId, title);
+        }
+      }
+    });
+  }
 
   void _showCollectionMenu(BuildContext context, Offset position) {
     final appState = AppStateScope.of(context);
@@ -176,12 +192,16 @@ class _CollectionNodeState extends State<CollectionNode> {
                       Icon(_isExpanded ? Icons.expand_more : Icons.chevron_right, size: 20, color: Theme.of(context).iconTheme.color),
                       const SizedBox(width: 8),
                       Expanded(child: Text(widget.collection.title)),
-                      IconButton(
-                        icon: const Icon(Icons.more_vert, size: 16),
-                        onPressed: () {
-                          final renderBox = context.findRenderObject() as RenderBox;
-                          final offset = renderBox.localToGlobal(Offset.zero);
-                          _showCollectionMenu(context, offset + const Offset(200, 20));
+                      Builder(
+                        builder: (context) {
+                          return IconButton(
+                            icon: const Icon(Icons.more_vert, size: 16),
+                            onPressed: () {
+                              final renderBox = context.findRenderObject() as RenderBox;
+                              final offset = renderBox.localToGlobal(Offset.zero);
+                              _showCollectionMenu(context, offset + Offset(0, renderBox.size.height));
+                            },
+                          );
                         },
                       ),
                     ],
@@ -230,17 +250,17 @@ class _CollectionNodeState extends State<CollectionNode> {
             details.globalPosition.dy,
           ),
           items: [
-              const PopupMenuItem(value: 'rename', child: Text('Rename')),
-              const PopupMenuItem(value: 'delete', child: Text('Delete'))
+            const PopupMenuItem(value: 'rename', child: Text('Rename')),
+            const PopupMenuItem(value: 'delete', child: Text('Delete')),
           ],
         ).then((value) async {
           if (value == 'delete') {
             appState.deleteDocument(doc.metadataId);
           } else if (value == 'rename') {
-             final title = await _showNameDialog(context, 'Rename Document', initialValue: doc.title);
-             if (title != null && title.isNotEmpty) {
-                 appState.renameDocument(doc.metadataId, title);
-             }
+            final title = await _showNameDialog(context, 'Rename Document', initialValue: doc.title);
+            if (title != null && title.isNotEmpty) {
+              appState.renameDocument(doc.metadataId, title);
+            }
           }
         });
       },
@@ -251,6 +271,22 @@ class _CollectionNodeState extends State<CollectionNode> {
         onTap: () {
           appState.openDocument(doc.metadataId);
         },
+        trailing: Builder(
+          builder: (context) {
+            return IconButton(
+              icon: const Icon(Icons.more_vert, size: 16),
+              onPressed: () {
+                final renderBox = context.findRenderObject() as RenderBox;
+                final offset = renderBox.localToGlobal(Offset.zero);
+                _showDocumentMenu(
+                  context,
+                  offset + Offset(0, renderBox.size.height),
+                  doc,
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
