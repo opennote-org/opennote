@@ -1,0 +1,79 @@
+services:
+  frontend:
+    image: ghcr.io/cirruslabs/flutter:stable
+    container_name: opennote-frontend
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - flutter_cache:/root/.pub-cache
+    command: flutter run -d web-server --web-port 3000 --web-hostname 0.0.0.0
+    depends_on:
+      - backend
+
+  backend:
+    image: rust:latest
+    container_name: opennote-backend
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data
+      - cargo_registry:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - backend_target:/app/target
+    environment:
+      - CONFIG_PATH=/app/config.docker.json
+      - RUST_LOG=info
+    command: cargo run --release
+    depends_on:
+      - database
+      - embedder
+
+  embedder:
+    image: vllm/vllm-openai:latest
+    container_name: opennote-embedder
+    ports:
+      - "8000:8000"
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    environment:
+      - HF_ENDPOINT=https://hf-mirror.com
+      # Set your token here or in .env file
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    command: >
+      --model sentence-transformers/all-MiniLM-L6-v2
+      --dtype=half
+      --gpu-memory-utilization=0.5
+      --api-key techlab2024-llm
+      --port 8000
+
+  database:
+    image: qdrant/qdrant:latest
+    container_name: opennote-database
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+
+volumes:
+  qdrant_data:
+  huggingface_cache:
+  backend_data:
+  cargo_registry:
+  cargo_git:
+  backend_target:
+  flutter_cache:

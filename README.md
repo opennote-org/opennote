@@ -18,6 +18,72 @@ Reach me out at https://discord.gg/MXnzmRcDFh
 
 ## Get Started
 
+### Using Docker Compose (Recommended)
+
+This is the easiest way to get started. It sets up the Frontend, Backend, Qdrant database, and vLLM embedder service automatically.
+
+1.  **Prerequisites**:
+    *   Install [Docker Desktop](https://docs.docker.com/get-docker/).
+    *   (Optional) If you have an NVIDIA GPU, ensure you have the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed for GPU acceleration.
+
+2.  **Configuration**:
+    *   Create a `.env` file in the root directory if you need to set environment variables (e.g., `HUGGING_FACE_HUB_TOKEN` for accessing gated models).
+    *   The default `compose.yaml` is configured to use `vLLM` with GPU support. If you are running on CPU only, you may need to adjust the `embedder` service in `compose.yaml` to use a CPU-compatible image (like `ghcr.io/huggingface/text-embeddings-inference:cpu-1.5`) or configure vLLM for CPU (experimental).
+
+3.  **Run**:
+    Open a terminal in the project root and run:
+    ```bash
+    docker compose up --build
+    ```
+    *   The build process might take a few minutes the first time.
+    *   Once running, access the app at: `http://localhost:3000`
+
+### Advanced Configuration (Docker Compose)
+
+The Docker Compose setup uses a dedicated configuration file: `backend/config.docker.json`. This file is mounted into the backend container.
+
+If you need to customize the backend (e.g., to use an external database, change logging levels, or modify embedder settings), you can edit `backend/config.docker.json`.
+
+**Default `backend/config.docker.json`**:
+```json
+{
+  "logging": {
+    "format": "json",
+    "level": "info"
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "workers": 4
+  },
+  "user_information_storage": {
+    "path": "./data/user_information_storage.json"
+  },
+  "metadata_storage": {
+    "path": "./data/metadata_storage.json"
+  },
+  "database": {
+    "index": "notes",
+    "base_url": "http://database:6334",
+    "api_key": "meilimasterkey"
+  },
+  "embedder": {
+    "base_url": "http://embedder:8000/v1/embeddings",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "vectorization_batch_size": 100,
+    "encoding_format": "float",
+    "dimensions": 384,
+    "api_key": "techlab2024-llm"
+  }
+}
+```
+
+> **Note**: If you change the service names in `compose.yaml` or run services on different hosts, ensure `base_url` in this config matches your setup.
+
+### Manual Setup (Advanced)
+
+If you prefer to run services individually or on bare metal, follow the steps below.
+
 ### Prerequisites
 
 This project relies on `Docker` to run itself as a web service. It relies on `Qdrant` as a vector database. Finally, it needs an embedding service to make vectorizations, which can be `vLLM` or any OpenAI-Compatible API. 
