@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 class ContentArea extends StatelessWidget {
@@ -36,34 +35,18 @@ class ContentArea extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? Theme.of(context).colorScheme.surface
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: isActive ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.surfaceContainerHighest,
                     border: Border(
                       right: BorderSide(color: Theme.of(context).dividerColor),
-                      top: isActive
-                          ? BorderSide(
-                              color: Theme.of(context).primaryColor,
-                              width: 2,
-                            )
-                          : BorderSide.none,
+                      top: isActive ? BorderSide(color: Theme.of(context).primaryColor, width: 2) : BorderSide.none,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: Text(
-                          doc?.title ?? 'Loading...',
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                      Expanded(child: Text(doc?.title ?? 'Loading...', overflow: TextOverflow.ellipsis, maxLines: 1)),
                       const SizedBox(width: 4),
-                      InkWell(
-                        onTap: () => appState.closeDocument(docId),
-                        child: const Icon(Icons.close, size: 16),
-                      ),
+                      InkWell(onTap: () => appState.closeDocument(docId), child: const Icon(Icons.close, size: 16)),
                     ],
                   ),
                 ),
@@ -73,12 +56,7 @@ class ContentArea extends StatelessWidget {
         ),
         // Content
         Expanded(
-          child: activeDocId != null
-              ? DocumentEditor(
-                  key: ValueKey(activeDocId),
-                  documentId: activeDocId,
-                )
-              : const SizedBox(),
+          child: activeDocId != null ? DocumentEditor(key: ValueKey(activeDocId), documentId: activeDocId) : const SizedBox(),
         ),
       ],
     );
@@ -126,9 +104,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
     // Or simpler: only update if controller is empty (initial load).
     // If user is typing, we shouldn't overwrite unless it's a remote update.
     // For now, let's assume single user editing locally.
-    if (_controller.text != content &&
-        content.isNotEmpty &&
-        _controller.text.isEmpty) {
+    if (_controller.text != content && content.isNotEmpty && _controller.text.isEmpty) {
       _controller.text = content;
       contentUpdated = true;
     } else if (content.isNotEmpty && _controller.text != content) {
@@ -189,8 +165,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
         // If no long part found, take the longest one available
         if (bestPart == null && parts.isNotEmpty) {
           // Create a copy to sort
-          final sortedParts = List<String>.from(parts)
-            ..sort((a, b) => b.length.compareTo(a.length));
+          final sortedParts = List<String>.from(parts)..sort((a, b) => b.length.compareTo(a.length));
           if (sortedParts.isNotEmpty) bestPart = sortedParts.first;
         }
 
@@ -207,10 +182,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
         appState.searchHighlights.remove(widget.documentId);
 
         // Calculate selection
-        final selection = TextSelection(
-          baseOffset: index,
-          extentOffset: index + length,
-        );
+        final selection = TextSelection(baseOffset: index, extentOffset: index + length);
 
         _controller.selection = selection;
 
@@ -253,7 +225,8 @@ class _DocumentEditorState extends State<DocumentEditor> {
                   ),
                   onChanged: (value) {
                     appState.updateDocumentDraft(widget.documentId, value);
-                    // No setState needed as we just updating cache for saving
+                    // We need setState because we want the markdown view updated in real-time
+                    setState(() {});
                   },
                 ),
               ),
