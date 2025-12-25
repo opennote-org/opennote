@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 class NotificationCenterButton extends StatelessWidget {

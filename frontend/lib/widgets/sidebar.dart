@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
+import 'package:notes/show.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/widgets/configuration_popup.dart';
@@ -31,7 +32,7 @@ class Sidebar extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: () async {
-                    final title = await _showNameDialog(context, 'New Collection');
+                    final title = await showNameDialog(context, 'New Collection');
                     if (title != null && title.isNotEmpty) {
                       appState.createCollection(title);
                     }
@@ -67,25 +68,6 @@ class Sidebar extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<String?> _showNameDialog(BuildContext context, String title, {String? initialValue}) {
-  final controller = TextEditingController(text: initialValue);
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        decoration: const InputDecoration(labelText: 'Name'),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Confirm')),
-      ],
-    ),
-  );
 }
 
 class CollectionNode extends StatefulWidget {
@@ -426,7 +408,7 @@ class _CollectionNodeState extends State<CollectionNode> {
       if (value == 'delete') {
         appState.deleteDocument(doc.metadataId);
       } else if (value == 'rename') {
-        final title = await _showNameDialog(context, 'Rename Document', initialValue: doc.title);
+        final title = await showNameDialog(context, 'Rename Document', initialValue: doc.title);
         if (title != null && title.isNotEmpty) {
           appState.renameDocument(doc.metadataId, title);
         }
@@ -450,13 +432,13 @@ class _CollectionNodeState extends State<CollectionNode> {
         appState.deleteCollection(widget.collection.metadataId);
       } else if (value == 'rename') {
         if (!mounted) return;
-        final title = await _showNameDialog(context, 'Rename Collection', initialValue: widget.collection.title);
+        final title = await showNameDialog(context, 'Rename Collection', initialValue: widget.collection.title);
         if (title != null && title.isNotEmpty) {
           appState.renameCollection(widget.collection.metadataId, title);
         }
       } else if (value == 'create_document') {
         if (!mounted) return;
-        final title = await _showNameDialog(context, 'New Document');
+        final title = await showNameDialog(context, 'New Document');
         if (title != null && title.isNotEmpty) {
           if (mounted) {
             appState.createDocumentInCollection(widget.collection.metadataId, title);
@@ -577,7 +559,7 @@ class _CollectionNodeState extends State<CollectionNode> {
           if (value == 'delete') {
             appState.deleteDocument(doc.metadataId);
           } else if (value == 'rename') {
-            final title = await _showNameDialog(context, 'Rename Document', initialValue: doc.title);
+            final title = await showNameDialog(context, 'Rename Document', initialValue: doc.title);
             if (title != null && title.isNotEmpty) {
               appState.renameDocument(doc.metadataId, title);
             }

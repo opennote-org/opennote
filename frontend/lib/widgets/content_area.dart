@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:notes/show.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 class ContentArea extends StatelessWidget {
@@ -12,7 +13,27 @@ class ContentArea extends StatelessWidget {
     final activeDocId = appState.activeDocumentId;
 
     if (openDocIds.isEmpty) {
-      return const Center(child: Text('No document open'));
+      return Focus(
+        autofocus: true,
+        child: Builder(
+          builder: (context) {
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusScope.of(context).requestFocus(Focus.of(context)),
+              child: Center(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildShortcutRow(showSearchPopup, context, 'Search', 'Ctrl + P', Icons.search),
+                    _buildShortcutRow(showConfigurationPopup, context, 'Configurations', 'Ctrl + C', Icons.settings),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
     }
 
     return Column(
@@ -59,6 +80,41 @@ class ContentArea extends StatelessWidget {
           child: activeDocId != null ? DocumentEditor(key: ValueKey(activeDocId), documentId: activeDocId) : const SizedBox(),
         ),
       ],
+    );
+  }
+
+  Widget _buildShortcutRow(
+    void Function(BuildContext context) popupFunction,
+    BuildContext context,
+    String label,
+    String shortcut,
+    IconData icon,
+  ) {
+    void _popupFunction() => popupFunction(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: _popupFunction,
+            child: Row(
+              spacing: 12,
+              children: [
+                Icon(icon, size: 20, color: Theme.of(context).colorScheme.secondary),
+                Text(label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.secondary)),
+                Text(
+                  shortcut,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
