@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:notes/services/document.dart';
 import 'package:notes/show.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
+import 'package:notes/utils/downloader.dart';
 import 'package:notes/widgets/configuration_popup.dart';
 
 class Sidebar extends StatelessWidget {
@@ -27,12 +29,18 @@ class Sidebar extends StatelessWidget {
               children: [
                 const Icon(Icons.description),
                 const SizedBox(width: 8),
-                Text('Doc Tree', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Doc Tree',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: () async {
-                    final title = await showNameDialog(context, 'New Collection');
+                    final title = await showNameDialog(
+                      context,
+                      'New Collection',
+                    );
                     if (title != null && title.isNotEmpty) {
                       appState.createCollection(title);
                     }
@@ -56,7 +64,10 @@ class Sidebar extends StatelessWidget {
               width: double.infinity,
               child: TextButton.icon(
                 onPressed: () {
-                  showDialog(context: context, builder: (context) => const ConfigurationPopup());
+                  showDialog(
+                    context: context,
+                    builder: (context) => const ConfigurationPopup(),
+                  );
                 },
                 icon: const Icon(Icons.settings),
                 label: const Text('Configuration'),
@@ -82,11 +93,16 @@ class _CollectionNodeState extends State<CollectionNode> {
   bool _isExpanded = false;
   bool _isLoading = false;
 
-  Future<void> _performImport(List<Map<String, dynamic>> imports, String collectionId) async {
+  Future<void> _performImport(
+    List<Map<String, dynamic>> imports,
+    String collectionId,
+  ) async {
     if (imports.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      await AppStateScope.of(context).importDocuments(imports, collectionId: collectionId);
+      await AppStateScope.of(
+        context,
+      ).importDocuments(imports, collectionId: collectionId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -199,7 +215,9 @@ class _CollectionNodeState extends State<CollectionNode> {
             if (currentBatch.isNotEmpty &&
                 (currentBatchSize + fileSize > maxBatchSize)) {
               try {
-                await AppStateScope.of(context).importDocuments(currentBatch, collectionId: collectionId);
+                await AppStateScope.of(
+                  context,
+                ).importDocuments(currentBatch, collectionId: collectionId);
                 successBatches++;
               } catch (e) {
                 failedBatches++;
@@ -218,7 +236,9 @@ class _CollectionNodeState extends State<CollectionNode> {
 
         if (currentBatch.isNotEmpty) {
           try {
-            await AppStateScope.of(context).importDocuments(currentBatch, collectionId: collectionId);
+            await AppStateScope.of(
+              context,
+            ).importDocuments(currentBatch, collectionId: collectionId);
             successBatches++;
           } catch (e) {
             failedBatches++;
@@ -354,6 +374,107 @@ class _CollectionNodeState extends State<CollectionNode> {
     }
   }
 
+  Future<void> _exportCollection(String collectionId) async {
+    final appState = AppStateScope.of(context);
+    final documents = appState.documentsByCollectionId[collectionId] ?? [];
+
+    if (documents.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No documents to export in this collection.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    int successCount = 0;
+    int failCount = 0;
+
+    try {
+      final archive = Archive();
+
+      final futures = documents.map((doc) async {
+        try {
+          final chunks = await appState.documents.getDocument(
+            appState.dio,
+            doc.metadataId,
+          );
+          final fullContent = chunks.map((c) => c.content).join('');
+          return (doc, fullContent);
+        } catch (e) {
+          debugPrint('Failed to export document ${doc.title}: $e');
+          return null;
+        }
+      });
+
+      final results = await Future.wait(futures);
+
+      for (final result in results) {
+        if (result != null) {
+          final doc = result.$1;
+          final content = result.$2;
+
+          final safeTitle = doc.title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+          final fileName = '$safeTitle.md';
+
+          final contentBytes = utf8.encode(content);
+          archive.addFile(
+            ArchiveFile(fileName, contentBytes.length, contentBytes),
+          );
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        final zipEncoder = ZipEncoder();
+        final encodedArchive = zipEncoder.encode(archive);
+
+        if (encodedArchive != null) {
+          final safeCollectionTitle = widget.collection.title.replaceAll(
+            RegExp(r'[<>:"/\\|?*]'),
+            '_',
+          );
+          final zipFileName = '$safeCollectionTitle.zip';
+          await downloadFile(encodedArchive, zipFileName);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Exported $successCount documents to $zipFileName. Failed: $failCount',
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'No documents were successfully prepared for export. Failed: $failCount',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error during export: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _showImportOptionsDialog(String collectionId) {
     showDialog(
       context: context,
@@ -395,11 +516,20 @@ class _CollectionNodeState extends State<CollectionNode> {
     );
   }
 
-  void _showDocumentMenu(BuildContext context, Offset position, DocumentMetadata doc) {
+  void _showDocumentMenu(
+    BuildContext context,
+    Offset position,
+    DocumentMetadata doc,
+  ) {
     final appState = AppStateScope.of(context);
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
       items: [
         const PopupMenuItem(value: 'rename', child: Text('Rename')),
         const PopupMenuItem(value: 'delete', child: Text('Delete')),
@@ -408,7 +538,11 @@ class _CollectionNodeState extends State<CollectionNode> {
       if (value == 'delete') {
         appState.deleteDocument(doc.metadataId);
       } else if (value == 'rename') {
-        final title = await showNameDialog(context, 'Rename Document', initialValue: doc.title);
+        final title = await showNameDialog(
+          context,
+          'Rename Document',
+          initialValue: doc.title,
+        );
         if (title != null && title.isNotEmpty) {
           appState.renameDocument(doc.metadataId, title);
         }
@@ -420,19 +554,32 @@ class _CollectionNodeState extends State<CollectionNode> {
     final appState = AppStateScope.of(context);
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
       items: [
-        const PopupMenuItem(value: 'create_document', child: Text('New Document')),
+        const PopupMenuItem(
+          value: 'create_document',
+          child: Text('New Document'),
+        ),
         const PopupMenuItem(value: 'rename', child: Text('Rename Collection')),
         const PopupMenuItem(value: 'delete', child: Text('Delete Collection')),
         const PopupMenuItem(value: 'import', child: Text('Import')),
+        const PopupMenuItem(value: 'export', child: Text('Export')),
       ],
     ).then((value) async {
       if (value == 'delete') {
         appState.deleteCollection(widget.collection.metadataId);
       } else if (value == 'rename') {
         if (!mounted) return;
-        final title = await showNameDialog(context, 'Rename Collection', initialValue: widget.collection.title);
+        final title = await showNameDialog(
+          context,
+          'Rename Collection',
+          initialValue: widget.collection.title,
+        );
         if (title != null && title.isNotEmpty) {
           appState.renameCollection(widget.collection.metadataId, title);
         }
@@ -441,7 +588,10 @@ class _CollectionNodeState extends State<CollectionNode> {
         final title = await showNameDialog(context, 'New Document');
         if (title != null && title.isNotEmpty) {
           if (mounted) {
-            appState.createDocumentInCollection(widget.collection.metadataId, title);
+            appState.createDocumentInCollection(
+              widget.collection.metadataId,
+              title,
+            );
 
             setState(() {
               _isExpanded = true;
@@ -452,6 +602,8 @@ class _CollectionNodeState extends State<CollectionNode> {
         }
       } else if (value == 'import') {
         _showImportOptionsDialog(widget.collection.metadataId);
+      } else if (value == 'export') {
+        _exportCollection(widget.collection.metadataId);
       }
     });
   }
@@ -462,7 +614,10 @@ class _CollectionNodeState extends State<CollectionNode> {
     });
     if (_isExpanded) {
       final appState = AppStateScope.of(context);
-      appState.setActiveItem(ActiveItemType.collection, widget.collection.metadataId);
+      appState.setActiveItem(
+        ActiveItemType.collection,
+        widget.collection.metadataId,
+      );
       appState.fetchDocumentsForCollection(widget.collection.metadataId);
     }
   }
@@ -470,10 +625,13 @@ class _CollectionNodeState extends State<CollectionNode> {
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
-    final documents = appState.documentsByCollectionId[widget.collection.metadataId] ?? [];
+    final documents =
+        appState.documentsByCollectionId[widget.collection.metadataId] ?? [];
 
     return DragTarget<DocumentMetadata>(
-      onWillAccept: (data) => data != null && data.collectionMetadataId != widget.collection.metadataId,
+      onWillAccept: (data) =>
+          data != null &&
+          data.collectionMetadataId != widget.collection.metadataId,
       onAccept: (data) {
         appState.moveDocument(data.metadataId, widget.collection.metadataId);
       },
@@ -483,15 +641,24 @@ class _CollectionNodeState extends State<CollectionNode> {
             GestureDetector(
               onTap: _toggleExpansion,
               onSecondaryTapDown: (details) {
-                appState.setActiveItem(ActiveItemType.collection, widget.collection.metadataId);
+                appState.setActiveItem(
+                  ActiveItemType.collection,
+                  widget.collection.metadataId,
+                );
                 _showCollectionMenu(context, details.globalPosition);
               },
               child: Container(
-                color: candidateData.isNotEmpty ? Theme.of(context).colorScheme.primaryContainer : null,
+                color: candidateData.isNotEmpty
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : null,
                 child: ListTile(
                   title: Row(
                     children: [
-                      Icon(_isExpanded ? Icons.expand_more : Icons.chevron_right, size: 20, color: Theme.of(context).iconTheme.color),
+                      Icon(
+                        _isExpanded ? Icons.expand_more : Icons.chevron_right,
+                        size: 20,
+                        color: Theme.of(context).iconTheme.color,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(child: Text(widget.collection.title)),
                       Builder(
@@ -499,16 +666,24 @@ class _CollectionNodeState extends State<CollectionNode> {
                           return IconButton(
                             icon: const Icon(Icons.more_vert, size: 16),
                             onPressed: () {
-                              final renderBox = context.findRenderObject() as RenderBox;
-                              final offset = renderBox.localToGlobal(Offset.zero);
-                              _showCollectionMenu(context, offset + Offset(0, renderBox.size.height));
+                              final renderBox =
+                                  context.findRenderObject() as RenderBox;
+                              final offset = renderBox.localToGlobal(
+                                Offset.zero,
+                              );
+                              _showCollectionMenu(
+                                context,
+                                offset + Offset(0, renderBox.size.height),
+                              );
                             },
                           );
                         },
                       ),
                     ],
                   ),
-                  selected: appState.activeItem.type == ActiveItemType.collection && appState.activeItem.id == widget.collection.metadataId,
+                  selected:
+                      appState.activeItem.type == ActiveItemType.collection &&
+                      appState.activeItem.id == widget.collection.metadataId,
                 ),
               ),
             ),
@@ -527,7 +702,10 @@ class _CollectionNodeState extends State<CollectionNode> {
                           child: Text(doc.title),
                         ),
                       ),
-                      childWhenDragging: Opacity(opacity: 0.5, child: _buildDocumentTile(context, doc, appState)),
+                      childWhenDragging: Opacity(
+                        opacity: 0.5,
+                        child: _buildDocumentTile(context, doc, appState),
+                      ),
                       child: _buildDocumentTile(context, doc, appState),
                     );
                   }).toList(),
@@ -539,7 +717,11 @@ class _CollectionNodeState extends State<CollectionNode> {
     );
   }
 
-  Widget _buildDocumentTile(BuildContext context, DocumentMetadata doc, AppState appState) {
+  Widget _buildDocumentTile(
+    BuildContext context,
+    DocumentMetadata doc,
+    AppState appState,
+  ) {
     return GestureDetector(
       onSecondaryTapDown: (details) {
         appState.setActiveItem(ActiveItemType.document, doc.metadataId);
@@ -559,7 +741,11 @@ class _CollectionNodeState extends State<CollectionNode> {
           if (value == 'delete') {
             appState.deleteDocument(doc.metadataId);
           } else if (value == 'rename') {
-            final title = await showNameDialog(context, 'Rename Document', initialValue: doc.title);
+            final title = await showNameDialog(
+              context,
+              'Rename Document',
+              initialValue: doc.title,
+            );
             if (title != null && title.isNotEmpty) {
               appState.renameDocument(doc.metadataId, title);
             }
@@ -569,7 +755,9 @@ class _CollectionNodeState extends State<CollectionNode> {
       child: ListTile(
         title: Text(doc.title),
         leading: const Icon(Icons.article),
-        selected: appState.activeItem.type == ActiveItemType.document && appState.activeItem.id == doc.metadataId,
+        selected:
+            appState.activeItem.type == ActiveItemType.document &&
+            appState.activeItem.id == doc.metadataId,
         onTap: () {
           appState.openDocument(doc.metadataId);
         },
