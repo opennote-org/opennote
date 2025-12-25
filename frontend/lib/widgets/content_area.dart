@@ -130,11 +130,48 @@ class DocumentEditor extends StatefulWidget {
 class _DocumentEditorState extends State<DocumentEditor> {
   late TextEditingController _controller;
   final FocusNode _focusNode = FocusNode();
+  late ScrollController _editorScrollController;
+  late ScrollController _previewScrollController;
+  bool _isScrolling = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController();
+    _editorScrollController = ScrollController();
+    _previewScrollController = ScrollController();
+
+    _editorScrollController.addListener(() {
+      if (_isScrolling) return;
+      _isScrolling = true;
+      if (_previewScrollController.hasClients && _editorScrollController.hasClients) {
+        double percentage = 0.0;
+        if (_editorScrollController.position.maxScrollExtent > 0) {
+          percentage = _editorScrollController.offset / _editorScrollController.position.maxScrollExtent;
+        }
+
+        if (_previewScrollController.position.maxScrollExtent > 0) {
+          _previewScrollController.jumpTo(percentage * _previewScrollController.position.maxScrollExtent);
+        }
+      }
+      _isScrolling = false;
+    });
+
+    _previewScrollController.addListener(() {
+      if (_isScrolling) return;
+      _isScrolling = true;
+      if (_editorScrollController.hasClients && _previewScrollController.hasClients) {
+        double percentage = 0.0;
+        if (_previewScrollController.position.maxScrollExtent > 0) {
+          percentage = _previewScrollController.offset / _previewScrollController.position.maxScrollExtent;
+        }
+
+        if (_editorScrollController.position.maxScrollExtent > 0) {
+          _editorScrollController.jumpTo(percentage * _editorScrollController.position.maxScrollExtent);
+        }
+      }
+      _isScrolling = false;
+    });
   }
 
   @override
@@ -256,6 +293,8 @@ class _DocumentEditorState extends State<DocumentEditor> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _editorScrollController.dispose();
+    _previewScrollController.dispose();
     super.dispose();
   }
 
@@ -271,6 +310,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
               Expanded(
                 child: TextField(
                   controller: _controller,
+                  scrollController: _editorScrollController,
                   focusNode: _focusNode,
                   maxLines: null,
                   expands: true,
@@ -287,7 +327,12 @@ class _DocumentEditorState extends State<DocumentEditor> {
                 ),
               ),
               const VerticalDivider(width: 1),
-              Expanded(child: Markdown(data: _controller.text)),
+              Expanded(
+                child: Markdown(
+                  data: _controller.text,
+                  controller: _previewScrollController,
+                ),
+              ),
             ],
           ),
         ),

@@ -40,6 +40,8 @@ dependencies:
   flutter_markdown_plus: ^1.0.5
   archive: ^4.0.7
   path_provider: ^2.1.5
+  fleather: ^1.26.0
+  delta_markdown: ^0.3.0
 
 dev_dependencies:
   flutter_test:
