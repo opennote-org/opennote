@@ -52,14 +52,22 @@ class _MainScreenState extends State<MainScreen> {
     final activeItem = appState.activeItem;
     final isDocumentActive = activeItem.type == ActiveItemType.document;
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyP, control: true): _showSearchPopup,
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true): _showConfigurationPopup,
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (const SingleActivator(LogicalKeyboardKey.keyP, control: true)
+            .accepts(event, HardwareKeyboard.instance)) {
+          _showSearchPopup();
+          return KeyEventResult.handled;
+        }
+        if (const SingleActivator(LogicalKeyboardKey.keyC, control: true)
+            .accepts(event, HardwareKeyboard.instance)) {
+          _showConfigurationPopup();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
+      child: Scaffold(
           appBar: AppBar(
             title: const Text('Notes'),
             actions: [
@@ -74,7 +82,6 @@ class _MainScreenState extends State<MainScreen> {
           drawer: const Drawer(child: Sidebar()),
           body: _isLoading ? const Center(child: CircularProgressIndicator()) : const ContentArea(),
         ),
-      ),
     );
   }
 }
