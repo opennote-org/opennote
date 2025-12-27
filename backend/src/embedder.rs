@@ -64,10 +64,16 @@ pub async fn send_vectorization_queries(
     match response.error_for_status_ref() {
         Ok(_) => {}
         Err(error) => {
-            log::error!("Error response body: {}", response.text().await?);
+            let error_response_body: String = response.text().await?; 
+            if error_response_body.contains("Please reduce the length of the input.") {
+                log::error!("User had requested a larger chunk than the embedding model can handle. Please set the chunk size smaller");
+            } else {
+                log::error!("Error response body: {}", error_response_body);
+            }
+            
             return Err(anyhow!(
-                "Vectorization request has failed. Error: {}",
-                error
+                "Vectorization request has failed. Error: {}. Message: {}",
+                error, error_response_body
             ));
         }
     }

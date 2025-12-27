@@ -196,7 +196,7 @@ pub async fn import_documents(
                     continue;
                 }
             };
-            let request = request.clone();
+            let request: ImportDocumentsRequest = request.clone();
             preprocess_tasks.push(tokio::spawn(async move {
                 preprocess_document(
                     &result.title,
@@ -251,6 +251,21 @@ pub async fn import_documents(
 
         if !failures.is_empty() {
             error!("Failed importing {} documents", failures.len());
+            
+            // Prevent failing a whole task with multiple import requests
+            if request.0.imports.len() == 1 {
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(
+                        format!(
+                            "{} documents failed to get uploaded. You may need to lower the chunk size, or switch to a model that has a larger context window. Or, you may need to check the backend log for details.",
+                            failures.len()
+                        )
+                    ),
+                );
+                return;
+            }
         }
 
         tasks_scheduler.lock().await.set_status_to_complete(

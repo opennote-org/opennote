@@ -72,8 +72,8 @@ class NotificationCenterButton extends StatelessWidget {
                       Text(
                         task.description,
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          fontWeight: FontWeight.normal,
+                          color: Colors.white,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -81,8 +81,8 @@ class NotificationCenterButton extends StatelessWidget {
                       if (task.message != null && task.message!.isNotEmpty)
                         Text(
                           task.message!,
-                          style: const TextStyle(fontSize: 12, color: Colors.black54),
-                          maxLines: 1,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          maxLines: 1000,
                           overflow: TextOverflow.ellipsis,
                         ),
                       Text(
