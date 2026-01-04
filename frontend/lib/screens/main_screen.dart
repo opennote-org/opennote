@@ -65,6 +65,13 @@ class _MainScreenState extends State<MainScreen> {
           _showConfigurationPopup();
           return KeyEventResult.handled;
         }
+        if (const SingleActivator(LogicalKeyboardKey.keyS, control: true)
+            .accepts(event, HardwareKeyboard.instance)) {
+          if (isDocumentActive) {
+            _saveActiveDocument();
+            return KeyEventResult.handled;
+          }
+        }
         return KeyEventResult.ignored;
       },
       child: Scaffold(

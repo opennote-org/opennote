@@ -46,6 +46,7 @@ class AppState extends ChangeNotifier {
   final Map<String, CollectionMetadata> collectionById = {};
   final Map<String, DocumentMetadata> documentById = {};
   final Map<String, String> taskStatusById = {};
+  final Map<String, String> taskIdToTempDocId = {};
 
   // Tree View Caches
   final Map<String, List<DocumentMetadata>> documentsByCollectionId = {};
@@ -74,6 +75,32 @@ class AppState extends ChangeNotifier {
     documentChunkOffsets.remove(docId);
   }
 
+  void createLocalDocument(String collectionId) {
+    final tempId = 'temp_doc_${DateTime.now().millisecondsSinceEpoch}';
+    final now = DateTime.now().toIso8601String();
+    final newDoc = DocumentMetadata(
+      metadataId: tempId,
+      createdAt: now,
+      lastModified: now,
+      collectionMetadataId: collectionId,
+      title: 'Untitled',
+      chunks: [],
+    );
+
+    documentById[tempId] = newDoc;
+    // Add to tree view cache as well so it appears in sidebar
+    if (documentsByCollectionId.containsKey(collectionId)) {
+      documentsByCollectionId[collectionId]!.add(newDoc);
+    } else {
+      documentsByCollectionId[collectionId] = [newDoc];
+    }
+
+    // Initialize empty content
+    documentContentCache[tempId] = '';
+    
+    openDocument(tempId, collectionId: collectionId);
+  }
+
   Future<void> saveActiveDocument() async {
     if (_activeItem.type != ActiveItemType.document || _activeItem.id == null || username == null) return;
 
@@ -84,11 +111,29 @@ class AppState extends ChangeNotifier {
     if (meta == null || content == null) return;
 
     try {
-      final title = meta.title;
-      final taskId = await documents.updateDocumentContent(dio, username!, docId, meta.collectionMetadataId, title, content);
+      if (docId.startsWith('temp_doc_')) {
+        // Create new document
+        String title = 'Untitled';
+        if (content.trim().isNotEmpty) {
+          final firstLine = content.split('\n').first.trim();
+          title = firstLine.substring(0, firstLine.length > 50 ? 50 : firstLine.length);
+          if (title.isEmpty) title = 'Untitled';
+        }
 
-      _addTask(taskId, "Updating document '$title'");
-      notifyListeners();
+        final taskId = await documents.addDocument(dio, username!, title, meta.collectionMetadataId, content);
+        taskIdToTempDocId[taskId] = docId;
+        _addTask(taskId, "Creating document '$title'");
+
+        // Update local title immediately
+        meta.title = title;
+        notifyListeners();
+      } else {
+        final title = meta.title;
+        final taskId = await documents.updateDocumentContent(dio, username!, docId, meta.collectionMetadataId, title, content);
+
+        _addTask(taskId, "Updating document '$title'");
+        notifyListeners();
+      }
     } catch (e) {
       rethrow;
     }
@@ -164,6 +209,42 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 
+  void _swapDocumentId(String oldId, String newId) {
+    if (!documentById.containsKey(oldId)) return;
+
+    final doc = documentById[oldId]!;
+    final content = documentContentCache[oldId];
+    final highlights = searchHighlights[oldId];
+
+    // Update metadata ID
+    doc.metadataId = newId;
+
+    // Update Maps
+    documentById.remove(oldId);
+    documentById[newId] = doc;
+
+    if (content != null) {
+      documentContentCache.remove(oldId);
+      documentContentCache[newId] = content;
+    }
+
+    if (highlights != null) {
+      searchHighlights.remove(oldId);
+      searchHighlights[newId] = highlights;
+    }
+
+    // Update Open Tabs
+    final tabIndex = openDocumentIds.indexOf(oldId);
+    if (tabIndex != -1) {
+      openDocumentIds[tabIndex] = newId;
+    }
+
+    // Update Active Item
+    if (activeItem.id == oldId) {
+      setActiveItem(ActiveItemType.document, newId);
+    }
+  }
+
   void _addTask(String taskId, String description) {
     tasks.insert(0, TaskInfo(id: taskId, description: description));
     notifyListeners();
@@ -194,6 +275,21 @@ class AppState extends ChangeNotifier {
             if (status == 'Completed') {
               task.status = 'Success';
               task.message = result.message;
+
+              // Handle ID swap if it was a creation task
+              if (taskIdToTempDocId.containsKey(task.id)) {
+                final tempId = taskIdToTempDocId[task.id]!;
+                taskIdToTempDocId.remove(task.id);
+
+                // Try to find new ID in result data
+                if (result.data != null &&
+                    result.data is Map &&
+                    result.data['document_metadata_id'] != null) {
+                  final newId = result.data['document_metadata_id'] as String;
+                  _swapDocumentId(tempId, newId);
+                }
+              }
+
               changed = true;
               await refreshDocuments();
               await refreshCollections(); // Also refresh collections as some tasks might affect them
@@ -345,7 +441,13 @@ class AppState extends ChangeNotifier {
 
   Future<void> fetchDocumentsForCollection(String collectionId) async {
     final list = await documents.getDocumentsMetadata(dio, collectionId);
-    documentsByCollectionId[collectionId] = list;
+    
+    // Merge with existing temp docs for this collection
+    final existingList = documentsByCollectionId[collectionId] ?? [];
+    final tempDocs = existingList.where((d) => d.metadataId.startsWith('temp_doc_')).toList();
+    final combinedList = [...list, ...tempDocs];
+
+    documentsByCollectionId[collectionId] = combinedList;
     documentById.addEntries(list.map((e) => MapEntry(e.metadataId, e)));
     notifyListeners();
   }

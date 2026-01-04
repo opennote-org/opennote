@@ -584,21 +584,11 @@ class _CollectionNodeState extends State<CollectionNode> {
           appState.renameCollection(widget.collection.metadataId, title);
         }
       } else if (value == 'create_document') {
-        if (!mounted) return;
-        final title = await showNameDialog(context, 'New Document');
-        if (title != null && title.isNotEmpty) {
-          if (mounted) {
-            appState.createDocumentInCollection(
-              widget.collection.metadataId,
-              title,
-            );
-
-            setState(() {
-              _isExpanded = true;
-            });
-            // Ensure documents are loaded
-            appState.fetchDocumentsForCollection(widget.collection.metadataId);
-          }
+        appState.createLocalDocument(widget.collection.metadataId);
+        if (mounted) {
+          setState(() {
+            _isExpanded = true;
+          });
         }
       } else if (value == 'import') {
         _showImportOptionsDialog(widget.collection.metadataId);
