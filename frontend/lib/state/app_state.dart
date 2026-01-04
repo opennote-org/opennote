@@ -59,7 +59,6 @@ class AppState extends ChangeNotifier {
 
   // Tab Management
   final List<String> openDocumentIds = [];
-  String? activeDocumentId;
 
   // Active Item Management
   ActiveItem _activeItem = ActiveItem(ActiveItemType.none, null);
@@ -316,18 +315,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> selectDocument(String id) async {
-    currentDocumentId = id;
-    notifyListeners();
-  }
-
-  Future<void> createDocument(String title, String content) async {
-    if (currentCollectionId == null || username == null) return;
-    final String actualContent = content.isEmpty ? title : content;
-    final taskId = await documents.addDocument(dio, username!, title, currentCollectionId!, actualContent);
-    _addTask(taskId, "Creating document '$title'");
-  }
-
   Future<void> importDocuments(List<Map<String, dynamic>> imports, {String? collectionId}) async {
     final targetCollectionId = collectionId ?? currentCollectionId;
     if (targetCollectionId == null || username == null) return;
@@ -381,7 +368,6 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    activeDocumentId = documentId;
     setActiveItem(ActiveItemType.document, documentId);
     notifyListeners();
 
@@ -410,22 +396,13 @@ class AppState extends ChangeNotifier {
   void closeDocument(String documentId) {
     openDocumentIds.remove(documentId);
     searchHighlights.remove(documentId);
-    if (activeDocumentId == documentId) {
-      activeDocumentId = openDocumentIds.isNotEmpty ? openDocumentIds.last : null;
-      if (activeDocumentId != null) {
-        setActiveItem(ActiveItemType.document, activeDocumentId);
+    if (activeItem.id == documentId) {
+      if (activeItem.id != null) {
+        setActiveItem(ActiveItemType.document, activeItem.id);
       } else {
         setActiveItem(ActiveItemType.none, null);
       }
     }
     notifyListeners();
-  }
-
-  void setActiveDocument(String documentId) {
-    if (openDocumentIds.contains(documentId)) {
-      activeDocumentId = documentId;
-      setActiveItem(ActiveItemType.document, documentId);
-      notifyListeners();
-    }
   }
 }

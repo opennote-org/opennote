@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:notes/show.dart';
+import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 class ContentArea extends StatelessWidget {
@@ -9,10 +10,8 @@ class ContentArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
-    final openDocIds = appState.openDocumentIds;
-    final activeDocId = appState.activeDocumentId;
 
-    if (openDocIds.isEmpty) {
+    if (appState.openDocumentIds.isEmpty) {
       return Focus(
         autofocus: true,
         child: Builder(
@@ -43,14 +42,14 @@ class ContentArea extends StatelessWidget {
           height: 48,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: openDocIds.length,
+            itemCount: appState.openDocumentIds.length,
             itemBuilder: (context, index) {
-              final docId = openDocIds[index];
+              final docId = appState.openDocumentIds[index];
               final doc = appState.documentById[docId];
-              final isActive = docId == activeDocId;
+              final isActive = docId == appState.activeItem.id;
 
               return InkWell(
-                onTap: () => appState.setActiveDocument(docId),
+                onTap: () => appState.setActiveItem(ActiveItemType.document, docId),
                 child: Container(
                   width: 150, // Fixed width for tabs
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -77,7 +76,7 @@ class ContentArea extends StatelessWidget {
         ),
         // Content
         Expanded(
-          child: activeDocId != null ? DocumentEditor(key: ValueKey(activeDocId), documentId: activeDocId) : const SizedBox(),
+          child: appState.activeItem.id != null ? DocumentEditor(key: ValueKey(appState.activeItem.id), documentId: appState.activeItem.id!) : const SizedBox(),
         ),
       ],
     );
