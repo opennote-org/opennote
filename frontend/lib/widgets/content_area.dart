@@ -313,6 +313,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
                   focusNode: _focusNode,
                   maxLines: null,
                   expands: true,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.all(16),
@@ -330,6 +331,10 @@ class _DocumentEditorState extends State<DocumentEditor> {
                 child: Markdown(
                   data: _controller.text,
                   controller: _previewScrollController,
+                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                    p: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+                    blockSpacing: 24.0,
+                  ),
                 ),
               ),
             ],
