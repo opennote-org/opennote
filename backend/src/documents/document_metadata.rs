@@ -25,23 +25,29 @@ impl DocumentMetadata {
             title,
             chunks: Vec::new(),
         }
-    }    
+    }
 }
 
 impl ValidateDataMutabilitiesForAPICaller for DocumentMetadata {
     fn is_mutated(&self) -> anyhow::Result<()> {
         if !self.chunks.is_empty() {
-            return Err(anyhow::anyhow!("Document chunks are immutable to API callers"));
+            return Err(anyhow::anyhow!(
+                "Document chunks are immutable to API callers"
+            ));
         }
-        
+
         if !self.created_at.is_empty() {
-            return Err(anyhow::anyhow!("Document creation date is immutable to API callers"));
+            return Err(anyhow::anyhow!(
+                "Document creation date is immutable to API callers"
+            ));
         }
-        
+
         if !self.last_modified.is_empty() {
-            return Err(anyhow::anyhow!("Last modified date is immutable to API callers"));
+            return Err(anyhow::anyhow!(
+                "Last modified date is immutable to API callers"
+            ));
         }
-        
+
         Ok(())
     }
 }

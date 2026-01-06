@@ -1,21 +1,21 @@
+mod api_models;
+mod app_state;
+mod configurations;
 mod connectors;
+mod constants;
 mod database;
 mod documents;
 mod embedder;
+mod handler_operations;
 mod handlers;
 mod handshake;
 mod identities;
 mod metadata_storage;
 mod routes;
+mod search;
 mod tasks_scheduler;
 mod traits;
 mod utilities;
-mod app_state;
-mod configurations;
-mod search;
-mod api_models;
-mod handler_operations;
-mod constants;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
@@ -98,12 +98,11 @@ async fn main() -> Result<(), std::io::Error> {
             std::process::exit(1);
         }
     };
-    
+
     // Handshakes
-    match handshake_embedding_service(&config.embedder).await 
-    {
+    match handshake_embedding_service(&config.embedder).await {
         Ok(_) => info!("Embedding service is ONLINE"),
-        Err(error) => panic!("{}", error)
+        Err(error) => panic!("{}", error),
     }
 
     info!("Application state initialized successfully");

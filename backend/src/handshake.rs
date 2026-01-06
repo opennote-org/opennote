@@ -11,7 +11,9 @@ pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> 
         &config.model,
         &config.encoding_format,
         &vec!["a test string".to_string()],
-    ).await {
+    )
+    .await
+    {
         Ok(result) => {
             if let Some(vector) = result.get(0) {
                 if !(vector.len() == config.dimensions) {

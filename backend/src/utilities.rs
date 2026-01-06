@@ -6,31 +6,22 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     app_state::AppState, configurations::system::Config,
-    identities::storage::UserInformationStorage,
-    metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler,
+    identities::storage::UserInformationStorage, metadata_storage::MetadataStorage,
+    tasks_scheduler::TasksScheduler,
 };
 
 pub async fn acquire_data(
     data: &web::Data<RwLock<AppState>>,
 ) -> (
-    String,
     Qdrant,
     Arc<Mutex<MetadataStorage>>,
     Arc<Mutex<TasksScheduler>>,
     Config,
     Arc<Mutex<UserInformationStorage>>,
 ) {
-    let (
-        index_name,
-        db_client,
-        metadata_storage,
-        tasks_scheduler,
-        config,
-        user_information_storage,
-    ) = {
+    let (db_client, metadata_storage, tasks_scheduler, config, user_information_storage) = {
         let state = data.read().await;
         (
-            state.config.database.index.clone(),
             state.database.get_client().clone(),
             state.metadata_storage.clone(),
             state.tasks_scheduler.clone(),
@@ -39,7 +30,6 @@ pub async fn acquire_data(
         )
     };
     (
-        index_name,
         db_client,
         metadata_storage,
         tasks_scheduler,

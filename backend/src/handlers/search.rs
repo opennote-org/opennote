@@ -5,6 +5,7 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
     app_state::AppState,
+    constants::QDRANT_COLLECTION_NAME,
     documents::document_chunk::DocumentChunkSearchResult,
     handler_operations::retrieve_document_ids_by_scope,
     search::{
@@ -20,7 +21,7 @@ pub async fn intelligent_search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, config, user_information_storage) =
+    let (db_client, metadata_storage, _, config, user_information_storage) =
         acquire_data(&data).await;
 
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
@@ -33,7 +34,7 @@ pub async fn intelligent_search(
     match search_documents_semantically(
         &db_client,
         document_metadata_ids,
-        &index_name,
+        QDRANT_COLLECTION_NAME,
         &request.0.query,
         request.0.top_n,
         &config.embedder.base_url,
@@ -71,8 +72,7 @@ pub async fn search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, _, user_information_storage) =
-        acquire_data(&data).await;
+    let (db_client, metadata_storage, _, _, user_information_storage) = acquire_data(&data).await;
 
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
         &mut metadata_storage.lock().await,
@@ -84,7 +84,7 @@ pub async fn search(
     match search_documents(
         &db_client,
         document_metadata_ids,
-        &index_name,
+        QDRANT_COLLECTION_NAME,
         &request.0.query,
         request.0.top_n,
     )

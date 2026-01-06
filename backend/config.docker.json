@@ -15,7 +15,6 @@
     "path": "./data/metadata_storage.json"
   },
   "database": {
-    "index": "notes",
     "base_url": "http://database:6334",
     "api_key": "meilimasterkey"
   },
