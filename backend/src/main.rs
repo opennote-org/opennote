@@ -3,7 +3,7 @@ mod database;
 mod documents;
 mod embedder;
 mod handlers;
-mod handshake;
+mod checkups;
 mod identities;
 mod metadata_storage;
 mod routes;
@@ -28,7 +28,7 @@ use routes::configure_routes;
 use sqlx::any::install_default_drivers;
 use tokio::sync::RwLock;
 
-use crate::handshake::handshake_embedding_service;
+use crate::checkups::{align_embedder_model, handshake_embedding_service};
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -91,6 +91,22 @@ async fn main() -> Result<(), std::io::Error> {
                 state.tasks_scheduler.lock().await.registered_tasks.len()
             );
             info!("Database will connect to {}", config.database.base_url);
+            
+            // Checkups 
+            match handshake_embedding_service(&config.embedder).await 
+            {
+                Ok(_) => info!("Embedding service is ONLINE"),
+                Err(error) => panic!("{}", error)
+            }
+            
+            match align_embedder_model(&config, &state).await {
+                Ok(_) => info!("Embedder model alignment completed successfully"),
+                Err(e) => {
+                    error!("Failed to align embedder model: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            
             web::Data::new(RwLock::new(state))
         }
         Err(e) => {
@@ -99,13 +115,6 @@ async fn main() -> Result<(), std::io::Error> {
         }
     };
     
-    // Handshakes
-    match handshake_embedding_service(&config.embedder).await 
-    {
-        Ok(_) => info!("Embedding service is ONLINE"),
-        Err(error) => panic!("{}", error)
-    }
-
     info!("Application state initialized successfully");
 
     // Start HTTP server

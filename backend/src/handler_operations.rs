@@ -45,9 +45,9 @@ pub fn retrieve_document_ids_by_scope(
             .into_iter()
             .map(|item| item.to_string())
             .collect(),
-        SearchScope::Document => vec![id.to_string()]
+        SearchScope::Document => vec![id.to_string()],
     };
-    
+
     document_metadata_ids
 }
 
@@ -77,19 +77,14 @@ pub fn preprocess_document(
 // Return a document metadata id on success
 pub async fn add_document_chunks_to_database(
     client: &Qdrant,
-    metadata_storage: Arc<Mutex<MetadataStorage>>,
-    metadata: DocumentMetadata,
     embedder_config: &EmbedderConfig,
     database_config: &DatabaseConfig,
     chunks: Vec<DocumentChunk>,
-) -> Result<String> {
+) -> Result<()> {
     // Vectorize the chunks
     // - Split the chunks into batches
     // - Vectorize batch by batch
     // - Batch is configurable
-    let mut metadata_storage = metadata_storage.lock().await;
-    let document_metadata_id: String = metadata.metadata_id.clone();
-
     let mut batches: Vec<Vec<DocumentChunk>> = Vec::new();
     let mut batch: Vec<DocumentChunk> = Vec::new();
     for chunk in chunks {
@@ -134,9 +129,23 @@ pub async fn add_document_chunks_to_database(
         .upsert_points(UpsertPointsBuilder::new(&database_config.index, points).wait(true))
         .await?;
 
-    metadata_storage.add_document(metadata).await?;
+    Ok(())
+}
 
-    Ok(document_metadata_id)
+pub async fn add_document_chunks_to_database_and_metadata_storage(
+    client: &Qdrant,
+    embedder_config: &EmbedderConfig,
+    database_config: &DatabaseConfig,
+    chunks: Vec<DocumentChunk>,
+    metadata_storage: Arc<Mutex<MetadataStorage>>,
+    metadata: DocumentMetadata,
+) -> Result<String> {
+    add_document_chunks_to_database(client, embedder_config, database_config, chunks).await?;
+
+    let metadata_id: String = metadata.metadata_id.clone();
+    metadata_storage.lock().await.add_document(metadata).await?;
+
+    Ok(metadata_id)
 }
 
 pub async fn delete_documents_from_database(

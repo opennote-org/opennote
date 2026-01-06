@@ -32,7 +32,7 @@ use crate::{
     },
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
     handler_operations::{
-        add_document_chunks_to_database, delete_documents_from_database, preprocess_document,
+        add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage, delete_documents_from_database, preprocess_document
     },
     tasks_scheduler::TaskStatus,
     utilities::acquire_data,
@@ -88,8 +88,6 @@ pub async fn add_document(
 
         match add_document_chunks_to_database(
             &db_client,
-            metadata_storage,
-            metadata,
             &config.embedder,
             &config.database,
             chunks,
@@ -97,6 +95,19 @@ pub async fn add_document(
         .await
         {
             Ok(_) => {
+                match metadata_storage.lock().await.add_document(metadata).await 
+                {
+                    Ok(_) => {},
+                    Err(error) => {
+                        error!("Failed to update document metadata: {}", error);
+                        tasks_scheduler.lock().await.update_status_by_task_id(
+                            &task_id,
+                            TaskStatus::Failed,
+                            Some(error.to_string()),
+                        );
+                        return;
+                    }
+                }
                 info!("Task {} has finished adding documents.", task_id);
             }
             Err(error) => {
@@ -212,13 +223,13 @@ pub async fn import_documents(
         for (index, task) in preprocess_tasks.into_iter().enumerate() {
             match task.await {
                 Ok((metadata, chunks, _)) => {
-                    store_tasks.push(add_document_chunks_to_database(
+                    store_tasks.push(add_document_chunks_to_database_and_metadata_storage(
                         &db_client,
-                        metadata_storage.clone(),
-                        metadata,
                         &config.embedder,
                         &config.database,
                         chunks,
+                        metadata_storage.clone(),
+                        metadata,
                     ));
                 }
                 Err(err) => {
@@ -251,7 +262,7 @@ pub async fn import_documents(
 
         if !failures.is_empty() {
             error!("Failed importing {} documents", failures.len());
-            
+
             // Prevent failing a whole task with multiple import requests
             if request.0.imports.len() == 1 {
                 tasks_scheduler.lock().await.update_status_by_task_id(
@@ -437,15 +448,28 @@ pub async fn update_document_content(
 
         match add_document_chunks_to_database(
             &db_client,
-            metadata_storage.clone(),
-            metadata,
             &config.embedder,
             &config.database,
             chunks,
         )
         .await
         {
-            Ok(_) => {}
+            Ok(_) => {
+                match metadata_storage.lock().await.add_document(metadata).await 
+                {
+                    Ok(_) => {},
+                    Err(error) => {
+                        error!("Failed to update document metadata: {}", error);
+                        tasks_scheduler.lock().await.update_status_by_task_id(
+                            &task_id,
+                            TaskStatus::Failed,
+                            Some(error.to_string()),
+                        );
+                        return;
+                    }
+                }
+                info!("Task {} has finished updating documents.", task_id);
+            }
             Err(error) => {
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,

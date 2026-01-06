@@ -15,18 +15,31 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetadataStorage {
     pub path: PathBuf,
+    pub embedder_model_in_use: String,
+    pub embedder_model_vector_size_in_use: usize,
     // key-value pair: collection id, DocumentMetadata
     pub collections: HashMap<String, CollectionMetadata>,
     // key-value pair: document id, DocumentMetadata
     pub documents: HashMap<String, DocumentMetadata>,
 }
 
+impl Default for MetadataStorage {
+    fn default() -> Self {
+        Self {
+            path: PathBuf::new(),
+            embedder_model_in_use: String::new(),
+            embedder_model_vector_size_in_use: usize::default(),
+            documents: HashMap::new(),
+            collections: HashMap::new(),
+        }
+    }
+}
+
 impl LoadAndSave for MetadataStorage {
     fn new(path: &str) -> Self {
         Self {
             path: PathBuf::from(path),
-            documents: HashMap::new(),
-            collections: HashMap::new(),
+            ..Default::default()
         }
     }
 

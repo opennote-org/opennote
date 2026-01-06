@@ -3,7 +3,7 @@ use qdrant_client::{
     qdrant::{Condition, Filter, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse}, Qdrant
 };
 
-use crate::search::build_search_conditions;
+use crate::search::build_conditions;
 
 /// This is reserved for sparse vector searches
 #[allow(dead_code)]
@@ -14,7 +14,7 @@ pub async fn search_documents_with_sparse_vector(
     query: &str,
     top_n: usize,
 ) -> Result<Vec<ScoredPoint>> {
-    let conditions: Vec<Condition> = build_search_conditions(document_metadata_ids);
+    let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
 
     let response = client
         .query(
@@ -43,7 +43,7 @@ pub async fn search_documents(
     query: &str,
     top_n: usize,
 ) -> Result<Vec<RetrievedPoint>> {
-    let conditions: Vec<Condition> = build_search_conditions(document_metadata_ids);
+    let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
 
     let response: ScrollResponse = client
         .scroll(

@@ -5,8 +5,9 @@ use qdrant_client::{
     config::QdrantConfig,
     qdrant::{
         CollectionExistsRequest, CreateCollectionBuilder, CreateFieldIndexCollectionBuilder,
-        FieldType, GetCollectionInfoRequest, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
-        TextIndexParamsBuilder, TokenizerType, VectorParamsBuilder, VectorsConfigBuilder,
+        DeleteCollectionBuilder, FieldType, GetCollectionInfoRequest, ScrollPointsBuilder,
+        SparseVectorParamsBuilder, SparseVectorsConfigBuilder, TextIndexParamsBuilder,
+        TokenizerType, VectorParamsBuilder, VectorsConfigBuilder,
     },
 };
 
@@ -19,6 +20,7 @@ use crate::{
         document_chunk::DocumentChunk,
         traits::{GetIndexableFields, IndexableField},
     },
+    handler_operations::add_document_chunks_to_database,
 };
 
 #[derive(Clone)]
@@ -59,7 +61,7 @@ impl Database {
 
                 if size_in_collection != configuration.embedder.dimensions as u64 {
                     return Err(anyhow!(
-                        "Collection uses {} dimensional vecotor, but config uses {}. Mismatched. You should reset the collection. ",
+                        "Collection uses {} dimensional vecotor, but config uses {}. Mismatched",
                         size_in_collection,
                         configuration.embedder.dimensions
                     ));
@@ -143,7 +145,13 @@ impl Database {
         let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url);
         let client: Qdrant = Qdrant::new(qdrant_config)?;
 
-        Self::validate_configuration(&client, configuration).await?;
+        match Self::validate_configuration(&client, configuration).await {
+            Ok(_) => {}
+            Err(error) => {
+                log::info!("{}", error);
+                return Err(error);
+            }
+        }
 
         if client
             .collection_exists(CollectionExistsRequest {
@@ -163,4 +171,59 @@ impl Database {
     pub fn get_client(&self) -> &Qdrant {
         &self.client
     }
+}
+
+pub async fn reindex_documents(client: &Qdrant, configuration: &Config) -> Result<()> {
+    let counts: u64 = match client
+        .collection_info(GetCollectionInfoRequest {
+            collection_name: configuration.database.index.to_string(),
+        })
+        .await?
+        .result
+    {
+        Some(result) => result.points_count(),
+        None => return Err(anyhow!("Cannot get points count. Re-indexation failed")),
+    };
+
+    // For now, this is only a simple implementation.
+    // TODO: Should consider dealing with larger collection.
+    if counts > u32::MAX as u64 {
+        return Err(anyhow!(
+            "Number of document chunks had exceeded the re-indexation limit {}",
+            u32::MAX
+        ));
+    }
+
+    let retrieved_points = client
+        .scroll(
+            ScrollPointsBuilder::new(configuration.database.index.clone())
+                .with_payload(true)
+                .limit(counts as u32)
+                .build(),
+        )
+        .await?
+        .result;
+
+    client
+        .delete_collection(DeleteCollectionBuilder::new(
+            configuration.database.index.clone(),
+        ))
+        .await?;
+
+    Database::create_collection(client, configuration).await?;
+
+    let document_chunks: Vec<DocumentChunk> = retrieved_points
+        .into_iter()
+        .map(|item| item.into())
+        .collect();
+
+    add_document_chunks_to_database(
+        client,
+        &configuration.embedder,
+        &configuration.database,
+        document_chunks,
+    )
+    .await?;
+
+    Ok(())
 }

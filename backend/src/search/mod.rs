@@ -25,7 +25,7 @@ pub enum SearchScope {
     Userspace,
 }
 
-pub fn build_search_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
+pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
     document_metadata_ids
         .into_iter()
         .map(|id| Condition::matches("document_metadata_id", id.to_string()))

@@ -3,7 +3,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-    configurations::system::Config, database::Database, identities::storage::UserInformationStorage, metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler, traits::LoadAndSave
+    configurations::system::Config, database::Database,
+    identities::storage::UserInformationStorage, metadata_storage::MetadataStorage,
+    tasks_scheduler::TasksScheduler, traits::LoadAndSave,
 };
 
 #[derive(Clone)]
@@ -18,6 +20,7 @@ pub struct AppState {
 impl AppState {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         let config_clone = config.clone();
+
         Ok(Self {
             config,
             tasks_scheduler: Arc::new(Mutex::new(TasksScheduler::new())),

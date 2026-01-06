@@ -4,7 +4,7 @@ use qdrant_client::{
 };
 
 use crate::{
-    embedder::send_vectorization_queries, search::build_search_conditions,
+    embedder::send_vectorization_queries, search::build_conditions,
 };
 
 pub async fn search_documents_semantically(
@@ -28,7 +28,7 @@ pub async fn search_documents_semantically(
     )
     .await?;
     
-    let conditions: Vec<Condition> = build_search_conditions(document_metadata_ids);
+    let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
 
     let response = client
         .query(
