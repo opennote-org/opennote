@@ -1,12 +1,10 @@
 use std::{io::Read, path::{Path, PathBuf}};
 
 use anyhow::Result;
-use async_trait::async_trait;
 use log::info;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::AsyncWriteExt;
 
-#[async_trait]
 pub trait LoadAndSave 
 where 
     Self: Serialize + DeserializeOwned
