@@ -148,8 +148,12 @@ impl Database {
         match Self::validate_configuration(&client, configuration).await {
             Ok(_) => {}
             Err(error) => {
-                log::info!("{}", error);
-                return Err(error);
+                if error.to_string().contains("Mismatched") {
+                    log::warn!("{}", error);
+                } else {
+                    log::info!("{}", error);
+                    return Err(error);
+                }
             }
         }
 
