@@ -48,16 +48,6 @@ pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> 
 pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Result<()> {
     let mut metadata_storage = app_state.metadata_storage.lock().await;
 
-    // This means it is the first time setting up the backend,
-    // therefore, we just swap the model name in.
-    if metadata_storage.embedder_model_in_use.is_empty()
-        && metadata_storage.embedder_model_vector_size_in_use == 0
-    {
-        metadata_storage.embedder_model_in_use = config.embedder.model.clone();
-        metadata_storage.embedder_model_vector_size_in_use = config.embedder.dimensions;
-        metadata_storage.save().await?;
-    }
-
     // This means the embedder model has changed
     if metadata_storage.embedder_model_in_use != config.embedder.model
         || metadata_storage.embedder_model_vector_size_in_use != config.embedder.dimensions
@@ -67,6 +57,10 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
         reindex_documents(client, config).await?;
         log::info!("Re-indexing finished.");
     }
+    
+    metadata_storage.embedder_model_in_use = config.embedder.model.clone();
+    metadata_storage.embedder_model_vector_size_in_use = config.embedder.dimensions;
+    metadata_storage.save().await?;
 
     Ok(())
 }
