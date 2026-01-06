@@ -12,7 +12,9 @@ use qdrant_client::{
 
 use crate::{
     configurations::system::Config,
-    constants::{DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME},
+    constants::{
+        QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+    },
     documents::{
         document_chunk::DocumentChunk,
         traits::{GetIndexableFields, IndexableField},
@@ -46,7 +48,7 @@ impl Database {
                     qdrant_client::qdrant::vectors_config::Config::Params(params) => params.size,
                     qdrant_client::qdrant::vectors_config::Config::ParamsMap(params) => {
                         if let Some(dense_vector_params) =
-                            params.map.get(DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME)
+                            params.map.get(QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME)
                         {
                             dense_vector_params.size
                         } else {
@@ -72,7 +74,7 @@ impl Database {
     pub async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()> {
         let mut dense_text_vector_config = VectorsConfigBuilder::default();
         dense_text_vector_config.add_named_vector_params(
-            DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+            QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
             VectorParamsBuilder::new(
                 configuration.embedder.dimensions as u64,
                 qdrant_client::qdrant::Distance::Cosine,
@@ -81,7 +83,7 @@ impl Database {
 
         let mut sparse_vector_config = SparseVectorsConfigBuilder::default();
         sparse_vector_config.add_named_vector_params(
-            SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+            QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
             SparseVectorParamsBuilder::default(),
         );
 
