@@ -31,5 +31,5 @@ pub struct GetUserConfigurationsRequest {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LoginResponse {
-    pub is_login: bool,
+    pub is_login: bool, 
 }

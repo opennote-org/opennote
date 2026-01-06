@@ -11,7 +11,6 @@ use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
     configurations::system::{DatabaseConfig, EmbedderConfig},
-    constants::QDRANT_COLLECTION_NAME,
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
     embedder::send_vectorization,
     identities::storage::UserInformationStorage,
@@ -46,9 +45,9 @@ pub fn retrieve_document_ids_by_scope(
             .into_iter()
             .map(|item| item.to_string())
             .collect(),
-        SearchScope::Document => vec![id.to_string()],
+        SearchScope::Document => vec![id.to_string()]
     };
-
+    
     document_metadata_ids
 }
 
@@ -132,7 +131,7 @@ pub async fn add_document_chunks_to_database(
         .collect();
 
     client
-        .upsert_points(UpsertPointsBuilder::new(QDRANT_COLLECTION_NAME, points).wait(true))
+        .upsert_points(UpsertPointsBuilder::new(&database_config.index, points).wait(true))
         .await?;
 
     metadata_storage.add_document(metadata).await?;
@@ -165,7 +164,7 @@ pub async fn delete_documents_from_database(
 
     match client
         .delete_points(
-            DeletePointsBuilder::new(QDRANT_COLLECTION_NAME)
+            DeletePointsBuilder::new(&database_config.index)
                 .points(Filter::any(conditions))
                 .wait(true),
         )

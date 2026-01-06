@@ -22,14 +22,8 @@ pub fn configure_routes() -> Scope {
             web::post().to(retrieve_task_result),
         )
         .route("/sync/create_user", web::post().to(create_user))
-        .route(
-            "/sync/get_user_configurations",
-            web::post().to(get_user_configurations),
-        )
-        .route(
-            "/sync/update_user_configurations",
-            web::post().to(update_user_configurations),
-        )
+        .route("/sync/get_user_configurations", web::post().to(get_user_configurations))
+        .route("/sync/update_user_configurations", web::post().to(update_user_configurations))
         .route("/sync/login", web::post().to(login))
         .route("/async/import_documents", web::post().to(import_documents))
         .route("/async/add_document", web::post().to(add_document))
@@ -61,5 +55,8 @@ pub fn configure_routes() -> Scope {
             "/sync/intelligent_search",
             web::post().to(intelligent_search),
         )
-        .route("/sync/search", web::post().to(search))
+        .route(
+            "/sync/search",
+            web::post().to(search),
+        )
 }

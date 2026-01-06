@@ -26,7 +26,7 @@ pub struct DeleteCollectionRequest {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreateCollectionResponse {
-    pub collection_metadata_id: String,
+    pub collection_metadata_id: String, 
 }
 
 /// region: query

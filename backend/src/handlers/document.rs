@@ -30,7 +30,6 @@ use crate::{
         traits::Connector,
         webpage::WebpageConnector,
     },
-    constants::QDRANT_COLLECTION_NAME,
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
     handler_operations::{
         add_document_chunks_to_database, delete_documents_from_database, preprocess_document,
@@ -55,7 +54,7 @@ pub async fn add_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
@@ -143,7 +142,7 @@ pub async fn import_documents(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
@@ -252,7 +251,7 @@ pub async fn import_documents(
 
         if !failures.is_empty() {
             error!("Failed importing {} documents", failures.len());
-
+            
             // Prevent failing a whole task with multiple import requests
             if request.0.imports.len() == 1 {
                 tasks_scheduler.lock().await.update_status_by_task_id(
@@ -301,7 +300,8 @@ pub async fn delete_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (db_client, metadata_storage, tasks_scheduler, config, _) = acquire_data(&data).await;
+        let (_, db_client, metadata_storage, tasks_scheduler, config, _) =
+            acquire_data(&data).await;
 
         match delete_documents_from_database(
             &db_client,
@@ -342,7 +342,7 @@ pub async fn update_documents_metadata(
     data: web::Data<RwLock<AppState>>,
     request: web::Json<UpdateDocumentMetadataRequest>,
 ) -> Result<HttpResponse> {
-    let (_, metadata_storage, _, _, _) = acquire_data(&data).await;
+    let (_, _, metadata_storage, _, _, _) = acquire_data(&data).await;
 
     match metadata_storage
         .lock()
@@ -376,7 +376,7 @@ pub async fn update_document_content(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
@@ -476,7 +476,7 @@ pub async fn get_documents_metadata(
     data: web::Data<RwLock<AppState>>,
     query: Query<GetDocumentsMetadataQuery>,
 ) -> Result<HttpResponse> {
-    let (_, metadata_storage, _, _, _) = acquire_data(&data).await;
+    let (_, _, metadata_storage, _, _, _) = acquire_data(&data).await;
 
     let metadata: Vec<DocumentMetadata> = metadata_storage
         .lock()
@@ -498,7 +498,7 @@ pub async fn get_document_content(
     request: web::Json<GetDocumentRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (db_client, metadata_storage, _, _, _) = acquire_data(&data).await;
+    let (index_name, db_client, metadata_storage, _, _, _) = acquire_data(&data).await;
 
     // Acquire chunk ids
     let mut acquired_chunks: Vec<DocumentChunk> = Vec::new();
@@ -511,7 +511,7 @@ pub async fn get_document_content(
         match db_client
             .get_points(
                 GetPointsBuilder::new(
-                    QDRANT_COLLECTION_NAME,
+                    index_name,
                     document_metadata
                         .chunks
                         .clone()

@@ -1,10 +1,6 @@
 use anyhow::Result;
 use qdrant_client::{
-    Qdrant,
-    qdrant::{
-        Condition, Filter, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder,
-        ScrollResponse,
-    },
+    qdrant::{Condition, Filter, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse}, Qdrant
 };
 
 use crate::search::build_search_conditions;
@@ -52,11 +48,13 @@ pub async fn search_documents(
     let response: ScrollResponse = client
         .scroll(
             ScrollPointsBuilder::new(index)
-                .filter(Filter {
-                    should: conditions,
-                    must: vec![Condition::matches_text_any("content", query)],
-                    ..Default::default()
-                })
+                .filter(
+                    Filter {
+                        should: conditions,
+                        must: vec![Condition::matches_text_any("content", query)],
+                        ..Default::default()
+                    }
+                )
                 .limit(top_n as u32)
                 .build(),
         )

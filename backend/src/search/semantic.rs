@@ -1,10 +1,11 @@
 use anyhow::Result;
 use qdrant_client::{
-    Qdrant,
-    qdrant::{Condition, Filter, QueryPointsBuilder, ScoredPoint, SearchParamsBuilder},
+    qdrant::{Condition, Filter, QueryPointsBuilder, ScoredPoint, SearchParamsBuilder}, Qdrant
 };
 
-use crate::{embedder::send_vectorization_queries, search::build_search_conditions};
+use crate::{
+    embedder::send_vectorization_queries, search::build_search_conditions,
+};
 
 pub async fn search_documents_semantically(
     client: &Qdrant,
@@ -26,7 +27,7 @@ pub async fn search_documents_semantically(
         &vec![query.to_string()],
     )
     .await?;
-
+    
     let conditions: Vec<Condition> = build_search_conditions(document_metadata_ids);
 
     let response = client

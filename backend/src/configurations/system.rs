@@ -1,6 +1,6 @@
 //! This file defines the configurations that are set in the configurations file.
-//! They are not mutable during the runtime and are loaded when the program starts.
-//! Modifications to these may incur break changes to the existing database.
+//! They are not mutable during the runtime and are loaded when the program starts. 
+//! Modifications to these may incur break changes to the existing database. 
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -38,6 +38,7 @@ pub struct EmbedderConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
+    pub index: String,
     pub base_url: String,
     pub api_key: String,
 }

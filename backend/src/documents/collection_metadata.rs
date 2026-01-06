@@ -11,7 +11,7 @@ pub struct CollectionMetadata {
     pub last_modified: String,
     pub title: String,
     // metadata ids of its owned documents
-    pub documents_metadata_ids: Vec<String>,
+    pub documents_metadata_ids: Vec<String>
 }
 
 impl CollectionMetadata {
@@ -22,7 +22,7 @@ impl CollectionMetadata {
             created_at: now.clone(),
             last_modified: now,
             title,
-            documents_metadata_ids: Vec::new(),
+            documents_metadata_ids: Vec::new()
         }
     }
 }
@@ -30,21 +30,15 @@ impl CollectionMetadata {
 impl ValidateDataMutabilitiesForAPICaller for CollectionMetadata {
     fn is_mutated(&self) -> anyhow::Result<()> {
         if !self.documents_metadata_ids.is_empty() {
-            return Err(anyhow::anyhow!(
-                "Document metadata ids are immutable to API callers"
-            ));
+            return Err(anyhow::anyhow!("Document metadata ids are immutable to API callers"));
         }
-
+        
         if !self.created_at.is_empty() {
-            return Err(anyhow::anyhow!(
-                "Collection creation date is immutable to API callers"
-            ));
+            return Err(anyhow::anyhow!("Collection creation date is immutable to API callers"));
         }
-
+        
         if !self.last_modified.is_empty() {
-            return Err(anyhow::anyhow!(
-                "Last modified date is immutable to API callers"
-            ));
+            return Err(anyhow::anyhow!("Last modified date is immutable to API callers"));
         }
 
         Ok(())

@@ -16,10 +16,12 @@ impl Connector for TextFileConnector {
             title = line.to_string();
             break;
         }
-
-        Ok(ImportTaskIntermediate {
-            title,
-            content: artifact,
-        })
+            
+        Ok(
+            ImportTaskIntermediate {
+                title,
+                content: artifact,
+            }
+        )
     }
 }

@@ -12,10 +12,7 @@ use qdrant_client::{
 
 use crate::{
     configurations::system::Config,
-    constants::{
-        QDRANT_COLLECTION_NAME, QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-        QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-    },
+    constants::{DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME},
     documents::{
         document_chunk::DocumentChunk,
         traits::{GetIndexableFields, IndexableField},
@@ -34,7 +31,7 @@ impl Database {
     ) -> Result<()> {
         match qdrant_client
             .collection_info(GetCollectionInfoRequest {
-                collection_name: QDRANT_COLLECTION_NAME.to_string(),
+                collection_name: configuration.database.index.to_string(),
             })
             .await
         {
@@ -49,7 +46,7 @@ impl Database {
                     qdrant_client::qdrant::vectors_config::Config::Params(params) => params.size,
                     qdrant_client::qdrant::vectors_config::Config::ParamsMap(params) => {
                         if let Some(dense_vector_params) =
-                            params.map.get(QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME)
+                            params.map.get(DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME)
                         {
                             dense_vector_params.size
                         } else {
@@ -75,7 +72,7 @@ impl Database {
     pub async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()> {
         let mut dense_text_vector_config = VectorsConfigBuilder::default();
         dense_text_vector_config.add_named_vector_params(
-            QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+            DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
             VectorParamsBuilder::new(
                 configuration.embedder.dimensions as u64,
                 qdrant_client::qdrant::Distance::Cosine,
@@ -84,13 +81,13 @@ impl Database {
 
         let mut sparse_vector_config = SparseVectorsConfigBuilder::default();
         sparse_vector_config.add_named_vector_params(
-            QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+            SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
             SparseVectorParamsBuilder::default(),
         );
 
         match client
             .create_collection(
-                CreateCollectionBuilder::new(QDRANT_COLLECTION_NAME)
+                CreateCollectionBuilder::new(&configuration.database.index)
                     .vectors_config(dense_text_vector_config)
                     .sparse_vectors_config(sparse_vector_config)
                     .build(),
@@ -111,7 +108,7 @@ impl Database {
                 IndexableField::Keyword(field) => {
                     client
                         .create_field_index(CreateFieldIndexCollectionBuilder::new(
-                            QDRANT_COLLECTION_NAME,
+                            &configuration.database.index,
                             field,
                             FieldType::Keyword,
                         ))
@@ -126,7 +123,7 @@ impl Database {
                     client
                         .create_field_index(
                             CreateFieldIndexCollectionBuilder::new(
-                                QDRANT_COLLECTION_NAME,
+                                &configuration.database.index,
                                 field,
                                 FieldType::Text,
                             )
@@ -148,7 +145,7 @@ impl Database {
 
         if client
             .collection_exists(CollectionExistsRequest {
-                collection_name: QDRANT_COLLECTION_NAME.to_string(),
+                collection_name: configuration.database.index.to_string(),
             })
             .await?
         {
