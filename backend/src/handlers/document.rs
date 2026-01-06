@@ -18,6 +18,7 @@ use crate::{
             GetDocumentRequest, GetDocumentsMetadataQuery, UpdateDocumentContentRequest,
             UpdateDocumentMetadataRequest, UpdateDocumentResponse,
         },
+        general::ReindexRequest,
     },
     app_state::AppState,
     configurations::user::UserConfigurations,
@@ -32,7 +33,8 @@ use crate::{
     },
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
     handler_operations::{
-        add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage, delete_documents_from_database, preprocess_document
+        add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage,
+        delete_documents_from_database, preprocess_document,
     },
     tasks_scheduler::TaskStatus,
     utilities::acquire_data,
@@ -95,9 +97,8 @@ pub async fn add_document(
         .await
         {
             Ok(_) => {
-                match metadata_storage.lock().await.add_document(metadata).await 
-                {
-                    Ok(_) => {},
+                match metadata_storage.lock().await.add_document(metadata).await {
+                    Ok(_) => {}
                     Err(error) => {
                         error!("Failed to update document metadata: {}", error);
                         tasks_scheduler.lock().await.update_status_by_task_id(
@@ -455,9 +456,8 @@ pub async fn update_document_content(
         .await
         {
             Ok(_) => {
-                match metadata_storage.lock().await.add_document(metadata).await 
-                {
-                    Ok(_) => {},
+                match metadata_storage.lock().await.add_document(metadata).await {
+                    Ok(_) => {}
                     Err(error) => {
                         error!("Failed to update document metadata: {}", error);
                         tasks_scheduler.lock().await.update_status_by_task_id(
@@ -568,4 +568,162 @@ pub async fn get_document_content(
     }
 
     Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &acquired_chunks)))
+}
+
+/// For now, we only allow re-indexing a user's documents.
+/// To re-index all documents regardless of ownerships, it needs to re-configure the embedding model
+/// in the configurations json, then restart the backend.
+pub async fn reindex(
+    data: web::Data<RwLock<AppState>>,
+    request: web::Json<ReindexRequest>,
+) -> Result<HttpResponse> {
+    let task_id = data
+        .write()
+        .await
+        .tasks_scheduler
+        .lock()
+        .await
+        .create_new_task();
+    let task_id_cloned = task_id.clone();
+
+    // Perform operations asynchronously
+    tokio::spawn(async move {
+        // Pull what we need out of AppState without holding the lock during I/O
+        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
+            acquire_data(&data).await;
+
+        let user_configurations: UserConfigurations = match user_information_storage
+            .lock()
+            .await
+            .get_user_configurations(&request.0.username)
+            .await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                // Failed to write the task status back to the scheduler, need to use the pre-acquired variables instead
+                error!(
+                    "Can't fetch user configurations when trying adding a document: {}",
+                    error
+                );
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return;
+            }
+        };
+
+        let resource_ids: Vec<String> = user_information_storage
+            .lock()
+            .await
+            .get_resource_ids_by_username(&request.0.username)
+            .iter()
+            .map(|item| item.to_owned().to_owned())
+            .collect();
+        
+        // Get all documents by their collections
+        
+        // TaskBatch: (collection metadata id, DocumentMetadata, content)
+        
+        // Get the metadata first.
+        // We will need to use concurrency in fetching document contents to maximize efficiency. 
+        let metadata_storage = metadata_storage.lock().await;
+        let tasks_data = Vec::new();
+        for id in resource_ids.iter() {
+            let document_metadata_ids = metadata_storage.get_document_ids_by_collection(id);
+            let mut document_metadatas = Vec::new();
+            
+            for document_metadata_id in document_metadata_ids {
+                if let Some(document_metadata) = metadata_storage.documents.get(document_metadata_id)
+                {
+                    document_metadatas.push(document_metadata);
+                }
+            }
+            
+            tasks_data.push(
+                (id, document_metadatas)
+            );
+        }
+
+        match delete_documents_from_database(
+            &db_client,
+            &mut metadata_storage,
+            &config.database,
+            resource_ids.clone(),
+        )
+        .await
+        {
+            Ok(_) => {}
+            Err(error) => {
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return;
+            }
+        }
+
+        let mut metadata: DocumentMetadata = DocumentMetadata::new(
+            request.title.clone(),
+            request.collection_metadata_id.clone(),
+        );
+        let metdata_id: String = metadata.metadata_id.clone();
+
+        let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
+            &request.content,
+            user_configurations.search.document_chunk_size,
+            &metadata.metadata_id,
+            &metadata.collection_metadata_id,
+        );
+
+        metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
+
+        match add_document_chunks_to_database(
+            &db_client,
+            &config.embedder,
+            &config.database,
+            chunks,
+        )
+        .await
+        {
+            Ok(_) => {
+                match metadata_storage.lock().await.add_document(metadata).await {
+                    Ok(_) => {}
+                    Err(error) => {
+                        error!("Failed to update document metadata: {}", error);
+                        tasks_scheduler.lock().await.update_status_by_task_id(
+                            &task_id,
+                            TaskStatus::Failed,
+                            Some(error.to_string()),
+                        );
+                        return;
+                    }
+                }
+                info!("Task {} has finished updating documents.", task_id);
+            }
+            Err(error) => {
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return;
+            }
+        }
+
+        tasks_scheduler.lock().await.set_status_to_complete(
+            &task_id,
+            serde_json::to_value(UpdateDocumentResponse {
+                document_metadata_id: metdata_id,
+            })
+            .unwrap(),
+        );
+    });
+
+    // Return an immediate response with a task id
+    Ok(HttpResponse::Ok()
+        .json(GenericResponse::in_progress(task_id_cloned))
+        .into())
 }
