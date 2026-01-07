@@ -5,7 +5,10 @@ use futures::future::join_all;
 use log::{error, warn};
 use qdrant_client::{
     Qdrant,
-    qdrant::{Condition, DeletePointsBuilder, Filter, PointStruct, UpsertPointsBuilder},
+    qdrant::{
+        Condition, DeletePointsBuilder, Filter, GetPointsBuilder, PointId, PointStruct,
+        UpsertPointsBuilder,
+    },
 };
 use tokio::sync::{Mutex, MutexGuard};
 
@@ -17,6 +20,38 @@ use crate::{
     metadata_storage::MetadataStorage,
     search::SearchScope,
 };
+
+pub async fn get_document_chunks(
+    document_chunks_ids: Vec<String>,
+    index_name: &str,
+    database_client: &Qdrant,
+) -> Result<Vec<DocumentChunk>> {
+    // Acquire chunk ids
+    let acquired_chunks: Vec<DocumentChunk> = match database_client
+        .get_points(
+            GetPointsBuilder::new(
+                index_name,
+                document_chunks_ids
+                    .into_iter()
+                    .map(|chunk| chunk.into())
+                    .collect::<Vec<PointId>>(),
+            )
+            .with_payload(true),
+        )
+        .await
+    {
+        Ok(result) => result
+            .result
+            .into_iter()
+            .map(|point| point.into())
+            .collect(),
+        Err(error) => {
+            return Err(error.into());
+        }
+    };
+
+    Ok(acquired_chunks)
+}
 
 pub fn retrieve_document_ids_by_scope(
     metadata_storage: &mut MutexGuard<'_, MetadataStorage>,

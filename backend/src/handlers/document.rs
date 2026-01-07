@@ -6,7 +6,6 @@ use actix_web::{
 };
 use futures::future::join_all;
 use log::{error, info};
-use qdrant_client::qdrant::{GetPointsBuilder, PointId};
 use serde_json::json;
 use tokio::sync::RwLock;
 
@@ -15,10 +14,9 @@ use crate::{
         callbacks::GenericResponse,
         document::{
             AddDocumentRequest, AddDocumentResponse, DeleteDocumentRequest, DeleteDocumentResponse,
-            GetDocumentRequest, GetDocumentsMetadataQuery, UpdateDocumentContentRequest,
-            UpdateDocumentMetadataRequest, UpdateDocumentResponse,
+            GetDocumentRequest, GetDocumentsMetadataQuery, ReindexRequest, ReindexResponse,
+            UpdateDocumentContentRequest, UpdateDocumentMetadataRequest, UpdateDocumentResponse,
         },
-        general::ReindexRequest,
     },
     app_state::AppState,
     configurations::user::UserConfigurations,
@@ -34,7 +32,7 @@ use crate::{
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
     handler_operations::{
         add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage,
-        delete_documents_from_database, preprocess_document,
+        delete_documents_from_database, get_document_chunks, preprocess_document,
     },
     tasks_scheduler::TaskStatus,
     utilities::acquire_data,
@@ -532,27 +530,9 @@ pub async fn get_document_content(
         .documents
         .get(&request.document_metadata_id)
     {
-        match db_client
-            .get_points(
-                GetPointsBuilder::new(
-                    index_name,
-                    document_metadata
-                        .chunks
-                        .clone()
-                        .into_iter()
-                        .map(|chunk| chunk.into())
-                        .collect::<Vec<PointId>>(),
-                )
-                .with_payload(true),
-            )
-            .await
-        {
+        match get_document_chunks(document_metadata.chunks.clone(), &index_name, &db_client).await {
             Ok(result) => {
-                acquired_chunks = result
-                    .result
-                    .into_iter()
-                    .map(|point| point.into())
-                    .collect();
+                acquired_chunks = result;
             }
             Err(error) => {
                 error!(
@@ -589,8 +569,14 @@ pub async fn reindex(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
-            acquire_data(&data).await;
+        let (
+            index_name,
+            db_client,
+            metadata_storage,
+            tasks_scheduler,
+            config,
+            user_information_storage,
+        ) = acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
             .lock()
@@ -621,89 +607,141 @@ pub async fn reindex(
             .iter()
             .map(|item| item.to_owned().to_owned())
             .collect();
-        
+
+        // 1. Clean up existing DocumentMetadata
+        // 2. Get the document contents
+        // 3. Re-slice the document contents, then put the chunk ids to corresponding DocumentMetadata
+
         // Get all documents by their collections
-        
+
         // TaskBatch: (collection metadata id, DocumentMetadata, content)
-        
+
         // Get the metadata first.
-        // We will need to use concurrency in fetching document contents to maximize efficiency. 
-        let metadata_storage = metadata_storage.lock().await;
-        let tasks_data = Vec::new();
-        for id in resource_ids.iter() {
-            let document_metadata_ids = metadata_storage.get_document_ids_by_collection(id);
+        // We will need to use concurrency in fetching document contents to maximize efficiency.
+        let mut metadata_storage = metadata_storage.lock().await;
+        let mut get_document_contents_tasks_data = Vec::new();
+        for collection_metadata_id in resource_ids {
+            let document_metadata_ids =
+                metadata_storage.get_document_ids_by_collection(&collection_metadata_id);
             let mut document_metadatas = Vec::new();
-            
+
             for document_metadata_id in document_metadata_ids {
-                if let Some(document_metadata) = metadata_storage.documents.get(document_metadata_id)
+                if let Some(document_metadata) =
+                    metadata_storage.documents.get(document_metadata_id)
                 {
-                    document_metadatas.push(document_metadata);
+                    document_metadatas.push(document_metadata.to_owned());
                 }
             }
-            
-            tasks_data.push(
-                (id, document_metadatas)
-            );
+
+            get_document_contents_tasks_data.push((collection_metadata_id, document_metadatas));
         }
 
-        match delete_documents_from_database(
-            &db_client,
-            &mut metadata_storage,
-            &config.database,
-            resource_ids.clone(),
-        )
-        .await
-        {
+        // 2. Get the document contents
+        // There is no mutation to the document metadata chunks ids yet.
+        // We will save that for the final updating phase to avoid losing data when failing getting document chunks.
+        let mut get_document_contents_tasks = Vec::new();
+        for (collection_metadata_id, document_metadatas) in get_document_contents_tasks_data {
+            for document_metadata in document_metadatas {
+                let collection_metadata_id: String = collection_metadata_id.clone();
+                get_document_contents_tasks.push(async {
+                    let chunks: Vec<DocumentChunk> = get_document_chunks(
+                        document_metadata.chunks.clone(),
+                        &index_name,
+                        &db_client,
+                    )
+                    .await
+                    .unwrap_or(vec![]);
+
+                    let mut content: String = String::new();
+                    for chunk in chunks {
+                        content.push_str(&chunk.content);
+                    }
+
+                    (collection_metadata_id, document_metadata, content)
+                });
+            }
+        }
+
+        // 3. Re-slice the document contents, then put the chunk ids to corresponding DocumentMetadata
+        let results = join_all(get_document_contents_tasks).await;
+        let mut slicing_tasks = Vec::new();
+        for (collection_metadata_id, mut document_metadata, document_content) in results {
+            slicing_tasks.push(tokio::spawn(async move {
+                // Concurrently update the document chunks and their DocumentMetadata
+                let metadata_id: String = document_metadata.metadata_id.clone();
+
+                let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
+                    &document_content,
+                    user_configurations.search.document_chunk_size,
+                    &metadata_id,
+                    &collection_metadata_id,
+                );
+
+                document_metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
+
+                (collection_metadata_id, document_metadata, chunks)
+            }));
+        }
+
+        let mut final_update_tasks = Vec::new();
+        let mut metadatas_to_update = Vec::new();
+        for task in slicing_tasks {
+            match task.await {
+                Ok((collection_metadata_id, document_metadata, document_chunks)) => {
+                    final_update_tasks.push(add_document_chunks_to_database(
+                        &db_client,
+                        &config.embedder,
+                        &config.database,
+                        document_chunks,
+                    ));
+
+                    metadatas_to_update.push(document_metadata);
+                }
+                Err(error) => {
+                    error!(
+                        "Failed to re-index the user {} collections: {}",
+                        &request.0.username, error
+                    );
+                    tasks_scheduler.lock().await.update_status_by_task_id(
+                        &task_id,
+                        TaskStatus::Failed,
+                        Some(error.to_string()),
+                    );
+                    return;
+                }
+            }
+        }
+
+        let results = join_all(final_update_tasks).await;
+        for result in results {
+            match result {
+                Ok(_) => {}
+                Err(error) => {
+                    error!(
+                        "Failed to re-index the user {} collections: {}",
+                        &request.0.username, error
+                    );
+                    tasks_scheduler.lock().await.update_status_by_task_id(
+                        &task_id,
+                        TaskStatus::Failed,
+                        Some(error.to_string()),
+                    );
+                    return;
+                }
+            }
+        }
+
+        // For returning in the response
+        let metadatas_count: usize = metadatas_to_update.len();
+
+        // Finally, update the metadata
+        match metadata_storage.update_documents(metadatas_to_update).await {
             Ok(_) => {}
             Err(error) => {
-                tasks_scheduler.lock().await.update_status_by_task_id(
-                    &task_id,
-                    TaskStatus::Failed,
-                    Some(error.to_string()),
+                error!(
+                    "Failed to re-index the user {} collections: {}",
+                    &request.0.username, error
                 );
-                return;
-            }
-        }
-
-        let mut metadata: DocumentMetadata = DocumentMetadata::new(
-            request.title.clone(),
-            request.collection_metadata_id.clone(),
-        );
-        let metdata_id: String = metadata.metadata_id.clone();
-
-        let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
-            &request.content,
-            user_configurations.search.document_chunk_size,
-            &metadata.metadata_id,
-            &metadata.collection_metadata_id,
-        );
-
-        metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
-
-        match add_document_chunks_to_database(
-            &db_client,
-            &config.embedder,
-            &config.database,
-            chunks,
-        )
-        .await
-        {
-            Ok(_) => {
-                match metadata_storage.lock().await.add_document(metadata).await {
-                    Ok(_) => {}
-                    Err(error) => {
-                        error!("Failed to update document metadata: {}", error);
-                        tasks_scheduler.lock().await.update_status_by_task_id(
-                            &task_id,
-                            TaskStatus::Failed,
-                            Some(error.to_string()),
-                        );
-                        return;
-                    }
-                }
-                info!("Task {} has finished updating documents.", task_id);
-            }
-            Err(error) => {
                 tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
@@ -715,8 +753,8 @@ pub async fn reindex(
 
         tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,
-            serde_json::to_value(UpdateDocumentResponse {
-                document_metadata_id: metdata_id,
+            serde_json::to_value(ReindexResponse {
+                documents_reindexed: metadatas_count,
             })
             .unwrap(),
         );

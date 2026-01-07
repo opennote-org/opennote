@@ -25,7 +25,7 @@ impl DocumentMetadata {
             title,
             chunks: Vec::new(),
         }
-    }    
+    }
 }
 
 impl ValidateDataMutabilitiesForAPICaller for DocumentMetadata {

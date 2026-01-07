@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{
         callbacks::{GenericResponse, RetrieveTaskResultRequest},
-        general::{HealthResponse, InfoResponse, ReindexRequest},
+        general::{HealthResponse, InfoResponse},
     },
     app_state::AppState,
     tasks_scheduler::TaskStatus,
