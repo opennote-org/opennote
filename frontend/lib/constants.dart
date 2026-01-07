@@ -29,6 +29,7 @@ const String getDocumentMetadataEndpoint = "$baseUrl$apiUrl/sync/get_documents_m
 // Search
 const String intelligentSearchEndpoint = "$baseUrl$apiUrl/sync/intelligent_search";
 const String searchEndpoint = "$baseUrl$apiUrl/sync/search";
+const String reindexEndpoint = "$baseUrl$apiUrl/async/reindex";
 
 // User
 const String createUserEndpoint = "$baseUrl$apiUrl/sync/create_user";

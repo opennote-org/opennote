@@ -187,6 +187,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> reindexDocuments() async {
+    if (username == null) return;
+    try {
+      final taskId = await documents.reindex(dio, username!);
+      _addTask(taskId, "Reindexing documents");
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   final List<TaskInfo> tasks = [];
   Timer? _pollingTimer;
 

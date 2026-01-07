@@ -312,10 +312,19 @@ pub async fn delete_document(
         // Pull what we need out of AppState without holding the lock during I/O
         let (_, db_client, metadata_storage, tasks_scheduler, config, _) =
             acquire_data(&data).await;
+        
+        let mut metadata_storage = metadata_storage.lock().await;
+        match metadata_storage.remove_document(&request.document_metadata_id).await {
+            Some(_) => {}
+            None => {
+                let message: String =
+                    format!("Document {} was not found when trying to delete", &request.document_metadata_id);
+                log::warn!("{}", message);
+            }
+        };
 
         match delete_documents_from_database(
             &db_client,
-            &mut metadata_storage.lock().await,
             &config.database,
             vec![request.document_metadata_id.clone()],
         )
@@ -410,26 +419,39 @@ pub async fn update_document_content(
                 return;
             }
         };
-
-        match delete_documents_from_database(
-            &db_client,
-            &mut metadata_storage.lock().await,
-            &config.database,
-            vec![request.document_metadata_id.clone()],
-        )
-        .await
+        
+        // Isolate the access to the locked metadata storage to prevent potential deadlocking 
+        // in the following code. 
         {
-            Ok(_) => {}
-            Err(error) => {
-                tasks_scheduler.lock().await.update_status_by_task_id(
-                    &task_id,
-                    TaskStatus::Failed,
-                    Some(error.to_string()),
-                );
-                return;
+            let mut metadata_storage = metadata_storage.lock().await;
+            match metadata_storage.remove_document(&request.document_metadata_id).await {
+                Some(_) => {}
+                None => {
+                    let message: String =
+                        format!("Document {} was not found when trying to delete", &request.document_metadata_id);
+                    log::warn!("{}", message);
+                }
+            };
+    
+            match delete_documents_from_database(
+                &db_client,
+                &config.database,
+                vec![request.document_metadata_id.clone()],
+            )
+            .await
+            {
+                Ok(_) => {}
+                Err(error) => {
+                    tasks_scheduler.lock().await.update_status_by_task_id(
+                        &task_id,
+                        TaskStatus::Failed,
+                        Some(error.to_string()),
+                    );
+                    return;
+                }
             }
         }
-
+        
         let mut metadata: DocumentMetadata = DocumentMetadata::new(
             request.title.clone(),
             request.collection_metadata_id.clone(),
@@ -620,9 +642,21 @@ pub async fn reindex(
         // We will need to use concurrency in fetching document contents to maximize efficiency.
         let mut metadata_storage = metadata_storage.lock().await;
         let mut get_document_contents_tasks_data = Vec::new();
+
+        // Reserved for deleting them from the database
+        let mut metadata_ids_to_delete: Vec<String> = Vec::new();
+
         for collection_metadata_id in resource_ids {
             let document_metadata_ids =
                 metadata_storage.get_document_ids_by_collection(&collection_metadata_id);
+
+            metadata_ids_to_delete.extend(
+                document_metadata_ids
+                    .iter()
+                    .map(|item| item.to_owned().to_owned())
+                    .collect::<Vec<String>>(),
+            );
+
             let mut document_metadatas = Vec::new();
 
             for document_metadata_id in document_metadata_ids {
@@ -679,15 +713,34 @@ pub async fn reindex(
 
                 document_metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
 
-                (collection_metadata_id, document_metadata, chunks)
+                (document_metadata, chunks)
             }));
+        }
+        
+        // Remove old chunks from the database before updating the new ones to prevent conflicts.
+        match delete_documents_from_database(
+            &db_client,
+            &config.database,
+            metadata_ids_to_delete,
+        )
+        .await
+        {
+            Ok(_) => {}
+            Err(_) => {
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    None,
+                );
+                return;
+            }
         }
 
         let mut final_update_tasks = Vec::new();
         let mut metadatas_to_update = Vec::new();
         for task in slicing_tasks {
             match task.await {
-                Ok((collection_metadata_id, document_metadata, document_chunks)) => {
+                Ok((document_metadata, document_chunks)) => {
                     final_update_tasks.push(add_document_chunks_to_database(
                         &db_client,
                         &config.embedder,
@@ -735,7 +788,10 @@ pub async fn reindex(
         let metadatas_count: usize = metadatas_to_update.len();
 
         // Finally, update the metadata
-        match metadata_storage.update_documents(metadatas_to_update).await {
+        match metadata_storage
+            .update_documents_with_new_chunks(metadatas_to_update)
+            .await
+        {
             Ok(_) => {}
             Err(error) => {
                 error!(

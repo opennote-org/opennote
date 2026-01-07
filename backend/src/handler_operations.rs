@@ -185,25 +185,15 @@ pub async fn add_document_chunks_to_database_and_metadata_storage(
 
 pub async fn delete_documents_from_database(
     client: &Qdrant,
-    metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
     database_config: &DatabaseConfig,
     document_ids: Vec<String>,
 ) -> Result<()> {
     let mut conditions: Vec<Condition> = Vec::new();
     for id in document_ids.iter() {
-        match metadata_storage.remove_document(id).await {
-            Some(result) => {
-                conditions.push(Condition::matches(
-                    "document_metadata_id",
-                    result.metadata_id,
-                ));
-            }
-            None => {
-                let message: String =
-                    format!("Document {} was not found when trying to delete", id);
-                warn!("{}", message);
-            }
-        };
+        conditions.push(Condition::matches(
+            "document_metadata_id",
+            id.to_owned(),
+        ));
     }
 
     match client

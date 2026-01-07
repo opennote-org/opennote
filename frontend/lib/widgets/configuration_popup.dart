@@ -15,6 +15,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
   final TextEditingController _topNController = TextEditingController();
   late SupportedSearchMethod _defaultSearchMethodController;
   final UserManagementService _userService = UserManagementService();
+  int? _initialChunkSize;
 
   @override
   void didChangeDependencies() {
@@ -41,6 +42,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
       if (mounted) {
         setState(() {
           _chunkSizeController.text = config.search.documentChunkSize.toString();
+          _initialChunkSize = config.search.documentChunkSize;
           _defaultSearchMethodController = config.search.defaultSearchMethod;
           _topNController.text = config.search.topN.toString();
           _isLoading = false;
@@ -67,7 +69,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid chunk size")));
       return;
     }
-    
+
     final int? topN = int.tryParse(_topNController.text);
     if (topN == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid chunk size")));
@@ -84,6 +86,11 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
 
     try {
       await _userService.updateUserConfigurations(appState.dio, username, newConfig);
+
+      if (_initialChunkSize != null && chunkSize != _initialChunkSize) {
+        await appState.reindexDocuments();
+      }
+
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Configurations updated")));
@@ -96,6 +103,49 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update configs: $e")));
       }
     }
+  }
+
+  /// TODO: Programatically build these options
+  List<Widget> _buildSettingsOptions() {
+    return [
+      Text("Search Settings", style: Theme.of(context).textTheme.titleMedium),
+      TextField(
+        controller: _topNController,
+        decoration: const InputDecoration(
+          labelText: "Top N",
+          border: OutlineInputBorder(),
+          helperText: "How many search results to get after typing in a search query",
+          helperMaxLines: 1000,
+        ),
+        keyboardType: TextInputType.number,
+      ),
+      TextField(
+        controller: _chunkSizeController,
+        decoration: const InputDecoration(
+          labelText: "Document Maximum Chunk Size",
+          border: OutlineInputBorder(),
+          helperText: "Maximum size of chunks for search indexing. Adjust this if the value is beyond the model context limit",
+          helperMaxLines: 1000,
+        ),
+        keyboardType: TextInputType.number,
+      ),
+      DropdownMenu<SupportedSearchMethod>(
+        label: Text("Default Search Method"),
+        initialSelection: _defaultSearchMethodController,
+        onSelected: (selection) {
+          if (selection != null) {
+            setState(() {
+              _defaultSearchMethodController = selection;
+            });
+          }
+        },
+        helperText: "The default way of searching",
+        dropdownMenuEntries: [
+          DropdownMenuEntry(value: SupportedSearchMethod.semantic, label: "Semantic"),
+          DropdownMenuEntry(value: SupportedSearchMethod.keyword, label: "Keyword"),
+        ],
+      ),
+    ];
   }
 
   @override
@@ -116,46 +166,8 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
             else
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Search Settings", style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _topNController,
-                    decoration: const InputDecoration(
-                      labelText: "Top N",
-                      border: OutlineInputBorder(),
-                      helperText: "How many search results to get after typing in a search query",
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _chunkSizeController,
-                    decoration: const InputDecoration(
-                      labelText: "Document Chunk Size",
-                      border: OutlineInputBorder(),
-                      helperText: "Size of chunks for search indexing",
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownMenu<SupportedSearchMethod>(
-                    label: Text("Default Search Method"),
-                    initialSelection: _defaultSearchMethodController,
-                    onSelected: (selection) {
-                      if (selection != null) {
-                        setState(() {
-                          _defaultSearchMethodController = selection;
-                        });
-                      }
-                    },
-                    helperText: "The default way of searching",
-                    dropdownMenuEntries: [
-                      DropdownMenuEntry(value: SupportedSearchMethod.semantic, label: "Semantic"),
-                      DropdownMenuEntry(value: SupportedSearchMethod.keyword, label: "Keyword"),
-                    ],
-                  ),
-                ],
+                spacing: 32,
+                children: _buildSettingsOptions(),
               ),
             const SizedBox(height: 24),
             Row(
