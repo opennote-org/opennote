@@ -54,7 +54,7 @@ pub async fn add_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
@@ -152,7 +152,7 @@ pub async fn import_documents(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
@@ -310,7 +310,7 @@ pub async fn delete_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, _) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, _, _) =
             acquire_data(&data).await;
         
         let mut metadata_storage = metadata_storage.lock().await;
@@ -361,7 +361,7 @@ pub async fn update_documents_metadata(
     data: web::Data<RwLock<AppState>>,
     request: web::Json<UpdateDocumentMetadataRequest>,
 ) -> Result<HttpResponse> {
-    let (_, _, metadata_storage, _, _, _) = acquire_data(&data).await;
+    let (_, _, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
     match metadata_storage
         .lock()
@@ -395,7 +395,7 @@ pub async fn update_document_content(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
@@ -520,7 +520,7 @@ pub async fn get_documents_metadata(
     data: web::Data<RwLock<AppState>>,
     query: Query<GetDocumentsMetadataQuery>,
 ) -> Result<HttpResponse> {
-    let (_, _, metadata_storage, _, _, _) = acquire_data(&data).await;
+    let (_, _, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
     let metadata: Vec<DocumentMetadata> = metadata_storage
         .lock()
@@ -542,7 +542,7 @@ pub async fn get_document_content(
     request: web::Json<GetDocumentRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, _, _) = acquire_data(&data).await;
+    let (index_name, db_client, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
     // Acquire chunk ids
     let mut acquired_chunks: Vec<DocumentChunk> = Vec::new();
@@ -598,6 +598,7 @@ pub async fn reindex(
             tasks_scheduler,
             config,
             user_information_storage,
+            _,
         ) = acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match user_information_storage
