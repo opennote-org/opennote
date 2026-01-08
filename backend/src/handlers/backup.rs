@@ -177,10 +177,14 @@ pub async fn backup(
 // Sync endpoint
 pub async fn restore_backup(
     data: web::Data<RwLock<AppState>>,
-    request: web::Json,
+    request: web::Json<>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
     let (_, _, _, _, _, user_information_storage, _) = acquire_data(&data).await;
+    
+    // Remove the old data from metadata, user information, database
+    
+    // Swap the data from the backup in
 
     match user_information_storage
         .lock()
