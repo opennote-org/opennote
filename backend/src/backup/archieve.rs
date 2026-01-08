@@ -80,6 +80,30 @@ impl ArchievesStorage {
             .map(|(_, archieve)| archieve.clone())
             .collect()
     }
+    
+    pub fn get_archieve_by_id(&self, id: &str) -> Option<Archieve> {
+        let item = self.archieves.iter()
+            .find(|(_, archieve)| archieve.id == id);
+        
+        if let Some((_, archieve)) = item {
+            return Some(archieve.clone());
+        }
+        
+        None
+    }
+    
+    pub async fn remove_archieve_by_id(&mut self, id: &str) -> Result<()> {
+        let scope = self.archieves.iter()
+            .find(|(_, archieve)| archieve.id == id)
+            .map(|(scope, _)| scope.to_owned());
+        
+        if let Some(scope) = scope {
+            self.archieves.remove(&scope);
+        }
+        
+        self.save().await?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

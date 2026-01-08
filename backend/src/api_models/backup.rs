@@ -12,6 +12,11 @@ pub struct BackupRequest {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RestoreBackupRequest {
+    pub archieve_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetBackupsListRequest {
     pub scope: BackupScopeIndicator,
 }
