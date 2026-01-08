@@ -5,12 +5,7 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 
 use crate::{
-    api_models::{backup::BackupRequest, callbacks::GenericResponse},
-    app_state::AppState,
-    configurations::user::UserConfigurations,
-    documents::{collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata},
-    identities::user::{self, User},
-    utilities::acquire_data,
+    api_models::{backup::BackupRequest, callbacks::GenericResponse}, app_state::AppState, backup::archieve::Archieve, configurations::user::UserConfigurations, documents::{collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata}, identities::user::{self, User}, utilities::acquire_data
 };
 
 // Sync endpoint
@@ -19,7 +14,8 @@ pub async fn backup(
     request: web::Json<BackupRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, metadata_storage, _, _, user_information_storage) = acquire_data(&data).await;
+    let (_, _, metadata_storage, _, _, user_information_storage, archieve_storage) =
+        acquire_data(&data).await;
 
     // TODO: need to distinguish between User scope and others
 
@@ -49,18 +45,18 @@ pub async fn backup(
     let mut document_metadata_snapshots: HashMap<String, DocumentMetadata> =
         metadata_storage.lock().await.documents.clone();
 
-    for user_information_snapshot in user_information_snapshots {
-        let mut collection_metadata_ids: Vec<&String> = Vec::new();
-        
+    for user_information_snapshot in user_information_snapshots.iter() {
+        let mut collection_metadata_ids: Vec<String> = Vec::new();
+
         collection_metadata_snapshots = collection_metadata_snapshots
             .into_iter()
-            .filter(|(collection_metadata_id, collection_metadata)| {
+            .filter(|(collection_metadata_id, _)| {
                 let is_contained: bool = user_information_snapshot
                     .resources
                     .contains(collection_metadata_id);
 
                 if is_contained {
-                    collection_metadata_ids.push(collection_metadata_id);
+                    collection_metadata_ids.push(collection_metadata_id.clone());
                 }
 
                 is_contained
@@ -69,13 +65,24 @@ pub async fn backup(
 
         document_metadata_snapshots = document_metadata_snapshots
             .into_iter()
-            .filter(|(document_metadata_id, document_metadata)| {
+            .filter(|(_, document_metadata)| {
                 collection_metadata_ids.contains(&&document_metadata.collection_metadata_id)
             })
             .collect();
     }
+    
+    // Backup database entries
+    
+    let archieve: Archieve = Archieve {
+        scope: request.0.scope.clone(),
+        user_information_snapshots,
+        collection_metadata_snapshots,
+        document_metadata_snapshots,
+    };
+    
+    archieve_storage.lock().await.add_archieve(archieve);
 
-    Ok(())
+    Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &"".to_string())))
 }
 
 // Sync endpoint

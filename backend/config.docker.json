@@ -14,6 +14,9 @@
   "metadata_storage": {
     "path": "./data/metadata_storage.json"
   },
+  "archieve_storage": {
+    "path": "./data/archieve_storage.json"
+  },
   "database": {
     "index": "notes",
     "base_url": "http://database:6334",

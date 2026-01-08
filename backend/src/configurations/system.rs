@@ -10,6 +10,7 @@ use std::fs;
 pub struct Config {
     pub server: ServerConfig,
     pub logging: LoggingConfig,
+    pub archieve_storage: ArchieveStorageConfig,
     pub metadata_storage: MetadataStorageConfig,
     pub user_information_storage: UserInformationStorageConfig,
     pub database: DatabaseConfig,
@@ -18,6 +19,11 @@ pub struct Config {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInformationStorageConfig {
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchieveStorageConfig {
     pub path: String,
 }
 
