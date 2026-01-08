@@ -16,6 +16,7 @@ mod search;
 mod api_models;
 mod handler_operations;
 mod constants;
+mod backup;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
