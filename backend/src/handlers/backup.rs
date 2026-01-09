@@ -1,28 +1,48 @@
 use std::collections::HashMap;
 
-use actix_web::{HttpResponse, web};
-use anyhow::Result;
+use actix_web::{HttpResponse, Result, web};
 use tokio::sync::RwLock;
 
 use crate::{
     api_models::{
         backup::{
-            BackupRequest, BackupResponse, GetBackupsListRequest, GetBackupsListResponse,
-            RestoreBackupRequest,
+            BackupRequest, BackupResponse, GetBackupsListRequest, GetBackupsListResponse, RemoveBackupsRequest, RestoreBackupRequest
         },
         callbacks::GenericResponse,
-    },
-    app_state::AppState,
-    backup::archieve::{Archieve, ArchieveListItem},
-    documents::{
+    }, app_state::AppState, backup::archieve::{Archieve, ArchieveListItem}, documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
-    },
-    handler_operations::get_document_chunks,
-    identities::user::User,
-    tasks_scheduler::TaskStatus,
-    utilities::acquire_data,
+    }, handler_operations::{add_document_chunks_to_database, delete_documents_from_database, get_document_chunks}, identities::user::User, tasks_scheduler::TaskStatus, traits::LoadAndSave, utilities::acquire_data
 };
+
+// Sync endpoint
+pub async fn remove_backups(
+    data: web::Data<RwLock<AppState>>,
+    request: web::Json<RemoveBackupsRequest>,
+) -> Result<HttpResponse> {
+    // Pull what we need out of AppState without holding the lock during I/O
+    let (_, _, _, _, _, _, archieves_storage) = acquire_data(&data).await;
+
+    match archieves_storage
+        .lock()
+        .await
+    .remove_archieves_by_ids(&request.archieve_ids).await 
+    {
+        Ok(_) => {},
+        Err(e) => {
+            log::error!("Failed to remove archives: {}", e);
+            return Ok(HttpResponse::InternalServerError().json(GenericResponse::fail(
+                "Failed to remove archives".to_string(),
+                e.to_string(),
+            )));
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(GenericResponse::succeed(
+        "".to_string(),
+        &""
+    )))
+}
 
 // Sync endpoint
 pub async fn get_backups_list(
@@ -163,7 +183,18 @@ pub async fn backup(
         );
         let archieve_id = archieve.id.clone();
 
-        archieve_storage.lock().await.add_archieve(archieve);
+        match archieve_storage.lock().await.add_archieve(archieve).await {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("Failed to save archive: {}", e);
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to save archive: {}", e)),
+                );
+                return;
+            }
+        };
 
         tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,
@@ -177,38 +208,130 @@ pub async fn backup(
         .into())
 }
 
-// Sync endpoint
+// Async endpoint
 pub async fn restore_backup(
     data: web::Data<RwLock<AppState>>,
     request: web::Json<RestoreBackupRequest>,
 ) -> Result<HttpResponse> {
-    // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, client, _, _, _, _, archieves_storage) = acquire_data(&data).await;
-
-    let archieve = match archieves_storage
+    let task_id = data
+        .write()
+        .await
+        .tasks_scheduler
         .lock()
         .await
-        .get_archieve_by_id(&request.0.archieve_id)
-    {
-        Some(result) => result,
-        None => {}
-    }
+        .create_new_task();
+    let task_id_cloned = task_id.clone();
 
-    // Remove the old data from metadata, user information, database
+    tokio::spawn(async move {
+        // Pull what we need out of AppState without holding the lock during I/O
+        let (_, client, metadata_storage, tasks_scheduler, config, user_information_storage, archieves_storage) = acquire_data(&data).await;
 
-    // Swap the data from the backup in
+        let archieve: Archieve = match archieves_storage
+            .lock()
+            .await
+            .get_archieve_by_id(&request.0.archieve_id)
+        {
+            Some(result) => result,
+            None => {
+                // Failed to find the archive when trying to restore, need to use the pre-acquired variables instead
+                log::error!("Can't find archive when trying to restore: archive not found");
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some("archive not found".to_string()),
+                );
+                return;
+            }
+        };
 
-    match user_information_storage
-        .lock()
-        .await
-        .update_user_configurations(&request.0.username, request.0.user_configurations)
-        .await
-    {
-        Ok(_) => {
-            Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &"".to_string())))
+        let users_to_delete: Vec<String> = archieve.get_usernames();
+        let collection_metadatas_to_delete: Vec<String> = archieve.get_collection_metadata_ids();
+        let document_metadatas_to_delete: Vec<String> = archieve.get_document_metadata_ids();
+
+        // Remove the old data from metadata, user information, database
+        user_information_storage.lock()
+            .await
+            .users
+            .retain(|item| !users_to_delete.contains(&item.username));
+
+        {
+            let mut metadata_storage = metadata_storage.lock().await;
+            metadata_storage.collections
+                .retain(|id, _| !collection_metadatas_to_delete.contains(id));
+            metadata_storage.documents
+                .retain(|id, _| !document_metadatas_to_delete.contains(id));
         }
-        Err(error) => {
-            Ok(HttpResponse::Ok().json(GenericResponse::fail("".to_string(), error.to_string())))
+
+        match delete_documents_from_database(
+            &client,
+            &config.database,
+            document_metadatas_to_delete,
+        ).await
+        {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("Failed to delete old documents from database during restore: {}", e);
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to delete old documents from database: {}", e)),
+                );
+                return;
+            }
         }
-    }
+
+        // Swap the data from the backup in
+        user_information_storage.lock().await.users.extend(
+            archieve.user_information_snapshots
+        );
+
+        {
+            let mut metadata_storage = metadata_storage.lock().await;
+            metadata_storage.collections.extend(
+                archieve.collection_metadata_snapshots
+            );
+            metadata_storage.documents.extend(
+                archieve.document_metadata_snapshots
+            );
+        }
+
+        match add_document_chunks_to_database(
+            &client, &config.embedder, &config.database, archieve.document_chunks_snapshots
+        ).await
+        {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("Failed to add document chunks to database during restore: {}", e);
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to add document chunks to database: {}", e)),
+                );
+                return;
+            }
+        }
+        
+        match metadata_storage.lock().await.save().await {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("Failed to save metadata storage during restore: {}", e);
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to save metadata storage: {}", e)),
+                );
+                return;
+            }
+        };
+
+        tasks_scheduler.lock().await.set_status_to_complete(
+            &task_id,
+            serde_json::to_value("").unwrap(),
+        );
+    });
+
+    // Return an immediate response with a task id
+    Ok(HttpResponse::Ok()
+        .json(GenericResponse::in_progress(task_id_cloned))
+        .into())
 }

@@ -1,11 +1,13 @@
 use actix_web::{Scope, web};
 
 use crate::handlers::{
+    backup::{backup, get_backups_list, remove_backups, restore_backup},
     collection::{
         create_collection, delete_collection, get_collections, update_collections_metadata,
     },
     document::{
-        add_document, delete_document, get_document_content, get_documents_metadata, import_documents, reindex, update_document_content, update_documents_metadata
+        add_document, delete_document, get_document_content, get_documents_metadata,
+        import_documents, reindex, update_document_content, update_documents_metadata,
     },
     general::{get_info, health_check, retrieve_task_result},
     search::{intelligent_search, search},
@@ -21,8 +23,14 @@ pub fn configure_routes() -> Scope {
             web::post().to(retrieve_task_result),
         )
         .route("/sync/create_user", web::post().to(create_user))
-        .route("/sync/get_user_configurations", web::post().to(get_user_configurations))
-        .route("/sync/update_user_configurations", web::post().to(update_user_configurations))
+        .route(
+            "/sync/get_user_configurations",
+            web::post().to(get_user_configurations),
+        )
+        .route(
+            "/sync/update_user_configurations",
+            web::post().to(update_user_configurations),
+        )
         .route("/sync/login", web::post().to(login))
         .route("/async/reindex", web::post().to(reindex))
         .route("/async/import_documents", web::post().to(import_documents))
@@ -55,8 +63,9 @@ pub fn configure_routes() -> Scope {
             "/sync/intelligent_search",
             web::post().to(intelligent_search),
         )
-        .route(
-            "/sync/search",
-            web::post().to(search),
-        )
+        .route("/sync/search", web::post().to(search))
+        .route("/sync/remove_backups", web::post().to(remove_backups))
+        .route("/sync/get_backups_list", web::post().to(get_backups_list))
+        .route("/async/backup", web::post().to(backup))
+        .route("/async/restore_backup", web::post().to(restore_backup))
 }

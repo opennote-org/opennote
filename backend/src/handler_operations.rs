@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use futures::future::join_all;
-use log::{error, warn};
+use log::error;
 use qdrant_client::{
     Qdrant,
     qdrant::{

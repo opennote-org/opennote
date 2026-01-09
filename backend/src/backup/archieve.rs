@@ -45,6 +45,27 @@ impl Archieve {
             document_chunks_snapshots,
         }
     }
+    
+    pub fn get_usernames(&self) -> Vec<String> {
+        self.user_information_snapshots
+            .iter()
+            .map(|item| item.username.clone())
+            .collect()
+    }
+
+    pub fn get_collection_metadata_ids(&self) -> Vec<String> {
+        self.collection_metadata_snapshots
+            .iter()
+            .map(|(collection_metadata_id, _)| collection_metadata_id.to_owned())
+            .collect()
+    }
+    
+    pub fn get_document_metadata_ids(&self) -> Vec<String> {
+        self.document_metadata_snapshots
+            .iter()
+            .map(|(document_metadata_id, _)| document_metadata_id.to_owned())
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,27 +101,24 @@ impl ArchievesStorage {
             .map(|(_, archieve)| archieve.clone())
             .collect()
     }
-    
+
     pub fn get_archieve_by_id(&self, id: &str) -> Option<Archieve> {
-        let item = self.archieves.iter()
+        let item = self
+            .archieves
+            .iter()
             .find(|(_, archieve)| archieve.id == id);
-        
+
         if let Some((_, archieve)) = item {
             return Some(archieve.clone());
         }
-        
+
         None
     }
-    
-    pub async fn remove_archieve_by_id(&mut self, id: &str) -> Result<()> {
-        let scope = self.archieves.iter()
-            .find(|(_, archieve)| archieve.id == id)
-            .map(|(scope, _)| scope.to_owned());
-        
-        if let Some(scope) = scope {
-            self.archieves.remove(&scope);
-        }
-        
+
+    pub async fn remove_archieves_by_ids(&mut self, ids: &Vec<String>) -> Result<()> {
+        self.archieves
+            .retain(|_, archieve| !ids.contains(&archieve.id));
+
         self.save().await?;
         Ok(())
     }

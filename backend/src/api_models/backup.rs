@@ -21,6 +21,11 @@ pub struct GetBackupsListRequest {
     pub scope: BackupScopeIndicator,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RemoveBackupsRequest {
+    pub archieve_ids: Vec<String>,
+}
+
 /// region: response
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
