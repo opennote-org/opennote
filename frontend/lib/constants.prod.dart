@@ -1,5 +1,5 @@
 // Basics
-const String baseUrl = "";
+const String baseUrl = "http://0.0.0.0:8080";
 const String apiUrl = "/api/v1";
 
 // General
@@ -24,9 +24,16 @@ const String getDocumentMetadataEndpoint = "$baseUrl$apiUrl/sync/get_documents_m
 // Search
 const String intelligentSearchEndpoint = "$baseUrl$apiUrl/sync/intelligent_search";
 const String searchEndpoint = "$baseUrl$apiUrl/sync/search";
+const String reindexEndpoint = "$baseUrl$apiUrl/async/reindex";
 
 // User
 const String createUserEndpoint = "$baseUrl$apiUrl/sync/create_user";
 const String loginEndpoint = "$baseUrl$apiUrl/sync/login";
 const String getUserConfigurationsEndpoint = "$baseUrl$apiUrl/sync/get_user_configurations";
 const String updateUserConfigurationsEndpoint = "$baseUrl$apiUrl/sync/update_user_configurations";
+
+// Backup
+const String getBackupsListEndpoint = "$baseUrl$apiUrl/sync/get_backups_list";
+const String removeBackupsEndpoint = "$baseUrl$apiUrl/sync/remove_backups";
+const String backupEndpoint = "$baseUrl$apiUrl/async/backup";
+const String restoreBackupEndpoint = "$baseUrl$apiUrl/async/restore_backup";
