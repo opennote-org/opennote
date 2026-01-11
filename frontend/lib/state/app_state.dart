@@ -6,6 +6,7 @@ import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/services/general.dart';
 import 'package:notes/services/user.dart';
+import 'package:notes/services/backup.dart';
 
 class TaskInfo {
   final String id;
@@ -38,6 +39,7 @@ class AppState extends ChangeNotifier {
   final DocumentManagementService documents = DocumentManagementService();
   final GeneralService general = GeneralService();
   final UserManagementService users = UserManagementService();
+  final BackupService backupService = BackupService();
 
   String? username;
   String? currentCollectionId;
@@ -48,6 +50,14 @@ class AppState extends ChangeNotifier {
   final Map<String, String> taskStatusById = {};
   final Map<String, String> taskIdToTempDocId = {};
 
+  // Handle interactions with the tasks scheduler
+  final List<TaskInfo> tasks = [];
+  Timer? _pollingTimer;
+
+  List<CollectionMetadata> get collectionsList => collectionById.values.toList();
+  List<DocumentMetadata> get documentsList => documentById.values.toList();
+  List<ArchieveListItem> backups = [];
+  
   // Tree View Caches
   final Map<String, List<DocumentMetadata>> documentsByCollectionId = {};
 
@@ -198,12 +208,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  final List<TaskInfo> tasks = [];
-  Timer? _pollingTimer;
-
-  List<CollectionMetadata> get collectionsList => collectionById.values.toList();
-  List<DocumentMetadata> get documentsList => documentById.values.toList();
-
   String get appBarTitle {
     final colId = currentCollectionId;
     final docId = currentDocumentId;
@@ -304,6 +308,7 @@ class AppState extends ChangeNotifier {
               changed = true;
               await refreshDocuments();
               await refreshCollections(); // Also refresh collections as some tasks might affect them
+              await fetchBackups();
               // Refresh all cached collections documents to update sidebar
               for (final collectionId in documentsByCollectionId.keys) {
                 await fetchDocumentsForCollection(collectionId);
@@ -427,6 +432,44 @@ class AppState extends ChangeNotifier {
     if (targetCollectionId == null || username == null) return;
     final taskId = await documents.importDocuments(dio, username!, targetCollectionId, imports);
     _addTask(taskId, "Importing ${imports.length} documents");
+  }
+
+  Future<void> fetchBackups() async {
+    if (username == null) return;
+    try {
+      backups = await backupService.getBackupsList(dio, username!);
+      notifyListeners();
+    } catch (e) {
+      print("Failed to fetch backups: $e");
+    }
+  }
+
+  Future<void> createBackup() async {
+    if (username == null) return;
+    try {
+      final taskId = await backupService.backup(dio, username!);
+      _addTask(taskId, "Creating backup");
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> restoreBackup(String archiveId) async {
+    try {
+      final taskId = await backupService.restoreBackup(dio, archiveId);
+      _addTask(taskId, "Restoring backup");
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteBackup(String archiveId) async {
+    try {
+      await backupService.removeBackups(dio, [archiveId]);
+      await fetchBackups();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> deleteDocument(String id) async {

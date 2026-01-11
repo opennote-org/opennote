@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:notes/services/backup.dart';
-import 'package:notes/services/general.dart';
 import 'package:notes/services/user.dart';
 import 'package:notes/state/app_state_scope.dart';
 
@@ -242,59 +241,41 @@ class _BackupSettings extends StatefulWidget {
 }
 
 class _BackupSettingsState extends State<_BackupSettings> {
-  final BackupService _backupService = BackupService();
-  final GeneralService _generalService = GeneralService();
-
-  bool _isLoading = true;
-  List<ArchieveListItem> _backups = [];
+  bool _isLoading = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadBackups();
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadBackups();
+    });
   }
 
   Future<void> _loadBackups() async {
     final appState = AppStateScope.of(context);
-    final username = appState.username;
+    if (appState.username == null) return;
 
-    if (username == null) return;
-
-    try {
-      final backups = await _backupService.getBackupsList(appState.dio, username);
-      if (mounted) {
-        setState(() {
-          _backups = backups;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to load backups: $e")));
-      }
+    setState(() => _isLoading = true);
+    await appState.fetchBackups();
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
   Future<void> _createBackup() async {
     final appState = AppStateScope.of(context);
-    final username = appState.username;
-
-    if (username == null) return;
-
     setState(() => _isLoading = true);
-
     try {
-      final taskId = await _backupService.backup(appState.dio, username);
-      await _pollTask(taskId, "Backup created successfully");
-      await _loadBackups();
+      await appState.createBackup();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup task started")));
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to create backup: $e")));
-        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start backup: $e")));
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -317,16 +298,17 @@ class _BackupSettingsState extends State<_BackupSettings> {
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
-
     try {
-      final taskId = await _backupService.restoreBackup(appState.dio, archieveId);
-      await _pollTask(taskId, "Backup restored successfully");
-      setState(() => _isLoading = false);
+      await appState.restoreBackup(archieveId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Restore task started")));
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to restore backup: $e")));
-        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start restore: $e")));
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -351,43 +333,24 @@ class _BackupSettingsState extends State<_BackupSettings> {
     setState(() => _isLoading = true);
 
     try {
-      await _backupService.removeBackups(appState.dio, [archieveId]);
-      await _loadBackups();
+      await appState.deleteBackup(archieveId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup deleted")));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to delete backup: $e")));
-        setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _pollTask(String taskId, String successMessage) async {
-    final appState = AppStateScope.of(context);
-
-    // Poll every 1 second
-    while (true) {
-      await Future.delayed(const Duration(seconds: 1));
-      try {
-        final result = await _generalService.retrieveTaskResult(appState.dio, taskId);
-        if (result.status == "Completed") {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage)));
-          }
-          break;
-        } else if (result.status == "Failed") {
-          throw Exception(result.message ?? "Task failed");
-        }
-      } catch (e) {
-        rethrow;
-      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final appState = AppStateScope.of(context);
+    final backups = appState.backups;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -399,17 +362,17 @@ class _BackupSettingsState extends State<_BackupSettings> {
           ],
         ),
         const SizedBox(height: 24),
-        if (_isLoading && _backups.isEmpty)
+        if (_isLoading && backups.isEmpty)
           const Center(child: CircularProgressIndicator())
-        else if (_backups.isEmpty)
+        else if (backups.isEmpty)
           const Center(child: Text("No backups found"))
         else
           Expanded(
             child: ListView.separated(
-              itemCount: _backups.length,
+              itemCount: backups.length,
               separatorBuilder: (context, index) => const Divider(),
               itemBuilder: (context, index) {
-                final backup = _backups[index];
+                final backup = backups[index];
                 return ListTile(
                   title: Text(backup.createdAt),
                   subtitle: Text("ID: ${backup.id}"),
