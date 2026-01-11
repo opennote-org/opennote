@@ -88,6 +88,14 @@ async fn main() -> Result<(), std::io::Error> {
                 state.metadata_storage.lock().await.documents.len()
             );
             info!(
+                "User information storage file contains {} entries",
+                state.user_information_storage.lock().await.users.len()
+            );
+            info!(
+                "Arhieves storage file contains {} entries",
+                state.archieve_storage.lock().await.archieves.len()
+            );
+            info!(
                 "Task scheduler has {} registered tasks",
                 state.tasks_scheduler.lock().await.registered_tasks.len()
             );

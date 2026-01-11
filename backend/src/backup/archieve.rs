@@ -3,7 +3,6 @@ use std::{collections::HashMap, path::PathBuf};
 use actix_web::cookie::time::UtcDateTime;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
     backup::scope::BackupScopeIndicator,
@@ -36,7 +35,7 @@ impl Archieve {
         document_chunks_snapshots: Vec<DocumentChunk>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4().to_string(),
+            id: scope.archieve_id.clone(),
             created_at: UtcDateTime::now().to_string(),
             scope,
             user_information_snapshots,
@@ -88,6 +87,7 @@ impl LoadAndSave for ArchievesStorage {
 }
 
 impl ArchievesStorage {
+    /// Return the id of the newly inserted archieve
     pub async fn add_archieve(&mut self, archieve: Archieve) -> Result<()> {
         self.archieves.insert(archieve.scope.clone(), archieve);
         self.save().await?;
@@ -97,7 +97,13 @@ impl ArchievesStorage {
     pub fn get_archieves_by_scope(&self, scope: &BackupScopeIndicator) -> Vec<Archieve> {
         self.archieves
             .iter()
-            .filter(|(item_scope, _)| *item_scope == scope)
+            .filter(|(item_scope, _)| {
+                if scope.archieve_id.is_empty() {
+                    item_scope.scope == scope.scope && item_scope.id == scope.id
+                } else {
+                    *item_scope == scope
+                }
+            })
             .map(|(_, archieve)| archieve.clone())
             .collect()
     }
