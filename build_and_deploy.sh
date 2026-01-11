@@ -5,6 +5,7 @@ DATA_DIR="/data/notes"
 
 echo "Pulling updates from the original repo..."
 git switch main
+git reset --hard
 git pull
 
 echo "Starting build process..."
