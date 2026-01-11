@@ -1,5 +1,5 @@
 // Basics
-const String baseUrl = "http://0.0.0.0:8080";
+const String baseUrl = "";
 const String apiUrl = "/api/v1";
 
 // General
