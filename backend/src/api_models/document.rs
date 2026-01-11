@@ -38,7 +38,17 @@ pub struct GetDocumentRequest {
     pub document_metadata_id: String
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReindexRequest {
+    pub username: String,
+}
+
 /// region: response
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReindexResponse {
+    pub documents_reindexed: usize,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AddDocumentResponse {

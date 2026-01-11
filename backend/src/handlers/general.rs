@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{
         callbacks::{GenericResponse, RetrieveTaskResultRequest},
-        general::{HealthResponse, InfoResponse, ReindexRequest},
+        general::{HealthResponse, InfoResponse},
     },
     app_state::AppState,
     tasks_scheduler::TaskStatus,
@@ -87,14 +87,4 @@ pub async fn retrieve_task_result(
             )));
         }
     }
-}
-
-/// For now, we only allow re-indexing a user's documents. 
-/// To re-index all documents regardless of ownerships, it needs to re-configure the embedding model
-/// in the configurations json, then restart the backend. 
-pub async fn reindex(
-    data: web::Data<RwLock<AppState>>,
-    request: web::Json<ReindexRequest>,
-) -> Result<HttpResponse> {
-    todo!();
 }

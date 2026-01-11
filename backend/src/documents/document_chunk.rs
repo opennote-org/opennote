@@ -90,8 +90,7 @@ impl DocumentChunk {
             if words.len() > chunk_max_words {
                 let sentences_split_by_n = Self::split_by_n(words, chunk_max_words);
                 for sentence_split_by_n in sentences_split_by_n {
-                    let mut to_push: String = sentence_split_by_n;
-                    to_push.push(terminator);
+                    let to_push: String = sentence_split_by_n;
 
                     chunks.push(DocumentChunk::new(
                         to_push,

@@ -2,10 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use futures::future::join_all;
-use log::{error, warn};
+use log::error;
 use qdrant_client::{
     Qdrant,
-    qdrant::{Condition, DeletePointsBuilder, Filter, PointStruct, UpsertPointsBuilder},
+    qdrant::{
+        Condition, DeletePointsBuilder, Filter, GetPointsBuilder, PointId, PointStruct,
+        UpsertPointsBuilder,
+    },
 };
 use tokio::sync::{Mutex, MutexGuard};
 
@@ -17,6 +20,38 @@ use crate::{
     metadata_storage::MetadataStorage,
     search::SearchScope,
 };
+
+pub async fn get_document_chunks(
+    document_chunks_ids: Vec<String>,
+    index_name: &str,
+    database_client: &Qdrant,
+) -> Result<Vec<DocumentChunk>> {
+    // Acquire chunk ids
+    let acquired_chunks: Vec<DocumentChunk> = match database_client
+        .get_points(
+            GetPointsBuilder::new(
+                index_name,
+                document_chunks_ids
+                    .into_iter()
+                    .map(|chunk| chunk.into())
+                    .collect::<Vec<PointId>>(),
+            )
+            .with_payload(true),
+        )
+        .await
+    {
+        Ok(result) => result
+            .result
+            .into_iter()
+            .map(|point| point.into())
+            .collect(),
+        Err(error) => {
+            return Err(error.into());
+        }
+    };
+
+    Ok(acquired_chunks)
+}
 
 pub fn retrieve_document_ids_by_scope(
     metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
@@ -150,25 +185,15 @@ pub async fn add_document_chunks_to_database_and_metadata_storage(
 
 pub async fn delete_documents_from_database(
     client: &Qdrant,
-    metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
     database_config: &DatabaseConfig,
     document_ids: Vec<String>,
 ) -> Result<()> {
     let mut conditions: Vec<Condition> = Vec::new();
     for id in document_ids.iter() {
-        match metadata_storage.remove_document(id).await {
-            Some(result) => {
-                conditions.push(Condition::matches(
-                    "document_metadata_id",
-                    result.metadata_id,
-                ));
-            }
-            None => {
-                let message: String =
-                    format!("Document {} was not found when trying to delete", id);
-                warn!("{}", message);
-            }
-        };
+        conditions.push(Condition::matches(
+            "document_metadata_id",
+            id.to_owned(),
+        ));
     }
 
     match client

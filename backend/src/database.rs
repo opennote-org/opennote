@@ -142,20 +142,10 @@ impl Database {
     }
 
     pub async fn new(configuration: &Config) -> Result<Self> {
-        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url);
+        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url)
+            // Timeout for preventing Qdrant killing time-consuming operations
+            .timeout(std::time::Duration::from_secs(1000));
         let client: Qdrant = Qdrant::new(qdrant_config)?;
-
-        match Self::validate_configuration(&client, configuration).await {
-            Ok(_) => {}
-            Err(error) => {
-                if error.to_string().contains("Mismatched") {
-                    log::warn!("{}", error);
-                } else {
-                    log::info!("{}", error);
-                    return Err(error);
-                }
-            }
-        }
 
         if client
             .collection_exists(CollectionExistsRequest {
@@ -168,6 +158,18 @@ impl Database {
         }
 
         Self::create_collection(&client, configuration).await?;
+        
+        match Self::validate_configuration(&client, configuration).await {
+            Ok(_) => {}
+            Err(error) => {
+                if error.to_string().contains("Mismatched") {
+                    log::warn!("{}", error);
+                } else {
+                    log::info!("{}", error);
+                    return Err(error);
+                }
+            }
+        }
 
         Ok(Self { client })
     }

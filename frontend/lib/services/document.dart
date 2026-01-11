@@ -131,4 +131,14 @@ class DocumentManagementService {
     final List<dynamic> data = response.data!["data"] as List<dynamic>;
     return data.map((chunk) => DocumentChunk.fromJson(chunk as Map<String, dynamic>)).toList();
   }
+
+  Future<String> reindex(Dio dio, String username) async {
+    final response = await dio.post(
+      reindexEndpoint,
+      data: {
+        "username": username,
+      },
+    );
+    return response.data!["task_id"];
+  }
 }

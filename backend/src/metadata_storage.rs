@@ -15,16 +15,16 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetadataStorage {
     pub path: PathBuf,
-    
+
     #[serde(default)]
     pub embedder_model_in_use: String,
-    
+
     #[serde(default)]
     pub embedder_model_vector_size_in_use: usize,
-    
+
     // key-value pair: collection id, DocumentMetadata
     pub collections: HashMap<String, CollectionMetadata>,
-    
+
     // key-value pair: document id, DocumentMetadata
     pub documents: HashMap<String, DocumentMetadata>,
 }
@@ -113,6 +113,30 @@ impl MetadataStorage {
 
         self.save().await?;
 
+        Ok(())
+    }
+
+    /// For updating chunks in document metadatas.
+    /// The update method won't allow mutate the chunks for security reason.
+    pub async fn update_documents_with_new_chunks(
+        &mut self,
+        document_metadatas: Vec<DocumentMetadata>,
+    ) -> Result<()> {
+        for metadata in document_metadatas {
+            // Verify the documents exist
+            if let Some(_) = self.documents.remove(&metadata.metadata_id) {
+                self.documents
+                    .insert(metadata.metadata_id.clone(), metadata.to_owned());
+                continue;
+            }
+
+            return Err(anyhow!(
+                "Document metadata id {} was not found, update operation terminated",
+                metadata.metadata_id
+            ));
+        }
+
+        self.save().await?;
         Ok(())
     }
 
@@ -210,7 +234,7 @@ impl MetadataStorage {
             metadata.collection_metadata_id
         ))
     }
-
+    
     pub async fn remove_document(&mut self, metdata_id: &str) -> Option<DocumentMetadata> {
         let document_metadata: Option<DocumentMetadata> = self.documents.remove(metdata_id);
 

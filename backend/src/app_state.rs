@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-    configurations::system::Config, database::Database,
+    backup::archieve::ArchievesStorage, configurations::system::Config, database::Database,
     identities::storage::UserInformationStorage, metadata_storage::MetadataStorage,
     tasks_scheduler::TasksScheduler, traits::LoadAndSave,
 };
@@ -13,6 +13,7 @@ pub struct AppState {
     pub config: Config,
     pub tasks_scheduler: Arc<Mutex<TasksScheduler>>,
     pub database: Database,
+    pub archieve_storage: Arc<Mutex<ArchievesStorage>>,
     pub metadata_storage: Arc<Mutex<MetadataStorage>>,
     pub user_information_storage: Arc<Mutex<UserInformationStorage>>,
 }
@@ -25,6 +26,9 @@ impl AppState {
             config,
             tasks_scheduler: Arc::new(Mutex::new(TasksScheduler::new())),
             database: Database::new(&config_clone).await?,
+            archieve_storage: Arc::new(Mutex::new(ArchievesStorage::load(
+                &config_clone.archieve_storage.path,
+            )?)),
             metadata_storage: Arc::new(Mutex::new(MetadataStorage::load(
                 &config_clone.metadata_storage.path,
             )?)),
