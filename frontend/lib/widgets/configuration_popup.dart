@@ -52,13 +52,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
             const VerticalDivider(width: 48),
             // Main Content
             Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: const [
-                  _SearchSettings(),
-                  _BackupSettings(),
-                ],
-              ),
+              child: IndexedStack(index: _selectedIndex, children: const [_SearchSettings(), _BackupSettings()]),
             ),
           ],
         ),
@@ -172,6 +166,49 @@ class _SearchSettingsState extends State<_SearchSettings> {
     }
   }
 
+  /// TODO: Programatically build these options
+  List<Widget> _buildSettingsOptions() {
+    return [
+      Text("Search Settings", style: Theme.of(context).textTheme.titleMedium),
+      TextField(
+        controller: _topNController,
+        decoration: const InputDecoration(
+          labelText: "Top N",
+          border: OutlineInputBorder(),
+          helperText: "How many search results to get after typing in a search query",
+          helperMaxLines: 1000,
+        ),
+        keyboardType: TextInputType.number,
+      ),
+      TextField(
+        controller: _chunkSizeController,
+        decoration: const InputDecoration(
+          labelText: "Document Maximum Chunk Size",
+          border: OutlineInputBorder(),
+          helperText: "Maximum size of chunks for search indexing. Adjust this if the value is beyond the model context limit",
+          helperMaxLines: 1000,
+        ),
+        keyboardType: TextInputType.number,
+      ),
+      DropdownMenu<SupportedSearchMethod>(
+        label: Text("Default Search Method"),
+        initialSelection: _defaultSearchMethodController,
+        onSelected: (selection) {
+          if (selection != null) {
+            setState(() {
+              _defaultSearchMethodController = selection;
+            });
+          }
+        },
+        helperText: "The default way of searching",
+        dropdownMenuEntries: [
+          DropdownMenuEntry(value: SupportedSearchMethod.semantic, label: "Semantic"),
+          DropdownMenuEntry(value: SupportedSearchMethod.keyword, label: "Keyword"),
+        ],
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -180,47 +217,9 @@ class _SearchSettingsState extends State<_SearchSettings> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 24,
       children: [
-        Text("Search Settings", style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 24),
-        TextField(
-          controller: _topNController,
-          decoration: const InputDecoration(
-            labelText: "Top N",
-            border: OutlineInputBorder(),
-            helperText: "How many search results to get after typing in a search query",
-            helperMaxLines: 1000,
-          ),
-          keyboardType: TextInputType.number,
-        ),
-        const SizedBox(height: 24),
-        TextField(
-          controller: _chunkSizeController,
-          decoration: const InputDecoration(
-            labelText: "Document Maximum Chunk Size",
-            border: OutlineInputBorder(),
-            helperText: "Maximum size of chunks for search indexing. Adjust this if the value is beyond the model context limit",
-            helperMaxLines: 1000,
-          ),
-          keyboardType: TextInputType.number,
-        ),
-        const SizedBox(height: 24),
-        DropdownMenu<SupportedSearchMethod>(
-          label: const Text("Default Search Method"),
-          initialSelection: _defaultSearchMethodController,
-          onSelected: (selection) {
-            if (selection != null) {
-              setState(() {
-                _defaultSearchMethodController = selection;
-              });
-            }
-          },
-          helperText: "The default way of searching",
-          dropdownMenuEntries: const [
-            DropdownMenuEntry(value: SupportedSearchMethod.semantic, label: "Semantic"),
-            DropdownMenuEntry(value: SupportedSearchMethod.keyword, label: "Keyword"),
-          ],
-        ),
+        ..._buildSettingsOptions(),
         const Spacer(),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -245,7 +244,7 @@ class _BackupSettings extends StatefulWidget {
 class _BackupSettingsState extends State<_BackupSettings> {
   final BackupService _backupService = BackupService();
   final GeneralService _generalService = GeneralService();
-  
+
   bool _isLoading = true;
   List<ArchieveListItem> _backups = [];
 
@@ -301,7 +300,7 @@ class _BackupSettingsState extends State<_BackupSettings> {
 
   Future<void> _restoreBackup(String archieveId) async {
     final appState = AppStateScope.of(context);
-    
+
     // Confirm dialog
     final confirm = await showDialog<bool>(
       context: context,
@@ -333,7 +332,7 @@ class _BackupSettingsState extends State<_BackupSettings> {
 
   Future<void> _deleteBackup(String archieveId) async {
     final appState = AppStateScope.of(context);
-    
+
     // Confirm dialog
     final confirm = await showDialog<bool>(
       context: context,
@@ -355,7 +354,7 @@ class _BackupSettingsState extends State<_BackupSettings> {
       await _backupService.removeBackups(appState.dio, [archieveId]);
       await _loadBackups();
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup deleted")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup deleted")));
       }
     } catch (e) {
       if (mounted) {
@@ -367,7 +366,7 @@ class _BackupSettingsState extends State<_BackupSettings> {
 
   Future<void> _pollTask(String taskId, String successMessage) async {
     final appState = AppStateScope.of(context);
-    
+
     // Poll every 1 second
     while (true) {
       await Future.delayed(const Duration(seconds: 1));
@@ -396,11 +395,7 @@ class _BackupSettingsState extends State<_BackupSettings> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text("Backups", style: Theme.of(context).textTheme.titleMedium),
-            FilledButton.icon(
-              onPressed: _isLoading ? null : _createBackup,
-              icon: const Icon(Icons.add),
-              label: const Text("Backup Now"),
-            ),
+            FilledButton.icon(onPressed: _isLoading ? null : _createBackup, icon: const Icon(Icons.add), label: const Text("Backup Now")),
           ],
         ),
         const SizedBox(height: 24),

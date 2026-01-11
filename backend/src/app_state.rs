@@ -26,9 +26,9 @@ impl AppState {
             config,
             tasks_scheduler: Arc::new(Mutex::new(TasksScheduler::new())),
             database: Database::new(&config_clone).await?,
-            archieve_storage: Arc::new(Mutex::new(ArchievesStorage::new(
+            archieve_storage: Arc::new(Mutex::new(ArchievesStorage::load(
                 &config_clone.archieve_storage.path,
-            ))),
+            )?)),
             metadata_storage: Arc::new(Mutex::new(MetadataStorage::load(
                 &config_clone.metadata_storage.path,
             )?)),
