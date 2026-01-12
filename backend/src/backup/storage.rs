@@ -11,6 +11,8 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupsStorage {
     pub path: PathBuf,
+    
+    #[serde(alias = "archieves")]
     pub backups: HashMap<BackupScopeIndicator, Backup>,
 }
 

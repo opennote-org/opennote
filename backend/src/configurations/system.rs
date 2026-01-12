@@ -12,6 +12,7 @@ pub struct Config {
     
     pub logging: LoggingConfig,
     
+    #[serde(alias = "archieve_storage")]
     pub backups_storage: BackupsStorageConfig,
     
     pub metadata_storage: MetadataStorageConfig,
