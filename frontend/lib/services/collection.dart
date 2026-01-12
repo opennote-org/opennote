@@ -6,14 +6,14 @@ part 'collection.g.dart';
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class CollectionMetadata {
-  String metadataId;
+  String id;
   String createdAt;
   String lastModified;
   String title;
   List<String> documentsMetadataIds;
 
   CollectionMetadata({
-    required this.metadataId,
+    required this.id,
     required this.createdAt,
     required this.lastModified,
     required this.title,
@@ -45,7 +45,7 @@ class CollectionManagementService {
   Future<String> updateCollectionsMetadata(Dio dio, List<CollectionMetadata> collections) async {
     final List<Map<String, dynamic>> data = collections.map((e) {
       return {
-        "metadata_id": e.metadataId,
+        "metadata_id": e.id,
         "created_at": "",
         "last_modified": "",
         "title": e.title,

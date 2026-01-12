@@ -6,10 +6,15 @@ use super::traits::ValidateDataMutabilitiesForAPICaller;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollectionMetadata {
-    pub metadata_id: String,
+    #[serde(alias = "metadata_id")]
+    pub id: String,
+
     pub created_at: String,
+
     pub last_modified: String,
+
     pub title: String,
+
     // metadata ids of its owned documents
     pub documents_metadata_ids: Vec<String>,
 }
@@ -18,7 +23,7 @@ impl CollectionMetadata {
     pub fn new(title: String) -> Self {
         let now: String = UtcDateTime::now().to_string();
         Self {
-            metadata_id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4().to_string(),
             created_at: now.clone(),
             last_modified: now,
             title,

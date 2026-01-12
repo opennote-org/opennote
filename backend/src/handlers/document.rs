@@ -466,12 +466,12 @@ pub async fn update_document_content(
             request.title.clone(),
             request.collection_metadata_id.clone(),
         );
-        let metdata_id: String = metadata.metadata_id.clone();
+        let metdata_id: String = metadata.id.clone();
 
         let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
             &request.content,
             user_configurations.search.document_chunk_size,
-            &metadata.metadata_id,
+            &metadata.id,
             &metadata.collection_metadata_id,
         );
 
@@ -713,7 +713,7 @@ pub async fn reindex(
         for (collection_metadata_id, mut document_metadata, document_content) in results {
             slicing_tasks.push(tokio::spawn(async move {
                 // Concurrently update the document chunks and their DocumentMetadata
-                let metadata_id: String = document_metadata.metadata_id.clone();
+                let metadata_id: String = document_metadata.id.clone();
 
                 let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
                     &document_content,

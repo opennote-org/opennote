@@ -401,7 +401,7 @@ class _CollectionNodeState extends State<CollectionNode> {
         try {
           final chunks = await appState.documents.getDocument(
             appState.dio,
-            doc.metadataId,
+            doc.id,
           );
           final fullContent = chunks.map((c) => c.content).join('');
           return (doc, fullContent);
@@ -536,7 +536,7 @@ class _CollectionNodeState extends State<CollectionNode> {
       ],
     ).then((value) async {
       if (value == 'delete') {
-        appState.deleteDocument(doc.metadataId);
+        appState.deleteDocument(doc.id);
       } else if (value == 'rename') {
         final title = await showNameDialog(
           context,
@@ -544,7 +544,7 @@ class _CollectionNodeState extends State<CollectionNode> {
           initialValue: doc.title,
         );
         if (title != null && title.isNotEmpty) {
-          appState.renameDocument(doc.metadataId, title);
+          appState.renameDocument(doc.id, title);
         }
       }
     });
@@ -572,7 +572,7 @@ class _CollectionNodeState extends State<CollectionNode> {
       ],
     ).then((value) async {
       if (value == 'delete') {
-        appState.deleteCollection(widget.collection.metadataId);
+        appState.deleteCollection(widget.collection.id);
       } else if (value == 'rename') {
         if (!mounted) return;
         final title = await showNameDialog(
@@ -581,19 +581,19 @@ class _CollectionNodeState extends State<CollectionNode> {
           initialValue: widget.collection.title,
         );
         if (title != null && title.isNotEmpty) {
-          appState.renameCollection(widget.collection.metadataId, title);
+          appState.renameCollection(widget.collection.id, title);
         }
       } else if (value == 'create_document') {
-        appState.createLocalDocument(widget.collection.metadataId);
+        appState.createLocalDocument(widget.collection.id);
         if (mounted) {
           setState(() {
             _isExpanded = true;
           });
         }
       } else if (value == 'import') {
-        _showImportOptionsDialog(widget.collection.metadataId);
+        _showImportOptionsDialog(widget.collection.id);
       } else if (value == 'export') {
-        _exportCollection(widget.collection.metadataId);
+        _exportCollection(widget.collection.id);
       }
     });
   }
@@ -606,9 +606,9 @@ class _CollectionNodeState extends State<CollectionNode> {
       final appState = AppStateScope.of(context);
       appState.setActiveItem(
         ActiveItemType.collection,
-        widget.collection.metadataId,
+        widget.collection.id,
       );
-      appState.fetchDocumentsForCollection(widget.collection.metadataId);
+      appState.fetchDocumentsForCollection(widget.collection.id);
     }
   }
 
@@ -616,14 +616,14 @@ class _CollectionNodeState extends State<CollectionNode> {
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
     final documents =
-        appState.documentsByCollectionId[widget.collection.metadataId] ?? [];
+        appState.documentsByCollectionId[widget.collection.id] ?? [];
 
     return DragTarget<DocumentMetadata>(
       onWillAccept: (data) =>
           data != null &&
-          data.collectionMetadataId != widget.collection.metadataId,
+          data.collectionMetadataId != widget.collection.id,
       onAccept: (data) {
-        appState.moveDocument(data.metadataId, widget.collection.metadataId);
+        appState.moveDocument(data.id, widget.collection.id);
       },
       builder: (context, candidateData, rejectedData) {
         return Column(
@@ -633,7 +633,7 @@ class _CollectionNodeState extends State<CollectionNode> {
               onSecondaryTapDown: (details) {
                 appState.setActiveItem(
                   ActiveItemType.collection,
-                  widget.collection.metadataId,
+                  widget.collection.id,
                 );
                 _showCollectionMenu(context, details.globalPosition);
               },
@@ -673,7 +673,7 @@ class _CollectionNodeState extends State<CollectionNode> {
                   ),
                   selected:
                       appState.activeItem.type == ActiveItemType.collection &&
-                      appState.activeItem.id == widget.collection.metadataId,
+                      appState.activeItem.id == widget.collection.id,
                 ),
               ),
             ),
@@ -714,7 +714,7 @@ class _CollectionNodeState extends State<CollectionNode> {
   ) {
     return GestureDetector(
       onSecondaryTapDown: (details) {
-        appState.setActiveItem(ActiveItemType.document, doc.metadataId);
+        appState.setActiveItem(ActiveItemType.document, doc.id);
         showMenu(
           context: context,
           position: RelativeRect.fromLTRB(
@@ -729,7 +729,7 @@ class _CollectionNodeState extends State<CollectionNode> {
           ],
         ).then((value) async {
           if (value == 'delete') {
-            appState.deleteDocument(doc.metadataId);
+            appState.deleteDocument(doc.id);
           } else if (value == 'rename') {
             final title = await showNameDialog(
               context,
@@ -737,7 +737,7 @@ class _CollectionNodeState extends State<CollectionNode> {
               initialValue: doc.title,
             );
             if (title != null && title.isNotEmpty) {
-              appState.renameDocument(doc.metadataId, title);
+              appState.renameDocument(doc.id, title);
             }
           }
         });
@@ -747,9 +747,9 @@ class _CollectionNodeState extends State<CollectionNode> {
         leading: const Icon(Icons.article),
         selected:
             appState.activeItem.type == ActiveItemType.document &&
-            appState.activeItem.id == doc.metadataId,
+            appState.activeItem.id == doc.id,
         onTap: () {
-          appState.openDocument(doc.metadataId);
+          appState.openDocument(doc.id);
         },
         trailing: Builder(
           builder: (context) {

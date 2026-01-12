@@ -100,12 +100,12 @@ pub fn preprocess_document(
     let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
         content,
         chunk_size,
-        &metadata.metadata_id,
+        &metadata.id,
         collection_metadata_id,
     );
 
     metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
-    let metadata_id = metadata.metadata_id.clone();
+    let metadata_id = metadata.id.clone();
     (metadata, chunks, metadata_id)
 }
 
@@ -177,7 +177,7 @@ pub async fn add_document_chunks_to_database_and_metadata_storage(
 ) -> Result<String> {
     add_document_chunks_to_database(client, embedder_config, database_config, chunks).await?;
 
-    let metadata_id: String = metadata.metadata_id.clone();
+    let metadata_id: String = metadata.id.clone();
     metadata_storage.lock().await.add_document(metadata).await?;
 
     Ok(metadata_id)

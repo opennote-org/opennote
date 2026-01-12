@@ -157,7 +157,7 @@ pub async fn get_collections(
         .iter()
         .filter(|(_, collection)| {
             guard
-                .check_permission(&query.username, vec![collection.metadata_id.clone()])
+                .check_permission(&query.username, vec![collection.id.clone()])
                 .unwrap()
         })
         .map(|(_, collection)| collection.to_owned())

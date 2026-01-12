@@ -58,9 +58,9 @@ impl MetadataStorage {
     pub async fn create_collection(&mut self, title: &str) -> Result<String> {
         let collection: CollectionMetadata = CollectionMetadata::new(title.to_string());
         self.collections
-            .insert(collection.metadata_id.clone(), collection.clone());
+            .insert(collection.id.clone(), collection.clone());
         let _ = self.save().await?;
-        return Ok(collection.metadata_id);
+        return Ok(collection.id);
     }
 
     /// Return None if the given metadata id is not found
@@ -87,7 +87,7 @@ impl MetadataStorage {
         // we perform a non-destructive validation before proceeding into updating.
         for metadata in collection_metadatas.iter_mut() {
             // Verify the documents exist
-            if let Some(original_collection_metadata) = self.collections.get(&metadata.metadata_id)
+            if let Some(original_collection_metadata) = self.collections.get(&metadata.id)
             {
                 // Verify if the immutable fields are mutated
                 metadata.is_mutated()?;
@@ -102,13 +102,13 @@ impl MetadataStorage {
 
             return Err(anyhow!(
                 "Collection metadata id {} was not found, update operation terminated",
-                metadata.metadata_id
+                metadata.id
             ));
         }
 
         for metadata in collection_metadatas {
             self.collections
-                .insert(metadata.metadata_id.clone(), metadata);
+                .insert(metadata.id.clone(), metadata);
         }
 
         self.save().await?;
@@ -124,15 +124,15 @@ impl MetadataStorage {
     ) -> Result<()> {
         for metadata in document_metadatas {
             // Verify the documents exist
-            if let Some(_) = self.documents.remove(&metadata.metadata_id) {
+            if let Some(_) = self.documents.remove(&metadata.id) {
                 self.documents
-                    .insert(metadata.metadata_id.clone(), metadata.to_owned());
+                    .insert(metadata.id.clone(), metadata.to_owned());
                 continue;
             }
 
             return Err(anyhow!(
                 "Document metadata id {} was not found, update operation terminated",
-                metadata.metadata_id
+                metadata.id
             ));
         }
 
@@ -149,7 +149,7 @@ impl MetadataStorage {
         // and endup breaking the metadata storage.
         for metadata in document_metadatas.iter_mut() {
             // Verify the documents exist
-            if let Some(original_document_metadata) = self.documents.get(&metadata.metadata_id) {
+            if let Some(original_document_metadata) = self.documents.get(&metadata.id) {
                 // Verify if the immutable fields are mutated
                 metadata.is_mutated()?;
                 // Swap the immutable fields values in
@@ -177,14 +177,14 @@ impl MetadataStorage {
 
             return Err(anyhow!(
                 "Document metadata id {} was not found, update operation terminated",
-                metadata.metadata_id
+                metadata.id
             ));
         }
 
         for metadata in document_metadatas {
             // If the document has changed its belonging collection,
             // we need to update accordingly, otherwise it will be wrong
-            if let Some(old_document_metadata) = self.documents.remove(&metadata.metadata_id) {
+            if let Some(old_document_metadata) = self.documents.remove(&metadata.id) {
                 if metadata.collection_metadata_id != old_document_metadata.collection_metadata_id {
                     // Remove the document id from the original collection first,
                     // before we update the destiny collection.
@@ -194,7 +194,7 @@ impl MetadataStorage {
                     {
                         original_collection_metadata
                             .documents_metadata_ids
-                            .retain(|id| *id != metadata.metadata_id);
+                            .retain(|id| *id != metadata.id);
                     }
 
                     // Now we update the destiny collection
@@ -203,14 +203,14 @@ impl MetadataStorage {
                     {
                         destiny_collection_metadata
                             .documents_metadata_ids
-                            .push(metadata.metadata_id.clone());
+                            .push(metadata.id.clone());
                     }
                 }
 
                 // If, by any chance, nothing was removed,
                 // we don't do insert operations to protect the data consistency.
                 self.documents
-                    .insert(metadata.metadata_id.clone(), metadata);
+                    .insert(metadata.id.clone(), metadata);
             }
         }
 
@@ -222,9 +222,9 @@ impl MetadataStorage {
         if let Some(collection) = self.collections.get_mut(&metadata.collection_metadata_id) {
             collection
                 .documents_metadata_ids
-                .push(metadata.metadata_id.clone());
+                .push(metadata.id.clone());
             self.documents
-                .insert(metadata.metadata_id.clone(), metadata);
+                .insert(metadata.id.clone(), metadata);
             let _ = self.save().await?;
             return Ok(());
         }

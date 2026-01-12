@@ -89,7 +89,7 @@ class AppState extends ChangeNotifier {
     final tempId = 'temp_doc_${DateTime.now().millisecondsSinceEpoch}';
     final now = DateTime.now().toIso8601String();
     final newDoc = DocumentMetadata(
-      metadataId: tempId,
+      id: tempId,
       createdAt: now,
       lastModified: now,
       collectionMetadataId: collectionId,
@@ -181,7 +181,7 @@ class AppState extends ChangeNotifier {
 
     // Update tree cache
     if (documentsByCollectionId.containsKey(oldCollectionId)) {
-      documentsByCollectionId[oldCollectionId]?.removeWhere((d) => d.metadataId == documentId);
+      documentsByCollectionId[oldCollectionId]?.removeWhere((d) => d.id == documentId);
     }
     if (documentsByCollectionId.containsKey(newCollectionId)) {
       documentsByCollectionId[newCollectionId]?.add(document);
@@ -232,7 +232,7 @@ class AppState extends ChangeNotifier {
     final highlights = searchHighlights[oldId];
 
     // Update metadata ID
-    doc.metadataId = newId;
+    doc.id = newId;
 
     // Update Maps
     documentById.remove(oldId);
@@ -386,7 +386,7 @@ class AppState extends ChangeNotifier {
     final list = await collections.getCollections(dio, username!);
     collectionById
       ..clear()
-      ..addEntries(list.map((e) => MapEntry(e.metadataId, e)));
+      ..addEntries(list.map((e) => MapEntry(e.id, e)));
     notifyListeners();
   }
 
@@ -423,7 +423,7 @@ class AppState extends ChangeNotifier {
     final docs = await documents.getDocumentsMetadata(dio, currentCollectionId!);
     documentById
       ..clear()
-      ..addEntries(docs.map((e) => MapEntry(e.metadataId, e)));
+      ..addEntries(docs.map((e) => MapEntry(e.id, e)));
     notifyListeners();
   }
 
@@ -482,7 +482,7 @@ class AppState extends ChangeNotifier {
 
     // Remove from tree cache
     documentsByCollectionId.forEach((key, list) {
-      list.removeWhere((doc) => doc.metadataId == id);
+      list.removeWhere((doc) => doc.id == id);
     });
 
     // Remove from tabs
@@ -498,11 +498,11 @@ class AppState extends ChangeNotifier {
     
     // Merge with existing temp docs for this collection
     final existingList = documentsByCollectionId[collectionId] ?? [];
-    final tempDocs = existingList.where((d) => d.metadataId.startsWith('temp_doc_')).toList();
+    final tempDocs = existingList.where((d) => d.id.startsWith('temp_doc_')).toList();
     final combinedList = [...list, ...tempDocs];
 
     documentsByCollectionId[collectionId] = combinedList;
-    documentById.addEntries(list.map((e) => MapEntry(e.metadataId, e)));
+    documentById.addEntries(list.map((e) => MapEntry(e.id, e)));
     notifyListeners();
   }
 
