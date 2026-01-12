@@ -23,7 +23,7 @@ void showSearchPopup(BuildContext context) {
     scope = SearchScope.document;
     // If document is not in documentById (e.g. only in tree cache), try to find it
     if (appState.documentById.containsKey(activeItem.id)) {
-      scopeId = appState.documentById[activeItem.id]?.metadataId;
+      scopeId = appState.documentById[activeItem.id]?.id;
     } else {
       // Fallback: Use activeItem.id directly as we expect it to be the metadataId
       scopeId = activeItem.id;

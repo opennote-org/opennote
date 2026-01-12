@@ -15,7 +15,12 @@ class TaskInfo {
   String? message;
   final DateTime createdAt;
 
-  TaskInfo({required this.id, required this.description, this.status = 'Pending', this.message}) : createdAt = DateTime.now();
+  TaskInfo({
+    required this.id,
+    required this.description,
+    this.status = 'Pending',
+    this.message,
+  }) : createdAt = DateTime.now();
 }
 
 enum ActiveItemType { collection, document, none }
@@ -54,10 +59,11 @@ class AppState extends ChangeNotifier {
   final List<TaskInfo> tasks = [];
   Timer? _pollingTimer;
 
-  List<CollectionMetadata> get collectionsList => collectionById.values.toList();
+  List<CollectionMetadata> get collectionsList =>
+      collectionById.values.toList();
   List<DocumentMetadata> get documentsList => documentById.values.toList();
-  List<ArchieveListItem> backups = [];
-  
+  List<BackupListItem> backups = [];
+
   // Tree View Caches
   final Map<String, List<DocumentMetadata>> documentsByCollectionId = {};
 
@@ -89,7 +95,7 @@ class AppState extends ChangeNotifier {
     final tempId = 'temp_doc_${DateTime.now().millisecondsSinceEpoch}';
     final now = DateTime.now().toIso8601String();
     final newDoc = DocumentMetadata(
-      metadataId: tempId,
+      id: tempId,
       createdAt: now,
       lastModified: now,
       collectionMetadataId: collectionId,
@@ -107,12 +113,15 @@ class AppState extends ChangeNotifier {
 
     // Initialize empty content
     documentContentCache[tempId] = '';
-    
+
     openDocument(tempId, collectionId: collectionId);
   }
 
   Future<void> saveActiveDocument() async {
-    if (_activeItem.type != ActiveItemType.document || _activeItem.id == null || username == null) return;
+    if (_activeItem.type != ActiveItemType.document ||
+        _activeItem.id == null ||
+        username == null)
+      return;
 
     final docId = _activeItem.id!;
     final meta = documentById[docId];
@@ -126,11 +135,20 @@ class AppState extends ChangeNotifier {
         String title = 'Untitled';
         if (content.trim().isNotEmpty) {
           final firstLine = content.split('\n').first.trim();
-          title = firstLine.substring(0, firstLine.length > 50 ? 50 : firstLine.length);
+          title = firstLine.substring(
+            0,
+            firstLine.length > 50 ? 50 : firstLine.length,
+          );
           if (title.isEmpty) title = 'Untitled';
         }
 
-        final taskId = await documents.addDocument(dio, username!, title, meta.collectionMetadataId, content);
+        final taskId = await documents.addDocument(
+          dio,
+          username!,
+          title,
+          meta.collectionMetadataId,
+          content,
+        );
         taskIdToTempDocId[taskId] = docId;
         _addTask(taskId, "Creating document '$title'");
 
@@ -139,7 +157,14 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       } else {
         final title = meta.title;
-        final taskId = await documents.updateDocumentContent(dio, username!, docId, meta.collectionMetadataId, title, content);
+        final taskId = await documents.updateDocumentContent(
+          dio,
+          username!,
+          docId,
+          meta.collectionMetadataId,
+          title,
+          content,
+        );
 
         _addTask(taskId, "Updating document '$title'");
         notifyListeners();
@@ -155,7 +180,9 @@ class AppState extends ChangeNotifier {
 
     collection.title = newTitle;
 
-    final taskId = await collections.updateCollectionsMetadata(dio, [collection]);
+    final taskId = await collections.updateCollectionsMetadata(dio, [
+      collection,
+    ]);
     _addTask(taskId, "Renaming collection to '$newTitle'");
     notifyListeners();
   }
@@ -181,7 +208,9 @@ class AppState extends ChangeNotifier {
 
     // Update tree cache
     if (documentsByCollectionId.containsKey(oldCollectionId)) {
-      documentsByCollectionId[oldCollectionId]?.removeWhere((d) => d.metadataId == documentId);
+      documentsByCollectionId[oldCollectionId]?.removeWhere(
+        (d) => d.id == documentId,
+      );
     }
     if (documentsByCollectionId.containsKey(newCollectionId)) {
       documentsByCollectionId[newCollectionId]?.add(document);
@@ -232,7 +261,7 @@ class AppState extends ChangeNotifier {
     final highlights = searchHighlights[oldId];
 
     // Update metadata ID
-    doc.metadataId = newId;
+    doc.id = newId;
 
     // Update Maps
     documentById.remove(oldId);
@@ -270,9 +299,20 @@ class AppState extends ChangeNotifier {
 
   void _startPolling() {
     if (_pollingTimer != null && _pollingTimer!.isActive) return;
-    _pollingTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+    _pollingTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) async {
       await _pollTasks();
     });
+  }
+
+  /// To refresh all data for syncing with the backend
+  Future<void> refreshAll() async {
+    await Future.wait([
+      refreshDocuments(),
+      refreshCollections(), // Also refresh collections as some tasks might affect them
+      fetchBackups(),
+    ]);
   }
 
   Future<void> _pollTasks() async {
@@ -306,9 +346,7 @@ class AppState extends ChangeNotifier {
               }
 
               changed = true;
-              await refreshDocuments();
-              await refreshCollections(); // Also refresh collections as some tasks might affect them
-              await fetchBackups();
+              await refreshAll();
               // Refresh all cached collections documents to update sidebar
               for (final collectionId in documentsByCollectionId.keys) {
                 await fetchDocumentsForCollection(collectionId);
@@ -344,7 +382,9 @@ class AppState extends ChangeNotifier {
 
     if (changed) notifyListeners();
 
-    hasPending = tasks.any((t) => t.status == 'Pending' || t.status == 'InProgress');
+    hasPending = tasks.any(
+      (t) => t.status == 'Pending' || t.status == 'InProgress',
+    );
     if (!hasPending) {
       _pollingTimer?.cancel();
       _pollingTimer = null;
@@ -386,7 +426,7 @@ class AppState extends ChangeNotifier {
     final list = await collections.getCollections(dio, username!);
     collectionById
       ..clear()
-      ..addEntries(list.map((e) => MapEntry(e.metadataId, e)));
+      ..addEntries(list.map((e) => MapEntry(e.id, e)));
     notifyListeners();
   }
 
@@ -402,10 +442,19 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> createDocumentInCollection(String collectionId, String title) async {
+  Future<void> createDocumentInCollection(
+    String collectionId,
+    String title,
+  ) async {
     if (username == null) return;
     final content = title;
-    final taskId = await documents.addDocument(dio, username!, title, collectionId, content);
+    final taskId = await documents.addDocument(
+      dio,
+      username!,
+      title,
+      collectionId,
+      content,
+    );
     _addTask(taskId, "Creating document '$title'");
   }
 
@@ -420,17 +469,28 @@ class AppState extends ChangeNotifier {
 
   Future<void> refreshDocuments() async {
     if (currentCollectionId == null) return;
-    final docs = await documents.getDocumentsMetadata(dio, currentCollectionId!);
+    final docs = await documents.getDocumentsMetadata(
+      dio,
+      currentCollectionId!,
+    );
     documentById
       ..clear()
-      ..addEntries(docs.map((e) => MapEntry(e.metadataId, e)));
+      ..addEntries(docs.map((e) => MapEntry(e.id, e)));
     notifyListeners();
   }
 
-  Future<void> importDocuments(List<Map<String, dynamic>> imports, {String? collectionId}) async {
+  Future<void> importDocuments(
+    List<Map<String, dynamic>> imports, {
+    String? collectionId,
+  }) async {
     final targetCollectionId = collectionId ?? currentCollectionId;
     if (targetCollectionId == null || username == null) return;
-    final taskId = await documents.importDocuments(dio, username!, targetCollectionId, imports);
+    final taskId = await documents.importDocuments(
+      dio,
+      username!,
+      targetCollectionId,
+      imports,
+    );
     _addTask(taskId, "Importing ${imports.length} documents");
   }
 
@@ -454,18 +514,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> restoreBackup(String archiveId) async {
+  Future<void> restoreBackup(String backupId) async {
     try {
-      final taskId = await backupService.restoreBackup(dio, archiveId);
+      final taskId = await backupService.restoreBackup(dio, backupId);
       _addTask(taskId, "Restoring backup");
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> deleteBackup(String archiveId) async {
+  Future<void> deleteBackup(String backupId) async {
     try {
-      await backupService.removeBackups(dio, [archiveId]);
+      await backupService.removeBackups(dio, [backupId]);
       await fetchBackups();
     } catch (e) {
       rethrow;
@@ -482,7 +542,7 @@ class AppState extends ChangeNotifier {
 
     // Remove from tree cache
     documentsByCollectionId.forEach((key, list) {
-      list.removeWhere((doc) => doc.metadataId == id);
+      list.removeWhere((doc) => doc.id == id);
     });
 
     // Remove from tabs
@@ -495,24 +555,34 @@ class AppState extends ChangeNotifier {
 
   Future<void> fetchDocumentsForCollection(String collectionId) async {
     final list = await documents.getDocumentsMetadata(dio, collectionId);
-    
+
     // Merge with existing temp docs for this collection
     final existingList = documentsByCollectionId[collectionId] ?? [];
-    final tempDocs = existingList.where((d) => d.metadataId.startsWith('temp_doc_')).toList();
+    final tempDocs = existingList
+        .where((d) => d.id.startsWith('temp_doc_'))
+        .toList();
     final combinedList = [...list, ...tempDocs];
 
     documentsByCollectionId[collectionId] = combinedList;
-    documentById.addEntries(list.map((e) => MapEntry(e.metadataId, e)));
+    documentById.addEntries(list.map((e) => MapEntry(e.id, e)));
     notifyListeners();
   }
 
-  Future<void> openDocument(String documentId, {String? highlightText, String? highlightChunkId, String? collectionId}) async {
+  Future<void> openDocument(
+    String documentId, {
+    String? highlightText,
+    String? highlightChunkId,
+    String? collectionId,
+  }) async {
     if (!openDocumentIds.contains(documentId)) {
       openDocumentIds.add(documentId);
     }
 
     if (highlightText != null) {
-      searchHighlights[documentId] = SearchHighlight(highlightText, chunkId: highlightChunkId);
+      searchHighlights[documentId] = SearchHighlight(
+        highlightText,
+        chunkId: highlightChunkId,
+      );
     }
 
     // Ensure we have metadata if possible

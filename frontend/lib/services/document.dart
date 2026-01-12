@@ -25,7 +25,7 @@ class DocumentChunk {
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class DocumentMetadata {
-  String metadataId;
+  String id;
   String createdAt;
   String lastModified;
   String collectionMetadataId;
@@ -33,7 +33,7 @@ class DocumentMetadata {
   List<String> chunks;
 
   DocumentMetadata({
-    required this.metadataId,
+    required this.id,
     required this.createdAt,
     required this.lastModified,
     required this.collectionMetadataId,
@@ -100,7 +100,7 @@ class DocumentManagementService {
   Future<String> updateDocumentsMetadata(Dio dio, List<DocumentMetadata> documents) async {
     final List<Map<String, dynamic>> data = documents.map((e) {
       return {
-        "metadata_id": e.metadataId,
+        "metadata_id": e.id,
         "created_at": "",
         "last_modified": "",
         "collection_metadata_id": e.collectionMetadataId,

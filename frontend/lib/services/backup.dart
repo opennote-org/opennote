@@ -3,54 +3,60 @@ import 'package:notes/constants.dart';
 import 'package:notes/services/general.dart';
 import 'package:uuid/uuid.dart';
 
-enum BackupScope {
-  user,
-}
+import '../constants.dart';
+import 'general.dart';
+
+enum BackupScope { user }
 
 class BackupScopeIndicator {
   final BackupScope scope;
   final String id;
-  final String archieveId;
+  final String backupId;
 
-  BackupScopeIndicator({required this.scope, required this.id, required this.archieveId});
+  BackupScopeIndicator({
+    required this.scope,
+    required this.id,
+    required this.backupId,
+  });
 
   dynamic toJson() {
-    return '"${scope.name}"/$id/$archieveId';
+    return '"${scope.name}"/$id/$backupId';
   }
 
   factory BackupScopeIndicator.fromJson(dynamic json) {
     if (json is String) {
       final parts = json.split('/');
-      if (parts.length != 3) throw Exception("Invalid BackupScopeIndicator format");
-      
+      if (parts.length != 3)
+        throw Exception("Invalid BackupScopeIndicator format");
+
       String scopeStr = parts[0];
       if (scopeStr.startsWith('"') && scopeStr.endsWith('"')) {
         scopeStr = scopeStr.substring(1, scopeStr.length - 1);
       }
-      
+
       return BackupScopeIndicator(
         scope: BackupScope.values.firstWhere((e) => e.name == scopeStr),
         id: parts[1],
-        archieveId: parts[2],
+        backupId: parts[2],
       );
     }
     throw Exception("Invalid type for BackupScopeIndicator");
   }
 }
 
-class ArchieveListItem {
+class BackupListItem {
   final String id;
   final String createdAt;
   final BackupScopeIndicator scope;
 
-  ArchieveListItem({
+  BackupListItem({
     required this.id,
     required this.createdAt,
     required this.scope,
   });
 
-  factory ArchieveListItem.fromJson(Map<String, dynamic> json) {
-    return ArchieveListItem(
+  factory BackupListItem.fromJson(Map<String, dynamic> json) {
+    return BackupListItem(
       id: json['id'] as String,
       createdAt: json['created_at'] as String,
       scope: BackupScopeIndicator.fromJson(json['scope']),
@@ -59,38 +65,51 @@ class ArchieveListItem {
 }
 
 class BackupService {
-  Future<List<ArchieveListItem>> getBackupsList(Dio dio, String username) async {
+  Future<List<BackupListItem>> getBackupsList(Dio dio, String username) async {
     try {
-      // Pass empty string for archieveId when listing
-      final scope = BackupScopeIndicator(scope: BackupScope.user, id: username, archieveId: "");
+      // Pass empty string for backupId when listing
+      final scope = BackupScopeIndicator(
+        scope: BackupScope.user,
+        id: username,
+        backupId: "",
+      );
       final response = await dio.post(
         getBackupsListEndpoint,
         data: {"scope": scope.toJson()},
       );
-      final genericResponse = GenericResponse.fromJson(response.data as Map<String, dynamic>);
-      
+      final genericResponse = GenericResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
       if (genericResponse.status == "Completed") {
-        if (genericResponse.data != null && genericResponse.data['archieves'] != null) {
-          final list = genericResponse.data['archieves'] as List;
-          return list.map((e) => ArchieveListItem.fromJson(e as Map<String, dynamic>)).toList();
+        if (genericResponse.data != null &&
+            genericResponse.data['backups'] != null) {
+          final list = genericResponse.data['backups'] as List;
+          return list
+              .map((e) => BackupListItem.fromJson(e as Map<String, dynamic>))
+              .toList();
         }
         return [];
       } else {
-        throw Exception(genericResponse.message ?? "Failed to get backups list");
+        throw Exception(
+          genericResponse.message ?? "Failed to get backups list",
+        );
       }
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> removeBackups(Dio dio, List<String> archieveIds) async {
+  Future<void> removeBackups(Dio dio, List<String> backupIds) async {
     try {
       final response = await dio.post(
         removeBackupsEndpoint,
-        data: {"archieve_ids": archieveIds},
+        data: {"backup_ids": backupIds},
       );
-      final genericResponse = GenericResponse.fromJson(response.data as Map<String, dynamic>);
-      
+      final genericResponse = GenericResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
       if (genericResponse.status != "Completed") {
         throw Exception(genericResponse.message ?? "Failed to remove backups");
       }
@@ -102,14 +121,20 @@ class BackupService {
   /// Returns task_id
   Future<String> backup(Dio dio, String username) async {
     try {
-      final archieveId = const Uuid().v4();
-      final scope = BackupScopeIndicator(scope: BackupScope.user, id: username, archieveId: archieveId);
+      final backupId = const Uuid().v4();
+      final scope = BackupScopeIndicator(
+        scope: BackupScope.user,
+        id: username,
+        backupId: backupId,
+      );
       final response = await dio.post(
         backupEndpoint,
         data: {"scope": scope.toJson()},
       );
-      final genericResponse = GenericResponse.fromJson(response.data as Map<String, dynamic>);
-      
+      final genericResponse = GenericResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
       return genericResponse.taskId;
     } catch (e) {
       rethrow;
@@ -117,14 +142,16 @@ class BackupService {
   }
 
   /// Returns task_id
-  Future<String> restoreBackup(Dio dio, String archieveId) async {
+  Future<String> restoreBackup(Dio dio, String backupId) async {
     try {
       final response = await dio.post(
         restoreBackupEndpoint,
-        data: {"archieve_id": archieveId},
+        data: {"backup_id": backupId},
       );
-      final genericResponse = GenericResponse.fromJson(response.data as Map<String, dynamic>);
-      
+      final genericResponse = GenericResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
       return genericResponse.taskId;
     } catch (e) {
       rethrow;

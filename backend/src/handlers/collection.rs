@@ -7,10 +7,13 @@ use serde_json::json;
 use tokio::sync::RwLock;
 
 use crate::{
-    api_models::{callbacks::GenericResponse, collection::{
-        CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
-        GetCollectionsQuery, UpdateCollectionMetadataRequest,
-    }},
+    api_models::{
+        callbacks::GenericResponse,
+        collection::{
+            CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
+            GetCollectionsQuery, UpdateCollectionMetadataRequest,
+        },
+    },
     app_state::AppState,
     documents::collection_metadata::CollectionMetadata,
     utilities::acquire_data,
@@ -22,7 +25,7 @@ pub async fn create_collection(
     request: web::Json<CreateCollectionRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, metadata_storage, _, _, user_information_storage, _) = acquire_data(&data).await;
+    let (_, _, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
 
     match metadata_storage
         .lock()
@@ -31,7 +34,7 @@ pub async fn create_collection(
         .await
     {
         Ok(collection_metadata_id) => {
-            match user_information_storage
+            match identities_storage
                 .lock()
                 .await
                 .add_authorized_resources(&request.username, vec![collection_metadata_id.clone()])
@@ -68,7 +71,7 @@ pub async fn delete_collection(
     request: web::Json<DeleteCollectionRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index, client, metadata_storage, _, _, user_information_storage, _) =
+    let (index, client, metadata_storage, _, _, identities_storage, _) =
         acquire_data(&data).await;
 
     let collection_metadata = match metadata_storage
@@ -78,7 +81,7 @@ pub async fn delete_collection(
         .await
     {
         Some(collection_metadata) => {
-            let usernames: Vec<String> = user_information_storage
+            let usernames: Vec<String> = identities_storage
                 .lock()
                 .await
                 .get_users_by_resource_id(&request.0.collection_metadata_id)
@@ -86,9 +89,9 @@ pub async fn delete_collection(
                 .map(|user| user.username.clone())
                 .collect();
 
-            let mut user_information_storage = user_information_storage.lock().await;
+            let mut identities_storage = identities_storage.lock().await;
             for username in usernames {
-                match user_information_storage
+                match identities_storage
                     .remove_authorized_resources(
                         &username,
                         vec![request.0.collection_metadata_id.clone()],
@@ -143,9 +146,9 @@ pub async fn get_collections(
     data: web::Data<RwLock<AppState>>,
     query: Query<GetCollectionsQuery>,
 ) -> Result<HttpResponse> {
-    let (_, _, metadata_storage, _, _, user_information_storage, _) = acquire_data(&data).await;
+    let (_, _, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
 
-    let guard = user_information_storage.lock().await;
+    let guard = identities_storage.lock().await;
 
     let collection_metadata: Vec<CollectionMetadata> = metadata_storage
         .lock()
@@ -154,7 +157,7 @@ pub async fn get_collections(
         .iter()
         .filter(|(_, collection)| {
             guard
-                .check_permission(&query.username, vec![collection.metadata_id.clone()])
+                .check_permission(&query.username, vec![collection.id.clone()])
                 .unwrap()
         })
         .map(|(_, collection)| collection.to_owned())

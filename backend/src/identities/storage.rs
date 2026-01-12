@@ -8,12 +8,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserInformationStorage {
+pub struct IdentitiesStorage {
     pub path: PathBuf,
     pub users: Vec<User>,
 }
 
-impl LoadAndSave for UserInformationStorage {
+impl LoadAndSave for IdentitiesStorage {
     fn new(path: &str) -> Self {
         Self {
             path: PathBuf::from(path),
@@ -27,7 +27,7 @@ impl LoadAndSave for UserInformationStorage {
 }
 
 /// The allowed dead codes are reserved for future upgrades
-impl UserInformationStorage {
+impl IdentitiesStorage {
     /// Username must be unique
     pub async fn create_user(&mut self, username: String, password: String) -> Result<()> {
         if self.users.iter().any(|user| *user.username == username) {

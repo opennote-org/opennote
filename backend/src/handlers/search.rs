@@ -5,8 +5,9 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
     app_state::AppState,
-    documents::document_chunk::DocumentChunkSearchResult,
-    handler_operations::retrieve_document_ids_by_scope,
+    documents::{
+        document_chunk::DocumentChunkSearchResult, operations::retrieve_document_ids_by_scope,
+    },
     search::{
         build_search_results, keyword::search_documents, semantic::search_documents_semantically,
     },
@@ -20,12 +21,12 @@ pub async fn intelligent_search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, config, user_information_storage, _) =
+    let (index_name, db_client, metadata_storage, _, config, identities_storage, _) =
         acquire_data(&data).await;
 
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
         &mut metadata_storage.lock().await,
-        &mut user_information_storage.lock().await,
+        &mut identities_storage.lock().await,
         request.0.scope.search_scope,
         &request.0.scope.id,
     );
@@ -71,12 +72,12 @@ pub async fn search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, _, user_information_storage, _) =
+    let (index_name, db_client, metadata_storage, _, _, identities_storage, _) =
         acquire_data(&data).await;
 
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
         &mut metadata_storage.lock().await,
-        &mut user_information_storage.lock().await,
+        &mut identities_storage.lock().await,
         request.0.scope.search_scope,
         &request.0.scope.id,
     );

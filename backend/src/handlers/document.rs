@@ -29,10 +29,13 @@ use crate::{
         traits::Connector,
         webpage::WebpageConnector,
     },
-    documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
-    handler_operations::{
-        add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage,
-        delete_documents_from_database, get_document_chunks, preprocess_document,
+    documents::{
+        document_chunk::DocumentChunk,
+        document_metadata::DocumentMetadata,
+        operations::{
+            add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage,
+            delete_documents_from_database, get_document_chunks, preprocess_document,
+        },
     },
     tasks_scheduler::TaskStatus,
     utilities::acquire_data,
@@ -54,10 +57,10 @@ pub async fn add_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -152,10 +155,10 @@ pub async fn import_documents(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -312,13 +315,18 @@ pub async fn delete_document(
         // Pull what we need out of AppState without holding the lock during I/O
         let (_, db_client, metadata_storage, tasks_scheduler, config, _, _) =
             acquire_data(&data).await;
-        
+
         let mut metadata_storage = metadata_storage.lock().await;
-        match metadata_storage.remove_document(&request.document_metadata_id).await {
+        match metadata_storage
+            .remove_document(&request.document_metadata_id)
+            .await
+        {
             Some(_) => {}
             None => {
-                let message: String =
-                    format!("Document {} was not found when trying to delete", &request.document_metadata_id);
+                let message: String = format!(
+                    "Document {} was not found when trying to delete",
+                    &request.document_metadata_id
+                );
                 log::warn!("{}", message);
             }
         };
@@ -395,10 +403,10 @@ pub async fn update_document_content(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -419,20 +427,25 @@ pub async fn update_document_content(
                 return;
             }
         };
-        
-        // Isolate the access to the locked metadata storage to prevent potential deadlocking 
-        // in the following code. 
+
+        // Isolate the access to the locked metadata storage to prevent potential deadlocking
+        // in the following code.
         {
             let mut metadata_storage = metadata_storage.lock().await;
-            match metadata_storage.remove_document(&request.document_metadata_id).await {
+            match metadata_storage
+                .remove_document(&request.document_metadata_id)
+                .await
+            {
                 Some(_) => {}
                 None => {
-                    let message: String =
-                        format!("Document {} was not found when trying to delete", &request.document_metadata_id);
+                    let message: String = format!(
+                        "Document {} was not found when trying to delete",
+                        &request.document_metadata_id
+                    );
                     log::warn!("{}", message);
                 }
             };
-    
+
             match delete_documents_from_database(
                 &db_client,
                 &config.database,
@@ -451,17 +464,17 @@ pub async fn update_document_content(
                 }
             }
         }
-        
+
         let mut metadata: DocumentMetadata = DocumentMetadata::new(
             request.title.clone(),
             request.collection_metadata_id.clone(),
         );
-        let metdata_id: String = metadata.metadata_id.clone();
+        let metdata_id: String = metadata.id.clone();
 
         let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
             &request.content,
             user_configurations.search.document_chunk_size,
-            &metadata.metadata_id,
+            &metadata.id,
             &metadata.collection_metadata_id,
         );
 
@@ -597,11 +610,11 @@ pub async fn reindex(
             metadata_storage,
             tasks_scheduler,
             config,
-            user_information_storage,
+            identities_storage,
             _,
         ) = acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -623,7 +636,7 @@ pub async fn reindex(
             }
         };
 
-        let resource_ids: Vec<String> = user_information_storage
+        let resource_ids: Vec<String> = identities_storage
             .lock()
             .await
             .get_resource_ids_by_username(&request.0.username)
@@ -703,7 +716,7 @@ pub async fn reindex(
         for (collection_metadata_id, mut document_metadata, document_content) in results {
             slicing_tasks.push(tokio::spawn(async move {
                 // Concurrently update the document chunks and their DocumentMetadata
-                let metadata_id: String = document_metadata.metadata_id.clone();
+                let metadata_id: String = document_metadata.id.clone();
 
                 let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
                     &document_content,
@@ -717,14 +730,10 @@ pub async fn reindex(
                 (document_metadata, chunks)
             }));
         }
-        
+
         // Remove old chunks from the database before updating the new ones to prevent conflicts.
-        match delete_documents_from_database(
-            &db_client,
-            &config.database,
-            metadata_ids_to_delete,
-        )
-        .await
+        match delete_documents_from_database(&db_client, &config.database, metadata_ids_to_delete)
+            .await
         {
             Ok(_) => {}
             Err(_) => {

@@ -24,7 +24,7 @@ Map<String, dynamic> _$DocumentChunkToJson(DocumentChunk instance) =>
 
 DocumentMetadata _$DocumentMetadataFromJson(Map<String, dynamic> json) =>
     DocumentMetadata(
-      metadataId: json['metadata_id'] as String,
+      id: json['id'] as String,
       createdAt: json['created_at'] as String,
       lastModified: json['last_modified'] as String,
       collectionMetadataId: json['collection_metadata_id'] as String,
@@ -36,7 +36,7 @@ DocumentMetadata _$DocumentMetadataFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$DocumentMetadataToJson(DocumentMetadata instance) =>
     <String, dynamic>{
-      'metadata_id': instance.metadataId,
+      'id': instance.id,
       'created_at': instance.createdAt,
       'last_modified': instance.lastModified,
       'collection_metadata_id': instance.collectionMetadataId,

@@ -16,7 +16,7 @@ use crate::{
     configurations::system::{DatabaseConfig, EmbedderConfig},
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
     embedder::send_vectorization,
-    identities::storage::UserInformationStorage,
+    identities::storage::IdentitiesStorage,
     metadata_storage::MetadataStorage,
     search::SearchScope,
 };
@@ -55,15 +55,14 @@ pub async fn get_document_chunks(
 
 pub fn retrieve_document_ids_by_scope(
     metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
-    user_information_storage: &mut MutexGuard<'_, UserInformationStorage>,
+    identities_storage: &mut MutexGuard<'_, IdentitiesStorage>,
     search_scope: SearchScope,
     id: &str,
 ) -> Vec<String> {
     // For maximizing the performance, we are using a vec of referenced Strings.
     let document_metadata_ids: Vec<String> = match search_scope {
         SearchScope::Userspace => {
-            let collection_ids: Vec<&String> =
-                user_information_storage.get_resource_ids_by_username(id);
+            let collection_ids: Vec<&String> = identities_storage.get_resource_ids_by_username(id);
             let mut document_metadata_ids: Vec<&String> = Vec::new();
 
             for id in collection_ids {
@@ -100,12 +99,12 @@ pub fn preprocess_document(
     let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
         content,
         chunk_size,
-        &metadata.metadata_id,
+        &metadata.id,
         collection_metadata_id,
     );
 
     metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
-    let metadata_id = metadata.metadata_id.clone();
+    let metadata_id = metadata.id.clone();
     (metadata, chunks, metadata_id)
 }
 
@@ -177,7 +176,7 @@ pub async fn add_document_chunks_to_database_and_metadata_storage(
 ) -> Result<String> {
     add_document_chunks_to_database(client, embedder_config, database_config, chunks).await?;
 
-    let metadata_id: String = metadata.metadata_id.clone();
+    let metadata_id: String = metadata.id.clone();
     metadata_storage.lock().await.add_document(metadata).await?;
 
     Ok(metadata_id)
@@ -190,10 +189,7 @@ pub async fn delete_documents_from_database(
 ) -> Result<()> {
     let mut conditions: Vec<Condition> = Vec::new();
     for id in document_ids.iter() {
-        conditions.push(Condition::matches(
-            "document_metadata_id",
-            id.to_owned(),
-        ));
+        conditions.push(Condition::matches("document_metadata_id", id.to_owned()));
     }
 
     match client

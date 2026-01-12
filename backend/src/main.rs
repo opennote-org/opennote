@@ -1,22 +1,21 @@
+mod api_models;
+mod app_state;
+mod backup;
+mod checkups;
+mod configurations;
 mod connectors;
+mod constants;
 mod database;
 mod documents;
 mod embedder;
 mod handlers;
-mod checkups;
 mod identities;
 mod metadata_storage;
 mod routes;
+mod search;
 mod tasks_scheduler;
 mod traits;
 mod utilities;
-mod app_state;
-mod configurations;
-mod search;
-mod api_models;
-mod handler_operations;
-mod constants;
-mod backup;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
@@ -89,25 +88,24 @@ async fn main() -> Result<(), std::io::Error> {
             );
             info!(
                 "User information storage file contains {} entries",
-                state.user_information_storage.lock().await.users.len()
+                state.identities_storage.lock().await.users.len()
             );
             info!(
                 "Arhieves storage file contains {} entries",
-                state.archieve_storage.lock().await.archieves.len()
+                state.backups_storage.lock().await.backups.len()
             );
             info!(
                 "Task scheduler has {} registered tasks",
                 state.tasks_scheduler.lock().await.registered_tasks.len()
             );
             info!("Database will connect to {}", config.database.base_url);
-            
-            // Checkups 
-            match handshake_embedding_service(&config.embedder).await 
-            {
+
+            // Checkups
+            match handshake_embedding_service(&config.embedder).await {
                 Ok(_) => info!("Embedding service is ONLINE"),
-                Err(error) => panic!("{}", error)
+                Err(error) => panic!("{}", error),
             }
-            
+
             match align_embedder_model(&config, &state).await {
                 Ok(_) => info!("Embedder model alignment completed successfully"),
                 Err(e) => {
@@ -115,7 +113,7 @@ async fn main() -> Result<(), std::io::Error> {
                     std::process::exit(1);
                 }
             }
-            
+
             web::Data::new(RwLock::new(state))
         }
         Err(e) => {
@@ -123,7 +121,7 @@ async fn main() -> Result<(), std::io::Error> {
             std::process::exit(1);
         }
     };
-    
+
     info!("Application state initialized successfully");
 
     // Start HTTP server

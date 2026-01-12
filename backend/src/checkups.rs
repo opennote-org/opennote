@@ -6,7 +6,8 @@ use crate::{
     app_state::AppState,
     configurations::system::{Config, EmbedderConfig},
     database::reindex_documents,
-    embedder::send_vectorization_queries, traits::LoadAndSave,
+    embedder::send_vectorization_queries,
+    traits::LoadAndSave,
 };
 
 pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> {
@@ -57,7 +58,7 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
         reindex_documents(client, config).await?;
         log::info!("Re-indexing finished.");
     }
-    
+
     metadata_storage.embedder_model_in_use = config.embedder.model.clone();
     metadata_storage.embedder_model_vector_size_in_use = config.embedder.dimensions;
     metadata_storage.save().await?;
