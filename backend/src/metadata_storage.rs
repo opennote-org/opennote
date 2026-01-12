@@ -234,7 +234,7 @@ impl MetadataStorage {
             metadata.collection_metadata_id
         ))
     }
-    
+
     pub async fn remove_document(&mut self, metdata_id: &str) -> Option<DocumentMetadata> {
         let document_metadata: Option<DocumentMetadata> = self.documents.remove(metdata_id);
 

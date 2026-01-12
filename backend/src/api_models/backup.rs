@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::backup::{archieve::ArchieveListItem, scope::BackupScopeIndicator};
+use crate::backup::{list_item::BackupListItem, scope::BackupScopeIndicator};
 
 /// region: request
 
@@ -13,7 +13,7 @@ pub struct BackupRequest {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RestoreBackupRequest {
-    pub archieve_id: String,
+    pub backup_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -23,17 +23,17 @@ pub struct GetBackupsListRequest {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RemoveBackupsRequest {
-    pub archieve_ids: Vec<String>,
+    pub backup_ids: Vec<String>,
 }
 
 /// region: response
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BackupResponse {
-    pub archieve_id: String,
+    pub backup_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetBackupsListResponse {
-    pub archieves: Vec<ArchieveListItem>,
+    pub backups: Vec<BackupListItem>,
 }

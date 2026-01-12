@@ -19,7 +19,7 @@ impl FromStr for BackupScope {
 pub struct BackupScopeIndicator {
     pub scope: BackupScope,
     pub id: String,
-    pub archieve_id: String,
+    pub backup_id: String,
 }
 
 impl Serialize for BackupScopeIndicator {
@@ -32,7 +32,7 @@ impl Serialize for BackupScopeIndicator {
             Err(error) => return Err(serde::ser::Error::custom(error.to_string())),
         };
 
-        let self_string: String = format!("{}/{}/{}", scope_string, self.id, self.archieve_id);
+        let self_string: String = format!("{}/{}/{}", scope_string, self.id, self.backup_id);
 
         serializer.serialize_str(&self_string)
     }
@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for BackupScopeIndicator {
         Ok(Self {
             scope,
             id: parts[1].to_owned(),
-            archieve_id: parts[2].to_owned(),
+            backup_id: parts[2].to_owned(),
         })
     }
 }

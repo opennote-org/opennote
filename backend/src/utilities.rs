@@ -5,7 +5,9 @@ use qdrant_client::Qdrant;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    app_state::AppState, backup::archieve::ArchievesStorage, configurations::system::Config, identities::storage::UserInformationStorage, metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler
+    app_state::AppState, backup::storage::BackupsStorage, configurations::system::Config,
+    identities::storage::UserInformationStorage, metadata_storage::MetadataStorage,
+    tasks_scheduler::TasksScheduler,
 };
 
 pub async fn acquire_data(
@@ -17,7 +19,7 @@ pub async fn acquire_data(
     Arc<Mutex<TasksScheduler>>,
     Config,
     Arc<Mutex<UserInformationStorage>>,
-    Arc<Mutex<ArchievesStorage>>,
+    Arc<Mutex<BackupsStorage>>,
 ) {
     let (
         index_name,
@@ -26,7 +28,7 @@ pub async fn acquire_data(
         tasks_scheduler,
         config,
         user_information_storage,
-        archieve_storage,
+        backups_storage,
     ) = {
         let state = data.read().await;
         (
@@ -36,7 +38,7 @@ pub async fn acquire_data(
             state.tasks_scheduler.clone(),
             state.config.clone(),
             state.user_information_storage.clone(),
-            state.archieve_storage.clone(),
+            state.backups_storage.clone(),
         )
     };
     (
@@ -46,6 +48,6 @@ pub async fn acquire_data(
         tasks_scheduler,
         config,
         user_information_storage,
-        archieve_storage,
+        backups_storage,
     )
 }

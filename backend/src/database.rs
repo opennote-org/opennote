@@ -158,7 +158,7 @@ impl Database {
         }
 
         Self::create_collection(&client, configuration).await?;
-        
+
         match Self::validate_configuration(&client, configuration).await {
             Ok(_) => {}
             Err(error) => {

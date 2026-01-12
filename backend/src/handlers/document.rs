@@ -312,13 +312,18 @@ pub async fn delete_document(
         // Pull what we need out of AppState without holding the lock during I/O
         let (_, db_client, metadata_storage, tasks_scheduler, config, _, _) =
             acquire_data(&data).await;
-        
+
         let mut metadata_storage = metadata_storage.lock().await;
-        match metadata_storage.remove_document(&request.document_metadata_id).await {
+        match metadata_storage
+            .remove_document(&request.document_metadata_id)
+            .await
+        {
             Some(_) => {}
             None => {
-                let message: String =
-                    format!("Document {} was not found when trying to delete", &request.document_metadata_id);
+                let message: String = format!(
+                    "Document {} was not found when trying to delete",
+                    &request.document_metadata_id
+                );
                 log::warn!("{}", message);
             }
         };
@@ -419,20 +424,25 @@ pub async fn update_document_content(
                 return;
             }
         };
-        
-        // Isolate the access to the locked metadata storage to prevent potential deadlocking 
-        // in the following code. 
+
+        // Isolate the access to the locked metadata storage to prevent potential deadlocking
+        // in the following code.
         {
             let mut metadata_storage = metadata_storage.lock().await;
-            match metadata_storage.remove_document(&request.document_metadata_id).await {
+            match metadata_storage
+                .remove_document(&request.document_metadata_id)
+                .await
+            {
                 Some(_) => {}
                 None => {
-                    let message: String =
-                        format!("Document {} was not found when trying to delete", &request.document_metadata_id);
+                    let message: String = format!(
+                        "Document {} was not found when trying to delete",
+                        &request.document_metadata_id
+                    );
                     log::warn!("{}", message);
                 }
             };
-    
+
             match delete_documents_from_database(
                 &db_client,
                 &config.database,
@@ -451,7 +461,7 @@ pub async fn update_document_content(
                 }
             }
         }
-        
+
         let mut metadata: DocumentMetadata = DocumentMetadata::new(
             request.title.clone(),
             request.collection_metadata_id.clone(),
@@ -717,14 +727,10 @@ pub async fn reindex(
                 (document_metadata, chunks)
             }));
         }
-        
+
         // Remove old chunks from the database before updating the new ones to prevent conflicts.
-        match delete_documents_from_database(
-            &db_client,
-            &config.database,
-            metadata_ids_to_delete,
-        )
-        .await
+        match delete_documents_from_database(&db_client, &config.database, metadata_ids_to_delete)
+            .await
         {
             Ok(_) => {}
             Err(_) => {

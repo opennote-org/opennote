@@ -190,10 +190,7 @@ pub async fn delete_documents_from_database(
 ) -> Result<()> {
     let mut conditions: Vec<Condition> = Vec::new();
     for id in document_ids.iter() {
-        conditions.push(Condition::matches(
-            "document_metadata_id",
-            id.to_owned(),
-        ));
+        conditions.push(Condition::matches("document_metadata_id", id.to_owned()));
     }
 
     match client

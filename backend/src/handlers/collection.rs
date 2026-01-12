@@ -7,10 +7,13 @@ use serde_json::json;
 use tokio::sync::RwLock;
 
 use crate::{
-    api_models::{callbacks::GenericResponse, collection::{
-        CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
-        GetCollectionsQuery, UpdateCollectionMetadataRequest,
-    }},
+    api_models::{
+        callbacks::GenericResponse,
+        collection::{
+            CreateCollectionRequest, CreateCollectionResponse, DeleteCollectionRequest,
+            GetCollectionsQuery, UpdateCollectionMetadataRequest,
+        },
+    },
     app_state::AppState,
     documents::collection_metadata::CollectionMetadata,
     utilities::acquire_data,

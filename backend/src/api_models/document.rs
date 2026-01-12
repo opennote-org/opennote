@@ -16,7 +16,7 @@ pub struct AddDocumentRequest {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DeleteDocumentRequest {
-    pub document_metadata_id: String
+    pub document_metadata_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -35,7 +35,7 @@ pub struct UpdateDocumentContentRequest {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetDocumentRequest {
-    pub document_metadata_id: String
+    pub document_metadata_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,17 +52,17 @@ pub struct ReindexResponse {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AddDocumentResponse {
-    pub document_metadata_id: String, 
+    pub document_metadata_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DeleteDocumentResponse {
-    pub document_metadata_id: String, 
+    pub document_metadata_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UpdateDocumentResponse {
-    pub document_metadata_id: String, 
+    pub document_metadata_id: String,
 }
 
 /// region: query
