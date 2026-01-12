@@ -22,7 +22,7 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppStateScope.of(context).refreshCollections();
+      AppStateScope.of(context).refreshAll();
     });
   }
 
@@ -46,6 +46,22 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  Future<void> _refreshAll() async {
+    setState(() => _isLoading = true);
+    try {
+      await AppStateScope.of(context).refreshAll();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refreshed all data')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to refresh: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
@@ -55,6 +71,12 @@ class _MainScreenState extends State<MainScreen> {
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
+        if (const SingleActivator(LogicalKeyboardKey.f5).accepts(event, HardwareKeyboard.instance) ||
+            const SingleActivator(LogicalKeyboardKey.keyR, control: true).accepts(event, HardwareKeyboard.instance) ||
+            const SingleActivator(LogicalKeyboardKey.keyR, meta: true).accepts(event, HardwareKeyboard.instance)) {
+          _refreshAll();
+          return KeyEventResult.handled;
+        }
         if (const SingleActivator(LogicalKeyboardKey.keyP, control: true)
             .accepts(event, HardwareKeyboard.instance)) {
           _showSearchPopup();

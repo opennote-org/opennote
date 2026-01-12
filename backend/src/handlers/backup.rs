@@ -361,6 +361,19 @@ pub async fn restore_backup(
             }
         };
 
+        match identities_storage.lock().await.save().await {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to save identities storage during restore: {}", e);
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to save metadata storage: {}", e)),
+                );
+                return;
+            }
+        }
+
         tasks_scheduler
             .lock()
             .await
