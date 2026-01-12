@@ -56,7 +56,7 @@ class AppState extends ChangeNotifier {
 
   List<CollectionMetadata> get collectionsList => collectionById.values.toList();
   List<DocumentMetadata> get documentsList => documentById.values.toList();
-  List<ArchieveListItem> backups = [];
+  List<BackupListItem> backups = [];
   
   // Tree View Caches
   final Map<String, List<DocumentMetadata>> documentsByCollectionId = {};
@@ -454,18 +454,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> restoreBackup(String archiveId) async {
+  Future<void> restoreBackup(String backupId) async {
     try {
-      final taskId = await backupService.restoreBackup(dio, archiveId);
+      final taskId = await backupService.restoreBackup(dio, backupId);
       _addTask(taskId, "Restoring backup");
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> deleteBackup(String archiveId) async {
+  Future<void> deleteBackup(String backupId) async {
     try {
-      await backupService.removeBackups(dio, [archiveId]);
+      await backupService.removeBackups(dio, [backupId]);
       await fetchBackups();
     } catch (e) {
       rethrow;
