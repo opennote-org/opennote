@@ -8,8 +8,8 @@
     "port": 8080,
     "workers": 4
   },
-  "user_information_storage": {
-    "path": "./data/user_information_storage.json"
+  "identities_storage": {
+    "path": "./data/identities_storage.json"
   },
   "metadata_storage": {
     "path": "./data/metadata_storage.json"

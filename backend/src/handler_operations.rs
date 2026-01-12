@@ -16,7 +16,7 @@ use crate::{
     configurations::system::{DatabaseConfig, EmbedderConfig},
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
     embedder::send_vectorization,
-    identities::storage::UserInformationStorage,
+    identities::storage::IdentitiesStorage,
     metadata_storage::MetadataStorage,
     search::SearchScope,
 };
@@ -55,7 +55,7 @@ pub async fn get_document_chunks(
 
 pub fn retrieve_document_ids_by_scope(
     metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
-    user_information_storage: &mut MutexGuard<'_, UserInformationStorage>,
+    identities_storage: &mut MutexGuard<'_, IdentitiesStorage>,
     search_scope: SearchScope,
     id: &str,
 ) -> Vec<String> {
@@ -63,7 +63,7 @@ pub fn retrieve_document_ids_by_scope(
     let document_metadata_ids: Vec<String> = match search_scope {
         SearchScope::Userspace => {
             let collection_ids: Vec<&String> =
-                user_information_storage.get_resource_ids_by_username(id);
+                identities_storage.get_resource_ids_by_username(id);
             let mut document_metadata_ids: Vec<&String> = Vec::new();
 
             for id in collection_ids {

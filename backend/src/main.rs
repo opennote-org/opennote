@@ -89,7 +89,7 @@ async fn main() -> Result<(), std::io::Error> {
             );
             info!(
                 "User information storage file contains {} entries",
-                state.user_information_storage.lock().await.users.len()
+                state.identities_storage.lock().await.users.len()
             );
             info!(
                 "Arhieves storage file contains {} entries",

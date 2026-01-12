@@ -19,9 +19,9 @@ pub async fn create_user(
     request: web::Json<CreateUserRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, user_information_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
-    match user_information_storage
+    match identities_storage
         .lock()
         .await
         .create_user(request.username.clone(), request.password.clone())
@@ -42,9 +42,9 @@ pub async fn login(
     request: web::Json<LoginRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, user_information_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
-    match user_information_storage
+    match identities_storage
         .lock()
         .await
         .validate_user_password(&request.username, &request.password)
@@ -65,9 +65,9 @@ pub async fn get_user_configurations(
     request: web::Json<GetUserConfigurationsRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, user_information_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
-    match user_information_storage
+    match identities_storage
         .lock()
         .await
         .get_user_configurations(&request.0.username)
@@ -88,9 +88,9 @@ pub async fn update_user_configurations(
     request: web::Json<UpdateUserConfigurationsRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, user_information_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
-    match user_information_storage
+    match identities_storage
         .lock()
         .await
         .update_user_configurations(&request.0.username, request.0.user_configurations)

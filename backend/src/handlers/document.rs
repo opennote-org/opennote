@@ -54,10 +54,10 @@ pub async fn add_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -152,10 +152,10 @@ pub async fn import_documents(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -400,10 +400,10 @@ pub async fn update_document_content(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, user_information_storage, _) =
+        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -607,11 +607,11 @@ pub async fn reindex(
             metadata_storage,
             tasks_scheduler,
             config,
-            user_information_storage,
+            identities_storage,
             _,
         ) = acquire_data(&data).await;
 
-        let user_configurations: UserConfigurations = match user_information_storage
+        let user_configurations: UserConfigurations = match identities_storage
             .lock()
             .await
             .get_user_configurations(&request.0.username)
@@ -633,7 +633,7 @@ pub async fn reindex(
             }
         };
 
-        let resource_ids: Vec<String> = user_information_storage
+        let resource_ids: Vec<String> = identities_storage
             .lock()
             .await
             .get_resource_ids_by_username(&request.0.username)

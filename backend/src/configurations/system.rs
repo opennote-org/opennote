@@ -9,16 +9,23 @@ use std::fs;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
+    
     pub logging: LoggingConfig,
+    
     pub backups_storage: BackupsStorageConfig,
+    
     pub metadata_storage: MetadataStorageConfig,
-    pub user_information_storage: UserInformationStorageConfig,
+    
+    #[serde(alias = "user_information_storage")]
+    pub identities_storage: IdentitiesStorageConfig,
+    
     pub database: DatabaseConfig,
+    
     pub embedder: EmbedderConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserInformationStorageConfig {
+pub struct IdentitiesStorageConfig {
     pub path: String,
 }
 

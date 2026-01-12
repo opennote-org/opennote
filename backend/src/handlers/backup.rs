@@ -106,11 +106,11 @@ pub async fn backup(
             metadata_storage,
             tasks_scheduler,
             _,
-            user_information_storage,
+            identities_storage,
             backups_storage,
         ) = acquire_data(&data).await;
 
-        let user_information_snapshots: Vec<User> = user_information_storage
+        let user_information_snapshots: Vec<User> = identities_storage
             .lock()
             .await
             .users
@@ -239,7 +239,7 @@ pub async fn restore_backup(
             metadata_storage,
             tasks_scheduler,
             config,
-            user_information_storage,
+            identities_storage,
             backups_storage,
         ) = acquire_data(&data).await;
 
@@ -266,7 +266,7 @@ pub async fn restore_backup(
         let document_metadatas_to_delete: Vec<String> = backup.get_document_metadata_ids();
 
         // Remove the old data from metadata, user information, database
-        user_information_storage
+        identities_storage
             .lock()
             .await
             .users
@@ -308,7 +308,7 @@ pub async fn restore_backup(
         }
 
         // Swap the data from the backup in
-        user_information_storage
+        identities_storage
             .lock()
             .await
             .users

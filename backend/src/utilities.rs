@@ -6,7 +6,7 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     app_state::AppState, backup::storage::BackupsStorage, configurations::system::Config,
-    identities::storage::UserInformationStorage, metadata_storage::MetadataStorage,
+    identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage,
     tasks_scheduler::TasksScheduler,
 };
 
@@ -18,7 +18,7 @@ pub async fn acquire_data(
     Arc<Mutex<MetadataStorage>>,
     Arc<Mutex<TasksScheduler>>,
     Config,
-    Arc<Mutex<UserInformationStorage>>,
+    Arc<Mutex<IdentitiesStorage>>,
     Arc<Mutex<BackupsStorage>>,
 ) {
     let (
@@ -27,7 +27,7 @@ pub async fn acquire_data(
         metadata_storage,
         tasks_scheduler,
         config,
-        user_information_storage,
+        identities_storage,
         backups_storage,
     ) = {
         let state = data.read().await;
@@ -37,7 +37,7 @@ pub async fn acquire_data(
             state.metadata_storage.clone(),
             state.tasks_scheduler.clone(),
             state.config.clone(),
-            state.user_information_storage.clone(),
+            state.identities_storage.clone(),
             state.backups_storage.clone(),
         )
     };
@@ -47,7 +47,7 @@ pub async fn acquire_data(
         metadata_storage,
         tasks_scheduler,
         config,
-        user_information_storage,
+        identities_storage,
         backups_storage,
     )
 }

@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     backup::storage::BackupsStorage, configurations::system::Config, database::Database,
-    identities::storage::UserInformationStorage, metadata_storage::MetadataStorage,
+    identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage,
     tasks_scheduler::TasksScheduler, traits::LoadAndSave,
 };
 
@@ -15,7 +15,7 @@ pub struct AppState {
     pub database: Database,
     pub backups_storage: Arc<Mutex<BackupsStorage>>,
     pub metadata_storage: Arc<Mutex<MetadataStorage>>,
-    pub user_information_storage: Arc<Mutex<UserInformationStorage>>,
+    pub identities_storage: Arc<Mutex<IdentitiesStorage>>,
 }
 
 impl AppState {
@@ -32,8 +32,8 @@ impl AppState {
             metadata_storage: Arc::new(Mutex::new(MetadataStorage::load(
                 &config_clone.metadata_storage.path,
             )?)),
-            user_information_storage: Arc::new(Mutex::new(UserInformationStorage::load(
-                &config_clone.user_information_storage.path,
+            identities_storage: Arc::new(Mutex::new(IdentitiesStorage::load(
+                &config_clone.identities_storage.path,
             )?)),
         })
     }
