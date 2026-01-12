@@ -62,8 +62,7 @@ pub fn retrieve_document_ids_by_scope(
     // For maximizing the performance, we are using a vec of referenced Strings.
     let document_metadata_ids: Vec<String> = match search_scope {
         SearchScope::Userspace => {
-            let collection_ids: Vec<&String> =
-                identities_storage.get_resource_ids_by_username(id);
+            let collection_ids: Vec<&String> = identities_storage.get_resource_ids_by_username(id);
             let mut document_metadata_ids: Vec<&String> = Vec::new();
 
             for id in collection_ids {

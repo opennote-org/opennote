@@ -5,8 +5,9 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
     app_state::AppState,
-    documents::document_chunk::DocumentChunkSearchResult,
-    handler_operations::retrieve_document_ids_by_scope,
+    documents::{
+        document_chunk::DocumentChunkSearchResult, operations::retrieve_document_ids_by_scope,
+    },
     search::{
         build_search_results, keyword::search_documents, semantic::search_documents_semantically,
     },

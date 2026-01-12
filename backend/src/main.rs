@@ -8,7 +8,6 @@ mod constants;
 mod database;
 mod documents;
 mod embedder;
-mod handler_operations;
 mod handlers;
 mod identities;
 mod metadata_storage;

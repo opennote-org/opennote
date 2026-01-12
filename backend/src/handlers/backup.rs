@@ -14,11 +14,12 @@ use crate::{
     app_state::AppState,
     backup::{base::Backup, list_item::BackupListItem},
     documents::{
-        collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
+        collection_metadata::CollectionMetadata,
+        document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
-    },
-    handler_operations::{
-        add_document_chunks_to_database, delete_documents_from_database, get_document_chunks,
+        operations::{
+            add_document_chunks_to_database, delete_documents_from_database, get_document_chunks,
+        },
     },
     identities::user::User,
     tasks_scheduler::TaskStatus,

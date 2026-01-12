@@ -18,9 +18,9 @@ use crate::{
     },
     documents::{
         document_chunk::DocumentChunk,
+        operations::add_document_chunks_to_database,
         traits::{GetIndexableFields, IndexableField},
     },
-    handler_operations::add_document_chunks_to_database,
 };
 
 #[derive(Clone)]

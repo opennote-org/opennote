@@ -29,10 +29,13 @@ use crate::{
         traits::Connector,
         webpage::WebpageConnector,
     },
-    documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
-    handler_operations::{
-        add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage,
-        delete_documents_from_database, get_document_chunks, preprocess_document,
+    documents::{
+        document_chunk::DocumentChunk,
+        document_metadata::DocumentMetadata,
+        operations::{
+            add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage,
+            delete_documents_from_database, get_document_chunks, preprocess_document,
+        },
     },
     tasks_scheduler::TaskStatus,
     utilities::acquire_data,
