@@ -52,8 +52,10 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       final value = widget.data[key];
       final fieldSchema = _resolveSchema(entry.value as Map<String, dynamic>);
       final type = fieldSchema['type'];
-      
-      if (type == 'integer' || type == 'number' || (type == 'string' && !fieldSchema.containsKey('enum'))) {
+
+      if (type == 'integer' ||
+          type == 'number' ||
+          (type == 'string' && !fieldSchema.containsKey('enum'))) {
         if (!_controllers.containsKey(key)) {
           _controllers[key] = TextEditingController();
         }
@@ -78,7 +80,13 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   Map<String, dynamic> _resolveSchema(Map<String, dynamic> schema) {
     if (schema.containsKey('\$ref')) {
-      return _resolveRef(schema['\$ref'] as String);
+      final resolved = _resolveRef(schema['\$ref'] as String);
+      // Merge resolved schema with current schema to preserve descriptions/titles
+      // defined at the property level.
+      return {
+        ...resolved,
+        ...schema,
+      };
     }
     return schema;
   }
@@ -101,10 +109,15 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     final displayTitle = title
         .replaceAll('_', ' ')
         .split(' ')
-        .map((str) => str.isNotEmpty ? '${str[0].toUpperCase()}${str.substring(1)}' : '')
+        .map(
+          (str) => str.isNotEmpty
+              ? '${str[0].toUpperCase()}${str.substring(1)}'
+              : '',
+        )
         .join(' ');
 
-    final description = fieldSchema['description'] as String?; // description might be null
+    final description =
+        fieldSchema['description'] as String?; // description might be null
     // helperText in InputDecoration expects String?
 
     if (fieldSchema.containsKey('enum')) {
@@ -114,6 +127,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           labelText: displayTitle,
           helperText: description,
           border: const OutlineInputBorder(),
+          hintMaxLines: 1000,
+          errorMaxLines: 1000,
+          helperMaxLines: 1000,
         ),
         items: (fieldSchema['enum'] as List)
             .map((e) => DropdownMenuItem(value: e, child: Text(e.toString())))
@@ -126,7 +142,11 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(displayTitle, style: Theme.of(context).textTheme.titleMedium),
+          Text(displayTitle, style: Theme.of(context).textTheme.titleMedium, maxLines: 1000,),
+          if (description != null) ...[
+            const SizedBox(height: 4),
+            Text(description, style: Theme.of(context).textTheme.bodySmall, maxLines:  1000,),
+          ],
           const SizedBox(height: 8),
           JsonSchemaForm(
             schema: widget.schema,
@@ -145,6 +165,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           labelText: displayTitle,
           helperText: description,
           border: const OutlineInputBorder(),
+          hintMaxLines: 1000,
+          errorMaxLines: 1000,
+          helperMaxLines: 1000,
         ),
         keyboardType: TextInputType.number,
         onChanged: (val) {
@@ -161,6 +184,9 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           labelText: displayTitle,
           helperText: description,
           border: const OutlineInputBorder(),
+          hintMaxLines: 1000,
+          errorMaxLines: 1000,
+          helperMaxLines: 1000,
         ),
         onChanged: (val) => _onFieldChanged(key, val),
       );
@@ -181,14 +207,20 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
   @override
   Widget build(BuildContext context) {
     final properties = _getProperties(widget.sectionSchema);
-    if (properties == null) return const Center(child: Text("No properties found"));
+    if (properties == null) {
+      return const Center(child: Text("No properties found"));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: properties.entries.map((e) => Padding(
-        padding: const EdgeInsets.only(bottom: 24),
-        child: _buildField(e.key, e.value as Map<String, dynamic>),
-      )).toList(),
+      children: properties.entries
+          .map(
+            (e) => Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _buildField(e.key, e.value as Map<String, dynamic>),
+            ),
+          )
+          .toList(),
     );
   }
 }
