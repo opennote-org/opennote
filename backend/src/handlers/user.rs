@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, Result, web};
+use schemars::schema_for;
 use tokio::sync::RwLock;
 
 use crate::{
@@ -10,6 +11,7 @@ use crate::{
         },
     },
     app_state::AppState,
+    configurations::user::UserConfigurations,
     utilities::acquire_data,
 };
 
@@ -103,4 +105,10 @@ pub async fn update_user_configurations(
             Ok(HttpResponse::Ok().json(GenericResponse::fail("".to_string(), error.to_string())))
         }
     }
+}
+
+// Sync endpoint
+pub async fn get_user_configurations_schemars() -> Result<HttpResponse> {
+    let schemars: schemars::Schema = schema_for!(UserConfigurations);
+    Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &schemars)))
 }

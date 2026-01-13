@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:notes/services/backup.dart';
 import 'package:notes/services/user.dart';
 import 'package:notes/state/app_state_scope.dart';
+import 'package:notes/widgets/json_schema_form.dart';
 
 class ConfigurationPopup extends StatefulWidget {
   const ConfigurationPopup({super.key});
@@ -14,9 +14,109 @@ class ConfigurationPopup extends StatefulWidget {
 
 class _ConfigurationPopupState extends State<ConfigurationPopup> {
   int _selectedIndex = 0;
+  bool _isLoading = true;
+  Map<String, dynamic>? _schema;
+  Map<String, dynamic> _config = {};
+  final UserManagementService _userService = UserManagementService();
+  int? _initialChunkSize;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final appState = AppStateScope.of(context);
+    final username = appState.username;
+    if (username == null) return;
+
+    try {
+      final schema = await _userService.getUserConfigurationsSchemars(
+        appState.dio,
+      );
+      final config = await _userService.getUserConfigurationsMap(
+        appState.dio,
+        username,
+      );
+
+      if (mounted) {
+        setState(() {
+          _schema = schema;
+          _config = config;
+          _isLoading = false;
+          if (_config.containsKey('search') &&
+              _config['search'] is Map &&
+              (_config['search'] as Map).containsKey('document_chunk_size')) {
+            _initialChunkSize =
+                (_config['search'] as Map)['document_chunk_size'] as int?;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveData() async {
+    final appState = AppStateScope.of(context);
+    final username = appState.username;
+    if (username == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _userService.updateUserConfigurationsMap(
+        appState.dio,
+        username,
+        _config,
+      );
+
+      // Reindex check
+      if (_initialChunkSize != null &&
+          _config.containsKey('search') &&
+          _config['search'] is Map &&
+          (_config['search'] as Map).containsKey('document_chunk_size')) {
+        final newChunkSize =
+            (_config['search'] as Map)['document_chunk_size'] as int?;
+        if (newChunkSize != null && newChunkSize != _initialChunkSize) {
+          await appState.reindexDocuments();
+          _initialChunkSize = newChunkSize;
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Configurations updated")));
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to update configs: $e")));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  List<String> _getSchemaProperties() {
+    if (_schema == null || !_schema!.containsKey('properties')) return [];
+    return (_schema!['properties'] as Map<String, dynamic>).keys.toList();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final schemaProperties = _getSchemaProperties();
+    // Add Backup as the last item
+    final tabs = [...schemaProperties, "Backup"];
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
@@ -31,201 +131,130 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Configuration", style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    "Configuration",
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 24),
-                  ListTile(
-                    leading: const Icon(Icons.search),
-                    title: const Text("Search"),
-                    selected: _selectedIndex == 0,
-                    onTap: () => setState(() => _selectedIndex = 0),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.backup),
-                    title: const Text("Backup"),
-                    selected: _selectedIndex == 1,
-                    onTap: () => setState(() => _selectedIndex = 1),
-                  ),
+                  if (_isLoading && _schema == null)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: tabs.length,
+                        itemBuilder: (context, index) {
+                          final title = tabs[index];
+                          // Capitalize
+                          final displayTitle = title == "Backup"
+                              ? title
+                              : title
+                                    .split('_')
+                                    .map(
+                                      (word) => word.isNotEmpty
+                                          ? word[0].toUpperCase() +
+                                                word.substring(1)
+                                          : '',
+                                    )
+                                    .join(' ');
+
+                          IconData icon = Icons.settings;
+                          if (title == "search") icon = Icons.search;
+                          if (title == "Backup") icon = Icons.backup;
+
+                          return ListTile(
+                            leading: Icon(icon),
+                            title: Text(displayTitle),
+                            selected: _selectedIndex == index,
+                            onTap: () => setState(() => _selectedIndex = index),
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
             const VerticalDivider(width: 48),
             // Main Content
             Expanded(
-              child: IndexedStack(index: _selectedIndex, children: const [_SearchSettings(), _BackupSettings()]),
+              child: _isLoading && _schema == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : _buildContent(tabs),
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _SearchSettings extends StatefulWidget {
-  const _SearchSettings();
-
-  @override
-  State<_SearchSettings> createState() => _SearchSettingsState();
-}
-
-class _SearchSettingsState extends State<_SearchSettings> {
-  bool _isLoading = true;
-  final TextEditingController _chunkSizeController = TextEditingController();
-  final TextEditingController _topNController = TextEditingController();
-  late SupportedSearchMethod _defaultSearchMethodController;
-  final UserManagementService _userService = UserManagementService();
-  int? _initialChunkSize;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadConfigurations();
-  }
-
-  Future<void> _loadConfigurations() async {
-    final appState = AppStateScope.of(context);
-    final username = appState.username;
-
-    if (username == null) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User not logged in")));
-      }
-      return;
+  Widget _buildContent(List<String> tabs) {
+    if (_selectedIndex >= tabs.length) {
+      return const SizedBox();
     }
 
-    try {
-      final config = await _userService.getUserConfigurations(appState.dio, username);
-      if (mounted) {
-        setState(() {
-          _chunkSizeController.text = config.search.documentChunkSize.toString();
-          _initialChunkSize = config.search.documentChunkSize;
-          _defaultSearchMethodController = config.search.defaultSearchMethod;
-          _topNController.text = config.search.topN.toString();
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to load configs: $e")));
-      }
-    }
-  }
+    final selectedTab = tabs[_selectedIndex];
 
-  Future<void> _saveConfigurations() async {
-    final appState = AppStateScope.of(context);
-    final username = appState.username;
-
-    if (username == null) return;
-
-    final int? chunkSize = int.tryParse(_chunkSizeController.text);
-    if (chunkSize == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid chunk size")));
-      return;
+    if (selectedTab == "Backup") {
+      return const _BackupSettings();
     }
 
-    final int? topN = int.tryParse(_topNController.text);
-    if (topN == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid top N")));
-      return;
+    final sectionKey = selectedTab;
+    final sectionSchema =
+        (_schema!['properties'] as Map<String, dynamic>)[sectionKey];
+    // Resolve ref if needed to get description
+    Map<String, dynamic> resolvedSchema = sectionSchema;
+    if (sectionSchema.containsKey('\$ref')) {
+      // Simple ref resolution logic similar to JsonSchemaForm, but we need access to schema root
+      // Since we have _schema, we can resolve it.
+      // But JsonSchemaForm handles it internally.
+      // However, we want the description HERE.
+      // If the property has a description directly (which I added to UserConfigurations struct), it should be in sectionSchema.
+      // If it's a ref, the description might be in the definition.
+      // 'schemars' puts description on the property definition in the parent object usually.
     }
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    final newConfig = UserConfigurations(
-      search: SearchConfiguration(documentChunkSize: chunkSize, defaultSearchMethod: _defaultSearchMethodController, topN: topN),
-    );
-
-    try {
-      await _userService.updateUserConfigurations(appState.dio, username, newConfig);
-
-      if (_initialChunkSize != null && chunkSize != _initialChunkSize) {
-        await appState.reindexDocuments();
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Configurations updated")));
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update configs: $e")));
-      }
-    }
-  }
-
-  /// TODO: Programatically build these options
-  List<Widget> _buildSettingsOptions() {
-    return [
-      Text("Search Settings", style: Theme.of(context).textTheme.titleMedium),
-      TextField(
-        controller: _topNController,
-        decoration: const InputDecoration(
-          labelText: "Top N",
-          border: OutlineInputBorder(),
-          helperText: "How many search results to get after typing in a search query",
-          helperMaxLines: 1000,
-        ),
-        keyboardType: TextInputType.number,
-      ),
-      TextField(
-        controller: _chunkSizeController,
-        decoration: const InputDecoration(
-          labelText: "Document Maximum Chunk Size",
-          border: OutlineInputBorder(),
-          helperText: "Maximum size of chunks for search indexing. Adjust this if the value is beyond the model context limit",
-          helperMaxLines: 1000,
-        ),
-        keyboardType: TextInputType.number,
-      ),
-      DropdownMenu<SupportedSearchMethod>(
-        label: Text("Default Search Method"),
-        initialSelection: _defaultSearchMethodController,
-        onSelected: (selection) {
-          if (selection != null) {
-            setState(() {
-              _defaultSearchMethodController = selection;
-            });
-          }
-        },
-        helperText: "The default way of searching",
-        dropdownMenuEntries: [
-          DropdownMenuEntry(value: SupportedSearchMethod.semantic, label: "Semantic"),
-          DropdownMenuEntry(value: SupportedSearchMethod.keyword, label: "Keyword"),
-        ],
-      ),
-    ];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final description = sectionSchema['description'] as String?;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 24,
       children: [
-        ..._buildSettingsOptions(),
-        const Spacer(),
+        if (description != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Text(
+              description,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          const Divider(),
+          const SizedBox(height: 16),
+        ],
+        Expanded(
+          child: SingleChildScrollView(
+            child: JsonSchemaForm(
+              schema: _schema!,
+              sectionSchema: sectionSchema,
+              data: (_config[sectionKey] as Map<String, dynamic>?) ?? {},
+              onChanged: (newData) {
+                setState(() {
+                  _config[sectionKey] = newData;
+                });
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("Close")),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Close"),
+            ),
             const SizedBox(width: 8),
-            FilledButton(onPressed: _isLoading ? null : _saveConfigurations, child: const Text("Save")),
+            FilledButton(
+              onPressed: _isLoading ? null : _saveData,
+              child: const Text("Save"),
+            ),
           ],
         ),
       ],
@@ -268,11 +297,15 @@ class _BackupSettingsState extends State<_BackupSettings> {
     try {
       await appState.createBackup();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup task started")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Backup task started")));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start backup: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to start backup: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -287,10 +320,18 @@ class _BackupSettingsState extends State<_BackupSettings> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Restore Backup"),
-        content: const Text("Are you sure you want to restore this backup? Current data will be replaced."),
+        content: const Text(
+          "Are you sure you want to restore this backup? Current data will be replaced.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("Cancel")),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text("Restore")),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Restore"),
+          ),
         ],
       ),
     );
@@ -301,11 +342,15 @@ class _BackupSettingsState extends State<_BackupSettings> {
     try {
       await appState.restoreBackup(archieveId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Restore task started")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Restore task started")));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to start restore: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to start restore: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -320,10 +365,18 @@ class _BackupSettingsState extends State<_BackupSettings> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Delete Backup"),
-        content: const Text("Are you sure you want to delete this backup? This action cannot be undone."),
+        content: const Text(
+          "Are you sure you want to delete this backup? This action cannot be undone.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("Cancel")),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text("Delete")),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Delete"),
+          ),
         ],
       ),
     );
@@ -335,11 +388,15 @@ class _BackupSettingsState extends State<_BackupSettings> {
     try {
       await appState.deleteBackup(archieveId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup deleted")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Backup deleted")));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to delete backup: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to delete backup: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -358,7 +415,11 @@ class _BackupSettingsState extends State<_BackupSettings> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text("Backups", style: Theme.of(context).textTheme.titleMedium),
-            FilledButton.icon(onPressed: _isLoading ? null : _createBackup, icon: const Icon(Icons.add), label: const Text("Backup Now")),
+            FilledButton.icon(
+              onPressed: _isLoading ? null : _createBackup,
+              icon: const Icon(Icons.add),
+              label: const Text("Backup Now"),
+            ),
           ],
         ),
         const SizedBox(height: 24),
@@ -382,12 +443,16 @@ class _BackupSettingsState extends State<_BackupSettings> {
                       IconButton(
                         icon: const Icon(Icons.restore),
                         tooltip: "Restore",
-                        onPressed: _isLoading ? null : () => _restoreBackup(backup.id),
+                        onPressed: _isLoading
+                            ? null
+                            : () => _restoreBackup(backup.id),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
                         tooltip: "Delete",
-                        onPressed: _isLoading ? null : () => _deleteBackup(backup.id),
+                        onPressed: _isLoading
+                            ? null
+                            : () => _deleteBackup(backup.id),
                       ),
                     ],
                   ),

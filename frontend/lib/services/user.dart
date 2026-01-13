@@ -1,36 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:json_annotation/json_annotation.dart';
 import 'package:notes/constants.dart';
 import 'package:notes/services/general.dart';
-
-part 'user.g.dart';
-
-enum SupportedSearchMethod {
-  keyword,
-  semantic,
-}
-
-@JsonSerializable(fieldRename: FieldRename.snake)
-class SearchConfiguration {
-  int documentChunkSize;
-  SupportedSearchMethod defaultSearchMethod;
-  int topN;
-
-  SearchConfiguration({required this.documentChunkSize, required this.defaultSearchMethod, required this.topN});
-
-  factory SearchConfiguration.fromJson(Map<String, dynamic> json) => _$SearchConfigurationFromJson(json);
-  Map<String, dynamic> toJson() => _$SearchConfigurationToJson(this);
-}
-
-@JsonSerializable(fieldRename: FieldRename.snake)
-class UserConfigurations {
-  SearchConfiguration search;
-
-  UserConfigurations({required this.search});
-
-  factory UserConfigurations.fromJson(Map<String, dynamic> json) => _$UserConfigurationsFromJson(json);
-  Map<String, dynamic> toJson() => _$UserConfigurationsToJson(this);
-}
 
 class UserManagementService {
   Future<void> createUser(Dio dio, String username, String password) async {
@@ -62,12 +32,26 @@ class UserManagementService {
     }
   }
 
-  Future<UserConfigurations> getUserConfigurations(Dio dio, String username) async {
+  Future<Map<String, dynamic>> getUserConfigurationsSchemars(Dio dio) async {
+    try {
+      final response = await dio.get(getUserConfigurationsSchemarsEndpoint);
+      final genericResponse = GenericResponse.fromJson(response.data as Map<String, dynamic>);
+      if (genericResponse.status == "Completed") {
+        return genericResponse.data as Map<String, dynamic>;
+      } else {
+        throw Exception(genericResponse.message ?? "Failed to get user configurations schema");
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserConfigurationsMap(Dio dio, String username) async {
     try {
       final response = await dio.post(getUserConfigurationsEndpoint, data: {"username": username});
       final genericResponse = GenericResponse.fromJson(response.data as Map<String, dynamic>);
       if (genericResponse.status == "Completed") {
-        return UserConfigurations.fromJson(genericResponse.data as Map<String, dynamic>);
+        return genericResponse.data as Map<String, dynamic>;
       } else {
         throw Exception(genericResponse.message ?? "Failed to get user configurations");
       }
@@ -76,11 +60,11 @@ class UserManagementService {
     }
   }
 
-  Future<void> updateUserConfigurations(Dio dio, String username, UserConfigurations config) async {
+  Future<void> updateUserConfigurationsMap(Dio dio, String username, Map<String, dynamic> config) async {
     try {
       final response = await dio.post(
         updateUserConfigurationsEndpoint,
-        data: {"username": username, "user_configurations": config.toJson()},
+        data: {"username": username, "user_configurations": config},
       );
       final genericResponse = GenericResponse.fromJson(response.data as Map<String, dynamic>);
       if (genericResponse.status != "Completed") {

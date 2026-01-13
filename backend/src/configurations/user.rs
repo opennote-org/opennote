@@ -2,12 +2,10 @@
 //! These are not necessarily break changes to the global uses,
 //! but will directly affect the user him/herself.
 
-/// Each feature module will provide configurable options
-/// The configurable options are collected into the configuration module
-/// When corresponding requests are sent, the relevant configurations are collected
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportedSearchMethod {
     Keyword,
@@ -20,8 +18,9 @@ impl Default for SupportedSearchMethod {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 pub struct UserConfigurations {
+    /// Configurations for search functionality
     pub search: UserSearchConfiguration,
 }
 
@@ -33,11 +32,16 @@ impl Default for UserConfigurations {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 #[serde(default)]
 pub struct UserSearchConfiguration {
+    /// The default way of searching
     pub default_search_method: SupportedSearchMethod,
+    
+    /// Maximum size of chunks for search indexing. Adjust this if the value is beyond the model context limit
     pub document_chunk_size: usize,
+    
+    /// How many search results to get after typing in a search query
     pub top_n: usize,
 }
 
