@@ -258,18 +258,29 @@ class _SearchPopupState extends State<SearchPopup> {
 
   Future<void> _initializeData() async {
     final appState = AppStateScope.of(context);
-    final configuations = await appState.users.getUserConfigurations(Dio(), appState.username!);
+    try {
+      final configurations = await appState.users.getUserConfigurationsMap(Dio(), appState.username!);
 
-    if (!mounted) return;
-    setState(() {
-      if (configuations.search.defaultSearchMethod == SupportedSearchMethod.semantic) {
-        _isKeywordSearch = false;
-      } else if (configuations.search.defaultSearchMethod == SupportedSearchMethod.keyword) {
-        _isKeywordSearch = true;
-      }
-      
-      _topN = configuations.search.topN;
-    });
+      if (!mounted) return;
+      setState(() {
+        if (configurations.containsKey('search') && configurations['search'] is Map) {
+          final searchConfig = configurations['search'] as Map<String, dynamic>;
+          final defaultSearchMethod = searchConfig['default_search_method'];
+          
+          if (defaultSearchMethod == 'semantic') {
+            _isKeywordSearch = false;
+          } else if (defaultSearchMethod == 'keyword') {
+            _isKeywordSearch = true;
+          }
+
+          if (searchConfig.containsKey('top_n')) {
+             _topN = (searchConfig['top_n'] as num).toInt();
+          }
+        }
+      });
+    } catch (e) {
+      // debugPrint('Failed to load user configurations: $e');
+    }
   }
 
   void _onSearchChanged(String query) {

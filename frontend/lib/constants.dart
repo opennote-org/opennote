@@ -36,6 +36,7 @@ const String createUserEndpoint = "$baseUrl$apiUrl/users/sync/create_user";
 const String loginEndpoint = "$baseUrl$apiUrl/users/sync/login";
 const String getUserConfigurationsEndpoint = "$baseUrl$apiUrl/users/sync/get_user_configurations";
 const String updateUserConfigurationsEndpoint = "$baseUrl$apiUrl/users/sync/update_user_configurations";
+const String getUserConfigurationsSchemarsEndpoint = "$baseUrl$apiUrl/users/sync/get_user_configurations_schemars";
 
 // Backup
 const String getBackupsListEndpoint = "$baseUrl$apiUrl/backup/sync/get_backups_list";
