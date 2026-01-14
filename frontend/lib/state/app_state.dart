@@ -7,6 +7,7 @@ import 'package:notes/services/document.dart';
 import 'package:notes/services/general.dart';
 import 'package:notes/services/user.dart';
 import 'package:notes/services/backup.dart';
+import 'package:notes/services/key_mapping.dart';
 
 class TaskInfo {
   final String id;
@@ -45,6 +46,7 @@ class AppState extends ChangeNotifier {
   final GeneralService general = GeneralService();
   final UserManagementService users = UserManagementService();
   final BackupService backupService = BackupService();
+  final KeyBindingService keyBindings = KeyBindingService();
 
   String? username;
   String? currentCollectionId;
@@ -312,6 +314,7 @@ class AppState extends ChangeNotifier {
       refreshDocuments(),
       refreshCollections(), // Also refresh collections as some tasks might affect them
       fetchBackups(),
+      if (username != null) keyBindings.fetchAndApplyConfigurations(dio, users, username!),
     ]);
   }
 

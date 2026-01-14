@@ -94,6 +94,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Configurations updated")));
+        await appState.refreshAll();
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -200,17 +201,6 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
     final sectionKey = selectedTab;
     final sectionSchema =
         (_schema!['properties'] as Map<String, dynamic>)[sectionKey];
-    // Resolve ref if needed to get description
-    Map<String, dynamic> resolvedSchema = sectionSchema;
-    if (sectionSchema.containsKey('\$ref')) {
-      // Simple ref resolution logic similar to JsonSchemaForm, but we need access to schema root
-      // Since we have _schema, we can resolve it.
-      // But JsonSchemaForm handles it internally.
-      // However, we want the description HERE.
-      // If the property has a description directly (which I added to UserConfigurations struct), it should be in sectionSchema.
-      // If it's a ref, the description might be in the definition.
-      // 'schemars' puts description on the property definition in the parent object usually.
-    }
 
     final description = sectionSchema['description'] as String?;
 

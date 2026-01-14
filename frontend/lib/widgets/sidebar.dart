@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
-import 'package:notes/show.dart';
+import 'package:notes/actions.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/utils/downloader.dart';
