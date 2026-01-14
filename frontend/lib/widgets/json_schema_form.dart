@@ -7,13 +7,7 @@ class JsonSchemaForm extends StatefulWidget {
   final Map<String, dynamic> data;
   final ValueChanged<Map<String, dynamic>> onChanged;
 
-  const JsonSchemaForm({
-    super.key,
-    required this.schema,
-    required this.sectionSchema,
-    required this.data,
-    required this.onChanged,
-  });
+  const JsonSchemaForm({super.key, required this.schema, required this.sectionSchema, required this.data, required this.onChanged});
 
   @override
   State<JsonSchemaForm> createState() => _JsonSchemaFormState();
@@ -54,9 +48,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
       final fieldSchema = _resolveSchema(entry.value as Map<String, dynamic>);
       final type = fieldSchema['type'];
 
-      if (type == 'integer' ||
-          type == 'number' ||
-          (type == 'string' && !fieldSchema.containsKey('enum'))) {
+      if (type == 'integer' || type == 'number' || (type == 'string' && !fieldSchema.containsKey('enum'))) {
         if (!_controllers.containsKey(key)) {
           _controllers[key] = TextEditingController();
         }
@@ -108,10 +100,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     if (fieldSchema['type'] is List) {
       final types = fieldSchema['type'] as List;
       // Find the first non-null type
-      final actualType = types.firstWhere(
-        (t) => t != 'null',
-        orElse: () => 'string',
-      );
+      final actualType = types.firstWhere((t) => t != 'null', orElse: () => 'string');
       // We create a new schema map forcing the single type for rendering logic
       fieldSchema = Map<String, dynamic>.from(fieldSchema);
       fieldSchema['type'] = actualType;
@@ -127,11 +116,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
           final resolvedOpt = _resolveSchema(opt);
           if (resolvedOpt['type'] != 'null') {
             // Merge the resolved option into the field schema
-            fieldSchema = {
-              ...fieldSchema,
-              ...resolvedOpt,
-              'type': resolvedOpt['type'] ?? fieldSchema['type'],
-            };
+            fieldSchema = {...fieldSchema, ...resolvedOpt, 'type': resolvedOpt['type'] ?? fieldSchema['type']};
             break;
           }
         }
@@ -142,15 +127,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
 
   String _getDisplayTitle(String key, Map<String, dynamic> fieldSchema) {
     final title = fieldSchema['title'] ?? key;
-    return title
-        .replaceAll('_', ' ')
-        .split(' ')
-        .map(
-          (str) => str.isNotEmpty
-              ? '${str[0].toUpperCase()}${str.substring(1)}'
-              : '',
-        )
-        .join(' ');
+    return title.replaceAll('_', ' ').split(' ').map((str) => str.isNotEmpty ? '${str[0].toUpperCase()}${str.substring(1)}' : '').join(' ');
   }
 
   Widget _buildField(String key, Map<String, dynamic> schema) {
@@ -186,12 +163,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return Text("Unknown type: $type");
   }
 
-  Widget _buildEnumField(
-    String key, 
-    Map<String, dynamic> fieldSchema, 
-    String displayTitle, 
-    String? description
-  ) {
+  Widget _buildEnumField(String key, Map<String, dynamic> fieldSchema, String displayTitle, String? description) {
     return DropdownButtonFormField<dynamic>(
       value: widget.data[key] ?? fieldSchema['default'],
       decoration: InputDecoration(
@@ -202,42 +174,25 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         errorMaxLines: 1000,
         helperMaxLines: 1000,
       ),
-      items: (fieldSchema['enum'] as List)
-          .map((e) => DropdownMenuItem(value: e, child: Text(e.toString())))
-          .toList(),
+      items: (fieldSchema['enum'] as List).map((e) => DropdownMenuItem(value: e, child: Text(e.toString()))).toList(),
       onChanged: (val) => _onFieldChanged(key, val),
     );
   }
 
-  Widget _buildObjectField(
-    String key, 
-    Map<String, dynamic> fieldSchema, 
-    String displayTitle, 
-    String? description
-  ) {
+  Widget _buildObjectField(String key, Map<String, dynamic> fieldSchema, String displayTitle, String? description) {
     // Check if this is a KeyCombination (has 'key' and 'modifiers')
     final properties = _getProperties(fieldSchema);
-    if (properties != null &&
-        properties.containsKey('key') &&
-        properties.containsKey('modifiers')) {
+    if (properties != null && properties.containsKey('key') && properties.containsKey('modifiers')) {
       return _buildKeyBindingRecorderField(key, displayTitle, description);
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          displayTitle,
-          style: Theme.of(context).textTheme.titleMedium,
-          maxLines: 1000,
-        ),
+        Text(displayTitle, style: Theme.of(context).textTheme.titleMedium, maxLines: 1000),
         if (description != null) ...[
           const SizedBox(height: 4),
-          Text(
-            description,
-            style: Theme.of(context).textTheme.bodySmall,
-            maxLines: 1000,
-          ),
+          Text(description, style: Theme.of(context).textTheme.bodySmall, maxLines: 1000),
         ],
         const SizedBox(height: 8),
         JsonSchemaForm(
@@ -250,25 +205,18 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     );
   }
 
-  Widget _buildKeyBindingRecorderField(
-    String key, 
-    String displayTitle, 
-    String? description
-  ) {
+  Widget _buildKeyBindingRecorderField(String key, String displayTitle, String? description) {
     // Use KeyBindingRecorder
     final currentData = (widget.data[key] as Map<String, dynamic>?) ?? {};
     final currentKey = currentData['key'] as String?;
-    final currentModifiers =
-        (currentData['modifiers'] as List?)?.cast<String>() ?? [];
-    final currentFollowingKeys =
-        (currentData['following_keys'] as List?)?.cast<String>() ?? [];
+    final currentModifiers = (currentData['modifiers'] as List?)?.cast<String>() ?? [];
+    final currentFollowingKeys = (currentData['following_keys'] as List?)?.cast<String>() ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(displayTitle, style: Theme.of(context).textTheme.titleMedium),
-        if (description != null)
-          Text(description, style: Theme.of(context).textTheme.bodySmall),
+        if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 8),
         KeyBindingRecorder(
           initialKey: currentKey,
@@ -323,15 +271,8 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     );
   }
 
-  Widget _buildArrayField(
-    String key, 
-    Map<String, dynamic> fieldSchema, 
-    String displayTitle, 
-    String? description
-  ) {
-    final itemsSchema = _resolveSchema(
-      fieldSchema['items'] as Map<String, dynamic>,
-    );
+  Widget _buildArrayField(String key, Map<String, dynamic> fieldSchema, String displayTitle, String? description) {
+    final itemsSchema = _resolveSchema(fieldSchema['items'] as Map<String, dynamic>);
     if (itemsSchema.containsKey('enum')) {
       // Multi-select for enums (e.g. modifiers)
       final options = (itemsSchema['enum'] as List).cast<String>();
@@ -341,8 +282,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(displayTitle, style: Theme.of(context).textTheme.titleMedium),
-          if (description != null)
-            Text(description, style: Theme.of(context).textTheme.bodySmall),
+          if (description != null) Text(description, style: Theme.of(context).textTheme.bodySmall),
           Wrap(
             spacing: 8,
             children: options.map((option) {
@@ -378,12 +318,7 @@ class _JsonSchemaFormState extends State<JsonSchemaForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: properties.entries
-          .map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: _buildField(e.key, e.value as Map<String, dynamic>),
-            ),
-          )
+          .map((e) => Padding(padding: const EdgeInsets.only(bottom: 24), child: _buildField(e.key, e.value as Map<String, dynamic>)))
           .toList(),
     );
   }

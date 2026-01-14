@@ -7,11 +7,7 @@ class GlobalKeyHandler extends StatelessWidget {
   final Widget child;
   final void Function(AppAction) onAction;
 
-  const GlobalKeyHandler({
-    super.key,
-    required this.child,
-    required this.onAction,
-  });
+  const GlobalKeyHandler({super.key, required this.child, required this.onAction});
 
   @override
   Widget build(BuildContext context) {

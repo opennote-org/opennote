@@ -125,9 +125,9 @@ impl KeyProfile {
                 open_config: Some(KeyCombination::with_modifiers(",", vec![Modifier::Meta])),
                 open_search: Some(KeyCombination::new("/")),
                 toggle_sidebar: Some(KeyCombination::with_modifiers("b", vec![Modifier::Meta])),
-                switch_tab_next: Some(KeyCombination::with_modifiers("j", vec![Modifier::Shift])),
+                switch_tab_next: Some(KeyCombination::with_modifiers("k", vec![Modifier::Shift])),
                 switch_tab_previous: Some(KeyCombination::with_modifiers(
-                    "k",
+                    "j",
                     vec![Modifier::Shift],
                 )),
                 refresh: Some(KeyCombination::with_modifiers("r", vec![Modifier::Meta])),
@@ -195,9 +195,9 @@ impl KeyProfile {
                 open_config: Some(KeyCombination::with_modifiers(",", vec![Modifier::Meta])),
                 open_search: Some(KeyCombination::with_modifiers("p", vec![Modifier::Meta])),
                 toggle_sidebar: Some(KeyCombination::with_modifiers("b", vec![Modifier::Meta])),
-                switch_tab_next: Some(KeyCombination::with_modifiers("Tab", vec![Modifier::Ctrl])),
+                switch_tab_next: Some(KeyCombination::with_modifiers("S", vec![Modifier::Ctrl])),
                 switch_tab_previous: Some(KeyCombination::with_modifiers(
-                    "Tab",
+                    "A",
                     vec![Modifier::Ctrl, Modifier::Shift],
                 )),
                 refresh: Some(KeyCombination::with_modifiers("r", vec![Modifier::Meta])),

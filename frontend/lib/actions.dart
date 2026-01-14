@@ -26,9 +26,9 @@ final Map<AppAction, ActionHandler> _actionHandlers = {
     }
   },
   AppAction.switchTabNext:
-      (context, appState, _) async => _switchTab(appState, 1),
+      (context, appState, _) async => appState.switchDocumentTab(1),
   AppAction.switchTabPrevious:
-      (context, appState, _) async => _switchTab(appState, -1),
+      (context, appState, _) async => appState.switchDocumentTab(-1),
   AppAction.saveDocument: (context, appState, _) async {
     try {
       await appState.saveActiveDocument();
@@ -73,32 +73,6 @@ Future<void> performAction(
   if (handler != null) {
     await handler(context, appState, scaffoldKey);
   }
-}
-
-void _switchTab(AppState appState, int offset) {
-  if (appState.openDocumentIds.isEmpty) return;
-
-  final currentId = appState.activeItem.id;
-  if (currentId == null) {
-    if (appState.openDocumentIds.isNotEmpty) {
-      appState.setActiveItem(
-        ActiveItemType.document,
-        appState.openDocumentIds.first,
-      );
-    }
-    return;
-  }
-
-  final currentIndex = appState.openDocumentIds.indexOf(currentId);
-  if (currentIndex == -1) return;
-
-  final newIndex =
-      (currentIndex + offset + appState.openDocumentIds.length) %
-      appState.openDocumentIds.length;
-  appState.setActiveItem(
-    ActiveItemType.document,
-    appState.openDocumentIds[newIndex],
-  );
 }
 
 void showSearchPopup(BuildContext context) {

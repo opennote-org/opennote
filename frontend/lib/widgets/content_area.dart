@@ -5,23 +5,16 @@ import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/services/key_mapping.dart';
 import 'package:notes/widgets/document_editor.dart';
 
-class ContentArea extends StatefulWidget {
+class ContentArea extends StatelessWidget {
   const ContentArea({super.key});
-
-  @override
-  State<ContentArea> createState() => _ContentAreaState();
-}
-
-class _ContentAreaState extends State<ContentArea> {
-  String? _lastDocumentId;
-
+  
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
     
     // Update last document if the active item is a document
     if (appState.activeItem.type == ActiveItemType.document && appState.activeItem.id != null) {
-      _lastDocumentId = appState.activeItem.id;
+      appState.lastActiveDocumentId = appState.activeItem.id;
     }
 
     if (appState.openDocumentIds.isEmpty) {
@@ -132,10 +125,10 @@ class _ContentAreaState extends State<ContentArea> {
         ),
         // Content
         Expanded(
-          child: _lastDocumentId != null
+          child: appState.lastActiveDocumentId != null
               ? DocumentEditor(
-                  key: ValueKey(_lastDocumentId),
-                  documentId: _lastDocumentId!,
+                  key: ValueKey(appState.lastActiveDocumentId),
+                  documentId: appState.lastActiveDocumentId!,
                 )
               : const SizedBox(),
         ),

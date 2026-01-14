@@ -35,8 +35,7 @@ class _MainScreenState extends State<MainScreen> {
 
     await performAction(context, action, scaffoldKey: _scaffoldKey);
 
-    if (mounted &&
-        (action == AppAction.saveDocument || action == AppAction.refresh)) {
+    if (mounted && (action == AppAction.saveDocument || action == AppAction.refresh)) {
       setState(() => _isLoading = false);
     }
   }
@@ -59,25 +58,15 @@ class _MainScreenState extends State<MainScreen> {
               IconButton(
                 icon: const Icon(Icons.save),
                 tooltip: 'Save',
-                onPressed:
-                    _isLoading
-                        ? null
-                        : () => _handleAction(AppAction.saveDocument),
+                onPressed: _isLoading ? null : () => _handleAction(AppAction.saveDocument),
               ),
 
-            if (activeItem.type != ActiveItemType.none ||
-                appState.username != null)
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () => _handleAction(AppAction.openSearch),
-              ),
+            if (activeItem.type != ActiveItemType.none || appState.username != null)
+              IconButton(icon: const Icon(Icons.search), onPressed: () => _handleAction(AppAction.openSearch)),
           ],
         ),
         drawer: const Drawer(child: Sidebar()),
-        body:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : const ContentArea(),
+        body: _isLoading ? const Center(child: CircularProgressIndicator()) : const ContentArea(),
       ),
     );
   }
