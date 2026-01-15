@@ -15,9 +15,9 @@ pub enum Modifier {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 pub struct KeyCombination {
     pub key: String,
-    
+
     pub following_keys: Vec<String>,
-    
+
     #[serde(default)]
     pub modifiers: Vec<Modifier>,
 }
@@ -29,6 +29,7 @@ pub struct GlobalActions {
     pub toggle_sidebar: Option<KeyCombination>,
     pub switch_tab_next: Option<KeyCombination>,
     pub switch_tab_previous: Option<KeyCombination>,
+    pub close_tab: Option<KeyCombination>,
     pub refresh: Option<KeyCombination>,
 }
 
@@ -51,8 +52,14 @@ pub struct EditorNormalActions {
     pub redo: Option<KeyCombination>,
     pub goto_end_of_document: Option<KeyCombination>,
     pub goto_beginning_of_document: Option<KeyCombination>,
+    pub goto_end_of_line: Option<KeyCombination>,
+    pub goto_beginning_of_line: Option<KeyCombination>,
     pub scroll_down_half_page: Option<KeyCombination>,
     pub scroll_up_half_page: Option<KeyCombination>,
+    pub insert_at_end_of_line: Option<KeyCombination>,
+    pub insert_at_beginning_of_line: Option<KeyCombination>,
+    pub insert_on_above_newline: Option<KeyCombination>,
+    pub insert_on_below_newline: Option<KeyCombination>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
@@ -131,6 +138,7 @@ impl KeyProfile {
                     vec![Modifier::Shift],
                 )),
                 refresh: Some(KeyCombination::with_modifiers("r", vec![Modifier::Meta])),
+                close_tab: Some(KeyCombination::new("x")),
             },
             editor_normal: EditorNormalActions {
                 cursor_move_left: Some(KeyCombination::new("h")),
@@ -167,6 +175,21 @@ impl KeyProfile {
                     "u",
                     vec![Modifier::Ctrl],
                 )),
+                goto_beginning_of_line: Some(KeyCombination::new("0")),
+                goto_end_of_line: Some(KeyCombination::with_modifiers("$", vec![Modifier::Shift])),
+                insert_at_beginning_of_line: Some(KeyCombination::with_modifiers(
+                    "i",
+                    vec![Modifier::Shift],
+                )),
+                insert_at_end_of_line: Some(KeyCombination::with_modifiers(
+                    "a",
+                    vec![Modifier::Shift],
+                )),
+                insert_on_above_newline: Some(KeyCombination::with_modifiers(
+                    "o",
+                    vec![Modifier::Shift],
+                )),
+                insert_on_below_newline: Some(KeyCombination::new("o")),
             },
             editor_visual: EditorVisualActions {
                 cursor_move_left: Some(KeyCombination::new("h")),
@@ -201,6 +224,7 @@ impl KeyProfile {
                     vec![Modifier::Ctrl, Modifier::Shift],
                 )),
                 refresh: Some(KeyCombination::with_modifiers("r", vec![Modifier::Meta])),
+                close_tab: Some(KeyCombination::with_modifiers("w", vec![Modifier::Meta])),
             },
             editor_normal: EditorNormalActions {
                 cursor_move_left: None,
@@ -222,6 +246,12 @@ impl KeyProfile {
                 goto_beginning_of_document: None,
                 scroll_down_half_page: None,
                 scroll_up_half_page: None,
+                goto_beginning_of_line: None,
+                goto_end_of_line: None,
+                insert_at_beginning_of_line: None,
+                insert_at_end_of_line: None,
+                insert_on_above_newline: None,
+                insert_on_below_newline: None,
             },
             editor_visual: EditorVisualActions {
                 cursor_move_left: Some(KeyCombination::new("ArrowLeft")),
