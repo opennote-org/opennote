@@ -84,7 +84,8 @@ class ContentArea extends StatelessWidget {
                 onTap: () =>
                     appState.setActiveItem(ActiveItemType.document, docId),
                 child: Container(
-                  width: 150, // Fixed width for tabs
+                  margin: EdgeInsets.only(top: 5, bottom: 5),
+                  width: 200, // Fixed width for tabs
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(

@@ -41,9 +41,6 @@ class _EditorInputHandlerState extends State<EditorInputHandler> {
 
     // Initialize mode based on configuration
     if (appState.keyBindings.isVimEnabled) {
-      // If Vim is enabled, we ideally start in Normal mode
-      // BUT, only if we haven't set a mode yet?
-      // Or every time? Let's just default to Normal if it's the first build
       if (_mode == EditorMode.insert && !_initialized) {
         _mode = EditorMode.normal;
       }
