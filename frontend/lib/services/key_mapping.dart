@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import 'package:notes/constants.dart';
 import 'package:notes/services/user.dart';
 import 'dart:async'; // Added
 import 'package:collection/collection.dart'; // Added
@@ -86,7 +85,28 @@ class KeyCombination {
   }
 
   @override
-  String toString() => '$modifiers + $key + $followingKeys';
+  String toString() {
+    String finalString = '';
+    
+    if (modifiers.isNotEmpty) {
+      for (final modifier in modifiers) {
+        finalString += modifier;
+        finalString += ' + ';
+      }
+    }
+    
+    if (key.isNotEmpty) {
+      finalString += key;
+    }
+    
+    if (followingKeys.isNotEmpty) {
+      for (final String item in followingKeys) {
+        finalString += '$item ';
+      }
+    }
+    
+    return finalString;
+  }
 }
 
 class KeyBindingService {
