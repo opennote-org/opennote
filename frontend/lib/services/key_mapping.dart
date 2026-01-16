@@ -16,12 +16,15 @@ enum AppAction {
   switchTabPrevious,
   saveDocument,
   refresh,
+  closeTab, // Added
 
   // Editor Navigation
   cursorMoveLeft,
   cursorMoveRight,
   cursorMoveUp,
   cursorMoveDown,
+  gotoBeginningOfLine, // Added
+  gotoEndOfLine, // Added
 
   // Editor Modes
   enterInsertMode,
@@ -45,6 +48,10 @@ enum AppAction {
   gotoEndOfDocument, // Added
   scrollDownHalfPage, // Added
   scrollUpHalfPage, // Added
+  insertAtBeginningOfLine, // Added
+  insertAtEndOfLine, // Added
+  insertOnAboveNewline, // Added
+  insertOnBelowNewline, // Added
 
   unknown,
 }
@@ -87,24 +94,24 @@ class KeyCombination {
   @override
   String toString() {
     String finalString = '';
-    
+
     if (modifiers.isNotEmpty) {
       for (final modifier in modifiers) {
         finalString += modifier;
         finalString += ' + ';
       }
     }
-    
+
     if (key.isNotEmpty) {
       finalString += key;
     }
-    
+
     if (followingKeys.isNotEmpty) {
       for (final String item in followingKeys) {
         finalString += '$item ';
       }
     }
-    
+
     return finalString;
   }
 }
@@ -225,30 +232,32 @@ class KeyBindingService {
     return null;
   }
 
+  void clearPending(KeyContext context, List<String> pendingKeys) {
+    pendingKeys.clear();
+    final timer = _sequenceTimersByContext.remove(context);
+    timer?.cancel();
+  }
+
+  void restartTimer(KeyContext context, List<String> pendingKeys) {
+    _sequenceTimersByContext[context]?.cancel();
+    _sequenceTimersByContext[context] = Timer(
+      const Duration(milliseconds: 1000),
+      () {
+        clearPending(context, pendingKeys);
+      },
+    );
+  }
+
   AppAction? _resolveSequence(
     KeyContext context,
     Map<KeyCombination, AppAction> map,
     String keyLabel,
     Set<String> modifiers,
   ) {
-    final pendingKeys = _pendingKeysByContext.putIfAbsent(
+    final List<String> pendingKeys = _pendingKeysByContext.putIfAbsent(
       context,
       () => <String>[],
     );
-
-    void clearPending() {
-      pendingKeys.clear();
-      final timer = _sequenceTimersByContext.remove(context);
-      timer?.cancel();
-    }
-
-    void restartTimer() {
-      _sequenceTimersByContext[context]?.cancel();
-      _sequenceTimersByContext[context] = Timer(
-        const Duration(milliseconds: 1000),
-        clearPending,
-      );
-    }
 
     if (pendingKeys.isEmpty) {
       // START of a sequence?
@@ -264,17 +273,17 @@ class KeyBindingService {
       if (candidates.isEmpty) return null;
 
       // Check if any candidate requires following keys
-      final exactMatch = candidates.firstWhereOrNull(
+      final MapEntry<KeyCombination, AppAction>? exactMatch = candidates.firstWhereOrNull(
         (e) => e.key.followingKeys.isEmpty,
       );
-      final sequenceCandidates = candidates
+      final List<MapEntry<KeyCombination, AppAction>> sequenceCandidates = candidates
           .where((e) => e.key.followingKeys.isNotEmpty)
           .toList();
 
       if (sequenceCandidates.isNotEmpty) {
         // Start buffering
         pendingKeys.add(keyLabel);
-        restartTimer();
+        restartTimer(context, pendingKeys);
 
         return null; // Consumed, waiting for more
       } else if (exactMatch != null) {
@@ -283,7 +292,7 @@ class KeyBindingService {
     } else {
       // CONTINUE a sequence
       pendingKeys.add(keyLabel);
-      restartTimer();
+      restartTimer(context, pendingKeys);
 
       for (final entry in map.entries) {
         final combo = entry.key;
@@ -318,7 +327,7 @@ class KeyBindingService {
       });
 
       if (match != null) {
-        clearPending();
+        clearPending(context, pendingKeys);
         return match.value;
       }
 
@@ -340,7 +349,7 @@ class KeyBindingService {
       });
 
       if (!isPrefix) {
-        clearPending();
+        clearPending(context, pendingKeys);
       }
     }
 
@@ -381,6 +390,7 @@ class KeyBindingService {
     'switch_tab_next': AppAction.switchTabNext,
     'switch_tab_previous': AppAction.switchTabPrevious,
     'refresh': AppAction.refresh,
+    'close_tab': AppAction.closeTab,
   };
 
   static final Map<String, AppAction> _editorActionMap = {
@@ -388,6 +398,8 @@ class KeyBindingService {
     'cursor_move_right': AppAction.cursorMoveRight,
     'cursor_move_up': AppAction.cursorMoveUp,
     'cursor_move_down': AppAction.cursorMoveDown,
+    'goto_beginning_of_line': AppAction.gotoBeginningOfLine,
+    'goto_end_of_line': AppAction.gotoEndOfLine,
     'enter_insert_mode': AppAction.enterInsertMode,
     'enter_visual_mode': AppAction.enterVisualMode,
     'enter_visual_line_mode': AppAction.enterVisualLineMode,
@@ -409,5 +421,9 @@ class KeyBindingService {
     'goto_end_of_document': AppAction.gotoEndOfDocument,
     'scroll_down_half_page': AppAction.scrollDownHalfPage,
     'scroll_up_half_page': AppAction.scrollUpHalfPage,
+    'insert_at_beginning_of_line': AppAction.insertAtBeginningOfLine,
+    'insert_at_end_of_line': AppAction.insertAtEndOfLine,
+    'insert_on_above_newline': AppAction.insertOnAboveNewline,
+    'insert_on_below_newline': AppAction.insertOnBelowNewline,
   };
 }

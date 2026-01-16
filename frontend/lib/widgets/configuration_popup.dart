@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/widgets/configuration/configuration_section_renderer.dart';
 import 'package:notes/widgets/configuration/default_json_schema_section_renderer.dart';
