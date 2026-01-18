@@ -257,6 +257,9 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
     int newOffset = controller.selection.baseOffset;
     if (direction > 0) {
       // Forward: Find next whitespace or punctuation
+      
+      // To prevent exceeding the text length, 
+      // we will handle that case when the nextSpace position had exceeded the text length
       final nextSpaceStartIndex = controller.selection.baseOffset + 1;
       final nextSpace = nextSpaceStartIndex >= 0
           ? controller.text.length
@@ -268,6 +271,9 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
       }
     } else {
       // Backward: Find previous whitespace or punctuation
+      
+      // To prevent going out of the 0 index, which is the beginning of the document, 
+      // we will need to check if the prevSpace position falls under 0
       final prevSpaceStartIndex = controller.selection.baseOffset - 1;
       final prevSpace = prevSpaceStartIndex < 0 ? -1 : controller.text.lastIndexOf(RegExp(r'\s|\p{P}', unicode: true), prevSpaceStartIndex);
       if (prevSpace != -1) {
