@@ -2,8 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:notes/services/user.dart';
-import 'dart:async'; // Added
-import 'package:collection/collection.dart'; // Added
+import 'dart:async'; 
+import 'package:collection/collection.dart'; 
 
 enum KeyContext { global, editorNormal, editorInsert, editorVisual }
 
@@ -16,42 +16,42 @@ enum AppAction {
   switchTabPrevious,
   saveDocument,
   refresh,
-  closeTab, // Added
+  closeTab, 
 
   // Editor Navigation
   cursorMoveLeft,
   cursorMoveRight,
   cursorMoveUp,
   cursorMoveDown,
-  gotoBeginningOfLine, // Added
-  gotoEndOfLine, // Added
+  gotoBeginningOfLine, 
+  gotoEndOfLine, 
 
   // Editor Modes
   enterInsertMode,
   enterVisualMode,
-  enterVisualLineMode, // Added
+  enterVisualLineMode, 
   exitInsertMode, // Esc
   exitVisualMode, // Esc
   // Editor Editing
   deleteLeft, // Backspace
   deleteRight, // Delete
-  deleteLine, // Added
-  yank, // Added
-  yankLine, // Added
+  deleteLine, 
+  yank, 
+  yankLine, 
   yankSelection,
   deleteSelection,
-  undo, // Added
-  redo, // Added
-  moveWordForward, // Added
-  moveWordBackward, // Added
-  gotoBeginningOfDocument, // Added
-  gotoEndOfDocument, // Added
-  scrollDownHalfPage, // Added
-  scrollUpHalfPage, // Added
-  insertAtBeginningOfLine, // Added
-  insertAtEndOfLine, // Added
-  insertOnAboveNewline, // Added
-  insertOnBelowNewline, // Added
+  undo, 
+  redo, 
+  moveWordForward, 
+  moveWordBackward, 
+  gotoBeginningOfDocument, 
+  gotoEndOfDocument, 
+  scrollDownHalfPage, 
+  scrollUpHalfPage, 
+  insertAtBeginningOfLine, 
+  insertAtEndOfLine, 
+  insertOnAboveNewline, 
+  insertOnBelowNewline, 
 
   unknown,
 }
