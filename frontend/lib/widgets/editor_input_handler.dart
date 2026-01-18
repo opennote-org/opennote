@@ -27,6 +27,7 @@ class EditorInputHandler extends StatefulWidget {
 class _EditorInputHandlerState extends State<EditorInputHandler>
     with EditorShortcuts {
   final UndoHistoryController _undoController = UndoHistoryController();
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
@@ -41,8 +42,6 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
     }
     _initialized = true;
   }
-
-  bool _initialized = false;
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +102,7 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
       child: Container(
         color: modeColor,
         child: TextField(
-          // readOnly: mode != EditorMode.insert,
+          autofocus: true,
           showCursor: true,
           cursorWidth: cursorWidth,
           controller: widget.controller,
@@ -113,8 +112,7 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
           maxLines: null,
           expands: true,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
+          decoration: const InputDecoration( border: InputBorder.none,
             contentPadding: EdgeInsets.all(16),
             hintText: 'Start typing...',
           ),
