@@ -84,7 +84,8 @@ impl DocumentChunk {
         let mut chunks: Vec<DocumentChunk> = Vec::new();
         let terminator: char = if content.contains('。') { '。' } else { '.' };
 
-        for sentence in content.split(terminator) {
+        // Using inclusive split to avoid chopping off the periods at the end
+        for sentence in content.split_inclusive(terminator) {
             let words: Vec<&str> = jieba.cut(sentence, false);
 
             if words.len() > chunk_max_words {
@@ -102,11 +103,8 @@ impl DocumentChunk {
                 continue;
             }
 
-            let mut to_push: String = sentence.to_string();
-            to_push.push(terminator);
-
             chunks.push(DocumentChunk::new(
-                to_push,
+                sentence.to_string(),
                 document_metadata_id,
                 collection_metadata_id,
             ));

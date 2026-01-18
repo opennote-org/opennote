@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:notes/services/search.dart';
-import 'package:notes/services/user.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 class SearchPopup extends StatefulWidget {
@@ -46,7 +45,13 @@ class _SearchPopupState extends State<SearchPopup> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -86,9 +91,17 @@ class _SearchPopupState extends State<SearchPopup> {
                     hintText: 'Search...',
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
@@ -97,7 +110,10 @@ class _SearchPopupState extends State<SearchPopup> {
                 ),
               ),
               const SizedBox(width: 12),
-              IconButton.filledTonal(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              IconButton.filledTonal(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -113,7 +129,9 @@ class _SearchPopupState extends State<SearchPopup> {
                   }
                 },
                 showCheckmark: false,
-                avatar: !_isKeywordSearch ? const Icon(Icons.auto_awesome, size: 16) : null,
+                avatar: !_isKeywordSearch
+                    ? const Icon(Icons.auto_awesome, size: 16)
+                    : null,
               ),
               const SizedBox(width: 8),
               FilterChip(
@@ -126,7 +144,9 @@ class _SearchPopupState extends State<SearchPopup> {
                   }
                 },
                 showCheckmark: false,
-                avatar: _isKeywordSearch ? const Icon(Icons.text_fields, size: 16) : null,
+                avatar: _isKeywordSearch
+                    ? const Icon(Icons.text_fields, size: 16)
+                    : null,
               ),
             ],
           ),
@@ -156,13 +176,18 @@ class _SearchPopupState extends State<SearchPopup> {
         spans.add(TextSpan(text: text.substring(start, indexOfHighlight)));
       }
 
-      spans.add(TextSpan(
-        text: text.substring(indexOfHighlight, indexOfHighlight + query.length),
-        style: TextStyle(
-          backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-          color: Theme.of(context).colorScheme.onTertiaryContainer,
+      spans.add(
+        TextSpan(
+          text: text.substring(
+            indexOfHighlight,
+            indexOfHighlight + query.length,
+          ),
+          style: TextStyle(
+            backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+            color: Theme.of(context).colorScheme.onTertiaryContainer,
+          ),
         ),
-      ));
+      );
 
       start = indexOfHighlight + query.length;
       indexOfHighlight = lowercaseText.indexOf(lowercaseQuery, start);
@@ -173,9 +198,7 @@ class _SearchPopupState extends State<SearchPopup> {
     }
 
     return Text.rich(
-      TextSpan(
-        children: spans,
-      ),
+      TextSpan(children: spans),
       style: const TextStyle(fontWeight: FontWeight.w500),
       maxLines: 1000,
     );
@@ -191,11 +214,17 @@ class _SearchPopupState extends State<SearchPopup> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off, size: 48, color: Theme.of(context).colorScheme.outline),
+            Icon(
+              Icons.search_off,
+              size: 48,
+              color: Theme.of(context).colorScheme.outline,
+            ),
             const SizedBox(height: 16),
             Text(
               'No results found',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ],
         ),
@@ -206,7 +235,9 @@ class _SearchPopupState extends State<SearchPopup> {
       return Center(
         child: Text(
           'Type to search...',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.outline),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).colorScheme.outline,
+          ),
         ),
       );
     }
@@ -214,11 +245,15 @@ class _SearchPopupState extends State<SearchPopup> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _results.length,
-      separatorBuilder: (context, index) => const Divider(height: 1, indent: 16, endIndent: 16),
+      separatorBuilder: (context, index) =>
+          const Divider(height: 1, indent: 16, endIndent: 16),
       itemBuilder: (context, index) {
         final result = _results[index];
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
           title: _buildHighlightedText(
             result.documentChunk.content.trim(),
             _queryController.text.trim(),
@@ -230,27 +265,34 @@ class _SearchPopupState extends State<SearchPopup> {
               spacing: 8.0,
               children: [
                 Text(
-                'From ${result.documentTitle ?? '???'} > ${result.collectionTitle ?? '???'}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.secondary),
+                  'From ${result.documentTitle ?? '???'} > ${result.collectionTitle ?? '???'}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
                 ),
                 Text(
                   'Score: ${(result.score * 100).toStringAsFixed(0)}%',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.secondary),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
                 ),
               ],
             ),
           ),
-          onTap: () {
+          onTap: () async {
             final appState = AppStateScope.of(context);
-            appState.openDocument(
+            await appState.openDocument(
               result.documentChunk.documentMetadataId,
               collectionId: result.documentChunk.collectionMetadataId,
               highlightText: result.documentChunk.content,
               highlightChunkId: result.documentChunk.id,
             );
+            if (!context.mounted) return;
             Navigator.pop(context);
           },
-          hoverColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          hoverColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
         );
       },
     );
@@ -259,14 +301,18 @@ class _SearchPopupState extends State<SearchPopup> {
   Future<void> _initializeData() async {
     final appState = AppStateScope.of(context);
     try {
-      final configurations = await appState.users.getUserConfigurationsMap(Dio(), appState.username!);
+      final configurations = await appState.users.getUserConfigurationsMap(
+        Dio(),
+        appState.username!,
+      );
 
       if (!mounted) return;
       setState(() {
-        if (configurations.containsKey('search') && configurations['search'] is Map) {
+        if (configurations.containsKey('search') &&
+            configurations['search'] is Map) {
           final searchConfig = configurations['search'] as Map<String, dynamic>;
           final defaultSearchMethod = searchConfig['default_search_method'];
-          
+
           if (defaultSearchMethod == 'semantic') {
             _isKeywordSearch = false;
           } else if (defaultSearchMethod == 'keyword') {
@@ -274,7 +320,7 @@ class _SearchPopupState extends State<SearchPopup> {
           }
 
           if (searchConfig.containsKey('top_n')) {
-             _topN = (searchConfig['top_n'] as num).toInt();
+            _topN = (searchConfig['top_n'] as num).toInt();
           }
         }
       });
@@ -302,14 +348,28 @@ class _SearchPopupState extends State<SearchPopup> {
       final appState = AppStateScope.of(context);
       final searchService = SearchService();
       final results = _isKeywordSearch
-          ? await searchService.keywordSearch(appState.dio, query: query, scope: widget.scope, scopeId: widget.scopeId, topN: _topN)
-          : await searchService.intelligentSearch(appState.dio, query: query, scope: widget.scope, scopeId: widget.scopeId, topN: _topN);
+          ? await searchService.keywordSearch(
+              appState.dio,
+              query: query,
+              scope: widget.scope,
+              scopeId: widget.scopeId,
+              topN: _topN,
+            )
+          : await searchService.intelligentSearch(
+              appState.dio,
+              query: query,
+              scope: widget.scope,
+              scopeId: widget.scopeId,
+              topN: _topN,
+            );
       setState(() {
         _results = results;
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Search failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Search failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

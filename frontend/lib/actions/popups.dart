@@ -19,7 +19,8 @@ void showSearchPopup(BuildContext context) {
   if (activeItem.type == ActiveItemType.collection && activeItem.id != null) {
     scope = SearchScope.collection;
     scopeId = activeItem.id;
-  } else if (activeItem.type == ActiveItemType.document && activeItem.id != null) {
+  } else if (activeItem.type == ActiveItemType.document &&
+      activeItem.id != null) {
     scope = SearchScope.document;
     // If document is not in documentById (e.g. only in tree cache), try to find it
     if (appState.documentById.containsKey(activeItem.id)) {
@@ -40,15 +41,24 @@ void showSearchPopup(BuildContext context) {
       builder: (context) => SearchPopup(scope: scope, scopeId: scopeId!),
     );
   } else {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to determine search scope.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Unable to determine search scope.')),
+    );
   }
 }
 
 void showConfigurationPopup(BuildContext context) {
-  showDialog(context: context, builder: (context) => const ConfigurationPopup());
+  showDialog(
+    context: context,
+    builder: (context) => const ConfigurationPopup(),
+  );
 }
 
-Future<String?> showNameDialog(BuildContext context, String title, {String? initialValue}) {
+Future<String?> showNameDialog(
+  BuildContext context,
+  String title, {
+  String? initialValue,
+}) {
   final controller = TextEditingController(text: initialValue);
   return showDialog<String>(
     context: context,
@@ -60,8 +70,14 @@ Future<String?> showNameDialog(BuildContext context, String title, {String? init
         decoration: const InputDecoration(labelText: 'Name'),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Confirm')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, controller.text),
+          child: const Text('Confirm'),
+        ),
       ],
     ),
   );

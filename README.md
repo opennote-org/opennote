@@ -13,6 +13,7 @@ Reach me out at https://discord.gg/MXnzmRcDFh
 - Support multi-user access. Each user can have their own private workspace. 
 - Support semantic search. 
 - Support importing webpages and also search them semantically. Great for researchers, students and anyone who needs to read documents. 
+- Support Vim key mappings. More keyboard shortcuts are yet to come!
 - Built with `actix-web` and async tech stacks. Blazingly fast!
 - More features are yet to come. Stay tuned!
 
@@ -56,11 +57,14 @@ If you need to customize the backend (e.g., to use an external database, change 
     "port": 8080,
     "workers": 4
   },
-  "user_information_storage": {
-    "path": "./data/user_information_storage.json"
+  "identities_storage": {
+    "path": "./data/identities_storage.json"
   },
   "metadata_storage": {
     "path": "./data/metadata_storage.json"
+  },
+  "backups_storage": {
+    "path": "./data/backups_storage.json"
   },
   "database": {
     "index": "notes",
@@ -159,11 +163,14 @@ In `backend/config.prod.json` (create one and copy and paste the json below if y
     "port": 8080,
     "workers": 4
   },
-  "user_information_storage": {
-    "path": "./data/user_information_storage.json"
+  "identities_storage": {
+    "path": "./data/identities_storage.json"
   },
   "metadata_storage": {
     "path": "./data/metadata_storage.json"
+  },
+  "backups_storage": {
+    "path": "./data/backups_storage.json"
   },
   "database": { // Configure Qdrant
     "index": "notes", // You may just leave it, or put a cooler name here

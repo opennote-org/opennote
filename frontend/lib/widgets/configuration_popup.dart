@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:notes/services/user.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/widgets/json_schema_form.dart';
+import 'package:notes/widgets/configuration/configuration_section_renderer.dart';
+import 'package:notes/widgets/configuration/default_json_schema_section_renderer.dart';
+import 'package:notes/widgets/configuration/key_mappings_section_renderer.dart';
 
 class ConfigurationPopup extends StatefulWidget {
   const ConfigurationPopup({super.key});
@@ -17,8 +18,11 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
   bool _isLoading = true;
   Map<String, dynamic>? _schema;
   Map<String, dynamic> _config = {};
-  final UserManagementService _userService = UserManagementService();
   int? _initialChunkSize;
+  final List<ConfigurationSectionRenderer> _sectionRenderers = const [
+    KeyMappingsSectionRenderer(),
+    DefaultJsonSchemaSectionRenderer(),
+  ];
 
   @override
   void didChangeDependencies() {
@@ -32,10 +36,10 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
     if (username == null) return;
 
     try {
-      final schema = await _userService.getUserConfigurationsSchemars(
+      final schema = await appState.users.getUserConfigurationsSchemars(
         appState.dio,
       );
-      final config = await _userService.getUserConfigurationsMap(
+      final config = await appState.users.getUserConfigurationsMap(
         appState.dio,
         username,
       );
@@ -71,7 +75,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
     setState(() => _isLoading = true);
 
     try {
-      await _userService.updateUserConfigurationsMap(
+      await appState.users.updateUserConfigurationsMap(
         appState.dio,
         username,
         _config,
@@ -94,6 +98,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Configurations updated")));
+        await appState.refreshAll();
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -200,19 +205,16 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
     final sectionKey = selectedTab;
     final sectionSchema =
         (_schema!['properties'] as Map<String, dynamic>)[sectionKey];
-    // Resolve ref if needed to get description
-    Map<String, dynamic> resolvedSchema = sectionSchema;
-    if (sectionSchema.containsKey('\$ref')) {
-      // Simple ref resolution logic similar to JsonSchemaForm, but we need access to schema root
-      // Since we have _schema, we can resolve it.
-      // But JsonSchemaForm handles it internally.
-      // However, we want the description HERE.
-      // If the property has a description directly (which I added to UserConfigurations struct), it should be in sectionSchema.
-      // If it's a ref, the description might be in the definition.
-      // 'schemars' puts description on the property definition in the parent object usually.
+
+    if (sectionSchema is! Map<String, dynamic>) {
+      return const SizedBox();
     }
 
     final description = sectionSchema['description'] as String?;
+    final sectionData = (_config[sectionKey] as Map<String, dynamic>?) ?? {};
+    final renderer = _sectionRenderers.firstWhere(
+      (r) => r.canRender(sectionKey, sectionSchema),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,17 +231,17 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
           const SizedBox(height: 16),
         ],
         Expanded(
-          child: SingleChildScrollView(
-            child: JsonSchemaForm(
-              schema: _schema!,
-              sectionSchema: sectionSchema,
-              data: (_config[sectionKey] as Map<String, dynamic>?) ?? {},
-              onChanged: (newData) {
-                setState(() {
-                  _config[sectionKey] = newData;
-                });
-              },
-            ),
+          child: renderer.buildBody(
+            context: context,
+            sectionKey: sectionKey,
+            fullSchema: _schema!,
+            sectionSchema: sectionSchema,
+            sectionData: sectionData,
+            onSectionChanged: (newData) {
+              setState(() {
+                _config[sectionKey] = newData;
+              });
+            },
           ),
         ),
         const SizedBox(height: 16),
