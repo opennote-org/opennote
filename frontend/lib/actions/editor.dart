@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:notes/actions/handlers.dart';
 import 'package:notes/services/key_mapping.dart';
 
-enum EditorMode { normal, insert, visual, visualLine }
-
-mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
-  EditorMode mode = EditorMode.insert;
+mixin EditorActions<T extends StatefulWidget> on State<T> {
+  KeyContext mode = KeyContext.editorInsert;
 
   // Selection anchor for Visual Mode
   int? _visualStart;
@@ -51,35 +49,23 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
     return offset - lineStart;
   }
 
-  void switchMode(EditorMode newMode, TextEditingController controller) {
+  void switchMode(KeyContext newMode, TextEditingController controller) {
     setState(() {
       mode = newMode;
       _preferredColumn = -1;
-      if (newMode == EditorMode.visual) {
+      if (newMode == KeyContext.editorVisual) {
         _visualStart = controller.selection.baseOffset;
-      } else if (newMode == EditorMode.visualLine) {
+      } else if (newMode == KeyContext.editorVisualLine) {
         _visualStart = controller.selection.baseOffset;
         selectLine(controller);
       } else {
         _visualStart = null;
         // When exiting visual, collapse selection?
-        if ((mode == EditorMode.visual || mode == EditorMode.visualLine) && newMode == EditorMode.normal) {
+        if ((mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) && newMode == KeyContext.editorNormal) {
           controller.selection = TextSelection.collapsed(offset: controller.selection.baseOffset);
         }
       }
     });
-  }
-
-  KeyContext getCurrentContext() {
-    switch (mode) {
-      case EditorMode.normal:
-        return KeyContext.editorNormal;
-      case EditorMode.insert:
-        return KeyContext.editorInsert;
-      case EditorMode.visual:
-      case EditorMode.visualLine:
-        return KeyContext.editorVisual;
-    }
   }
 
   void handleAction(
@@ -91,17 +77,17 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
     switch (action) {
       // --- Modes ---
       case AppAction.enterInsertMode:
-        switchMode(EditorMode.insert, textEditingController);
+        switchMode(KeyContext.editorInsert, textEditingController);
         break;
       case AppAction.enterVisualMode:
-        switchMode(EditorMode.visual, textEditingController);
+        switchMode(KeyContext.editorVisual, textEditingController);
         break;
       case AppAction.enterVisualLineMode:
-        switchMode(EditorMode.visualLine, textEditingController);
+        switchMode(KeyContext.editorVisualLine, textEditingController);
         break;
       case AppAction.exitInsertMode:
       case AppAction.exitVisualMode:
-        switchMode(EditorMode.normal, textEditingController);
+        switchMode(KeyContext.editorNormal, textEditingController);
         // Clear selection on exit
         textEditingController.selection = TextSelection.collapsed(offset: textEditingController.selection.baseOffset);
         break;
@@ -143,23 +129,23 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
         {
           final start = _getLineStart(textEditingController, textEditingController.selection.baseOffset);
           moveCursor(start - textEditingController.selection.baseOffset, textEditingController);
-          switchMode(EditorMode.insert, textEditingController);
+          switchMode(KeyContext.editorInsert, textEditingController);
         }
         break;
       case AppAction.insertAtEndOfLine:
         {
           final end = _getLineEnd(textEditingController, textEditingController.selection.baseOffset);
           moveCursor(end - textEditingController.selection.baseOffset, textEditingController);
-          switchMode(EditorMode.insert, textEditingController);
+          switchMode(KeyContext.editorInsert, textEditingController);
         }
         break;
 
       case AppAction.insertOnAboveNewline:
-        switchMode(EditorMode.insert, textEditingController);
+        switchMode(KeyContext.editorInsert, textEditingController);
         if (mounted) _insertNewLine(true, textEditingController);
         break;
       case AppAction.insertOnBelowNewline:
-        switchMode(EditorMode.insert, textEditingController);
+        switchMode(KeyContext.editorInsert, textEditingController);
         if (mounted) _insertNewLine(false, textEditingController);
         break;
 
@@ -257,22 +243,21 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
     int newOffset = controller.selection.baseOffset;
     if (direction > 0) {
       // Forward: Find next whitespace or punctuation
-      
-      // To prevent exceeding the text length, 
+
+      // To prevent exceeding the text length,
       // we will handle that case when the nextSpace position had exceeded the text length
       final nextSpaceStartIndex = controller.selection.baseOffset + 1;
-      final nextSpace = nextSpaceStartIndex >= 0
-          ? controller.text.length
-          : controller.text.indexOf(RegExp(r'\s|\p{P}', unicode: true), nextSpaceStartIndex);
-      if (nextSpace != controller.text.length) {
-        newOffset = nextSpace + 1; // Basic jump
-      } else {
+      if (nextSpaceStartIndex < controller.text.length) {
+        newOffset = controller.text.indexOf(RegExp(r'\s|\p{P}', unicode: true), nextSpaceStartIndex);
+      }
+
+      if (newOffset == -1) {
         newOffset = controller.text.length;
       }
     } else {
       // Backward: Find previous whitespace or punctuation
-      
-      // To prevent going out of the 0 index, which is the beginning of the document, 
+
+      // To prevent going out of the 0 index, which is the beginning of the document,
       // we will need to check if the prevSpace position falls under 0
       final prevSpaceStartIndex = controller.selection.baseOffset - 1;
       final prevSpace = prevSpaceStartIndex < 0 ? -1 : controller.text.lastIndexOf(RegExp(r'\s|\p{P}', unicode: true), prevSpaceStartIndex);
@@ -313,8 +298,8 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
     final selectedText = text.substring(selection.start, selection.end);
     await Clipboard.setData(ClipboardData(text: selectedText));
 
-    if (mode == EditorMode.visual || mode == EditorMode.visualLine) {
-      switchMode(EditorMode.normal, controller);
+    if (mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) {
+      switchMode(KeyContext.editorNormal, controller);
       controller.selection = TextSelection.collapsed(offset: selection.baseOffset);
     }
   }
@@ -346,8 +331,8 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
     await Clipboard.setData(ClipboardData(text: textToCopy));
 
     // Flash or feedback could go here
-    if (mode == EditorMode.visual || mode == EditorMode.visualLine) {
-      switchMode(EditorMode.normal, controller);
+    if (mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) {
+      switchMode(KeyContext.editorNormal, controller);
       controller.selection = TextSelection.collapsed(offset: selection.baseOffset);
     }
   }
@@ -363,7 +348,7 @@ mixin EditorShortcuts<T extends StatefulWidget> on State<T> {
     if (newOffset < 0) newOffset = 0;
     if (newOffset > text.length) newOffset = text.length;
 
-    if (mode == EditorMode.visual && _visualStart != null) {
+    if ((mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) && _visualStart != null) {
       // Extend selection
       controller.selection = TextSelection(baseOffset: _visualStart!, extentOffset: newOffset);
     } else {
