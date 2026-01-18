@@ -32,7 +32,14 @@ class CollectionManagementService {
 
   Future<String> deleteCollection(Dio dio, String collectionMetadataId) async {
     final response = await dio.post(deleteCollectionEndpoint, data: {"collection_metadata_id": collectionMetadataId});
-    return response.data!["data"]["metadata_id"];
+    
+    if (response.data?["data"] == null) {
+      throw Exception("Invalid response: missing 'data' field");
+    }
+    
+    final metadata = CollectionMetadata.fromJson(response.data!["data"] as Map<String, dynamic>);
+    
+    return metadata.id;
   }
 
   Future<List<CollectionMetadata>> getCollections(Dio dio, String username) async {
@@ -44,13 +51,7 @@ class CollectionManagementService {
 
   Future<String> updateCollectionsMetadata(Dio dio, List<CollectionMetadata> collections) async {
     final List<Map<String, dynamic>> data = collections.map((e) {
-      return {
-        "metadata_id": e.id,
-        "created_at": "",
-        "last_modified": "",
-        "title": e.title,
-        "documents_metadata_ids": [],
-      };
+      return {"id": e.id, "created_at": "", "last_modified": "", "title": e.title, "documents_metadata_ids": []};
     }).toList();
 
     final response = await dio.post(updateCollectionsMetadataEndpoint, data: {"collection_metadatas": data});

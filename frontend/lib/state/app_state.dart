@@ -451,6 +451,7 @@ class AppState extends ChangeNotifier {
     if (currentCollectionId == id) {
       currentCollectionId = null;
     }
+    await refreshCollections();
     notifyListeners();
   }
 
