@@ -8,6 +8,8 @@ import 'package:notes/services/general.dart';
 import 'package:notes/services/user.dart';
 import 'package:notes/services/backup.dart';
 import 'package:notes/services/key_mapping.dart';
+import 'package:notes/state/activities.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TaskInfo {
   final String id;
@@ -17,14 +19,6 @@ class TaskInfo {
   final DateTime createdAt;
 
   TaskInfo({required this.id, required this.description, this.status = 'Pending', this.message}) : createdAt = DateTime.now();
-}
-
-enum ActiveItemType { collection, document, none }
-
-class ActiveItem {
-  final ActiveItemType type;
-  final String? id;
-  ActiveItem(this.type, this.id);
 }
 
 class SearchHighlight {
@@ -42,6 +36,8 @@ class AppState extends ChangeNotifier {
   final UserManagementService users = UserManagementService();
   final BackupService backupService = BackupService();
   final KeyBindingService keyBindings = KeyBindingService();
+  final Activities activities = Activities();
+  final SharedPreferencesAsync localStorage = SharedPreferencesAsync();
 
   String? username;
   String? currentCollectionId;
@@ -69,46 +65,6 @@ class AppState extends ChangeNotifier {
 
   // Search Highlights
   final Map<String, SearchHighlight> searchHighlights = {};
-
-  // Tab Management
-  final List<String> openDocumentIds = [];
-  String? lastActiveDocumentId;
-
-  // Active Item Management
-  ActiveItem _activeItem = ActiveItem(ActiveItemType.none, null);
-  ActiveItem get activeItem => _activeItem;
-
-  void setActiveItem(ActiveItemType type, String? id) {
-    _activeItem = ActiveItem(type, id);
-    if (type == ActiveItemType.document && id != null) {
-      lastActiveDocumentId = id;
-    }
-    notifyListeners();
-  }
-
-  void switchDocumentTab(int offset) {
-    if (openDocumentIds.isEmpty) return;
-
-    final String currentId;
-    if (activeItem.type == ActiveItemType.document && activeItem.id != null && openDocumentIds.contains(activeItem.id)) {
-      currentId = activeItem.id!;
-    } else if (lastActiveDocumentId != null && openDocumentIds.contains(lastActiveDocumentId)) {
-      currentId = lastActiveDocumentId!;
-    } else {
-      currentId = openDocumentIds.first;
-    }
-
-    final currentIndex = openDocumentIds.indexOf(currentId) + offset;
-    var safeCurrentIndex = currentIndex;
-
-    if (currentIndex < 0) {
-      safeCurrentIndex = openDocumentIds.length - 1;
-    } else if (currentIndex > openDocumentIds.length - 1) {
-      safeCurrentIndex = 0;
-    }
-
-    setActiveItem(ActiveItemType.document, openDocumentIds[safeCurrentIndex]);
-  }
 
   void updateDocumentDraft(String docId, String content) {
     documentContentCache[docId] = content;
@@ -142,9 +98,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> saveActiveDocument() async {
-    if (_activeItem.type != ActiveItemType.document || _activeItem.id == null || username == null) return;
+    if (activities.activeItem.type != ActiveItemType.document || activities.activeItem.id == null || username == null) return;
 
-    final docId = _activeItem.id!;
+    final docId = activities.activeItem.id!;
     final meta = documentById[docId];
     final content = documentContentCache[docId];
 
@@ -279,14 +235,14 @@ class AppState extends ChangeNotifier {
     }
 
     // Update Open Tabs
-    final tabIndex = openDocumentIds.indexOf(oldId);
+    final tabIndex = activities.openDocumentIds.indexOf(oldId);
     if (tabIndex != -1) {
-      openDocumentIds[tabIndex] = newId;
+      activities.openDocumentIds[tabIndex] = newId;
     }
 
     // Update Active Item
-    if (activeItem.id == oldId) {
-      setActiveItem(ActiveItemType.document, newId);
+    if (activities.activeItem.id == oldId) {
+      activities.setActiveItem(ActiveItemType.document, newId, notifyListeners);
     }
   }
 
@@ -544,8 +500,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> openDocument(String documentId, {String? highlightText, String? highlightChunkId, String? collectionId}) async {
-    if (!openDocumentIds.contains(documentId)) {
-      openDocumentIds.add(documentId);
+    if (!activities.openDocumentIds.contains(documentId)) {
+      activities.openDocumentIds.add(documentId);
     }
 
     if (highlightText != null) {
@@ -561,7 +517,7 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    setActiveItem(ActiveItemType.document, documentId);
+    activities.setActiveItem(ActiveItemType.document, documentId, notifyListeners);
     notifyListeners();
 
     if (!documentContentCache.containsKey(documentId)) {
@@ -587,24 +543,24 @@ class AppState extends ChangeNotifier {
   }
 
   void closeDocument(String documentId) {
-    final removedIndex = openDocumentIds.indexOf(documentId);
+    final removedIndex = activities.openDocumentIds.indexOf(documentId);
     if (removedIndex == -1) return;
 
-    openDocumentIds.removeAt(removedIndex);
+    activities.openDocumentIds.removeAt(removedIndex);
     searchHighlights.remove(documentId);
 
-    final wasActiveDocument = activeItem.type == ActiveItemType.document && activeItem.id == documentId;
-    final wasLastActive = lastActiveDocumentId == documentId;
+    final wasActiveDocument = activities.activeItem.type == ActiveItemType.document && activities.activeItem.id == documentId;
+    final wasLastActive = activities.lastActiveDocumentId == documentId;
 
-    if (openDocumentIds.isEmpty) {
-      lastActiveDocumentId = null;
-      setActiveItem(ActiveItemType.none, null);
+    if (activities.openDocumentIds.isEmpty) {
+      activities.lastActiveDocumentId = null;
+      activities.setActiveItem(ActiveItemType.none, null, notifyListeners);
       return;
     }
 
     if (wasActiveDocument || wasLastActive) {
-      final nextIndex = removedIndex < openDocumentIds.length ? removedIndex : openDocumentIds.length - 1;
-      setActiveItem(ActiveItemType.document, openDocumentIds[nextIndex]);
+      final nextIndex = removedIndex < activities.openDocumentIds.length ? removedIndex : activities.openDocumentIds.length - 1;
+      activities.setActiveItem(ActiveItemType.document, activities.openDocumentIds[nextIndex], notifyListeners);
       return;
     }
 
