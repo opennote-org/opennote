@@ -38,7 +38,7 @@ cp constants.prod.dart constants.dart
 cd .. # Go to frontend root
 
 echo "Running $FLUTTER_CMD build web..."
-$FLUTTER_CMD build web --release --pwa-strategy=none
+$FLUTTER_CMD build web --release
 
 cd lib
 # Restore original constants
