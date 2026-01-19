@@ -4,14 +4,14 @@ import 'package:notes/actions/editor.dart';
 import 'package:notes/services/key_mapping.dart';
 import 'package:notes/state/app_state_scope.dart';
 
-class EditorInputHandler extends StatefulWidget {
+class VimEditorInputHandler extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ScrollController scrollController;
   final Function(String) onChanged;
   final VoidCallback onSave;
 
-  const EditorInputHandler({
+  const VimEditorInputHandler({
     super.key,
     required this.controller,
     required this.focusNode,
@@ -21,10 +21,11 @@ class EditorInputHandler extends StatefulWidget {
   });
 
   @override
-  State<EditorInputHandler> createState() => _EditorInputHandlerState();
+  State<VimEditorInputHandler> createState() => _VimEditorInputHandlerState();
 }
 
-class _EditorInputHandlerState extends State<EditorInputHandler> with EditorActions {
+class _VimEditorInputHandlerState extends State<VimEditorInputHandler>
+    with EditorActions {
   final UndoHistoryController _undoController = UndoHistoryController();
   bool _initialized = false;
 
@@ -66,23 +67,45 @@ class _EditorInputHandlerState extends State<EditorInputHandler> with EditorActi
         }
 
         // Resolve Action (Editor Context)
-        final action = appState.keyBindings.resolve(mode, event);
+        final (action, keyContext) = appState.keyBindings.resolve(event);
 
-        if (action != null) {
-          handleAction(action, widget.scrollController, widget.controller, _undoController);
+        if (action != null && action == AppAction.exitInsertMode) {
+          handleAction(
+            action,
+            widget.scrollController,
+            widget.controller,
+            _undoController,
+          );
           return KeyEventResult.handled;
         }
 
-        // If no action, and NOT in Insert mode, block the key
-        // (so 'j' doesn't type 'j' in Normal mode)
+        if (action != null &&
+            keyContext != KeyContext.global &&
+            mode != KeyContext.editorInsert) {
+          handleAction(
+            action,
+            widget.scrollController,
+            widget.controller,
+            _undoController,
+          );
+          return KeyEventResult.handled;
+        }
+
+        // Handle the global actions in editorNormal mode.
+        // Prevent closing the tab when typing x.
+        if (action != null && mode == KeyContext.editorNormal) {
+          return KeyEventResult.ignored;
+        }
+
+        // Prevent typing letters outside editorInsert mode
         if (mode != KeyContext.editorInsert) {
           return KeyEventResult.handled;
         }
 
         // In Insert mode, let it bubble to TextField
-        // 
-        // We need to skip the global actions to prevent users from activating it 
-        // by typing `x` or `/` in vim mode etc. 
+        //
+        // We need to skip the global actions to prevent users from activating it
+        // by typing `x` or `/` in vim mode etc.
         return KeyEventResult.skipRemainingHandlers;
       },
       child: Container(
@@ -97,7 +120,11 @@ class _EditorInputHandlerState extends State<EditorInputHandler> with EditorActi
           maxLines: null,
           expands: true,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
-          decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16), hintText: 'Start typing...'),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.all(16),
+            hintText: 'Start typing...',
+          ),
           onChanged: widget.onChanged,
         ),
       ),

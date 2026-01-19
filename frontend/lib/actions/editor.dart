@@ -61,8 +61,12 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
       } else {
         _visualStart = null;
         // When exiting visual, collapse selection?
-        if ((mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) && newMode == KeyContext.editorNormal) {
-          controller.selection = TextSelection.collapsed(offset: controller.selection.baseOffset);
+        if ((mode == KeyContext.editorVisual ||
+                mode == KeyContext.editorVisualLine) &&
+            newMode == KeyContext.editorNormal) {
+          controller.selection = TextSelection.collapsed(
+            offset: controller.selection.baseOffset,
+          );
         }
       }
     });
@@ -89,7 +93,9 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
       case AppAction.exitVisualMode:
         switchMode(KeyContext.editorNormal, textEditingController);
         // Clear selection on exit
-        textEditingController.selection = TextSelection.collapsed(offset: textEditingController.selection.baseOffset);
+        textEditingController.selection = TextSelection.collapsed(
+          offset: textEditingController.selection.baseOffset,
+        );
         break;
 
       // --- Navigation ---
@@ -114,28 +120,52 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
 
       case AppAction.gotoBeginningOfLine:
         {
-          final start = _getLineStart(textEditingController, textEditingController.selection.baseOffset);
-          moveCursor(start - textEditingController.selection.baseOffset, textEditingController);
+          final start = _getLineStart(
+            textEditingController,
+            textEditingController.selection.baseOffset,
+          );
+          moveCursor(
+            start - textEditingController.selection.baseOffset,
+            textEditingController,
+          );
         }
         break;
       case AppAction.gotoEndOfLine:
         {
-          final end = _getLineEnd(textEditingController, textEditingController.selection.baseOffset);
-          moveCursor(end - textEditingController.selection.baseOffset, textEditingController);
+          final end = _getLineEnd(
+            textEditingController,
+            textEditingController.selection.baseOffset,
+          );
+          moveCursor(
+            end - textEditingController.selection.baseOffset,
+            textEditingController,
+          );
         }
         break;
 
       case AppAction.insertAtBeginningOfLine:
         {
-          final start = _getLineStart(textEditingController, textEditingController.selection.baseOffset);
-          moveCursor(start - textEditingController.selection.baseOffset, textEditingController);
+          final start = _getLineStart(
+            textEditingController,
+            textEditingController.selection.baseOffset,
+          );
+          moveCursor(
+            start - textEditingController.selection.baseOffset,
+            textEditingController,
+          );
           switchMode(KeyContext.editorInsert, textEditingController);
         }
         break;
       case AppAction.insertAtEndOfLine:
         {
-          final end = _getLineEnd(textEditingController, textEditingController.selection.baseOffset);
-          moveCursor(end - textEditingController.selection.baseOffset, textEditingController);
+          final end = _getLineEnd(
+            textEditingController,
+            textEditingController.selection.baseOffset,
+          );
+          moveCursor(
+            end - textEditingController.selection.baseOffset,
+            textEditingController,
+          );
           switchMode(KeyContext.editorInsert, textEditingController);
         }
         break;
@@ -155,7 +185,11 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
         break;
       case AppAction.deleteRight: // Delete
       case AppAction.deleteSelection: // 'x' or 'd'
-        deleteText(1, textEditingController, (String newText) {}); // or delete selection
+        deleteText(
+          1,
+          textEditingController,
+          (String newText) {},
+        ); // or delete selection
         break;
       case AppAction.deleteLine:
         deleteLine(textEditingController, (String newText) {});
@@ -181,7 +215,10 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
         break;
 
       case AppAction.gotoBeginningOfDocument:
-        moveCursor(-textEditingController.text.length, textEditingController); // Move to 0
+        moveCursor(
+          -textEditingController.text.length,
+          textEditingController,
+        ); // Move to 0
         if (scrollController.hasClients) {
           scrollController.jumpTo(scrollController.position.minScrollExtent);
         }
@@ -205,7 +242,11 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     }
   }
 
-  void scrollPage(double factor, ScrollController scrollController, TextEditingController textController) {
+  void scrollPage(
+    double factor,
+    ScrollController scrollController,
+    TextEditingController textController,
+  ) {
     if (!scrollController.hasClients) return;
     final delta = scrollController.position.viewportDimension * factor;
     final newOffset = (scrollController.position.pixels + delta).clamp(
@@ -227,7 +268,12 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
   void selectLine(TextEditingController controller) {
     if (controller.text.isEmpty) return;
 
-    final start = controller.selection.baseOffset <= 0 ? -1 : controller.text.lastIndexOf('\n', controller.selection.baseOffset - 1);
+    final start = controller.selection.baseOffset <= 0
+        ? -1
+        : controller.text.lastIndexOf(
+            '\n',
+            controller.selection.baseOffset - 1,
+          );
     final end = controller.text.indexOf('\n', controller.selection.baseOffset);
 
     controller.selection = TextSelection(
@@ -248,7 +294,10 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
       // we will handle that case when the nextSpace position had exceeded the text length
       final nextSpaceStartIndex = controller.selection.baseOffset + 1;
       if (nextSpaceStartIndex < controller.text.length) {
-        newOffset = controller.text.indexOf(RegExp(r'\s|\p{P}', unicode: true), nextSpaceStartIndex);
+        newOffset = controller.text.indexOf(
+          RegExp(r'\s|\p{P}', unicode: true),
+          nextSpaceStartIndex,
+        );
       }
 
       if (newOffset == -1) {
@@ -260,7 +309,12 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
       // To prevent going out of the 0 index, which is the beginning of the document,
       // we will need to check if the prevSpace position falls under 0
       final prevSpaceStartIndex = controller.selection.baseOffset - 1;
-      final prevSpace = prevSpaceStartIndex < 0 ? -1 : controller.text.lastIndexOf(RegExp(r'\s|\p{P}', unicode: true), prevSpaceStartIndex);
+      final prevSpace = prevSpaceStartIndex < 0
+          ? -1
+          : controller.text.lastIndexOf(
+              RegExp(r'\s|\p{P}', unicode: true),
+              prevSpaceStartIndex,
+            );
       if (prevSpace != -1) {
         newOffset = prevSpace; // Basic jump to start of word
       } else {
@@ -270,13 +324,21 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     moveCursor(newOffset - controller.selection.baseOffset, controller);
   }
 
-  void deleteLine(TextEditingController controller, Function(String) onChanged) {
+  void deleteLine(
+    TextEditingController controller,
+    Function(String) onChanged,
+  ) {
     _preferredColumn = -1;
     // final text = widget.controller.text;
     // final selection = widget.controller.selection;
     if (controller.text.isEmpty) return;
 
-    final start = controller.selection.baseOffset <= 0 ? -1 : controller.text.lastIndexOf('\n', controller.selection.baseOffset - 1);
+    final start = controller.selection.baseOffset <= 0
+        ? -1
+        : controller.text.lastIndexOf(
+            '\n',
+            controller.selection.baseOffset - 1,
+          );
     final end = controller.text.indexOf('\n', controller.selection.baseOffset);
 
     final deleteStart = start == -1 ? 0 : start + 1;
@@ -298,9 +360,12 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     final selectedText = text.substring(selection.start, selection.end);
     await Clipboard.setData(ClipboardData(text: selectedText));
 
-    if (mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) {
+    if (mode == KeyContext.editorVisual ||
+        mode == KeyContext.editorVisualLine) {
       switchMode(KeyContext.editorNormal, controller);
-      controller.selection = TextSelection.collapsed(offset: selection.baseOffset);
+      controller.selection = TextSelection.collapsed(
+        offset: selection.baseOffset,
+      );
     }
   }
 
@@ -309,7 +374,9 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     final selection = controller.selection;
     if (text.isEmpty) return;
 
-    final start = selection.baseOffset <= 0 ? -1 : text.lastIndexOf('\n', selection.baseOffset - 1);
+    final start = selection.baseOffset <= 0
+        ? -1
+        : text.lastIndexOf('\n', selection.baseOffset - 1);
     final end = text.indexOf('\n', selection.baseOffset);
 
     final yankStart = start == -1 ? 0 : start + 1;
@@ -319,7 +386,9 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
 
     String textToCopy = lineText;
     // Check if there is a newline at the end
-    if (yankEnd <= text.length && end != -1 && text.substring(yankEnd - 1, yankEnd) == '\n') {
+    if (yankEnd <= text.length &&
+        end != -1 &&
+        text.substring(yankEnd - 1, yankEnd) == '\n') {
       if (end != -1) {
         textToCopy = text.substring(yankStart, end + 1);
       }
@@ -331,13 +400,20 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     await Clipboard.setData(ClipboardData(text: textToCopy));
 
     // Flash or feedback could go here
-    if (mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) {
+    if (mode == KeyContext.editorVisual ||
+        mode == KeyContext.editorVisualLine) {
       switchMode(KeyContext.editorNormal, controller);
-      controller.selection = TextSelection.collapsed(offset: selection.baseOffset);
+      controller.selection = TextSelection.collapsed(
+        offset: selection.baseOffset,
+      );
     }
   }
 
-  void moveCursor(int delta, TextEditingController controller, {bool resetPreferredColumn = true}) {
+  void moveCursor(
+    int delta,
+    TextEditingController controller, {
+    bool resetPreferredColumn = true,
+  }) {
     if (resetPreferredColumn) {
       _preferredColumn = -1;
     }
@@ -348,9 +424,14 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     if (newOffset < 0) newOffset = 0;
     if (newOffset > text.length) newOffset = text.length;
 
-    if ((mode == KeyContext.editorVisual || mode == KeyContext.editorVisualLine) && _visualStart != null) {
+    if ((mode == KeyContext.editorVisual ||
+            mode == KeyContext.editorVisualLine) &&
+        _visualStart != null) {
       // Extend selection
-      controller.selection = TextSelection(baseOffset: _visualStart!, extentOffset: newOffset);
+      controller.selection = TextSelection(
+        baseOffset: _visualStart!,
+        extentOffset: newOffset,
+      );
     } else {
       // Move caret
       controller.selection = TextSelection.collapsed(offset: newOffset);
@@ -366,7 +447,10 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
       _preferredColumn = _calculateCurrentColumn(controller);
     }
 
-    int targetStart = _getLineStart(controller, controller.selection.baseOffset);
+    int targetStart = _getLineStart(
+      controller,
+      controller.selection.baseOffset,
+    );
 
     if (count > 0) {
       // Down
@@ -388,7 +472,10 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
         if (searchLimit < 0) {
           targetStart = 0;
         } else {
-          final prevLineStartNL = controller.text.lastIndexOf('\n', searchLimit);
+          final prevLineStartNL = controller.text.lastIndexOf(
+            '\n',
+            searchLimit,
+          );
           targetStart = prevLineStartNL == -1 ? 0 : prevLineStartNL + 1;
         }
       }
@@ -403,10 +490,18 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     if (col > lineLen) col = lineLen;
 
     final newOffset = targetStart + col;
-    moveCursor(newOffset - controller.selection.baseOffset, controller, resetPreferredColumn: false);
+    moveCursor(
+      newOffset - controller.selection.baseOffset,
+      controller,
+      resetPreferredColumn: false,
+    );
   }
 
-  void deleteText(int direction, TextEditingController controller, Function(String) onChanged) {
+  void deleteText(
+    int direction,
+    TextEditingController controller,
+    Function(String) onChanged,
+  ) {
     _preferredColumn = -1;
     final selection = controller.selection;
     final text = controller.text;
@@ -426,7 +521,11 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     if (direction < 0) {
       // Backspace
       if (selection.baseOffset > 0) {
-        final newText = text.replaceRange(selection.baseOffset - 1, selection.baseOffset, '');
+        final newText = text.replaceRange(
+          selection.baseOffset - 1,
+          selection.baseOffset,
+          '',
+        );
         controller.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(offset: selection.baseOffset - 1),
@@ -436,7 +535,11 @@ mixin EditorActions<T extends StatefulWidget> on State<T> {
     } else {
       // Delete
       if (selection.baseOffset < text.length) {
-        final newText = text.replaceRange(selection.baseOffset, selection.baseOffset + 1, '');
+        final newText = text.replaceRange(
+          selection.baseOffset,
+          selection.baseOffset + 1,
+          '',
+        );
         controller.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(offset: selection.baseOffset),
