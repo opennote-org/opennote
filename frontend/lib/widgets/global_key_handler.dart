@@ -17,9 +17,9 @@ class GlobalKeyHandler extends StatelessWidget {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
         final appState = AppStateScope.of(context);
-        final action = appState.keyBindings.resolve(KeyContext.global, event);
+        final (action, keyContext) = appState.keyBindings.resolve(event);
 
-        if (action != null) {
+        if (action != null && keyContext == KeyContext.global) {
           onAction(action);
           return KeyEventResult.handled;
         }

@@ -2,10 +2,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:notes/services/user.dart';
-import 'dart:async'; 
-import 'package:collection/collection.dart'; 
+import 'dart:async';
+import 'package:collection/collection.dart';
 
-enum KeyContext { global, editorNormal, editorInsert, editorVisual, editorVisualLine }
+enum KeyContext {
+  global,
+  editorNormal,
+  editorInsert,
+  editorVisual,
+  editorVisualLine,
+}
 
 enum AppAction {
   // Global
@@ -14,7 +20,7 @@ enum AppAction {
   toggleSidebar,
   refresh,
   saveDocument,
-  closeTab, 
+  closeTab,
   switchTabNext,
   switchTabPrevious,
 
@@ -23,36 +29,35 @@ enum AppAction {
   cursorMoveRight,
   cursorMoveUp,
   cursorMoveDown,
-  gotoBeginningOfLine, 
-  gotoEndOfLine, 
-  
+  gotoBeginningOfLine,
+  gotoEndOfLine,
+
   // Editor Modes
   enterInsertMode,
   enterVisualMode,
-  enterVisualLineMode, 
+  enterVisualLineMode,
   exitInsertMode, // Esc
   exitVisualMode, // Esc
-  
   // Editor Editing
   deleteLeft, // Backspace
   deleteRight, // Delete
-  deleteLine, 
-  yank, 
-  yankLine, 
+  deleteLine,
+  yank,
+  yankLine,
   yankSelection,
   deleteSelection,
-  undo, 
-  redo, 
-  moveWordForward, 
-  moveWordBackward, 
-  gotoBeginningOfDocument, 
-  gotoEndOfDocument, 
-  scrollDownHalfPage, 
-  scrollUpHalfPage, 
-  insertAtBeginningOfLine, 
-  insertAtEndOfLine, 
-  insertOnAboveNewline, 
-  insertOnBelowNewline, 
+  undo,
+  redo,
+  moveWordForward,
+  moveWordBackward,
+  gotoBeginningOfDocument,
+  gotoEndOfDocument,
+  scrollDownHalfPage,
+  scrollUpHalfPage,
+  insertAtBeginningOfLine,
+  insertAtEndOfLine,
+  insertOnAboveNewline,
+  insertOnBelowNewline,
 
   unknown,
 }
@@ -207,9 +212,9 @@ class KeyBindingService {
   final Map<KeyContext, List<String>> _pendingKeysByContext = {};
   final Map<KeyContext, Timer> _sequenceTimersByContext = {};
 
-  AppAction? resolve(KeyContext context, KeyEvent event) {
+  (AppAction?, KeyContext?) resolve(KeyEvent event) {
     // We need to construct a KeyCombination from the event
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return null;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return (null, null);
 
     final keyLabel = _normalizeKeyLabel(event.logicalKey.keyLabel);
     final modifiers = <String>{};
@@ -221,16 +226,27 @@ class KeyBindingService {
 
     // Special case: If the key itself IS a modifier (e.g. user just pressed Shift), ignore
     if (['meta', 'ctrl', 'alt', 'shift'].contains(keyLabel.toLowerCase())) {
-      return null;
+      return (null, null);
     }
 
-    // 1. Resolve against specific context
-    final contextMappings = _activeMappings[context];
-    if (contextMappings != null) {
-      return _resolveSequence(context, contextMappings, keyLabel, modifiers);
+    for (final context in KeyContext.values) {
+      final contextMappings = _activeMappings[context];
+      AppAction? appAction;
+      if (contextMappings != null) {
+        appAction = _resolveSequence(
+          context,
+          contextMappings,
+          keyLabel,
+          modifiers,
+        );
+      }
+
+      if (appAction != null) {
+        return (appAction, context);
+      }
     }
 
-    return null;
+    return (null, null);
   }
 
   void clearPending(KeyContext context, List<String> pendingKeys) {
@@ -274,12 +290,10 @@ class KeyBindingService {
       if (candidates.isEmpty) return null;
 
       // Check if any candidate requires following keys
-      final MapEntry<KeyCombination, AppAction>? exactMatch = candidates.firstWhereOrNull(
-        (e) => e.key.followingKeys.isEmpty,
-      );
-      final List<MapEntry<KeyCombination, AppAction>> sequenceCandidates = candidates
-          .where((e) => e.key.followingKeys.isNotEmpty)
-          .toList();
+      final MapEntry<KeyCombination, AppAction>? exactMatch = candidates
+          .firstWhereOrNull((e) => e.key.followingKeys.isEmpty);
+      final List<MapEntry<KeyCombination, AppAction>> sequenceCandidates =
+          candidates.where((e) => e.key.followingKeys.isNotEmpty).toList();
 
       if (sequenceCandidates.isNotEmpty) {
         // Start buffering
