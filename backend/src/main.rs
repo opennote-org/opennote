@@ -91,7 +91,7 @@ async fn main() -> Result<(), std::io::Error> {
                 state.identities_storage.lock().await.users.len()
             );
             info!(
-                "Arhieves storage file contains {} entries",
+                "Backups storage file contains {} entries",
                 state.backups_storage.lock().await.backups.len()
             );
             info!(

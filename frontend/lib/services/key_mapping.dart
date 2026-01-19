@@ -5,18 +5,18 @@ import 'package:notes/services/user.dart';
 import 'dart:async'; 
 import 'package:collection/collection.dart'; 
 
-enum KeyContext { global, editorNormal, editorInsert, editorVisual }
+enum KeyContext { global, editorNormal, editorInsert, editorVisual, editorVisualLine }
 
 enum AppAction {
   // Global
   openConfig,
   openSearch,
   toggleSidebar,
+  refresh,
+  saveDocument,
+  closeTab, 
   switchTabNext,
   switchTabPrevious,
-  saveDocument,
-  refresh,
-  closeTab, 
 
   // Editor Navigation
   cursorMoveLeft,
@@ -25,13 +25,14 @@ enum AppAction {
   cursorMoveDown,
   gotoBeginningOfLine, 
   gotoEndOfLine, 
-
+  
   // Editor Modes
   enterInsertMode,
   enterVisualMode,
   enterVisualLineMode, 
   exitInsertMode, // Esc
   exitVisualMode, // Esc
+  
   // Editor Editing
   deleteLeft, // Backspace
   deleteRight, // Delete

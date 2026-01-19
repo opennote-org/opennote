@@ -24,8 +24,7 @@ class EditorInputHandler extends StatefulWidget {
   State<EditorInputHandler> createState() => _EditorInputHandlerState();
 }
 
-class _EditorInputHandlerState extends State<EditorInputHandler>
-    with EditorShortcuts {
+class _EditorInputHandlerState extends State<EditorInputHandler> with EditorActions {
   final UndoHistoryController _undoController = UndoHistoryController();
   bool _initialized = false;
 
@@ -36,8 +35,8 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
 
     // Initialize mode based on configuration
     if (appState.keyBindings.isVimEnabled) {
-      if (mode == EditorMode.insert && !_initialized) {
-        mode = EditorMode.normal;
+      if (mode == KeyContext.editorInsert && !_initialized) {
+        mode = KeyContext.editorNormal;
       }
     }
     _initialized = true;
@@ -48,15 +47,15 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
     final appState = AppStateScope.of(context);
 
     // Visual indicator of mode (Optional, but helpful)
-    final modeColor = mode == EditorMode.normal
+    final modeColor = mode == KeyContext.editorNormal
         ? Colors.green.withOpacity(0.1)
-        : mode == EditorMode.visual
+        : mode == KeyContext.editorVisual
         ? Colors.blue.withOpacity(0.1)
         : Colors.transparent;
 
     // Determine the cursor size by mode
     double cursorWidth = 2.0;
-    if (mode != EditorMode.insert) {
+    if (mode != KeyContext.editorInsert) {
       cursorWidth = 12.0;
     }
 
@@ -66,43 +65,29 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
           return KeyEventResult.ignored;
         }
 
-        // 1. Resolve Action (Editor Context)
-        final context = getCurrentContext();
-        final action = appState.keyBindings.resolve(context, event);
+        // Resolve Action (Editor Context)
+        final action = appState.keyBindings.resolve(mode, event);
 
         if (action != null) {
-          handleAction(
-            action,
-            widget.scrollController,
-            widget.controller,
-            _undoController,
-          );
+          handleAction(action, widget.scrollController, widget.controller, _undoController);
           return KeyEventResult.handled;
         }
 
-        // 2. Check if it's a Global Action
-        // If it is, we MUST ignore it so it bubbles up to GlobalKeyHandler
-        final globalAction = appState.keyBindings.resolve(
-          KeyContext.global,
-          event,
-        );
-        if (globalAction != null) {
-          return KeyEventResult.ignored;
-        }
-
-        // 3. If no action, and NOT in Insert mode, block the key
+        // If no action, and NOT in Insert mode, block the key
         // (so 'j' doesn't type 'j' in Normal mode)
-        if (mode != EditorMode.insert) {
+        if (mode != KeyContext.editorInsert) {
           return KeyEventResult.handled;
         }
 
-        // 4. In Insert mode, let it bubble to TextField
-        return KeyEventResult.ignored;
+        // In Insert mode, let it bubble to TextField
+        // 
+        // We need to skip the global actions to prevent users from activating it 
+        // by typing `x` or `/` in vim mode etc. 
+        return KeyEventResult.skipRemainingHandlers;
       },
       child: Container(
         color: modeColor,
         child: TextField(
-          autofocus: true,
           showCursor: true,
           cursorWidth: cursorWidth,
           controller: widget.controller,
@@ -112,10 +97,7 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
           maxLines: null,
           expands: true,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
-          decoration: const InputDecoration( border: InputBorder.none,
-            contentPadding: EdgeInsets.all(16),
-            hintText: 'Start typing...',
-          ),
+          decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16), hintText: 'Start typing...'),
           onChanged: widget.onChanged,
         ),
       ),
