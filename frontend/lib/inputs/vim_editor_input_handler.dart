@@ -4,14 +4,14 @@ import 'package:notes/actions/editor.dart';
 import 'package:notes/services/key_mapping.dart';
 import 'package:notes/state/app_state_scope.dart';
 
-class EditorInputHandler extends StatefulWidget {
+class VimEditorInputHandler extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ScrollController scrollController;
   final Function(String) onChanged;
   final VoidCallback onSave;
 
-  const EditorInputHandler({
+  const VimEditorInputHandler({
     super.key,
     required this.controller,
     required this.focusNode,
@@ -21,10 +21,10 @@ class EditorInputHandler extends StatefulWidget {
   });
 
   @override
-  State<EditorInputHandler> createState() => _EditorInputHandlerState();
+  State<VimEditorInputHandler> createState() => _VimEditorInputHandlerState();
 }
 
-class _EditorInputHandlerState extends State<EditorInputHandler>
+class _VimEditorInputHandlerState extends State<VimEditorInputHandler>
     with EditorActions {
   final UndoHistoryController _undoController = UndoHistoryController();
   bool _initialized = false;
@@ -91,10 +91,9 @@ class _EditorInputHandlerState extends State<EditorInputHandler>
           return KeyEventResult.handled;
         }
 
-        // Handle the global actions in editorNormal mode. 
+        // Handle the global actions in editorNormal mode.
         // Prevent closing the tab when typing x.
-        if (action != null &&
-            mode == KeyContext.editorNormal) {
+        if (action != null && mode == KeyContext.editorNormal) {
           return KeyEventResult.ignored;
         }
 

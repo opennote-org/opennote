@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:notes/inputs/editor_input_handler.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/widgets/editor_input_handler.dart';
 
 class DocumentEditor extends StatefulWidget {
   final String documentId;
@@ -187,7 +187,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
       }
     }
   }
-
+  
   @override
   void dispose() {
     _controller.dispose();
