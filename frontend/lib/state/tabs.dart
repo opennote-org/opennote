@@ -73,7 +73,7 @@ mixin Tabs on ChangeNotifier, Services {
     }
   }
 
-  Future<List<String>?, ActiveObject?> loadTabs() async {
+  Future<(List<String>?, ActiveObject?)> loadTabs() async {
     final activeObjectTypeString = await localStorage.getString(
       activeObjectTypeKey,
     );
@@ -98,7 +98,7 @@ mixin Tabs on ChangeNotifier, Services {
 
       lastActiveObjectId = savedLastActiveObjectId;
 
-      return ();
+      return (savedOpenObjectIds, activeObject);
     }
 
     return (null, null);

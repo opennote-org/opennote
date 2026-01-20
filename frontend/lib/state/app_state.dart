@@ -24,24 +24,28 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
 
   final Map<String, CollectionMetadata> collectionById = {};
 
-  List<CollectionMetadata> get collectionsList =>
-      collectionById.values.toList();
+  List<CollectionMetadata> get collectionsList => collectionById.values.toList();
   List<BackupListItem> backups = [];
 
   // Search Highlights
   final Map<String, SearchHighlight> searchHighlights = {};
 
   AppState() {
-    loadTabs();
+    loadLastOpenedTabs();
   }
 
-  void loadLastOpenedTabs() {
-    loadTabs();
-    for (final id in openObjectIds) {
-      openDocument(id);
+  void loadLastOpenedTabs() async {
+    final (savedOpenObjectIds, activeObject) = await loadTabs();
+
+    if (savedOpenObjectIds != null) {
+      for (final id in savedOpenObjectIds) {
+        openDocument(id);
+      }
     }
-    
-    setActiveObject(ActiveObjectType.document, activeObjectId);
+
+    if (activeObject != null) {
+      setActiveObject(activeObject.type, activeObject.id);
+    }
   }
 
   Future<void> pollTasks() async {
@@ -66,9 +70,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
                 taskIdToTempDocId.remove(task.id);
 
                 // Try to find new ID in result data
-                if (result.data != null &&
-                    result.data is Map &&
-                    result.data['document_metadata_id'] != null) {
+                if (result.data != null && result.data is Map && result.data['document_metadata_id'] != null) {
                   final newId = result.data['document_metadata_id'] as String;
                   swapDocumentId(tempId, newId);
                 }
@@ -111,9 +113,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
 
     if (changed) notifyListeners();
 
-    hasPending = tasks.any(
-      (t) => t.status == 'Pending' || t.status == 'InProgress',
-    );
+    hasPending = tasks.any((t) => t.status == 'Pending' || t.status == 'InProgress');
     if (!hasPending) {
       pollingTimer?.cancel();
       pollingTimer = null;
@@ -126,9 +126,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
 
     collection.title = newTitle;
 
-    final taskId = await collections.updateCollectionsMetadata(dio, [
-      collection,
-    ]);
+    final taskId = await collections.updateCollectionsMetadata(dio, [collection]);
     addTask(taskId, "Renaming collection to '$newTitle'", pollTasks);
     notifyListeners();
   }
@@ -166,8 +164,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
       refreshDocuments(),
       refreshCollections(), // Also refresh collections as some tasks might affect them
       fetchBackups(),
-      if (username != null)
-        keyBindings.fetchAndApplyConfigurations(dio, users, username!),
+      if (username != null) keyBindings.fetchAndApplyConfigurations(dio, users, username!),
     ]);
   }
 
@@ -211,19 +208,10 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
     notifyListeners();
   }
 
-  Future<void> createDocumentInCollection(
-    String collectionId,
-    String title,
-  ) async {
+  Future<void> createDocumentInCollection(String collectionId, String title) async {
     if (username == null) return;
     final content = title;
-    final taskId = await documents.addDocument(
-      dio,
-      username!,
-      title,
-      collectionId,
-      content,
-    );
+    final taskId = await documents.addDocument(dio, username!, title, collectionId, content);
     addTask(taskId, "Creating document '$title'", pollTasks);
   }
 
@@ -237,18 +225,10 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
     notifyListeners();
   }
 
-  Future<void> importDocuments(
-    List<Map<String, dynamic>> imports, {
-    String? collectionId,
-  }) async {
+  Future<void> importDocuments(List<Map<String, dynamic>> imports, {String? collectionId}) async {
     final targetCollectionId = collectionId ?? currentCollectionId;
     if (targetCollectionId == null || username == null) return;
-    final taskId = await documents.importDocuments(
-      dio,
-      username!,
-      targetCollectionId,
-      imports,
-    );
+    final taskId = await documents.importDocuments(dio, username!, targetCollectionId, imports);
     addTask(taskId, "Importing ${imports.length} documents", pollTasks);
   }
 
@@ -326,21 +306,13 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
     }
   }
 
-  Future<void> openDocument(
-    String documentId, {
-    String? highlightText,
-    String? highlightChunkId,
-    String? collectionId,
-  }) async {
+  Future<void> openDocument(String documentId, {String? highlightText, String? highlightChunkId, String? collectionId}) async {
     if (!openObjectIds.contains(documentId)) {
       openObjectIds.add(documentId);
     }
 
     if (highlightText != null) {
-      searchHighlights[documentId] = SearchHighlight(
-        highlightText,
-        chunkId: highlightChunkId,
-      );
+      searchHighlights[documentId] = SearchHighlight(highlightText, chunkId: highlightChunkId);
     }
 
     // Ensure we have metadata if possible
@@ -384,9 +356,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
     openObjectIds.removeAt(removedIndex);
     searchHighlights.remove(documentId);
 
-    final wasActiveDocument =
-        activeObject.type == ActiveObjectType.document &&
-        activeObject.id == documentId;
+    final wasActiveDocument = activeObject.type == ActiveObjectType.document && activeObject.id == documentId;
     final wasLastActive = lastActiveObjectId == documentId;
 
     if (openObjectIds.isEmpty) {
@@ -396,9 +366,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
     }
 
     if (wasActiveDocument || wasLastActive) {
-      final nextIndex = removedIndex < openObjectIds.length
-          ? removedIndex
-          : openObjectIds.length - 1;
+      final nextIndex = removedIndex < openObjectIds.length ? removedIndex : openObjectIds.length - 1;
       setActiveObject(ActiveObjectType.document, openObjectIds[nextIndex]);
       return;
     }
@@ -416,9 +384,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
 
     // Update tree cache
     if (documentsByCollectionId.containsKey(oldCollectionId)) {
-      documentsByCollectionId[oldCollectionId]?.removeWhere(
-        (d) => d.id == documentId,
-      );
+      documentsByCollectionId[oldCollectionId]?.removeWhere((d) => d.id == documentId);
     }
     if (documentsByCollectionId.containsKey(newCollectionId)) {
       documentsByCollectionId[newCollectionId]?.add(document);
@@ -436,10 +402,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
 
   Future<void> refreshDocuments() async {
     if (currentCollectionId == null) return;
-    final docs = await documents.getDocumentsMetadata(
-      dio,
-      currentCollectionId!,
-    );
+    final docs = await documents.getDocumentsMetadata(dio, currentCollectionId!);
     documentById
       ..clear()
       ..addEntries(docs.map((e) => MapEntry(e.id, e)));
@@ -492,10 +455,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
   }
 
   Future<void> saveActiveDocument() async {
-    if (activeObject.type != ActiveObjectType.document ||
-        activeObject.id == null ||
-        username == null)
-      return;
+    if (activeObject.type != ActiveObjectType.document || activeObject.id == null || username == null) return;
 
     final docId = activeObject.id!;
     final meta = documentById[docId];
@@ -509,20 +469,11 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
         String title = 'Untitled';
         if (content.trim().isNotEmpty) {
           final firstLine = content.split('\n').first.trim();
-          title = firstLine.substring(
-            0,
-            firstLine.length > 50 ? 50 : firstLine.length,
-          );
+          title = firstLine.substring(0, firstLine.length > 50 ? 50 : firstLine.length);
           if (title.isEmpty) title = 'Untitled';
         }
 
-        final taskId = await documents.addDocument(
-          dio,
-          username!,
-          title,
-          meta.collectionMetadataId,
-          content,
-        );
+        final taskId = await documents.addDocument(dio, username!, title, meta.collectionMetadataId, content);
         taskIdToTempDocId[taskId] = docId;
         addTask(taskId, "Creating document '$title'", pollTasks);
 
@@ -531,14 +482,7 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
         notifyListeners();
       } else {
         final title = meta.title;
-        final taskId = await documents.updateDocumentContent(
-          dio,
-          username!,
-          docId,
-          meta.collectionMetadataId,
-          title,
-          content,
-        );
+        final taskId = await documents.updateDocumentContent(dio, username!, docId, meta.collectionMetadataId, title, content);
 
         addTask(taskId, "Updating document '$title'", pollTasks);
         notifyListeners();
@@ -551,17 +495,11 @@ class AppState extends ChangeNotifier with Services, Tabs, Tasks, Documents {
   // --- Tree View & Tab Management Methods ---
 
   Future<void> fetchDocumentsForCollection(String collectionId) async {
-    final List<DocumentMetadata> list = await documents.getDocumentsMetadata(
-      dio,
-      collectionId,
-    );
+    final List<DocumentMetadata> list = await documents.getDocumentsMetadata(dio, collectionId);
 
     // Merge with existing temp docs for this collection
-    final List<DocumentMetadata> existingList =
-        documentsByCollectionId[collectionId] ?? [];
-    final List<DocumentMetadata> tempDocs = existingList
-        .where((d) => d.isLocalDocument())
-        .toList();
+    final List<DocumentMetadata> existingList = documentsByCollectionId[collectionId] ?? [];
+    final List<DocumentMetadata> tempDocs = existingList.where((d) => d.isLocalDocument()).toList();
     final List<DocumentMetadata> combinedList = [...list, ...tempDocs];
 
     documentsByCollectionId[collectionId] = combinedList;
