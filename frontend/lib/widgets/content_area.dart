@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:notes/actions/popups.dart';
-import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/services/key_mapping.dart';
+import 'package:notes/state/tabs.dart';
 import 'package:notes/widgets/document_editor.dart';
 
 class ContentArea extends StatelessWidget {
@@ -13,11 +13,11 @@ class ContentArea extends StatelessWidget {
     final appState = AppStateScope.of(context);
     
     // Update last document if the active item is a document
-    if (appState.activeItem.type == ActiveItemType.document && appState.activeItem.id != null) {
-      appState.lastActiveDocumentId = appState.activeItem.id;
+    if (appState.activeObject.type == ActiveObjectType.document && appState.activeObject.id != null) {
+      appState.lastActiveObjectId = appState.activeObject.id;
     }
 
-    if (appState.openDocumentIds.isEmpty) {
+    if (appState.openObjectIds.isEmpty) {
       // Resolve shortcuts for display
       final searchShortcut =
           appState.keyBindings
@@ -74,15 +74,15 @@ class ContentArea extends StatelessWidget {
           height: 48,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: appState.openDocumentIds.length,
+            itemCount: appState.openObjectIds.length,
             itemBuilder: (context, index) {
-              final docId = appState.openDocumentIds[index];
+              final docId = appState.openObjectIds[index];
               final doc = appState.documentById[docId];
-              final isActive = docId == appState.activeItem.id;
+              final isActive = docId == appState.activeObject.id;
 
               return InkWell(
                 onTap: () =>
-                    appState.setActiveItem(ActiveItemType.document, docId),
+                    appState.setActiveObject(ActiveObjectType.document, docId),
                 child: Container(
                   margin: EdgeInsets.only(top: 5, bottom: 5),
                   width: 200, // Fixed width for tabs
@@ -126,10 +126,10 @@ class ContentArea extends StatelessWidget {
         ),
         // Content
         Expanded(
-          child: appState.lastActiveDocumentId != null
+          child: appState.lastActiveObjectId != null
               ? DocumentEditor(
-                  key: ValueKey(appState.lastActiveDocumentId),
-                  documentId: appState.lastActiveDocumentId!,
+                  key: ValueKey(appState.lastActiveObjectId),
+                  documentId: appState.lastActiveObjectId!,
                 )
               : const SizedBox(),
         ),

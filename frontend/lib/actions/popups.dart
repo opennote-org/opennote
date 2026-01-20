@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:notes/screens/search/search_popup.dart';
 import 'package:notes/services/search.dart';
-import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
+import 'package:notes/state/tabs.dart';
 import 'package:notes/widgets/configuration_popup.dart';
 
 void showSearchPopup(BuildContext context) {
   final appState = AppStateScope.of(context);
-  final activeItem = appState.activeItem;
+  final activeItem = appState.activeObject;
 
-  if (activeItem.type == ActiveItemType.none && appState.username == null) {
+  if (activeItem.type == ActiveObjectType.none && appState.username == null) {
     return;
   }
 
   String? scopeId = activeItem.id;
   SearchScope scope = SearchScope.userspace;
 
-  if (activeItem.type == ActiveItemType.collection && activeItem.id != null) {
+  if (activeItem.type == ActiveObjectType.collection && activeItem.id != null) {
     scope = SearchScope.collection;
     scopeId = activeItem.id;
-  } else if (activeItem.type == ActiveItemType.document &&
+  } else if (activeItem.type == ActiveObjectType.document &&
       activeItem.id != null) {
     scope = SearchScope.document;
     // If document is not in documentById (e.g. only in tree cache), try to find it

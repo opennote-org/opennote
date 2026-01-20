@@ -61,7 +61,7 @@ final Map<AppAction, ActionHandler> _actionHandlers = {
     }
   },
   AppAction.closeTab: (context, appState, _) async {
-    final currentId = appState.activeItem.id;
+    final currentId = appState.activeObject.id;
     if (currentId != null) {
       appState.closeDocument(currentId);
     }

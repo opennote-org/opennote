@@ -4,7 +4,7 @@ import 'package:notes/screens/main_screen.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 
-void main() {
+void main() async {
   final state = AppState();
   runApp(AppStateScope(notifier: state, child: const MyApp()));
 }
