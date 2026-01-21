@@ -143,13 +143,25 @@ class DocumentManagementService {
     return response.data!["task_id"];
   }
 
+  /// Either supplying the collection or document, never both
   Future<List<DocumentMetadata>> getDocumentsMetadata(
     Dio dio,
-    String collectionMetadataId,
+    String? collectionMetadataId,
+    List<String>? documentMetadataIds,
   ) async {
-    final response = await dio.get(
+    late Map<String, Object?> payload = {};
+
+    if (collectionMetadataId != null && documentMetadataIds == null) {
+      payload = {"collection_metadata_id": collectionMetadataId};
+    }
+
+    if (documentMetadataIds != null && collectionMetadataId == null) {
+      payload = {"document_metadata_ids": documentMetadataIds};
+    }
+
+    final response = await dio.post(
       getDocumentMetadataEndpoint,
-      queryParameters: {"collection_metadata_id": collectionMetadataId},
+      data: payload,
     );
     final List<dynamic> data = response.data!["data"] as List<dynamic>;
 

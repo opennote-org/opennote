@@ -1,5 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:notes/state/services.dart';
+import 'package:notes/state/users.dart';
+
+part 'tabs.g.dart';
 
 // Keys of the states in local storage
 const String activeObjectTypeKey = "activeObjectType";
@@ -9,13 +15,49 @@ const String lastActiveObjectIdKey = "lastActiveObjectId";
 
 enum ActiveObjectType { collection, document, none }
 
+@JsonSerializable()
+class SavedTabsStates {
+  ActiveObject activeObject;
+  List<String> openObjectIds;
+  String? lastActiveObjectId;
+
+  SavedTabsStates({
+    required this.activeObject,
+    required this.openObjectIds,
+    required this.lastActiveObjectId,
+  });
+
+  factory SavedTabsStates.fromJson(Map<String, dynamic> json) =>
+      _$SavedTabsStatesFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SavedTabsStatesToJson(this);
+
+  static SavedTabsStates fromString(String string) {
+    final json = jsonDecode(string);
+    return _$SavedTabsStatesFromJson(json);
+  }
+
+  @override
+  String toString() {
+    final json = toJson();
+    return jsonEncode(json);
+  }
+}
+
+@JsonSerializable()
 class ActiveObject {
   final ActiveObjectType type;
   final String? id;
+
   ActiveObject(this.type, this.id);
+
+  factory ActiveObject.fromJson(Map<String, dynamic> json) =>
+      _$ActiveObjectFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ActiveObjectToJson(this);
 }
 
-mixin Tabs on ChangeNotifier, Services {
+mixin Tabs on ChangeNotifier, Services, Users {
   // Tab Management
   final List<String> openObjectIds = [];
   String? lastActiveObjectId;
@@ -52,53 +94,38 @@ mixin Tabs on ChangeNotifier, Services {
 
   void setActiveObject(ActiveObjectType type, String? id) {
     activeObject = ActiveObject(type, id);
+
     if (type == ActiveObjectType.document && id != null) {
       lastActiveObjectId = id;
+      // We don't want to save collection nor null
+      saveTabs(activeObject);
     }
 
-    saveTabs();
     notifyListeners();
   }
 
   /// Persist the tab states to local storage for resuming them when user re-opened the app
-  void saveTabs() {
-    if (activeObject.id != null) {
-      localStorage.setString(activeObjectTypeKey, activeObject.type.name);
-      localStorage.setString(activeObjectIdKey, activeObject.id!);
-    }
-
-    localStorage.setStringList(openObjectIdsKey, openObjectIds);
-    if (lastActiveObjectId != null) {
-      localStorage.setString(lastActiveObjectIdKey, lastActiveObjectId!);
+  void saveTabs(ActiveObject activeObject) {
+    if (activeObject.id != null && lastActiveObjectId != null && username != null) {
+      localStorage.setString(
+        username!,
+        SavedTabsStates(
+          activeObject: activeObject,
+          openObjectIds: openObjectIds,
+          lastActiveObjectId: lastActiveObjectId,
+        ).toString(),
+      );
     }
   }
 
-  Future<(List<String>?, ActiveObject?)> loadTabs() async {
-    final activeObjectTypeString = await localStorage.getString(
-      activeObjectTypeKey,
-    );
-    final activeObjectId = await localStorage.getString(activeObjectIdKey);
-    final savedOpenObjectIds = await localStorage.getStringList(
-      openObjectIdsKey,
-    );
-    final savedLastActiveObjectId = await localStorage.getString(
-      lastActiveObjectIdKey,
-    );
+  Future<(List<String>?, ActiveObject?)> loadTabs(String username) async {
+    final String? localStorageContent = await localStorage.getString(username);
+    
+    if (localStorageContent != null) {
+      final savedTabsStates = SavedTabsStates.fromString(localStorageContent);
+      lastActiveObjectId = savedTabsStates.lastActiveObjectId;
 
-    if (savedOpenObjectIds != null) {
-      if (activeObjectTypeString != null && activeObjectId != null) {
-        final type = ActiveObjectType.values.firstWhere(
-          (e) => e.name == activeObjectTypeString,
-          orElse: () => ActiveObjectType.none,
-        );
-        activeObject = ActiveObject(type, activeObjectId);
-      } else {
-        activeObject = ActiveObject(ActiveObjectType.none, null);
-      }
-
-      lastActiveObjectId = savedLastActiveObjectId;
-
-      return (savedOpenObjectIds, activeObject);
+      return (savedTabsStates.openObjectIds, activeObject);
     }
 
     return (null, null);

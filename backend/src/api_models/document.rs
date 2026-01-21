@@ -69,5 +69,6 @@ pub struct UpdateDocumentResponse {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetDocumentsMetadataQuery {
-    pub collection_metadata_id: String,
+    pub collection_metadata_id: Option<String>,
+    pub document_metadata_ids: Option<Vec<String>>,
 }
