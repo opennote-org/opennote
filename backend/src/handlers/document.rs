@@ -1,9 +1,6 @@
 use std::collections::HashSet;
 
-use actix_web::{
-    HttpResponse, Result,
-    web::{self, Query},
-};
+use actix_web::{HttpResponse, Result, web};
 use futures::future::join_all;
 use log::{error, info};
 use serde_json::json;
@@ -430,19 +427,28 @@ pub async fn update_document_content(
 
         // Isolate the access to the locked metadata storage to prevent potential deadlocking
         // in the following code.
-        {
+        //
+        // We modify the old metadata after done uploading new chunks to the database to
+        // prevent accidentally creating new docs.
+        let mut metadata: DocumentMetadata = {
             let mut metadata_storage = metadata_storage.lock().await;
-            match metadata_storage
+            let metadata = match metadata_storage
                 .remove_document(&request.document_metadata_id)
                 .await
             {
-                Some(_) => {}
+                Some(result) => result,
                 None => {
                     let message: String = format!(
                         "Document {} was not found when trying to delete",
                         &request.document_metadata_id
                     );
                     log::warn!("{}", message);
+                    tasks_scheduler.lock().await.update_status_by_task_id(
+                        &task_id,
+                        TaskStatus::Failed,
+                        Some(message),
+                    );
+                    return;
                 }
             };
 
@@ -463,12 +469,10 @@ pub async fn update_document_content(
                     return;
                 }
             }
-        }
 
-        let mut metadata: DocumentMetadata = DocumentMetadata::new(
-            request.title.clone(),
-            request.collection_metadata_id.clone(),
-        );
+            metadata
+        };
+
         let metdata_id: String = metadata.id.clone();
 
         let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
@@ -531,9 +535,24 @@ pub async fn update_document_content(
 // Sync endpoint
 pub async fn get_documents_metadata(
     data: web::Data<RwLock<AppState>>,
-    query: Query<GetDocumentsMetadataQuery>,
+    query: web::Json<GetDocumentsMetadataQuery>,
 ) -> Result<HttpResponse> {
     let (_, _, metadata_storage, _, _, _, _) = acquire_data(&data).await;
+
+    let is_query_not_valid: bool = query.0.collection_metadata_id.is_some()
+        == query.0.document_metadata_ids.is_some()
+        || query.0.collection_metadata_id.is_none() == query.0.document_metadata_ids.is_none();
+
+    if is_query_not_valid {
+        error!(
+            "Wrong query received when trying to get documents metadata: {:?}",
+            &query.0
+        );
+        return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+            "".to_string(),
+            format!("You should either supply the collection metadata id or the document metadata ids, not both"),
+        )));
+    }
 
     let metadata: Vec<DocumentMetadata> = metadata_storage
         .lock()
@@ -541,7 +560,21 @@ pub async fn get_documents_metadata(
         .documents
         .iter()
         .filter(|(_, document_metadata)| {
-            document_metadata.collection_metadata_id == query.0.collection_metadata_id
+            match &query.0.collection_metadata_id {
+                Some(result) => {
+                    return document_metadata.collection_metadata_id == *result;
+                }
+                None => {}
+            }
+
+            match &query.0.document_metadata_ids {
+                Some(result) => {
+                    return result.contains(&document_metadata.id);
+                }
+                None => {}
+            }
+
+            false
         })
         .map(|(_, document_metadata)| document_metadata.to_owned())
         .collect();

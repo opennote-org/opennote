@@ -66,7 +66,7 @@ pub fn configure_routes() -> Scope {
                 )
                 .route(
                     "/sync/get_documents_metadata",
-                    web::get().to(get_documents_metadata),
+                    web::post().to(get_documents_metadata),
                 ),
         )
         .service(

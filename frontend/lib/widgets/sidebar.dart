@@ -8,6 +8,7 @@ import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
+import 'package:notes/state/tabs.dart';
 import 'package:notes/utils/downloader.dart';
 import 'package:notes/widgets/configuration_popup.dart';
 
@@ -544,7 +545,7 @@ class _CollectionNodeState extends State<CollectionNode> {
           initialValue: doc.title,
         );
         if (title != null && title.isNotEmpty) {
-          appState.renameDocument(doc.id, title);
+          appState.renameDocument(doc.id, title, appState.pollTasks);
         }
       }
     });
@@ -604,8 +605,8 @@ class _CollectionNodeState extends State<CollectionNode> {
     });
     if (_isExpanded) {
       final appState = AppStateScope.of(context);
-      appState.setActiveItem(
-        ActiveItemType.collection,
+      appState.setActiveObject(
+        ActiveObjectType.collection,
         widget.collection.id,
       );
       appState.fetchDocumentsForCollection(widget.collection.id);
@@ -620,8 +621,7 @@ class _CollectionNodeState extends State<CollectionNode> {
 
     return DragTarget<DocumentMetadata>(
       onWillAccept: (data) =>
-          data != null &&
-          data.collectionMetadataId != widget.collection.id,
+          data != null && data.collectionMetadataId != widget.collection.id,
       onAccept: (data) {
         appState.moveDocument(data.id, widget.collection.id);
       },
@@ -631,8 +631,8 @@ class _CollectionNodeState extends State<CollectionNode> {
             GestureDetector(
               onTap: _toggleExpansion,
               onSecondaryTapDown: (details) {
-                appState.setActiveItem(
-                  ActiveItemType.collection,
+                appState.setActiveObject(
+                  ActiveObjectType.collection,
                   widget.collection.id,
                 );
                 _showCollectionMenu(context, details.globalPosition);
@@ -672,8 +672,9 @@ class _CollectionNodeState extends State<CollectionNode> {
                     ],
                   ),
                   selected:
-                      appState.activeItem.type == ActiveItemType.collection &&
-                      appState.activeItem.id == widget.collection.id,
+                      appState.activeObject.type ==
+                          ActiveObjectType.collection &&
+                      appState.activeObject.id == widget.collection.id,
                 ),
               ),
             ),
@@ -714,7 +715,7 @@ class _CollectionNodeState extends State<CollectionNode> {
   ) {
     return GestureDetector(
       onSecondaryTapDown: (details) {
-        appState.setActiveItem(ActiveItemType.document, doc.id);
+        appState.setActiveObject(ActiveObjectType.document, doc.id);
         showMenu(
           context: context,
           position: RelativeRect.fromLTRB(
@@ -737,7 +738,7 @@ class _CollectionNodeState extends State<CollectionNode> {
               initialValue: doc.title,
             );
             if (title != null && title.isNotEmpty) {
-              appState.renameDocument(doc.id, title);
+              appState.renameDocument(doc.id, title, appState.pollTasks);
             }
           }
         });
@@ -746,8 +747,8 @@ class _CollectionNodeState extends State<CollectionNode> {
         title: Text(doc.title),
         leading: const Icon(Icons.article),
         selected:
-            appState.activeItem.type == ActiveItemType.document &&
-            appState.activeItem.id == doc.id,
+            appState.activeObject.type == ActiveObjectType.document &&
+            appState.activeObject.id == doc.id,
         onTap: () {
           appState.openDocument(doc.id);
         },

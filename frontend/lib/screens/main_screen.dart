@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:notes/actions/handlers.dart';
 import 'package:notes/inputs/global_key_handler.dart';
-import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
+import 'package:notes/state/tabs.dart';
 import 'package:notes/widgets/content_area.dart';
 import 'package:notes/widgets/notification_center.dart';
 import 'package:notes/widgets/sidebar.dart';
@@ -43,8 +43,8 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
-    final activeItem = appState.activeItem;
-    final isDocumentActive = activeItem.type == ActiveItemType.document;
+    final activeItem = appState.activeObject;
+    final isDocumentActive = activeItem.type == ActiveObjectType.document;
 
     return GlobalKeyHandler(
       onAction: _handleAction,
@@ -63,7 +63,7 @@ class _MainScreenState extends State<MainScreen> {
                     : () => _handleAction(AppAction.saveDocument),
               ),
 
-            if (activeItem.type != ActiveItemType.none ||
+            if (activeItem.type != ActiveObjectType.none ||
                 appState.username != null)
               IconButton(
                 icon: const Icon(Icons.search),

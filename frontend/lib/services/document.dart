@@ -18,7 +18,8 @@ class DocumentChunk {
     required this.content,
   });
 
-  factory DocumentChunk.fromJson(Map<String, dynamic> json) => _$DocumentChunkFromJson(json);
+  factory DocumentChunk.fromJson(Map<String, dynamic> json) =>
+      _$DocumentChunkFromJson(json);
 
   Map<String, dynamic> toJson() => _$DocumentChunkToJson(this);
 }
@@ -41,12 +42,27 @@ class DocumentMetadata {
     required this.chunks,
   });
 
-  factory DocumentMetadata.fromJson(Map<String, dynamic> json) => _$DocumentMetadataFromJson(json);
+  factory DocumentMetadata.fromJson(Map<String, dynamic> json) =>
+      _$DocumentMetadataFromJson(json);
   Map<String, dynamic> toJson() => _$DocumentMetadataToJson(this);
+
+  bool isLocalDocument() {
+    if (id.startsWith('temp_doc_')) {
+      return true;
+    }
+
+    return false;
+  }
 }
 
 class DocumentManagementService {
-  Future<String> addDocument(Dio dio, String username, String title, String collectionMetadataId, String content) async {
+  Future<String> addDocument(
+    Dio dio,
+    String username,
+    String title,
+    String collectionMetadataId,
+    String content,
+  ) async {
     final response = await dio.post(
       addDocumentEndpoint,
       data: {
@@ -59,7 +75,12 @@ class DocumentManagementService {
     return response.data!["task_id"];
   }
 
-  Future<String> importDocuments(Dio dio, String username, String collectionMetadataId, List<Map<String, dynamic>> imports) async {
+  Future<String> importDocuments(
+    Dio dio,
+    String username,
+    String collectionMetadataId,
+    List<Map<String, dynamic>> imports,
+  ) async {
     final response = await dio.post(
       importDocumentsEndpoint,
       data: {
@@ -72,7 +93,10 @@ class DocumentManagementService {
   }
 
   Future<String> deleteDocument(Dio dio, String documentMetadataId) async {
-    final response = await dio.post(deleteDocumentEndpoint, data: {"document_metadata_id": documentMetadataId});
+    final response = await dio.post(
+      deleteDocumentEndpoint,
+      data: {"document_metadata_id": documentMetadataId},
+    );
     return response.data!["task_id"];
   }
 
@@ -97,7 +121,10 @@ class DocumentManagementService {
     return response.data!["task_id"];
   }
 
-  Future<String> updateDocumentsMetadata(Dio dio, List<DocumentMetadata> documents) async {
+  Future<String> updateDocumentsMetadata(
+    Dio dio,
+    List<DocumentMetadata> documents,
+  ) async {
     final List<Map<String, dynamic>> data = documents.map((e) {
       return {
         "metadata_id": e.id,
@@ -111,33 +138,57 @@ class DocumentManagementService {
 
     final response = await dio.post(
       updateDocumentsMetadataEndpoint,
-      data: {
-        "document_metadatas": data,
-      },
+      data: {"document_metadatas": data},
     );
     return response.data!["task_id"];
   }
 
-  Future<List<DocumentMetadata>> getDocumentsMetadata(Dio dio, String collectionMetadataId) async {
-    final response = await dio.get(getDocumentMetadataEndpoint, queryParameters: {"collection_metadata_id": collectionMetadataId});
+  /// Either supplying the collection or document, never both
+  Future<List<DocumentMetadata>> getDocumentsMetadata(
+    Dio dio,
+    String? collectionMetadataId,
+    List<String>? documentMetadataIds,
+  ) async {
+    late Map<String, Object?> payload = {};
+
+    if (collectionMetadataId != null && documentMetadataIds == null) {
+      payload = {"collection_metadata_id": collectionMetadataId};
+    }
+
+    if (documentMetadataIds != null && collectionMetadataId == null) {
+      payload = {"document_metadata_ids": documentMetadataIds};
+    }
+
+    final response = await dio.post(
+      getDocumentMetadataEndpoint,
+      data: payload,
+    );
     final List<dynamic> data = response.data!["data"] as List<dynamic>;
 
-    return data.map((e) => DocumentMetadata.fromJson(e as Map<String, dynamic>)).toList();
+    return data
+        .map((e) => DocumentMetadata.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<List<DocumentChunk>> getDocument(Dio dio, String documentMetadataId) async {
-    final response = await dio.post(getDocumentContentEndpoint, data: {"document_metadata_id": documentMetadataId});
+  Future<List<DocumentChunk>> getDocument(
+    Dio dio,
+    String documentMetadataId,
+  ) async {
+    final response = await dio.post(
+      getDocumentContentEndpoint,
+      data: {"document_metadata_id": documentMetadataId},
+    );
 
     final List<dynamic> data = response.data!["data"] as List<dynamic>;
-    return data.map((chunk) => DocumentChunk.fromJson(chunk as Map<String, dynamic>)).toList();
+    return data
+        .map((chunk) => DocumentChunk.fromJson(chunk as Map<String, dynamic>))
+        .toList();
   }
 
   Future<String> reindex(Dio dio, String username) async {
     final response = await dio.post(
       reindexEndpoint,
-      data: {
-        "username": username,
-      },
+      data: {"username": username},
     );
     return response.data!["task_id"];
   }
