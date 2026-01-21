@@ -21,7 +21,6 @@ class SearchHighlight {
 class AppState extends ChangeNotifier
     with Services, Users, Tabs, Tasks, Documents {
   String? currentCollectionId;
-  String? currentDocumentId;
 
   final Map<String, CollectionMetadata> collectionById = {};
 
@@ -173,16 +172,6 @@ class AppState extends ChangeNotifier
     } catch (e) {
       rethrow;
     }
-  }
-
-  String get appBarTitle {
-    final colId = currentCollectionId;
-    final docId = currentDocumentId;
-    final col = colId == null ? null : (collectionById[colId]?.title ?? colId);
-    final doc = docId == null ? null : (documentById[docId]?.title ?? docId);
-    if (col == null) return 'Notes';
-    if (doc == null) return '$col';
-    return '$col > $doc';
   }
 
   @override
@@ -463,9 +452,6 @@ class AppState extends ChangeNotifier
     final title = documentById[id]?.title ?? "document";
     final taskId = await documents.deleteDocument(dio, id);
     documentById.remove(id);
-    if (currentDocumentId == id) {
-      currentDocumentId = null;
-    }
 
     // Remove from tree cache
     documentsByCollectionId.forEach((key, list) {
