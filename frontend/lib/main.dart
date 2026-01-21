@@ -5,6 +5,7 @@ import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   final state = AppState();
   runApp(AppStateScope(notifier: state, child: const MyApp()));
 }
