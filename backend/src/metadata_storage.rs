@@ -139,10 +139,12 @@ impl MetadataStorage {
         self.save().await?;
         Ok(())
     }
-
-    pub async fn update_documents(
-        &mut self,
-        mut document_metadatas: Vec<DocumentMetadata>,
+    
+    /// Prevent immutable fields to get accidentally mutated
+    /// It will also make updates to them if necessary, such as last modified date
+    pub async fn verify_immutable_fields_in_document_metadatas(
+        &self,
+        document_metadatas: &mut Vec<DocumentMetadata>,
     ) -> Result<()> {
         // Perform a non-destructive verification before proceeding into updating.
         // This ensures the update operation itself won't be errored out,
@@ -180,7 +182,14 @@ impl MetadataStorage {
                 metadata.id
             ));
         }
+        
+        Ok(())
+    }
 
+    pub async fn update_documents(
+        &mut self,
+        document_metadatas: Vec<DocumentMetadata>,
+    ) -> Result<()> {
         for metadata in document_metadatas {
             // If the document has changed its belonging collection,
             // we need to update accordingly, otherwise it will be wrong
@@ -233,6 +242,10 @@ impl MetadataStorage {
             "Collection {} is missing. Please create a collection before adding new documents to it",
             metadata.collection_metadata_id
         ))
+    }
+    
+    pub async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<&DocumentMetadata> {
+        self.documents.get(docuemnt_metadata_id)
     }
 
     pub async fn remove_document(&mut self, metdata_id: &str) -> Option<DocumentMetadata> {
