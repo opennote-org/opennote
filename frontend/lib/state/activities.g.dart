@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'tabs.dart';
+part of 'activities.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator

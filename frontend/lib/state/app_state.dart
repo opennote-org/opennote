@@ -7,7 +7,7 @@ import 'package:notes/services/document.dart';
 import 'package:notes/services/backup.dart';
 import 'package:notes/state/documents.dart';
 import 'package:notes/state/services.dart';
-import 'package:notes/state/tabs.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/state/tasks.dart';
 import 'package:notes/state/users.dart';
 
@@ -19,9 +19,7 @@ class SearchHighlight {
 }
 
 class AppState extends ChangeNotifier
-    with Services, Users, Tabs, Tasks, Documents {
-  String? currentCollectionId;
-
+    with Services, Users, Activities, Tasks, Documents {
   final Map<String, CollectionMetadata> collectionById = {};
 
   List<CollectionMetadata> get collectionsList =>
@@ -201,7 +199,10 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> selectCollection(String id) async {
-    currentCollectionId = id;
+    activeObject = ActiveObject(
+      ActiveObjectType.collection,
+      id
+    );
     notifyListeners();
   }
 
@@ -231,8 +232,8 @@ class AppState extends ChangeNotifier
   Future<void> deleteCollection(String id) async {
     await collections.deleteCollection(dio, id);
     collectionById.remove(id);
-    if (currentCollectionId == id) {
-      currentCollectionId = null;
+    if (activeObject.id == id && activeObject.type == ActiveObjectType.collection) {
+      activeObject = ActiveObject(ActiveObjectType.none, null);
     }
     await refreshCollections();
     notifyListeners();
@@ -242,7 +243,7 @@ class AppState extends ChangeNotifier
     List<Map<String, dynamic>> imports, {
     String? collectionId,
   }) async {
-    final targetCollectionId = collectionId ?? currentCollectionId;
+    final targetCollectionId = collectionId ?? activeObject.id;
     if (targetCollectionId == null || username == null) return;
     final taskId = await documents.importDocuments(
       dio,
@@ -436,10 +437,10 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> refreshDocuments() async {
-    if (currentCollectionId == null) return;
+    if (activeObject.id == null && activeObject.type != ActiveObjectType.collection) return;
     final docs = await documents.getDocumentsMetadata(
       dio,
-      currentCollectionId,
+      activeObject.id,
       null,
     );
     documentById

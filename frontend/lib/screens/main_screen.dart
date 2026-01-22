@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:notes/actions/handlers.dart';
 import 'package:notes/inputs/global_key_handler.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/state/tabs.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/widgets/content_area.dart';
 import 'package:notes/widgets/notification_center.dart';
 import 'package:notes/widgets/sidebar.dart';

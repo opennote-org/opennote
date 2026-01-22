@@ -8,7 +8,7 @@ import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/state/tabs.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/utils/downloader.dart';
 import 'package:notes/widgets/configuration_popup.dart';
 

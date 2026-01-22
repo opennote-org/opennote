@@ -5,7 +5,7 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:notes/state/services.dart';
 import 'package:notes/state/users.dart';
 
-part 'tabs.g.dart';
+part 'activities.g.dart';
 
 enum ActiveObjectType { collection, document, none }
 
@@ -51,7 +51,7 @@ class ActiveObject {
   Map<String, dynamic> toJson() => _$ActiveObjectToJson(this);
 }
 
-mixin Tabs on ChangeNotifier, Services, Users {
+mixin Activities on ChangeNotifier, Services, Users {
   // Tab Management
   final List<String> openObjectIds = [];
   String? lastActiveObjectId;

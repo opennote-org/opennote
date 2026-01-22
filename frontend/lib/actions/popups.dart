@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:notes/screens/search/search_popup.dart';
 import 'package:notes/services/search.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/state/tabs.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/widgets/configuration_popup.dart';
 
 void showSearchPopup(BuildContext context) {
