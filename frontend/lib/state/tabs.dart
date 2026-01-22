@@ -7,12 +7,6 @@ import 'package:notes/state/users.dart';
 
 part 'tabs.g.dart';
 
-// Keys of the states in local storage
-const String activeObjectTypeKey = "activeObjectType";
-const String activeObjectIdKey = "id";
-const String openObjectIdsKey = "openObjectIds";
-const String lastActiveObjectIdKey = "lastActiveObjectId";
-
 enum ActiveObjectType { collection, document, none }
 
 @JsonSerializable()
@@ -101,12 +95,25 @@ mixin Tabs on ChangeNotifier, Services, Users {
       saveTabs(activeObject);
     }
 
+    if (type == ActiveObjectType.none && id == null) {
+      clearTabs();
+    }
+
     notifyListeners();
+  }
+
+  /// This will remove all tabs under the local storage
+  void clearTabs() {
+    if (username != null) {
+      localStorage.remove(username!);
+    }
   }
 
   /// Persist the tab states to local storage for resuming them when user re-opened the app
   void saveTabs(ActiveObject activeObject) {
-    if (activeObject.id != null && lastActiveObjectId != null && username != null) {
+    if (activeObject.id != null &&
+        lastActiveObjectId != null &&
+        username != null) {
       localStorage.setString(
         username!,
         SavedTabsStates(
@@ -120,7 +127,7 @@ mixin Tabs on ChangeNotifier, Services, Users {
 
   Future<(List<String>?, ActiveObject?)> loadTabs(String username) async {
     final String? localStorageContent = await localStorage.getString(username);
-    
+
     if (localStorageContent != null) {
       final savedTabsStates = SavedTabsStates.fromString(localStorageContent);
       lastActiveObjectId = savedTabsStates.lastActiveObjectId;
