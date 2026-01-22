@@ -364,13 +364,29 @@ pub async fn delete_document(
 /// Sync endpoint
 pub async fn update_documents_metadata(
     data: web::Data<RwLock<AppState>>,
-    request: web::Json<UpdateDocumentMetadataRequest>,
+    mut request: web::Json<UpdateDocumentMetadataRequest>,
 ) -> Result<HttpResponse> {
     let (_, _, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
+    let mut metadata_storage = metadata_storage.lock().await;
+
     match metadata_storage
-        .lock()
+        .verify_immutable_fields_in_document_metadatas(&mut request.0.document_metadatas)
         .await
+    {
+        Ok(_) => {}
+        Err(error) => {
+            error!(
+                "Failed to verify immutable fields in document metadatas: {}",
+                error
+            );
+            return Ok(
+                HttpResponse::Ok().json(GenericResponse::fail("".to_string(), error.to_string()))
+            );
+        }
+    };
+
+    match metadata_storage
         .update_documents(request.0.document_metadatas)
         .await
     {
@@ -431,12 +447,12 @@ pub async fn update_document_content(
         // We modify the old metadata after done uploading new chunks to the database to
         // prevent accidentally creating new docs.
         let mut metadata: DocumentMetadata = {
-            let mut metadata_storage = metadata_storage.lock().await;
+            let metadata_storage = metadata_storage.lock().await;
             let metadata = match metadata_storage
-                .remove_document(&request.document_metadata_id)
+                .get_document(&request.document_metadata_id)
                 .await
             {
-                Some(result) => result,
+                Some(result) => result.to_owned(),
                 None => {
                     let message: String = format!(
                         "Document {} was not found when trying to delete",
@@ -493,7 +509,12 @@ pub async fn update_document_content(
         .await
         {
             Ok(_) => {
-                match metadata_storage.lock().await.add_document(metadata).await {
+                match metadata_storage
+                    .lock()
+                    .await
+                    .update_documents(vec![metadata])
+                    .await
+                {
                     Ok(_) => {}
                     Err(error) => {
                         error!("Failed to update document metadata: {}", error);

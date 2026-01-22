@@ -8,7 +8,7 @@ import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/state/tabs.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/utils/downloader.dart';
 import 'package:notes/widgets/configuration_popup.dart';
 
@@ -613,11 +613,55 @@ class _CollectionNodeState extends State<CollectionNode> {
     }
   }
 
+  ListTile createCollectionListTile(AppState appState) {
+    return ListTile(
+      title: Tooltip(
+        preferBelow: false,
+        richMessage: WidgetSpan(
+          child: Column(
+            children: [
+              Text('Created: ${widget.collection.createdAt}'),
+              Text('Modified: ${widget.collection.lastModified}'),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _isExpanded ? Icons.expand_more : Icons.chevron_right,
+              size: 20,
+              color: Theme.of(context).iconTheme.color,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(widget.collection.title)),
+            Builder(
+              builder: (context) {
+                return IconButton(
+                  icon: const Icon(Icons.more_vert, size: 16),
+                  onPressed: () {
+                    final renderBox = context.findRenderObject() as RenderBox;
+                    final offset = renderBox.localToGlobal(Offset.zero);
+                    _showCollectionMenu(
+                      context,
+                      offset + Offset(0, renderBox.size.height),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      selected:
+          appState.activeObject.type == ActiveObjectType.collection &&
+          appState.activeObject.id == widget.collection.id,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
-    final documents =
-        appState.documentsByCollectionId[widget.collection.id] ?? [];
+    final documents = appState.getDocumentMetadatasList(widget.collection.id);
 
     return DragTarget<DocumentMetadata>(
       onWillAccept: (data) =>
@@ -641,41 +685,7 @@ class _CollectionNodeState extends State<CollectionNode> {
                 color: candidateData.isNotEmpty
                     ? Theme.of(context).colorScheme.primaryContainer
                     : null,
-                child: ListTile(
-                  title: Row(
-                    children: [
-                      Icon(
-                        _isExpanded ? Icons.expand_more : Icons.chevron_right,
-                        size: 20,
-                        color: Theme.of(context).iconTheme.color,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(widget.collection.title)),
-                      Builder(
-                        builder: (context) {
-                          return IconButton(
-                            icon: const Icon(Icons.more_vert, size: 16),
-                            onPressed: () {
-                              final renderBox =
-                                  context.findRenderObject() as RenderBox;
-                              final offset = renderBox.localToGlobal(
-                                Offset.zero,
-                              );
-                              _showCollectionMenu(
-                                context,
-                                offset + Offset(0, renderBox.size.height),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  selected:
-                      appState.activeObject.type ==
-                          ActiveObjectType.collection &&
-                      appState.activeObject.id == widget.collection.id,
-                ),
+                child: createCollectionListTile(appState),
               ),
             ),
             if (_isExpanded)

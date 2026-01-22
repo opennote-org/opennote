@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:notes/actions/popups.dart';
 import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/services/key_mapping.dart';
-import 'package:notes/state/tabs.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/widgets/document_editor.dart';
 
 class ContentArea extends StatelessWidget {

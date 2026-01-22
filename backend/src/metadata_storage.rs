@@ -87,8 +87,7 @@ impl MetadataStorage {
         // we perform a non-destructive validation before proceeding into updating.
         for metadata in collection_metadatas.iter_mut() {
             // Verify the documents exist
-            if let Some(original_collection_metadata) = self.collections.get(&metadata.id)
-            {
+            if let Some(original_collection_metadata) = self.collections.get(&metadata.id) {
                 // Verify if the immutable fields are mutated
                 metadata.is_mutated()?;
                 // Swap the immutable fields values in
@@ -107,8 +106,7 @@ impl MetadataStorage {
         }
 
         for metadata in collection_metadatas {
-            self.collections
-                .insert(metadata.id.clone(), metadata);
+            self.collections.insert(metadata.id.clone(), metadata);
         }
 
         self.save().await?;
@@ -140,9 +138,10 @@ impl MetadataStorage {
         Ok(())
     }
 
-    pub async fn update_documents(
-        &mut self,
-        mut document_metadatas: Vec<DocumentMetadata>,
+    /// Prevent immutable fields to get accidentally mutated
+    pub async fn verify_immutable_fields_in_document_metadatas(
+        &self,
+        document_metadatas: &mut Vec<DocumentMetadata>,
     ) -> Result<()> {
         // Perform a non-destructive verification before proceeding into updating.
         // This ensures the update operation itself won't be errored out,
@@ -155,9 +154,8 @@ impl MetadataStorage {
                 // Swap the immutable fields values in
                 metadata.chunks = original_document_metadata.chunks.clone();
                 metadata.created_at = original_document_metadata.created_at.clone();
-                metadata.last_modified = UtcDateTime::now().to_string();
 
-                // If the document is being moved to another collection, verify the destination collection exists
+                // If the document is being moved to another collection, verify if the destination collection exists
                 if metadata.collection_metadata_id
                     != original_document_metadata.collection_metadata_id
                 {
@@ -181,36 +179,51 @@ impl MetadataStorage {
             ));
         }
 
-        for metadata in document_metadatas {
+        Ok(())
+    }
+
+    pub async fn update_documents(
+        &mut self,
+        document_metadatas: Vec<DocumentMetadata>,
+    ) -> Result<()> {
+        for mut metadata in document_metadatas {
             // If the document has changed its belonging collection,
             // we need to update accordingly, otherwise it will be wrong
             if let Some(old_document_metadata) = self.documents.remove(&metadata.id) {
-                if metadata.collection_metadata_id != old_document_metadata.collection_metadata_id {
-                    // Remove the document id from the original collection first,
-                    // before we update the destiny collection.
-                    if let Some(original_collection_metadata) = self
-                        .collections
-                        .get_mut(&old_document_metadata.collection_metadata_id)
+                if let Some(original_collection_metadata) = self
+                    .collections
+                    .get_mut(&old_document_metadata.collection_metadata_id)
+                {
+                    // Update the last updated date
+                    original_collection_metadata.last_modified = UtcDateTime::now().to_string();
+                    metadata.last_modified = original_collection_metadata.last_modified.clone();
+
+                    if metadata.collection_metadata_id
+                        != old_document_metadata.collection_metadata_id
                     {
+                        // Remove the document id from the original collection first,
+                        // before we update the destiny collection.
                         original_collection_metadata
                             .documents_metadata_ids
                             .retain(|id| *id != metadata.id);
+
+                        // Now we update the destiny collection
+                        if let Some(destiny_collection_metadata) =
+                            self.collections.get_mut(&metadata.collection_metadata_id)
+                        {
+                            destiny_collection_metadata
+                                .documents_metadata_ids
+                                .push(metadata.id.clone());
+
+                            destiny_collection_metadata.last_modified =
+                                metadata.last_modified.clone();
+                        }
                     }
 
-                    // Now we update the destiny collection
-                    if let Some(destiny_collection_metadata) =
-                        self.collections.get_mut(&metadata.collection_metadata_id)
-                    {
-                        destiny_collection_metadata
-                            .documents_metadata_ids
-                            .push(metadata.id.clone());
-                    }
+                    // If, by any chance, nothing was removed,
+                    // we don't do insert operations to protect the data consistency.
+                    self.documents.insert(metadata.id.clone(), metadata);
                 }
-
-                // If, by any chance, nothing was removed,
-                // we don't do insert operations to protect the data consistency.
-                self.documents
-                    .insert(metadata.id.clone(), metadata);
             }
         }
 
@@ -220,11 +233,8 @@ impl MetadataStorage {
 
     pub async fn add_document(&mut self, metadata: DocumentMetadata) -> Result<()> {
         if let Some(collection) = self.collections.get_mut(&metadata.collection_metadata_id) {
-            collection
-                .documents_metadata_ids
-                .push(metadata.id.clone());
-            self.documents
-                .insert(metadata.id.clone(), metadata);
+            collection.documents_metadata_ids.push(metadata.id.clone());
+            self.documents.insert(metadata.id.clone(), metadata);
             let _ = self.save().await?;
             return Ok(());
         }
@@ -233,6 +243,10 @@ impl MetadataStorage {
             "Collection {} is missing. Please create a collection before adding new documents to it",
             metadata.collection_metadata_id
         ))
+    }
+
+    pub async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<&DocumentMetadata> {
+        self.documents.get(docuemnt_metadata_id)
     }
 
     pub async fn remove_document(&mut self, metdata_id: &str) -> Option<DocumentMetadata> {

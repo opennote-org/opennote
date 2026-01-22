@@ -5,9 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/services/backup.dart';
+import 'package:notes/state/collections.dart';
 import 'package:notes/state/documents.dart';
 import 'package:notes/state/services.dart';
-import 'package:notes/state/tabs.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/state/tasks.dart';
 import 'package:notes/state/users.dart';
 
@@ -19,14 +20,7 @@ class SearchHighlight {
 }
 
 class AppState extends ChangeNotifier
-    with Services, Users, Tabs, Tasks, Documents {
-  String? currentCollectionId;
-  String? currentDocumentId;
-
-  final Map<String, CollectionMetadata> collectionById = {};
-
-  List<CollectionMetadata> get collectionsList =>
-      collectionById.values.toList();
+    with Services, Users, Activities, Tasks, Documents, Collections {
   List<BackupListItem> backups = [];
 
   // Search Highlights
@@ -175,16 +169,6 @@ class AppState extends ChangeNotifier
     }
   }
 
-  String get appBarTitle {
-    final colId = currentCollectionId;
-    final docId = currentDocumentId;
-    final col = colId == null ? null : (collectionById[colId]?.title ?? colId);
-    final doc = docId == null ? null : (documentById[docId]?.title ?? docId);
-    if (col == null) return 'Notes';
-    if (doc == null) return '$col';
-    return '$col > $doc';
-  }
-
   @override
   void dispose() {
     pollingTimer?.cancel();
@@ -212,7 +196,10 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> selectCollection(String id) async {
-    currentCollectionId = id;
+    activeObject = ActiveObject(
+      ActiveObjectType.collection,
+      id
+    );
     notifyListeners();
   }
 
@@ -242,8 +229,8 @@ class AppState extends ChangeNotifier
   Future<void> deleteCollection(String id) async {
     await collections.deleteCollection(dio, id);
     collectionById.remove(id);
-    if (currentCollectionId == id) {
-      currentCollectionId = null;
+    if (activeObject.id == id && activeObject.type == ActiveObjectType.collection) {
+      activeObject = ActiveObject(ActiveObjectType.none, null);
     }
     await refreshCollections();
     notifyListeners();
@@ -253,7 +240,7 @@ class AppState extends ChangeNotifier
     List<Map<String, dynamic>> imports, {
     String? collectionId,
   }) async {
-    final targetCollectionId = collectionId ?? currentCollectionId;
+    final targetCollectionId = collectionId ?? activeObject.id;
     if (targetCollectionId == null || username == null) return;
     final taskId = await documents.importDocuments(
       dio,
@@ -447,10 +434,10 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> refreshDocuments() async {
-    if (currentCollectionId == null) return;
+    if (activeObject.id == null && activeObject.type != ActiveObjectType.collection) return;
     final docs = await documents.getDocumentsMetadata(
       dio,
-      currentCollectionId,
+      activeObject.id,
       null,
     );
     documentById
@@ -463,9 +450,6 @@ class AppState extends ChangeNotifier
     final title = documentById[id]?.title ?? "document";
     final taskId = await documents.deleteDocument(dio, id);
     documentById.remove(id);
-    if (currentDocumentId == id) {
-      currentDocumentId = null;
-    }
 
     // Remove from tree cache
     documentsByCollectionId.forEach((key, list) {
