@@ -661,8 +661,7 @@ class _CollectionNodeState extends State<CollectionNode> {
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
-    final documents =
-        appState.documentsByCollectionId[widget.collection.id] ?? [];
+    final documents = appState.getDocumentMetadatasList(widget.collection.id);
 
     return DragTarget<DocumentMetadata>(
       onWillAccept: (data) =>

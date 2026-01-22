@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/services/backup.dart';
+import 'package:notes/state/collections.dart';
 import 'package:notes/state/documents.dart';
 import 'package:notes/state/services.dart';
 import 'package:notes/state/activities.dart';
@@ -19,11 +20,7 @@ class SearchHighlight {
 }
 
 class AppState extends ChangeNotifier
-    with Services, Users, Activities, Tasks, Documents {
-  final Map<String, CollectionMetadata> collectionById = {};
-
-  List<CollectionMetadata> get collectionsList =>
-      collectionById.values.toList();
+    with Services, Users, Activities, Tasks, Documents, Collections {
   List<BackupListItem> backups = [];
 
   // Search Highlights

@@ -5,23 +5,29 @@ import 'package:notes/state/tasks.dart';
 
 mixin Documents on ChangeNotifier, Services, Tasks {
   final Map<String, DocumentMetadata> documentById = {};
-  
+
   // Tree View Caches
   final Map<String, List<DocumentMetadata>> documentsByCollectionId = {};
-  
+
   // Document Content Cache
   final Map<String, String> documentContentCache = {};
   final Map<String, Map<String, int>> documentChunkOffsets = {};
-  
-  // Get documents as a list
-  List<DocumentMetadata> get documentsList => documentById.values.toList();
-  
+
+  List<DocumentMetadata> getDocumentMetadatasList(String collectionMetadataId) {
+    var metadatas = documentsByCollectionId[collectionMetadataId] ?? [];
+    return metadatas..sort((a, b) => a.title.compareTo(b.title));
+  }
+
   void updateDocumentDraft(String docId, String content) {
     documentContentCache[docId] = content;
     documentChunkOffsets.remove(docId);
-  } 
-  
-  Future<void> renameDocument(String documentId, String newTitle, Function pollTasks) async {
+  }
+
+  Future<void> renameDocument(
+    String documentId,
+    String newTitle,
+    Function pollTasks,
+  ) async {
     final document = documentById[documentId];
     if (document == null) return;
 
