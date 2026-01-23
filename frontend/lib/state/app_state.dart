@@ -196,10 +196,7 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> selectCollection(String id) async {
-    activeObject = ActiveObject(
-      ActiveObjectType.collection,
-      id
-    );
+    activeObject = ActiveObject(ActiveObjectType.collection, id);
     notifyListeners();
   }
 
@@ -229,7 +226,8 @@ class AppState extends ChangeNotifier
   Future<void> deleteCollection(String id) async {
     await collections.deleteCollection(dio, id);
     collectionById.remove(id);
-    if (activeObject.id == id && activeObject.type == ActiveObjectType.collection) {
+    if (activeObject.id == id &&
+        activeObject.type == ActiveObjectType.collection) {
       activeObject = ActiveObject(ActiveObjectType.none, null);
     }
     await refreshCollections();
@@ -334,7 +332,7 @@ class AppState extends ChangeNotifier
     if (!openObjectIds.contains(documentId)) {
       openObjectIds.add(documentId);
     }
-
+    
     if (highlightText != null) {
       searchHighlights[documentId] = SearchHighlight(
         highlightText,
@@ -434,7 +432,9 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> refreshDocuments() async {
-    if (activeObject.id == null && activeObject.type != ActiveObjectType.collection) return;
+    if (activeObject.id == null &&
+        activeObject.type != ActiveObjectType.collection)
+      return;
     final docs = await documents.getDocumentsMetadata(
       dio,
       activeObject.id,

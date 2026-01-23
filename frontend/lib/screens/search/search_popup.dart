@@ -72,11 +72,6 @@ class _SearchPopupState extends State<SearchPopup> {
     super.dispose();
   }
 
-  @override
-  void initState() {
-    super.initState();
-  }
-
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.all(16.0),

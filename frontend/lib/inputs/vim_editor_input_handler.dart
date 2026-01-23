@@ -102,6 +102,12 @@ class _VimEditorInputHandlerState extends State<VimEditorInputHandler>
           return KeyEventResult.handled;
         }
 
+        // We want the global actions to perform under normal mode
+        if (mode == KeyContext.editorNormal &&
+            keyContext == KeyContext.global) {
+          return KeyEventResult.ignored;
+        }
+
         // In Insert mode, let it bubble to TextField
         //
         // We need to skip the global actions to prevent users from activating it
