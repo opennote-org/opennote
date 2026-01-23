@@ -179,7 +179,6 @@ class _DocumentEditorState extends State<DocumentEditor> {
           extentOffset: extentOffset,
         );
 
-        print(index);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _controller.selection = selection;
