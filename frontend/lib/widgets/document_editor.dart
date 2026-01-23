@@ -187,7 +187,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
       }
     }
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
