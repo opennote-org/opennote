@@ -1,7 +1,8 @@
 //! This is the fundamental data structure of the notebook app.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Read};
 
+use chunk::chunk;
 use jieba_rs::Jieba;
 use qdrant_client::{
     Payload,
@@ -44,8 +45,34 @@ impl DocumentChunk {
             dense_text_vector: Vec::new(),
         }
     }
+    
+    pub fn slice_document_automatically(
+        content: &str,
+        chunk_max_words: usize,
+        document_metadata_id: &str,
+        collection_metadata_id: &str,
+    ) -> Vec<DocumentChunk> {
+        let mut chunks: Vec<DocumentChunk> = Vec::new();
+        
+        let raw_chunks: Vec<_> = chunk(content.as_bytes()).consecutive().size(chunk_max_words).collect();
+        
+        for mut chunk in raw_chunks {
+            let mut string = String::new();
+            chunk.read_to_string(&mut string).unwrap();
+
+            chunks.push(DocumentChunk::new(
+                string,
+                document_metadata_id,
+                collection_metadata_id,
+            ));
+        }
+        
+        chunks
+    }
 
     /// Split the sentences to prevent token numbers exceeds the model limit
+    /// To be DEPRECATED, as `slice_document_automatically` stablizes
+    #[allow(dead_code)]
     fn split_by_n(words: Vec<&str>, chunk_max_word_length: usize) -> Vec<String> {
         let mut remaining: Vec<&str> = words;
         let mut sentences: Vec<String> = Vec::new();
@@ -74,6 +101,9 @@ impl DocumentChunk {
         sentences
     }
 
+    /// To be DEPRECATED, as `slice_document_automatically` stablizes
+    #[allow(dead_code)]
+    #[deprecated]
     pub fn slice_document_by_period(
         content: &str,
         chunk_max_words: usize,
@@ -243,7 +273,7 @@ mod tests {
         // Jieba cuts "Hello world" -> ["Hello", " ", "world"] (3 tokens) usually
         // Let's use a small max_words to trigger split if possible, or large to keep sentences intact.
 
-        let chunks = DocumentChunk::slice_document_by_period(content, 100, "doc1", "col1");
+        let chunks = DocumentChunk::slice_document_automatically(content, 100, "doc1", "col1");
 
         // "Hello world" (sentence 1) -> < 100 words -> push "Hello world."
         // " This is a test" (sentence 2) -> < 100 words -> push " This is a test."
@@ -268,7 +298,7 @@ mod tests {
     #[test]
     fn test_slice_document_by_period_chinese() {
         let content = "你好世界。这是一个测试。";
-        let chunks = DocumentChunk::slice_document_by_period(content, 100, "doc1", "col1");
+        let chunks = DocumentChunk::slice_document_automatically(content, 100, "doc1", "col1");
 
         // "你好世界" -> push "你好世界。"
         // "这是一个测试" -> push "这是一个测试。"
@@ -288,7 +318,7 @@ mod tests {
         // Assuming jieba behavior, let's just assume it produces multiple tokens.
 
         // Let's set max words to a small number to force splitting
-        let chunks = DocumentChunk::slice_document_by_period(&long_text, 2, "doc1", "col1");
+        let chunks = DocumentChunk::slice_document_automatically(&long_text, 2, "doc1", "col1");
 
         // If "word " repeats 10 times, and we split by '.', we get one big sentence (plus empty trailing if we had a dot, but we don't).
         // Since we don't have a dot, we check the terminator logic.

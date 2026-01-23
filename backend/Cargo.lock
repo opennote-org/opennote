@@ -562,6 +562,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "chunk"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc04d623ff6273fccafb4dae2e022d973b81a7fac748ad54beddfbffa6092ff1"
+dependencies = [
+ "daggrs",
+ "memchr",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -786,6 +796,12 @@ dependencies = [
  "generic-array",
  "typenum",
 ]
+
+[[package]]
+name = "daggrs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d1092288af9ecfd5378565a17df11a13dbe172d4a71abe9b55a9689f1336b8e"
 
 [[package]]
 name = "darling"
@@ -2122,6 +2138,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "chunk",
  "config",
  "env_logger",
  "futures",
