@@ -491,7 +491,7 @@ pub async fn update_document_content(
 
         let metdata_id: String = metadata.id.clone();
 
-        let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
+        let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_automatically(
             &request.content,
             user_configurations.search.document_chunk_size,
             &metadata.id,
@@ -772,7 +772,7 @@ pub async fn reindex(
                 // Concurrently update the document chunks and their DocumentMetadata
                 let metadata_id: String = document_metadata.id.clone();
 
-                let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
+                let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_automatically(
                     &document_content,
                     user_configurations.search.document_chunk_size,
                     &metadata_id,

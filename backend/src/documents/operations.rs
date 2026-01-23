@@ -96,7 +96,7 @@ pub fn preprocess_document(
         DocumentMetadata::new(title.to_string(), collection_metadata_id.to_string());
 
     // Each chunk can relate to their metadata with a metadata.id
-    let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_by_period(
+    let chunks: Vec<DocumentChunk> = DocumentChunk::slice_document_automatically(
         content,
         chunk_size,
         &metadata.id,
