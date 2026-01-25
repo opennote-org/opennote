@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:notes/actions/editor.dart';
-import 'package:notes/state/app_state_scope.dart';
 
 class ConventionalEditorInputHandler extends StatefulWidget {
   final TextEditingController controller;
@@ -36,8 +35,6 @@ class _ConventionalEditorInputHandler
 
   @override
   Widget build(BuildContext context) {
-    final appState = AppStateScope.of(context);
-
     return Focus(
       onKeyEvent: (node, event) {
         if (event is! KeyDownEvent && event is! KeyRepeatEvent) {

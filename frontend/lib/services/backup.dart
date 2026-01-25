@@ -3,9 +3,6 @@ import 'package:notes/constants.dart';
 import 'package:notes/services/general.dart';
 import 'package:uuid/uuid.dart';
 
-import '../constants.dart';
-import 'general.dart';
-
 enum BackupScope { user }
 
 class BackupScopeIndicator {

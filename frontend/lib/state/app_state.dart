@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/services/backup.dart';
 import 'package:notes/state/collections.dart';
