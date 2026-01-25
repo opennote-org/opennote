@@ -1,7 +1,7 @@
-// This is the development version of the `constant.dart` file. 
-// 
+// This is the development version of the `constant.dart` file.
+//
 // You should update the `constant.prod.dart` after updating this file to prevent issues
-// when deploying the project to the prod environment. 
+// when deploying the project to the prod environment.
 
 // Basics
 const String baseUrl = "http://0.0.0.0:8080";
@@ -43,3 +43,6 @@ const String getBackupsListEndpoint = "$baseUrl$apiUrl/backup/sync/get_backups_l
 const String removeBackupsEndpoint = "$baseUrl$apiUrl/backup/sync/remove_backups";
 const String backupEndpoint = "$baseUrl$apiUrl/backup/async/backup";
 const String restoreBackupEndpoint = "$baseUrl$apiUrl/backup/async/restore_backup";
+
+// Version
+const String frontendVersion = "0.1.0";

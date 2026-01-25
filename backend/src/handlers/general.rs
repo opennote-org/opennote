@@ -19,8 +19,8 @@ pub async fn health_check() -> Result<HttpResponse> {
 
 pub async fn get_info(data: web::Data<RwLock<AppState>>) -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(InfoResponse {
-        service: "Notes Backend".to_string(),
-        version: "0.1.0".to_string(),
+        service: "OpenNote".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
         host: data.read().await.config.server.host.clone(),
         port: data.read().await.config.server.port.clone(),
     }))
