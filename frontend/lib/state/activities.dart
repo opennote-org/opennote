@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:notes/json_serialization.dart';
 import 'package:notes/state/services.dart';
 import 'package:notes/state/users.dart';
 
@@ -10,7 +9,7 @@ part 'activities.g.dart';
 enum ActiveObjectType { collection, document, none }
 
 @JsonSerializable()
-class SavedTabsStates {
+class SavedTabsStates with JsonSerializationMixin {
   ActiveObject activeObject;
   List<String> openObjectIds;
   String? lastActiveObjectId;
@@ -25,17 +24,6 @@ class SavedTabsStates {
       _$SavedTabsStatesFromJson(json);
 
   Map<String, dynamic> toJson() => _$SavedTabsStatesToJson(this);
-
-  static SavedTabsStates fromString(String string) {
-    final json = jsonDecode(string);
-    return _$SavedTabsStatesFromJson(json);
-  }
-
-  @override
-  String toString() {
-    final json = toJson();
-    return jsonEncode(json);
-  }
 }
 
 @JsonSerializable()
@@ -105,7 +93,7 @@ mixin Activities on ChangeNotifier, Services, Users {
   /// This will remove all tabs under the local storage
   void clearTabs() {
     if (username != null) {
-      localStorage.remove(username!);
+      removeDataFromLocalStorage('saved_tabs', username!);
     }
   }
 
@@ -114,7 +102,8 @@ mixin Activities on ChangeNotifier, Services, Users {
     if (activeObject.id != null &&
         lastActiveObjectId != null &&
         username != null) {
-      localStorage.setString(
+      setDataToLocalStorage(
+        'saved_tabs',
         username!,
         SavedTabsStates(
           activeObject: activeObject,
@@ -126,13 +115,19 @@ mixin Activities on ChangeNotifier, Services, Users {
   }
 
   Future<(List<String>?, ActiveObject?)> loadTabs(String username) async {
-    final String? localStorageContent = await localStorage.getString(username);
+    final String? localStorageContent = await readDataFromLocalStorage(
+      'saved_tabs',
+      username,
+    );
 
     if (localStorageContent != null) {
-      final savedTabsStates = SavedTabsStates.fromString(localStorageContent);
+      final savedTabsStates = JsonSerializationMixin.fromString(
+        localStorageContent,
+        SavedTabsStates.fromJson,
+      );
       lastActiveObjectId = savedTabsStates.lastActiveObjectId;
 
-      return (savedTabsStates.openObjectIds, activeObject);
+      return (savedTabsStates.openObjectIds, savedTabsStates.activeObject);
     }
 
     return (null, null);

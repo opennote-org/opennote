@@ -7,6 +7,12 @@ import 'package:notes/state/app_state_scope.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final state = AppState();
+
+  final username = await state.hasUserLoggedIn();
+  if (username != null) {
+    state.relogin(username);
+  }
+
   runApp(AppStateScope(notifier: state, child: const MyApp()));
 }
 

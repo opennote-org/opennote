@@ -22,4 +22,16 @@ mixin Services {
     final response = await general.getServiceInformation(dio);
     return response.data["version"];
   }
+  
+  Future<void> setDataToLocalStorage(String identifier, String username, String content) async {
+    await localStorage.setString('${username}_$identifier', content);
+  }
+  
+  Future<String?> readDataFromLocalStorage(String identifier, String username) async {
+    return await localStorage.getString('${username}_$identifier');
+  }
+  
+  Future<void> removeDataFromLocalStorage(String identifier, String username) async {
+    await localStorage.remove('${username}_$identifier');
+  }
 }
