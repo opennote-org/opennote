@@ -53,12 +53,27 @@ class AppState extends ChangeNotifier
       final success = await users.login(dio, username, password);
       if (success) {
         this.username = username;
+        registerLocalLoginStatus(username, true);
         notifyListeners();
         loadLastOpenedTabs();
         await refreshAll();
         return true;
       }
       return false;
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  Future<bool> relogin(String username) async {
+    try {
+      this.username = username;
+      registerLocalLoginStatus(username, true);
+      notifyListeners();
+      loadLastOpenedTabs();
+      await refreshAll();
+
+      return true;
     } catch (e) {
       return false;
     }
@@ -331,7 +346,7 @@ class AppState extends ChangeNotifier
     if (!openObjectIds.contains(documentId)) {
       openObjectIds.add(documentId);
     }
-    
+
     if (highlightText != null) {
       searchHighlights[documentId] = SearchHighlight(
         highlightText,

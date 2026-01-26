@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:notes/actions/handlers.dart';
 import 'package:notes/inputs/global_key_handler.dart';
+import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/state/activities.dart';
 import 'package:notes/widgets/content_area.dart';
@@ -40,6 +41,16 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  IconButton _buildLogoutButton(AppState appState) {
+    return IconButton(
+      icon: const Icon(Icons.logout),
+      tooltip: 'Logout',
+      onPressed: () async {
+        await appState.logout();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
@@ -54,6 +65,7 @@ class _MainScreenState extends State<MainScreen> {
           title: const Text('Notes'),
           actions: [
             const NotificationCenterButton(),
+            _buildLogoutButton(appState),
             if (isDocumentActive)
               IconButton(
                 icon: const Icon(Icons.save),
