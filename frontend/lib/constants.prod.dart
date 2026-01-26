@@ -3,6 +3,7 @@ const String baseUrl = "";
 const String apiUrl = "/api/v1";
 
 // General
+const String getInfoEndpoint = "$baseUrl$apiUrl/info";
 const String backendHealthCheckEndpoint = "$baseUrl$apiUrl/health";
 const String retrieveTaskResultEndpoint = "$baseUrl$apiUrl/retrieve_task_result";
 
