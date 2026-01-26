@@ -3,6 +3,7 @@ const String baseUrl = "";
 const String apiUrl = "/api/v1";
 
 // General
+const String getInfoEndpoint = "$baseUrl$apiUrl/info";
 const String backendHealthCheckEndpoint = "$baseUrl$apiUrl/health";
 const String retrieveTaskResultEndpoint = "$baseUrl$apiUrl/retrieve_task_result";
 
@@ -38,3 +39,6 @@ const String getBackupsListEndpoint = "$baseUrl$apiUrl/backup/sync/get_backups_l
 const String removeBackupsEndpoint = "$baseUrl$apiUrl/backup/sync/remove_backups";
 const String backupEndpoint = "$baseUrl$apiUrl/backup/async/backup";
 const String restoreBackupEndpoint = "$baseUrl$apiUrl/backup/async/restore_backup";
+
+// Version
+const String frontendVersion = "0.1.0";

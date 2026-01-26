@@ -32,4 +32,9 @@ class GeneralService {
     );
     return GenericResponse.fromJson(response.data as Map<String, dynamic>);
   }
+
+  Future<GenericResponse> getServiceInformation(Dio dio) async {
+    final response = await dio.get(getInfoEndpoint);
+    return GenericResponse.fromJson(response.data as Map<String, dynamic>);
+  }
 }
