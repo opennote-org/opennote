@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:notes/inputs/editor_input_handler.dart';
 import 'package:notes/state/app_state_scope.dart';
 
@@ -217,20 +216,6 @@ class _DocumentEditorState extends State<DocumentEditor> {
                     setState(() {});
                   },
                   onSave: () => appState.saveActiveDocument(),
-                ),
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: Markdown(
-                  data: _controller.text,
-                  controller: _previewScrollController,
-                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
-                      .copyWith(
-                        p: Theme.of(
-                          context,
-                        ).textTheme.bodyLarge?.copyWith(height: 1.5),
-                        blockSpacing: 24.0,
-                      ),
                 ),
               ),
             ],
