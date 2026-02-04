@@ -33,7 +33,7 @@ use routes::configure_routes;
 use sqlx::any::install_default_drivers;
 use tokio::sync::RwLock;
 
-use crate::{checkups::{align_embedder_model, handshake_embedding_service}, mcp::search::MCPSearchService};
+use crate::{checkups::{align_embedder_model, handshake_embedding_service}, mcp::service::MCPService};
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -134,19 +134,18 @@ async fn main() -> Result<(), std::io::Error> {
     info!("Starting HTTP server on {}", bind_address);
     
     let app_state_for_mcp = app_state.clone();
-    let mut mcp_service = StreamableHttpService::builder()
+    let mcp_service = StreamableHttpService::builder()
         .service_factory(
             Arc::new(
                 move || {
-                    log::info!("Creating MCP Search Service...");
-                    Ok(MCPSearchService::new(app_state_for_mcp.clone()))
+                    Ok(MCPService::new(app_state_for_mcp.clone()))
                 }
             )
         )
         .session_manager(Arc::new(LocalSessionManager::default()))
-        .stateful_mode(true)
         .sse_keep_alive(Duration::from_secs(30))
         .build();
+    log::info!("MCP service initialized");
 
     let mut server = HttpServer::new(move || {
         App::new()
@@ -155,7 +154,7 @@ async fn main() -> Result<(), std::io::Error> {
             .app_data(app_state.clone())
             .service(configure_routes())
             .service(
-                web::scope("/api/v1").service(mcp_service.scope())
+                web::scope("/mcp").service(mcp_service.clone().scope())
             )
     });
 
