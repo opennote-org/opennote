@@ -16,6 +16,7 @@ mod search;
 mod tasks_scheduler;
 mod traits;
 mod utilities;
+mod mcp;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
@@ -24,6 +25,7 @@ use app_state::AppState;
 use log::{error, info};
 
 use configurations::system::Config;
+use rmcp_actix_web::transport::StreamableHttpService;
 use routes::configure_routes;
 use sqlx::any::install_default_drivers;
 use tokio::sync::RwLock;
@@ -135,6 +137,10 @@ async fn main() -> Result<(), std::io::Error> {
             .app_data(app_state.clone())
             .service(configure_routes())
     });
+    
+    let mut mcp = StreamableHttpService::builder()
+        .service_factory(value)
+        .build();
 
     // Set number of workers if specified
     if let Some(workers) = config.server.workers {
