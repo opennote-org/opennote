@@ -137,7 +137,7 @@ docker run -d --runtime nvidia --gpus all \
     --name vllm \
     --env "HUGGING_FACE_HUB_TOKEN=<Your huggingface token>" \ # this may not be required
     --env "HF_ENDPOINT=https://hf-mirror.com" \ # use this, if you are in Mainland China
-    -p 8000:8000 \
+-p 8000:8000 \
     --ipc=host \
     vllm/vllm-openai:latest \
     --api-key <setup an api key> \ 

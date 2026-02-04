@@ -4,7 +4,11 @@ use qdrant_client::{
     qdrant::{Condition, Filter, QueryPointsBuilder, ScoredPoint, SearchParamsBuilder},
 };
 
-use crate::{embedder::send_vectorization_queries, search::build_conditions};
+use crate::{
+    documents::document_chunk::DocumentChunk,
+    embedder::send_vectorization,
+    search::build_conditions,
+};
 
 pub async fn search_documents_semantically(
     client: &Qdrant,
@@ -12,18 +16,20 @@ pub async fn search_documents_semantically(
     index: &str,
     query: &str,
     top_n: usize,
+    provider: &str,
     base_url: &str,
     api_key: &str,
     model: &str,
     encoding_format: &str,
 ) -> Result<Vec<ScoredPoint>> {
     // Convert to vec
-    let vectors: Vec<Vec<f32>> = send_vectorization_queries(
+    let chunks: Vec<DocumentChunk> = send_vectorization(
+        provider,
         base_url,
         api_key,
         model,
         encoding_format,
-        &vec![query.to_string()],
+        vec![DocumentChunk::new(query.to_owned(), "", "")],
     )
     .await?;
 
@@ -34,7 +40,7 @@ pub async fn search_documents_semantically(
             QueryPointsBuilder::new(index)
                 .using("dense_text_vector")
                 .with_payload(true)
-                .query(vectors[0].to_owned())
+                .query(chunks[0].dense_text_vector.to_owned())
                 .limit(top_n as u64)
                 .filter(Filter::any(conditions))
                 .params(SearchParamsBuilder::default().hnsw_ef(128).exact(false)),

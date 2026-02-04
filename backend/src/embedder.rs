@@ -6,25 +6,33 @@ use serde_json::{Value, json};
 use crate::documents::document_chunk::DocumentChunk;
 
 pub async fn send_vectorization(
+    provider: &str,
     base_url: &str,
     api_key: &str,
     model: &str,
     encoding_format: &str,
     mut queries: Vec<DocumentChunk>,
 ) -> Result<Vec<DocumentChunk>> {
-    let vectors: Vec<Vec<f32>> = match send_vectorization_queries(
-        base_url,
-        api_key,
-        model,
-        encoding_format,
-        &queries.iter().map(|item| item.content.clone()).collect(),
-    )
-    .await
-    {
-        Ok(result) => result,
-        Err(error) => {
-            log::error!("Vectorization failed due to {}", error);
-            return Err(anyhow!("{}", error));
+    let vectors: Vec<Vec<f32>> = if !provider.is_empty() {
+        match send_vectorization_queries_to_multiple_providers(
+            api_key, model, provider, None, &queries,
+        )
+        .await
+        {
+            Ok(results) => results,
+            Err(error) => {
+                log::error!("Vectorization failed due to {}", error);
+                return Err(anyhow!("{}", error));
+            }
+        }
+    } else {
+        match send_vectorization_queries(base_url, api_key, model, encoding_format, &queries).await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                log::error!("Vectorization failed due to {}", error);
+                return Err(anyhow!("{}", error));
+            }
         }
     };
 
@@ -35,6 +43,29 @@ pub async fn send_vectorization(
     Ok(queries)
 }
 
+pub async fn send_vectorization_queries_to_multiple_providers(
+    api_key: &str,
+    model: &str,
+    provider: &str,
+    dimensions: Option<usize>,
+    queries: &Vec<DocumentChunk>,
+) -> Result<Vec<Vec<f32>>, anyhow::Error> {
+    let client: catsu::Client = catsu::Client::new()?;
+
+    let response: catsu::EmbedResponse = client
+        .embed_with_api_key(
+            model,
+            queries.iter().map(|item| item.content.clone()).collect(),
+            None,
+            dimensions.map(|num| num as u32),
+            Some(provider),
+            Some(api_key.to_owned()),
+        )
+        .await?;
+
+    Ok(response.embeddings)
+}
+
 /// TODO:
 /// need to create a keep-live mechanism, instead of using a super long timeout
 pub async fn send_vectorization_queries(
@@ -42,7 +73,7 @@ pub async fn send_vectorization_queries(
     api_key: &str,
     model: &str,
     encoding_format: &str,
-    queries: &Vec<String>,
+    queries: &Vec<DocumentChunk>,
 ) -> Result<Vec<Vec<f32>>, anyhow::Error> {
     let client = reqwest::Client::new();
 
@@ -51,7 +82,7 @@ pub async fn send_vectorization_queries(
         .bearer_auth(api_key)
         .json(&json!(
             {
-                "input": queries,
+                "input": queries.iter().map(|item| item.content.clone()).collect::<Vec<String>>(),
                 "model": model,
                 "encoding_format": encoding_format,
                 // "dimensions": config.dimensions,
