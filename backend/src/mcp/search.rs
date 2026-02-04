@@ -4,8 +4,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
-    documents::document_chunk::DocumentChunkSearchResult,
-    search::semantic::search_documents_semantically,
+    documents::document_chunk::DocumentChunkSearchResult, metadata_storage::MetadataStorage, search::semantic::search_documents_semantically, traits::LoadAndSave
 };
 
 #[derive(Debug, Deserialize, JsonSchema)]
