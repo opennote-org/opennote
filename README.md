@@ -72,6 +72,7 @@ If you need to customize the backend (e.g., to use an external database, change 
     "api_key": "meilimasterkey"
   },
   "embedder": {
+    "provider": "",
     "base_url": "http://embedder:8000/v1/embeddings",
     "model": "sentence-transformers/all-MiniLM-L6-v2",
     "vectorization_batch_size": 100,
@@ -178,7 +179,8 @@ In `backend/config.prod.json` (create one and copy and paste the json below if y
     "api_key": "meilimasterkey" // Ignore this. We haven't yet supported API key. 
   },
   "embedder": { // Configure embedding service
-    "base_url": "http://192.168.0.101:8000/v1/embeddings", // The embedding service's API endpoint. 
+    "provider": "", // Leave it empty if you use a base url. Support: openai, cloudflare, cohere, deepinfra, gemini, jina, mistral, mixedbread, nomic, together, voyageai
+    "base_url": "http://192.168.0.101:8000/v1/embeddings", // The embedding service's API endpoint. Leave it empty if you use a provider. 
     "model": "sentence-transformers/all-MiniLM-L6-v2", // The model you want to use. If you are using it from a service provider, like OpenAI, you may refer to their official documents on which models are available. 
     "vectorization_batch_size": 100, // Increase this number if your OpenNote is too slow.
     "encoding_format": "float", // Leave it as float
