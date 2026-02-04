@@ -32,6 +32,7 @@ pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
         .collect()
 }
 
+/// To fill in the document and collection title
 pub fn build_search_results(
     scored_points: Option<Vec<ScoredPoint>>,
     retrieved_points: Option<Vec<RetrievedPoint>>,

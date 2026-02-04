@@ -18,6 +18,8 @@ mod traits;
 mod utilities;
 mod mcp;
 
+use std::{sync::Arc, time::Duration};
+
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::Logger, web};
 use anyhow::{Context, Result};
@@ -25,12 +27,13 @@ use app_state::AppState;
 use log::{error, info};
 
 use configurations::system::Config;
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::transport::StreamableHttpService;
 use routes::configure_routes;
 use sqlx::any::install_default_drivers;
 use tokio::sync::RwLock;
 
-use crate::checkups::{align_embedder_model, handshake_embedding_service};
+use crate::{checkups::{align_embedder_model, handshake_embedding_service}, mcp::search::MCPSearchService};
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -129,6 +132,21 @@ async fn main() -> Result<(), std::io::Error> {
     // Start HTTP server
     let bind_address = format!("{}:{}", config.server.host, config.server.port);
     info!("Starting HTTP server on {}", bind_address);
+    
+    let app_state_for_mcp = app_state.clone();
+    let mut mcp_service = StreamableHttpService::builder()
+        .service_factory(
+            Arc::new(
+                move || {
+                    log::info!("Creating MCP Search Service...");
+                    Ok(MCPSearchService::new(app_state_for_mcp.clone()))
+                }
+            )
+        )
+        .session_manager(Arc::new(LocalSessionManager::default()))
+        .stateful_mode(true)
+        .sse_keep_alive(Duration::from_secs(30))
+        .build();
 
     let mut server = HttpServer::new(move || {
         App::new()
@@ -136,11 +154,10 @@ async fn main() -> Result<(), std::io::Error> {
             .wrap(Cors::permissive())
             .app_data(app_state.clone())
             .service(configure_routes())
+            .service(
+                web::scope("/api/v1").service(mcp_service.scope())
+            )
     });
-    
-    let mut mcp = StreamableHttpService::builder()
-        .service_factory(value)
-        .build();
 
     // Set number of workers if specified
     if let Some(workers) = config.server.workers {
