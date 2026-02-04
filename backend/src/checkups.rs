@@ -6,26 +6,28 @@ use crate::{
     app_state::AppState,
     configurations::system::{Config, EmbedderConfig},
     database::reindex_documents,
-    embedder::send_vectorization_queries,
+    documents::document_chunk::DocumentChunk,
+    embedder::send_vectorization,
     traits::LoadAndSave,
 };
 
 pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> {
-    match send_vectorization_queries(
+    match send_vectorization(
+        &config.provider,
         &config.base_url,
         &config.api_key,
         &config.model,
         &config.encoding_format,
-        &vec!["a test string".to_string()],
+        vec![DocumentChunk::default()],
     )
     .await
     {
         Ok(result) => {
             if let Some(vector) = result.get(0) {
-                if !(vector.len() == config.dimensions) {
+                if !(vector.dense_text_vector.len() == config.dimensions) {
                     return Err(anyhow!(
                         "Returned vector dimension mismatched the config. Returned vector: {} while being configured to {}",
-                        vector.len(),
+                        vector.dense_text_vector.len(),
                         config.dimensions
                     ));
                 }

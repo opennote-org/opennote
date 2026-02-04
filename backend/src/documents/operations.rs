@@ -138,6 +138,7 @@ pub async fn add_document_chunks_to_database(
     let mut tasks = Vec::new();
     for batch in batches.into_iter() {
         tasks.push(send_vectorization(
+            &embedder_config.provider,
             &embedder_config.base_url,
             &embedder_config.api_key,
             &embedder_config.model,

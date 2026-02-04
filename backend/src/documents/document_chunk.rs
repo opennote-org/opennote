@@ -54,17 +54,26 @@ impl DocumentChunk {
     ) -> Vec<DocumentChunk> {
         let mut chunks: Vec<DocumentChunk> = Vec::new();
         
-        let raw_chunks: Vec<_> = chunk(content.as_bytes()).consecutive().size(chunk_max_words).collect();
+        let raw_chunks: Vec<_> = chunk(content.as_bytes())
+            .consecutive()
+            .delimiters("\n.?!。，！".as_bytes())
+            .size(chunk_max_words)
+            .collect();
         
         for mut chunk in raw_chunks {
             let mut string = String::new();
-            chunk.read_to_string(&mut string).unwrap();
-
-            chunks.push(DocumentChunk::new(
-                string,
-                document_metadata_id,
-                collection_metadata_id,
-            ));
+            match chunk.read_to_string(&mut string) {
+                Ok(_) => {
+                    chunks.push(DocumentChunk::new(
+                        string,
+                        document_metadata_id,
+                        collection_metadata_id,
+                    ));
+                },
+                Err(error) => {
+                    log::warn!("Error reading chunk: {}", error);
+                }
+            }
         }
         
         chunks

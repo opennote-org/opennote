@@ -37,6 +37,7 @@ pub async fn intelligent_search(
         &index_name,
         &request.0.query,
         request.0.top_n,
+        &config.embedder.provider,
         &config.embedder.base_url,
         &config.embedder.api_key,
         &config.embedder.model,

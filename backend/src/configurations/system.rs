@@ -42,11 +42,29 @@ pub struct MetadataStorageConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmbedderConfig {
+    /// Provider of the embedding model
+    /// Leave it empty if you are using a locally hosted, OpenAI compatible API
+    #[serde(skip)]
+    pub provider: String,
+    
+    /// base url of your local embedder service. 
+    /// Leave it empty if you are using one from a provider.
     pub base_url: String,
+    
+    /// Model name of the embedding model
     pub model: String,
+    
+    /// Larger number will make the vectorization faster, 
+    /// but try reducing the number to prevent overflowing the API
     pub vectorization_batch_size: usize,
+    
+    /// Dimension of the embedding model
     pub dimensions: usize,
+    
+    /// Usually this is a float
     pub encoding_format: String,
+    
+    /// API key of the model
     pub api_key: String,
 }
 

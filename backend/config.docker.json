@@ -24,6 +24,7 @@
   },
   "embedder": {
     "base_url": "http://embedder:8000/v1/embeddings",
+    "provider": "",
     "model": "sentence-transformers/all-MiniLM-L6-v2",
     "vectorization_batch_size": 100,
     "encoding_format": "float",

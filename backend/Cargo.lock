@@ -515,6 +515,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "catsu"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d020584eb63946a59d33f237403d606ee2d0ccef111ddb1f557cd89d293387e"
+dependencies = [
+ "async-trait",
+ "once_cell",
+ "rand 0.9.2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2131,12 +2148,13 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "notes-backend"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-cors",
  "actix-web",
  "anyhow",
  "async-trait",
+ "catsu",
  "chrono",
  "chunk",
  "config",
