@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use qdrant_client::qdrant::{Condition, RetrievedPoint, ScoredPoint};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::documents::{
@@ -11,13 +12,16 @@ use crate::documents::{
 pub mod keyword;
 pub mod semantic;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct SearchScopeIndicator {
+    #[schemars(description = "in which range, you want to search")]
     pub search_scope: SearchScope,
+    
+    #[schemars(description = "respective id of the search scope. for AI, leave the id empty string when searching userspace")]
     pub id: String,
 }
 
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, JsonSchema, PartialEq, PartialOrd, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchScope {
     Document,
@@ -32,6 +36,7 @@ pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
         .collect()
 }
 
+/// To fill in the document and collection title
 pub fn build_search_results(
     scored_points: Option<Vec<ScoredPoint>>,
     retrieved_points: Option<Vec<RetrievedPoint>>,

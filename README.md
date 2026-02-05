@@ -11,6 +11,7 @@ Reach me out at https://discord.gg/MXnzmRcDFh
 ## Features
 
 - Support multi-user access. Each user can have their own private workspace. 
+- Support MCP server. You can use your favorite LLM client and models to perform your works. 
 - Support semantic search. 
 - Support importing webpages and also search them semantically. Great for researchers, students and anyone who needs to read documents. 
 - Support Vim key mappings. More keyboard shortcuts are yet to come!
@@ -44,44 +45,6 @@ This is the easiest way to get started. It sets up the Frontend, Backend, Qdrant
 The Docker Compose setup uses a dedicated configuration file: `backend/config.docker.json`. This file is mounted into the backend container.
 
 If you need to customize the backend (e.g., to use an external database, change logging levels, or modify embedder settings), you can edit `backend/config.docker.json`.
-
-**Default `backend/config.docker.json`**:
-```json
-{
-  "logging": {
-    "format": "json",
-    "level": "info"
-  },
-  "server": {
-    "host": "0.0.0.0",
-    "port": 8080,
-    "workers": 4
-  },
-  "identities_storage": {
-    "path": "./data/identities_storage.json"
-  },
-  "metadata_storage": {
-    "path": "./data/metadata_storage.json"
-  },
-  "backups_storage": {
-    "path": "./data/backups_storage.json"
-  },
-  "database": {
-    "index": "notes",
-    "base_url": "http://database:6334",
-    "api_key": "meilimasterkey"
-  },
-  "embedder": {
-    "provider": "",
-    "base_url": "http://embedder:8000/v1/embeddings",
-    "model": "sentence-transformers/all-MiniLM-L6-v2",
-    "vectorization_batch_size": 100,
-    "encoding_format": "float",
-    "dimensions": 384,
-    "api_key": "techlab2024-llm"
-  }
-}
-```
 
 > **Note**: If you change the service names in `compose.yaml` or run services on different hosts, ensure `base_url` in this config matches your setup.
 
@@ -121,7 +84,7 @@ For detailed instructions on setting `Qdrant` up, please check out their officia
 
 ### Get an Embedding service API
 
-Any provider who provides OpenAI-Compatible embedding API services works with this project. You may also just use OpenAI's endpoints too. 
+Any provider who provides OpenAI-Compatible embedding API services works with this project. Also, the following providers are supported: `openai`, `cloudflare`, `cohere`, `deepinfra`, `gemini`, `jina`, `mistral`, `mixedbread`, `nomic`, `together`, `voyageai`. You may also just use OpenAI's endpoints too. 
 
 You may also host a `vLLM` instance locally, which is totally free. Below is a script that I use to run a `vLLM` instance. Notice that it will still need to make use of `Docker`:
 
@@ -190,9 +153,35 @@ In `backend/config.prod.json` (create one and copy and paste the json below if y
 }
 ```
 
+### MCP server
+
+Below is a json that you can paste into your client for using your OpenNote as a MCP server:
+
+```json
+{
+  "mcpServers": {
+    "tPapVztNjfFjJxJUTXkVH": {
+      "name": "opennote",
+      "description": "",
+      "baseUrl": "http://localhost:8086/mcp",
+      "command": "",
+      "args": [],
+      "env": {},
+      "isActive": true,
+      "type": "streamableHttp",
+      "headers": {
+        "Authorization": "Bearer <your-username>"
+      }
+    }
+  }
+}
+```
+
+More tools are on the way!
+
 ### Setting up the project
 
-The project comes with a `build_and_deploy.sh` script at the root. You need Docker installed to get it deploying the notebook for you. Notice that, you need Flutter and Rust setup in your environment before launching the script, otherwise it will fail. 
+The project comes with a `build_and_deploy.sh` script at the root. You need Docker installed to get it deploying the notebook for you. The script uses Docker multi-stage builds to compile both the Frontend (Flutter) and Backend (Rust), so you do **not** need to install Flutter or Rust toolchains on your host machine.
 
 If you would like to specify a different place to store data. You may change the following:
 ```sh

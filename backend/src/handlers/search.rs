@@ -30,6 +30,12 @@ pub async fn intelligent_search(
         request.0.scope.search_scope,
         &request.0.scope.id,
     );
+    
+    if document_metadata_ids.is_empty() {
+        log::warn!("No search results found for request {:?}", request);
+        let vec: Vec<String> = Vec::new();
+        return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &vec)));
+    }
 
     match search_documents_semantically(
         &db_client,
