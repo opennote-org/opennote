@@ -16,10 +16,10 @@ use serde_json::Value;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    api_models::search::SearchDocumentRequest,
+    api_models::{document::GetDocumentRequest, search::SearchDocumentRequest},
     app_state::AppState,
     documents::document_metadata::DocumentMetadata,
-    handlers::search::intelligent_search,
+    handlers::{document::get_document_content, search::intelligent_search},
     mcp::{requests::{MCPGetCollectionMetadata, MCPSearchDocumentRequest}, responses::MCPServiceGenericResponse},
     search::SearchScope,
     utilities::acquire_data,
@@ -159,6 +159,36 @@ impl MCPService {
         }
 
         Json(MCPServiceGenericResponse { results: None })
+    }
+    
+    /// TODO: 
+    /// - check document ownership before returning a document
+    /// - enforce authentication bearer in all endpoints, not just MCP server
+    #[tool(description = "Get document content by supplying a document metadata id")]
+    pub async fn get_document_content_by_document_metadata_id(
+        &self,
+        Parameters(GetDocumentRequest {
+            document_metadata_id,
+        }): Parameters<GetDocumentRequest>,
+    ) -> Json<MCPServiceGenericResponse> {
+        match get_document_content(
+            self.app_state.clone(),
+            actix_web::web::Json(GetDocumentRequest { document_metadata_id }),
+        )
+        .await
+        {
+            Ok(result) => {
+                let result = result.into_body().try_into_bytes().unwrap().reader();
+                let value: Value = serde_json::from_reader(result).unwrap();
+                Json(MCPServiceGenericResponse {
+                    results: Some(value),
+                })
+            }
+            Err(error) => {
+                log::warn!("Failed to get document content: {}", error);
+                Json(MCPServiceGenericResponse { results: None })
+            }
+        }
     }
 }
 

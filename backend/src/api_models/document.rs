@@ -1,5 +1,6 @@
 //! It defines the API response and request models of document
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::documents::document_metadata::DocumentMetadata;
@@ -33,8 +34,9 @@ pub struct UpdateDocumentContentRequest {
     pub content: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct GetDocumentRequest {
+    #[schemars(description = "the document's metadata id")]
     pub document_metadata_id: String,
 }
 
