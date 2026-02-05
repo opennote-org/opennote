@@ -5,37 +5,25 @@ use actix_web::{
     web::{Buf, Data},
 };
 use rmcp::{
-    handler::server::{tool::ToolRouter, wrapper::Parameters}, model::{InitializeRequestParams, InitializeResult, ServerCapabilities, ServerInfo}, service::RequestContext, tool, tool_handler, tool_router, ErrorData, Json, RoleServer, ServerHandler
+    ErrorData, Json, RoleServer, ServerHandler,
+    handler::server::{tool::ToolRouter, wrapper::Parameters},
+    model::{InitializeRequestParams, InitializeResult, ServerCapabilities, ServerInfo},
+    service::RequestContext,
+    tool, tool_handler, tool_router,
 };
 use rmcp_actix_web::transport::AuthorizationHeader;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     api_models::search::SearchDocumentRequest,
     app_state::AppState,
-    documents::{
-        document_chunk::DocumentChunkSearchResult, operations::retrieve_document_ids_by_scope,
-    },
+    documents::document_metadata::DocumentMetadata,
     handlers::search::intelligent_search,
-    identities::user,
-    search::{SearchScopeIndicator, build_search_results, semantic::search_documents_semantically},
+    mcp::{requests::{MCPGetCollectionMetadata, MCPSearchDocumentRequest}, responses::MCPServiceGenericResponse},
+    search::SearchScope,
     utilities::acquire_data,
 };
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct MCPSearchRequest {
-    #[schemars(description = "keywords, phrases or sentences you may want to search")]
-    pub search_phrase: String,
-}
-
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct MCPServiceGenericResponse {
-    #[schemars(description = "results")]
-    pub results: Option<Value>,
-}
 
 #[derive(Clone)]
 pub struct MCPService {
@@ -54,24 +42,28 @@ impl MCPService {
         }
     }
 
-    #[tool(description = "Semantically search the OpenNote documents")]
+    #[tool(description = "Semantically search the user's OpenNote documents")]
     pub async fn semantic_search(
         &self,
-        Parameters(MCPSearchRequest { search_phrase }): Parameters<MCPSearchRequest>,
+        Parameters(MCPSearchDocumentRequest {
+            query,
+            top_n,
+            mut scope,
+        }): Parameters<MCPSearchDocumentRequest>,
     ) -> Json<MCPServiceGenericResponse> {
         let token = self.authorization.lock().await;
 
         if let Some(token) = token.as_ref() {
-            dbg!(token);
+            if scope.search_scope == SearchScope::Userspace {
+                scope.id = token.to_string();
+            }
+
             match intelligent_search(
                 self.app_state.clone(),
                 actix_web::web::Json(SearchDocumentRequest {
-                    query: search_phrase,
-                    top_n: 20,
-                    scope: SearchScopeIndicator {
-                        search_scope: crate::search::SearchScope::Userspace,
-                        id: token.clone(),
-                    },
+                    query,
+                    top_n,
+                    scope,
                 }),
             )
             .await
@@ -86,6 +78,82 @@ impl MCPService {
                 Err(error) => {
                     log::warn!("MCP service reported error: {}", error);
                     return Json(MCPServiceGenericResponse { results: None });
+                }
+            }
+        }
+
+        Json(MCPServiceGenericResponse { results: None })
+    }
+
+    #[tool(description = "Get metadatas of the user's OpenNote documents")]
+    pub async fn get_all_user_documents_metadatas(&self) -> Json<MCPServiceGenericResponse> {
+        let token = self.authorization.lock().await;
+        let (_, _, metadata_storage, _, _, identities_storage, _) =
+            acquire_data(&self.app_state).await;
+
+        if let Some(token) = token.as_ref() {
+            let identities_storage = identities_storage.lock().await;
+            let metadata_storage = metadata_storage.lock().await;
+
+            let resource_ids = identities_storage.get_resource_ids_by_username(token);
+
+            let documents_metadatas_list: Vec<DocumentMetadata> = metadata_storage
+                .documents
+                .iter()
+                .filter(|(_, metadata)| resource_ids.contains(&&metadata.collection_metadata_id))
+                .map(|(_, metadata)| {
+                    let mut metadata = metadata.to_owned();
+                    metadata.chunks = vec![];
+                    metadata
+                })
+                .collect();
+
+            match serde_json::to_value(documents_metadatas_list) {
+                Ok(result) => {
+                    return Json(MCPServiceGenericResponse {
+                        results: Some(result),
+                    });
+                }
+                Err(error) => {
+                    log::warn!("Failed to serialize document metadatas: {}", error);
+                    return Json(MCPServiceGenericResponse { results: None });
+                }
+            }
+        }
+
+        Json(MCPServiceGenericResponse { results: None })
+    }
+
+    #[tool(description = "Get metadatas of a collection")]
+    pub async fn get_collection_metadata(
+        &self,
+        Parameters(MCPGetCollectionMetadata {
+            collection_metadata_id,
+        }): Parameters<MCPGetCollectionMetadata>,
+    ) -> Json<MCPServiceGenericResponse> {
+        let token = self.authorization.lock().await;
+        let (_, _, metadata_storage, _, _, identities_storage, _) =
+            acquire_data(&self.app_state).await;
+
+        if let Some(token) = token.as_ref() {
+            let identities_storage = identities_storage.lock().await;
+            let metadata_storage = metadata_storage.lock().await;
+
+            if identities_storage
+                .is_user_owning_collections(token, &vec![collection_metadata_id.clone()])
+            {
+                if let Some(metadata) = metadata_storage.collections.get(&collection_metadata_id) {
+                    match serde_json::to_value(metadata) {
+                        Ok(result) => {
+                            return Json(MCPServiceGenericResponse {
+                                results: Some(result),
+                            });
+                        }
+                        Err(error) => {
+                            log::warn!("Failed to serialize document metadatas: {}", error);
+                            return Json(MCPServiceGenericResponse { results: None });
+                        }
+                    }
                 }
             }
         }
@@ -118,7 +186,7 @@ impl ServerHandler for MCPService {
         if let Some(auth) = context.extensions.get::<AuthorizationHeader>() {
             let mut stored_auth = self.authorization.lock().await;
             let stripped = auth.0.strip_prefix("Bearer ");
-            
+
             if let Some(stripped) = stripped {
                 *stored_auth = Some(stripped.to_owned());
                 log::info!("Authorization header found");
@@ -126,7 +194,7 @@ impl ServerHandler for MCPService {
         }
 
         log::info!("No Authorization header found - proxy calls will fail");
-        
+
         Ok(self.get_info())
     }
 }

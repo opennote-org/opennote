@@ -11,6 +11,7 @@ Reach me out at https://discord.gg/MXnzmRcDFh
 ## Features
 
 - Support multi-user access. Each user can have their own private workspace. 
+- Support MCP server. You can use your favorite LLM client and models to perform your works. 
 - Support semantic search. 
 - Support importing webpages and also search them semantically. Great for researchers, students and anyone who needs to read documents. 
 - Support Vim key mappings. More keyboard shortcuts are yet to come!
@@ -121,7 +122,7 @@ For detailed instructions on setting `Qdrant` up, please check out their officia
 
 ### Get an Embedding service API
 
-Any provider who provides OpenAI-Compatible embedding API services works with this project. You may also just use OpenAI's endpoints too. 
+Any provider who provides OpenAI-Compatible embedding API services works with this project. Also, the following providers are supported: `openai`, `cloudflare`, `cohere`, `deepinfra`, `gemini`, `jina`, `mistral`, `mixedbread`, `nomic`, `together`, `voyageai`. You may also just use OpenAI's endpoints too. 
 
 You may also host a `vLLM` instance locally, which is totally free. Below is a script that I use to run a `vLLM` instance. Notice that it will still need to make use of `Docker`:
 
@@ -190,7 +191,33 @@ In `backend/config.prod.json` (create one and copy and paste the json below if y
 }
 ```
 
-### Setting up the project
+### MCP server
+
+Below is a json that you can paste into your client for using your OpenNote as a MCP server:
+
+```json
+{
+  "mcpServers": {
+    "tPapVztNjfFjJxJUTXkVH": {
+      "name": "opennote",
+      "description": "",
+      "baseUrl": "http://localhost:8080/mcp",
+      "command": "",
+      "args": [],
+      "env": {},
+      "isActive": true,
+      "type": "streamableHttp",
+      "headers": {
+        "Authorization": "Bearer <your-username>"
+      }
+    }
+  }
+}
+```
+
+More tools are on the way!
+
+### Setting up the project for development
 
 The project comes with a `build_and_deploy.sh` script at the root. You need Docker installed to get it deploying the notebook for you. Notice that, you need Flutter and Rust setup in your environment before launching the script, otherwise it will fail. 
 

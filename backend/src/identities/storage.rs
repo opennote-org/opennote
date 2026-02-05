@@ -132,4 +132,24 @@ impl IdentitiesStorage {
 
         resource_ids
     }
+
+    /// Return false if the username does not exist or not owning the specified collections. 
+    /// Vice versa. 
+    pub fn is_user_owning_collections(
+        &self,
+        username: &str,
+        collection_metadata_ids: &[String],
+    ) -> bool {
+        if let Some(user) = self.users.iter().find(|user| user.username == username) {
+            for id in collection_metadata_ids { 
+                if !user.resources.contains(id) {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        false
+    }
 }
