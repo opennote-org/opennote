@@ -32,8 +32,8 @@ COPY deployment/nginx.conf /etc/nginx/conf.d/default.conf
 # Setup Supervisor
 COPY deployment/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Expose port 80
-EXPOSE 80
+# Expose port 80 (web) and 8081 (mcp server)
+EXPOSE 80 8081
 
 # Start Supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

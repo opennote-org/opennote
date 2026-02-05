@@ -201,7 +201,7 @@ Below is a json that you can paste into your client for using your OpenNote as a
     "tPapVztNjfFjJxJUTXkVH": {
       "name": "opennote",
       "description": "",
-      "baseUrl": "http://localhost:8080/mcp",
+      "baseUrl": "http://localhost:8086/mcp",
       "command": "",
       "args": [],
       "env": {},

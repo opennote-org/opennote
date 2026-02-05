@@ -64,8 +64,9 @@ docker build -t notes-app .
 # --- Deploy ---
 CONTAINER_NAME="notes-app-container"
 PORT=8085
+MCP_PORT=8086
 
-echo "Deploying to port $PORT..."
+echo "Deploying to port $PORT and MCP service to $MCP_PORT..."
 
 # Stop existing container if running
 if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
@@ -85,6 +86,9 @@ docker run -d \
     --name $CONTAINER_NAME \
     --restart unless-stopped \
     -p $PORT:80 \
+    -p $MCP_PORT:8081 \
     notes-app
 
-echo "Deployment complete! Application is running on http://localhost:$PORT"
+echo "Deployment complete!"
+echo "Web App: http://localhost:$PORT"
+echo "MCP Endpoint: http://localhost:$MCP_PORT/mcp"
