@@ -46,44 +46,6 @@ The Docker Compose setup uses a dedicated configuration file: `backend/config.do
 
 If you need to customize the backend (e.g., to use an external database, change logging levels, or modify embedder settings), you can edit `backend/config.docker.json`.
 
-**Default `backend/config.docker.json`**:
-```json
-{
-  "logging": {
-    "format": "json",
-    "level": "info"
-  },
-  "server": {
-    "host": "0.0.0.0",
-    "port": 8080,
-    "workers": 4
-  },
-  "identities_storage": {
-    "path": "./data/identities_storage.json"
-  },
-  "metadata_storage": {
-    "path": "./data/metadata_storage.json"
-  },
-  "backups_storage": {
-    "path": "./data/backups_storage.json"
-  },
-  "database": {
-    "index": "notes",
-    "base_url": "http://database:6334",
-    "api_key": "meilimasterkey"
-  },
-  "embedder": {
-    "provider": "",
-    "base_url": "http://embedder:8000/v1/embeddings",
-    "model": "sentence-transformers/all-MiniLM-L6-v2",
-    "vectorization_batch_size": 100,
-    "encoding_format": "float",
-    "dimensions": 384,
-    "api_key": "techlab2024-llm"
-  }
-}
-```
-
 > **Note**: If you change the service names in `compose.yaml` or run services on different hosts, ensure `base_url` in this config matches your setup.
 
 ### Manual Setup (Advanced)
@@ -217,9 +179,9 @@ Below is a json that you can paste into your client for using your OpenNote as a
 
 More tools are on the way!
 
-### Setting up the project for development
+### Setting up the project
 
-The project comes with a `build_and_deploy.sh` script at the root. You need Docker installed to get it deploying the notebook for you. Notice that, you need Flutter and Rust setup in your environment before launching the script, otherwise it will fail. 
+The project comes with a `build_and_deploy.sh` script at the root. You need Docker installed to get it deploying the notebook for you. The script uses Docker multi-stage builds to compile both the Frontend (Flutter) and Backend (Rust), so you do **not** need to install Flutter or Rust toolchains on your host machine.
 
 If you would like to specify a different place to store data. You may change the following:
 ```sh

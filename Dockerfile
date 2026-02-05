@@ -1,4 +1,20 @@
-# Runtime Stage
+# Stage 1: Build Frontend
+FROM ghcr.io/cirruslabs/flutter:stable AS frontend-builder
+WORKDIR /app
+COPY frontend/ .
+# Swap constants for production if the file exists
+RUN if [ -f lib/constants.prod.dart ]; then \
+      cp lib/constants.prod.dart lib/constants.dart; \
+    fi
+RUN flutter build web --release --pwa-strategy=none
+
+# Stage 2: Build Backend
+FROM rust:latest AS backend-builder
+WORKDIR /app
+COPY backend/ .
+RUN cargo build --release
+
+# Stage 3: Runtime
 FROM debian:bookworm-slim
 WORKDIR /app
 
@@ -11,13 +27,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pre-built backend binary
-# Ensure you have run `cargo build --release` in backend/ directory
-COPY backend/target/release/notes-backend /app/notes-backend
+# Copy backend binary from builder
+COPY --from=backend-builder /app/target/release/notes-backend /app/notes-backend
 
-# Copy pre-built frontend files
-# Ensure you have run `flutter build web --release` in frontend/ directory
-COPY frontend/build/web /usr/share/nginx/html
+# Copy frontend files from builder
+COPY --from=frontend-builder /app/build/web /usr/share/nginx/html
 
 # Create data directories
 RUN mkdir -p /app/data
