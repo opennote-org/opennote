@@ -3,6 +3,7 @@ import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:notes/actions/popups.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
@@ -93,6 +94,7 @@ class CollectionNode extends StatefulWidget {
 class _CollectionNodeState extends State<CollectionNode> {
   bool _isExpanded = false;
   bool _isLoading = false;
+  final FocusNode _focusCollectionListTiles = FocusNode();
 
   Future<void> _performImport(
     List<Map<String, dynamic>> imports,
@@ -637,6 +639,7 @@ class _CollectionNodeState extends State<CollectionNode> {
             Builder(
               builder: (context) {
                 return IconButton(
+                  focusNode: _focusCollectionListTiles,
                   icon: const Icon(Icons.more_vert, size: 16),
                   onPressed: () {
                     final renderBox = context.findRenderObject() as RenderBox;
@@ -685,7 +688,13 @@ class _CollectionNodeState extends State<CollectionNode> {
                 color: candidateData.isNotEmpty
                     ? Theme.of(context).colorScheme.primaryContainer
                     : null,
-                child: createCollectionListTile(appState),
+                child: Shortcuts(
+                  shortcuts: {
+                    LogicalKeySet(LogicalKeyboardKey.keyJ): const NextFocusIntent(),
+                    LogicalKeySet(LogicalKeyboardKey.keyK): const PreviousFocusIntent()
+                  },
+                  child: createCollectionListTile(appState),
+                ), 
               ),
             ),
             if (_isExpanded)
