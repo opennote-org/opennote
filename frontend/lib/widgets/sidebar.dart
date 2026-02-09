@@ -1,18 +1,18 @@
-import 'dart:convert';
-import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:notes/actions/popups.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
+import 'package:notes/services/import_export_service.dart';
 import 'package:notes/services/key_mapping.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/state/activities.dart';
-import 'package:notes/utils/downloader.dart';
+import 'package:notes/utils/file_utils.dart';
 import 'package:notes/widgets/configuration_popup.dart';
+import 'package:notes/widgets/dialogs/import_database_dialog.dart';
+import 'package:notes/widgets/dialogs/import_webpage_dialog.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
@@ -205,38 +205,9 @@ class _CollectionNodeState extends State<CollectionNode> {
   }
 
   Future<void> _importWebpages(String collectionId) async {
-    final controller = TextEditingController();
     final urls = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import Webpages'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter URLs to import (one per line):'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'https://example.com\nhttps://example.org',
-              ),
-              maxLines: 5,
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Import'),
-          ),
-        ],
-      ),
+      builder: (context) => const ImportWebpageDialog(),
     );
 
     if (urls != null && urls.isNotEmpty) {
@@ -257,181 +228,35 @@ class _CollectionNodeState extends State<CollectionNode> {
   }
 
   Future<void> _importTextFile(String collectionId) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.custom,
-        allowedExtensions: ['txt', 'md', 'json', 'xml', 'csv'],
-        withData: true,
-      );
+    setState(() => _isLoading = true);
 
-      if (result != null && result.files.isNotEmpty) {
-        if (!mounted) return;
-
-        setState(() => _isLoading = true);
-
-        const int maxBatchSize = 2 * 1024 * 1024; // 2MB
-        int currentBatchSize = 0;
-        List<Map<String, dynamic>> currentBatch = [];
-        int successBatches = 0;
-        int failedBatches = 0;
-
-        for (final file in result.files) {
-          if (file.bytes != null) {
-            final content = utf8.decode(file.bytes!);
-            final fileSize = file.bytes!.length;
-
-            if (currentBatch.isNotEmpty &&
-                (currentBatchSize + fileSize > maxBatchSize)) {
-              try {
-                await AppStateScope.of(
-                  context,
-                ).importDocuments(currentBatch, collectionId: collectionId);
-                successBatches++;
-              } catch (e) {
-                failedBatches++;
-                if (mounted) {
-                  _handleImportError(e);
-                }
-              }
-              currentBatch.clear();
-              currentBatchSize = 0;
-            }
-
-            currentBatch.add({"import_type": "TextFile", "artifact": content});
-            currentBatchSize += fileSize;
-          }
-        }
-
-        if (currentBatch.isNotEmpty) {
-          try {
-            await AppStateScope.of(
-              context,
-            ).importDocuments(currentBatch, collectionId: collectionId);
-            successBatches++;
-          } catch (e) {
-            failedBatches++;
-            if (mounted) {
-              _handleImportError(e);
-            }
-          }
-        }
-
+    await ImportExportService.importTextFiles(
+      onBatchReady: (batch) async {
+        await AppStateScope.of(
+          context,
+        ).importDocuments(batch, collectionId: collectionId);
+      },
+      onError: (e) {
         if (mounted) {
-          if (successBatches > 0) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Started $successBatches import batches.'),
-              ),
-            );
-          }
+          _handleImportError(e);
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        _handleImportError(e);
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      },
+      onSuccess: (count) {
+        if (mounted && count > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Started $count import batches.')),
+          );
+        }
+      },
+    );
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _importDatabase(String collectionId) async {
-    final dbTypeController = TextEditingController(text: 'mysql');
-    final hostController = TextEditingController(text: 'localhost');
-    final portController = TextEditingController(text: '3306');
-    final userController = TextEditingController();
-    final passwordController = TextEditingController();
-    final dbNameController = TextEditingController();
-    final tableNameController = TextEditingController();
-    final queryController = TextEditingController(text: 'SELECT * FROM table');
-    final columnController = TextEditingController(text: 'content_column');
-
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import from Database'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: dbTypeController,
-                decoration: const InputDecoration(
-                  labelText: 'Database Type (mysql, postgres, sqlite)',
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: hostController,
-                      decoration: const InputDecoration(labelText: 'Host'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: portController,
-                      decoration: const InputDecoration(labelText: 'Port'),
-                    ),
-                  ),
-                ],
-              ),
-              TextField(
-                controller: userController,
-                decoration: const InputDecoration(labelText: 'Username'),
-              ),
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-              ),
-              TextField(
-                controller: dbNameController,
-                decoration: const InputDecoration(labelText: 'Database Name'),
-              ),
-              TextField(
-                controller: tableNameController,
-                decoration: const InputDecoration(labelText: 'Table Name'),
-              ),
-              TextField(
-                controller: queryController,
-                decoration: const InputDecoration(labelText: 'Query'),
-              ),
-              TextField(
-                controller: columnController,
-                decoration: const InputDecoration(labelText: 'Content Column'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final artifact = {
-                "database_type": dbTypeController.text,
-                "host": hostController.text,
-                "port": portController.text,
-                "username": userController.text,
-                "password": passwordController.text,
-                "database_name": dbNameController.text,
-                "query": queryController.text,
-                "column_to_fetch": columnController.text,
-                "table_name": tableNameController.text.isEmpty
-                    ? null
-                    : tableNameController.text,
-              };
-              Navigator.pop(context, artifact);
-            },
-            child: const Text('Import'),
-          ),
-        ],
-      ),
+      builder: (context) => const ImportDatabaseDialog(),
     );
 
     if (result != null) {
@@ -460,88 +285,47 @@ class _CollectionNodeState extends State<CollectionNode> {
 
     setState(() => _isLoading = true);
 
-    int successCount = 0;
-    int failCount = 0;
-
-    try {
-      final archive = Archive();
-
-      final futures = documents.map((doc) async {
-        try {
-          final chunks = await appState.documents.getDocument(
-            appState.dio,
-            doc.id,
-          );
-          final fullContent = chunks.map((c) => c.content).join('');
-          return (doc, fullContent);
-        } catch (e) {
-          debugPrint('Failed to export document ${doc.title}: $e');
-          return null;
-        }
-      });
-
-      final results = await Future.wait(futures);
-
-      for (final result in results) {
-        if (result != null) {
-          final doc = result.$1;
-          final content = result.$2;
-
-          final safeTitle = doc.title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-          final fileName = '$safeTitle.md';
-
-          final contentBytes = utf8.encode(content);
-          archive.addFile(
-            ArchiveFile(fileName, contentBytes.length, contentBytes),
-          );
-          successCount++;
-        } else {
-          failCount++;
-        }
-      }
-
-      if (successCount > 0) {
-        final zipEncoder = ZipEncoder();
-        final encodedArchive = zipEncoder.encode(archive);
-
-        if (encodedArchive != null) {
-          final safeCollectionTitle = widget.collection.title.replaceAll(
-            RegExp(r'[<>:"/\\|?*]'),
-            '_',
-          );
-          final zipFileName = '$safeCollectionTitle.zip';
-          await downloadFile(encodedArchive, zipFileName);
-
-          if (mounted) {
+    await ImportExportService.exportCollection(
+      documents: documents,
+      collectionTitle: widget.collection.title,
+      fetchDocumentContent: (docId) async {
+        final chunks = await appState.documents.getDocument(
+          appState.dio,
+          docId,
+        );
+        return chunks.map((c) => c.content).join('');
+      },
+      onComplete: (success, failed) {
+        if (mounted) {
+          if (success > 0) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Exported $successCount documents to $zipFileName. Failed: $failCount',
+                  'Exported $success documents. Failed: $failed',
+                ),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'No documents were successfully prepared for export. Failed: $failed',
                 ),
               ),
             );
           }
         }
-      } else {
+      },
+      onError: (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'No documents were successfully prepared for export. Failed: $failCount',
-              ),
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error during export: $e')));
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error during export: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      },
+    );
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   void _showImportOptionsDialog(String collectionId) {
