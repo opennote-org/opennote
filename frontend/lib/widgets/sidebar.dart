@@ -210,24 +210,33 @@ class _CollectionNodeState extends State<CollectionNode> {
 
     if (result != null && result.text.isNotEmpty) {
       if (!mounted) return;
-      final urlList = result.text
-          .split('\n')
-          .where((s) => s.trim().isNotEmpty)
-          .map((s) => s.trim())
-          .toList();
-      if (urlList.isEmpty) return;
+      setState(() => _isLoading = true);
 
-      final imports = urlList
-          .map((url) => {
-                "import_type": "Webpage",
-                "artifact": {
-                  "url": url,
-                  "preserve_image": result.preserveImage,
-                }
-              })
-          .toList();
+      await ImportExportService.importWebpages(
+        content: result.text,
+        preserveImage: result.preserveImage,
+        onBatchReady: (batch) async {
+          await AppStateScope.of(
+            context,
+          ).importDocuments(batch, collectionId: collectionId);
+        },
+        onError: (e) {
+          if (mounted) {
+            _handleImportError(e);
+          }
+        },
+        onSuccess: (count) {
+          if (mounted && count > 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Import started, please come back later...'),
+              ),
+            );
+          }
+        },
+      );
 
-      await _performImport(imports, collectionId);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

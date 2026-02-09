@@ -64,6 +64,42 @@ class ImportExportService {
     }
   }
 
+  static Future<void> importWebpages({
+    required String content,
+    required bool preserveImage,
+    required Future<void> Function(List<Map<String, dynamic>>) onBatchReady,
+    required Function(dynamic) onError,
+    required Function(int) onSuccess,
+  }) async {
+    try {
+      final urlList = content
+          .split('\n')
+          .where((s) => s.trim().isNotEmpty)
+          .map((s) => s.trim())
+          .toList();
+
+      if (urlList.isEmpty) {
+        onSuccess(0);
+        return;
+      }
+
+      final imports = urlList
+          .map((url) => {
+                "import_type": "Webpage",
+                "artifact": {
+                  "url": url,
+                  "preserve_image": preserveImage,
+                }
+              })
+          .toList();
+
+      await onBatchReady(imports);
+      onSuccess(1);
+    } catch (e) {
+      onError(e);
+    }
+  }
+
   static Future<void> exportCollection({
     required List<DocumentMetadata> documents,
     required String collectionTitle,
