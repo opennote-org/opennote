@@ -1,16 +1,18 @@
-import 'dart:convert';
-import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:notes/actions/popups.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
+import 'package:notes/services/import_export_service.dart';
+import 'package:notes/services/key_mapping.dart';
+import 'package:notes/state/activities.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/state/activities.dart';
-import 'package:notes/utils/downloader.dart';
+import 'package:notes/utils/file_utils.dart';
 import 'package:notes/widgets/configuration_popup.dart';
+import 'package:notes/widgets/dialogs/import_database_dialog.dart';
+import 'package:notes/widgets/dialogs/import_webpage_dialog.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
@@ -35,17 +37,19 @@ class Sidebar extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () async {
-                    final title = await showNameDialog(
-                      context,
-                      'New Collection',
-                    );
-                    if (title != null && title.isNotEmpty) {
-                      appState.createCollection(title);
-                    }
-                  },
+                ExcludeFocus(
+                  child: IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () async {
+                      final title = await showNameDialog(
+                        context,
+                        'New Collection',
+                      );
+                      if (title != null && title.isNotEmpty) {
+                        appState.createCollection(title);
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
@@ -54,7 +58,10 @@ class Sidebar extends StatelessWidget {
             child: ListView.builder(
               itemCount: collections.length,
               itemBuilder: (context, index) {
-                return CollectionNode(collection: collections[index]);
+                return CollectionNode(
+                  collection: collections[index],
+                  autofocus: index == 0,
+                );
               },
             ),
           ),
@@ -63,16 +70,18 @@ class Sidebar extends StatelessWidget {
             padding: const EdgeInsets.all(8.0),
             child: SizedBox(
               width: double.infinity,
-              child: TextButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const ConfigurationPopup(),
-                  );
-                },
-                icon: const Icon(Icons.settings),
-                label: const Text('Configuration'),
-                style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+              child: ExcludeFocus(
+                child: TextButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const ConfigurationPopup(),
+                    );
+                  },
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Configuration'),
+                  style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+                ),
               ),
             ),
           ),
@@ -84,7 +93,12 @@ class Sidebar extends StatelessWidget {
 
 class CollectionNode extends StatefulWidget {
   final CollectionMetadata collection;
-  const CollectionNode({super.key, required this.collection});
+  final bool autofocus;
+  const CollectionNode({
+    super.key,
+    required this.collection,
+    this.autofocus = false,
+  });
 
   @override
   State<CollectionNode> createState() => _CollectionNodeState();
@@ -93,6 +107,60 @@ class CollectionNode extends StatefulWidget {
 class _CollectionNodeState extends State<CollectionNode> {
   bool _isExpanded = false;
   bool _isLoading = false;
+  final FocusNode _focusCollectionListTiles = FocusNode(skipTraversal: true);
+  late final FocusNode _tileFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _tileFocusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+    _tileFocusNode.addListener(_onFocusChange);
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    final appState = AppStateScope.of(context);
+
+    // Only handle if Vim is enabled
+    if (!appState.keyBindings.isVimEnabled) {
+      return KeyEventResult.ignored;
+    }
+
+    final (action, _) = appState.keyBindings.resolve(event);
+
+    if (action != null) {
+      if (action == AppAction.cursorMoveDown) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.down);
+        return KeyEventResult.handled;
+      } else if (action == AppAction.cursorMoveUp) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.up);
+        return KeyEventResult.handled;
+      } else if (action == AppAction.cursorMoveRight) {
+        if (!_isExpanded) {
+          _toggleExpansion();
+          return KeyEventResult.handled;
+        }
+      } else if (action == AppAction.cursorMoveLeft) {
+        if (_isExpanded) {
+          _toggleExpansion();
+          return KeyEventResult.handled;
+        }
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _tileFocusNode.removeListener(_onFocusChange);
+    _focusCollectionListTiles.dispose();
+    _tileFocusNode.dispose();
+    super.dispose();
+  }
 
   Future<void> _performImport(
     List<Map<String, dynamic>> imports,
@@ -137,38 +205,9 @@ class _CollectionNodeState extends State<CollectionNode> {
   }
 
   Future<void> _importWebpages(String collectionId) async {
-    final controller = TextEditingController();
     final urls = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import Webpages'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter URLs to import (one per line):'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'https://example.com\nhttps://example.org',
-              ),
-              maxLines: 5,
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Import'),
-          ),
-        ],
-      ),
+      builder: (context) => const ImportWebpageDialog(),
     );
 
     if (urls != null && urls.isNotEmpty) {
@@ -189,181 +228,35 @@ class _CollectionNodeState extends State<CollectionNode> {
   }
 
   Future<void> _importTextFile(String collectionId) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.custom,
-        allowedExtensions: ['txt', 'md', 'json', 'xml', 'csv'],
-        withData: true,
-      );
+    setState(() => _isLoading = true);
 
-      if (result != null && result.files.isNotEmpty) {
-        if (!mounted) return;
-
-        setState(() => _isLoading = true);
-
-        const int maxBatchSize = 2 * 1024 * 1024; // 2MB
-        int currentBatchSize = 0;
-        List<Map<String, dynamic>> currentBatch = [];
-        int successBatches = 0;
-        int failedBatches = 0;
-
-        for (final file in result.files) {
-          if (file.bytes != null) {
-            final content = utf8.decode(file.bytes!);
-            final fileSize = file.bytes!.length;
-
-            if (currentBatch.isNotEmpty &&
-                (currentBatchSize + fileSize > maxBatchSize)) {
-              try {
-                await AppStateScope.of(
-                  context,
-                ).importDocuments(currentBatch, collectionId: collectionId);
-                successBatches++;
-              } catch (e) {
-                failedBatches++;
-                if (mounted) {
-                  _handleImportError(e);
-                }
-              }
-              currentBatch.clear();
-              currentBatchSize = 0;
-            }
-
-            currentBatch.add({"import_type": "TextFile", "artifact": content});
-            currentBatchSize += fileSize;
-          }
-        }
-
-        if (currentBatch.isNotEmpty) {
-          try {
-            await AppStateScope.of(
-              context,
-            ).importDocuments(currentBatch, collectionId: collectionId);
-            successBatches++;
-          } catch (e) {
-            failedBatches++;
-            if (mounted) {
-              _handleImportError(e);
-            }
-          }
-        }
-
+    await ImportExportService.importTextFiles(
+      onBatchReady: (batch) async {
+        await AppStateScope.of(
+          context,
+        ).importDocuments(batch, collectionId: collectionId);
+      },
+      onError: (e) {
         if (mounted) {
-          if (successBatches > 0) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Started $successBatches import batches.'),
-              ),
-            );
-          }
+          _handleImportError(e);
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        _handleImportError(e);
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      },
+      onSuccess: (count) {
+        if (mounted && count > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Started $count import batches.')),
+          );
+        }
+      },
+    );
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _importDatabase(String collectionId) async {
-    final dbTypeController = TextEditingController(text: 'mysql');
-    final hostController = TextEditingController(text: 'localhost');
-    final portController = TextEditingController(text: '3306');
-    final userController = TextEditingController();
-    final passwordController = TextEditingController();
-    final dbNameController = TextEditingController();
-    final tableNameController = TextEditingController();
-    final queryController = TextEditingController(text: 'SELECT * FROM table');
-    final columnController = TextEditingController(text: 'content_column');
-
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import from Database'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: dbTypeController,
-                decoration: const InputDecoration(
-                  labelText: 'Database Type (mysql, postgres, sqlite)',
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: hostController,
-                      decoration: const InputDecoration(labelText: 'Host'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: portController,
-                      decoration: const InputDecoration(labelText: 'Port'),
-                    ),
-                  ),
-                ],
-              ),
-              TextField(
-                controller: userController,
-                decoration: const InputDecoration(labelText: 'Username'),
-              ),
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-              ),
-              TextField(
-                controller: dbNameController,
-                decoration: const InputDecoration(labelText: 'Database Name'),
-              ),
-              TextField(
-                controller: tableNameController,
-                decoration: const InputDecoration(labelText: 'Table Name'),
-              ),
-              TextField(
-                controller: queryController,
-                decoration: const InputDecoration(labelText: 'Query'),
-              ),
-              TextField(
-                controller: columnController,
-                decoration: const InputDecoration(labelText: 'Content Column'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final artifact = {
-                "database_type": dbTypeController.text,
-                "host": hostController.text,
-                "port": portController.text,
-                "username": userController.text,
-                "password": passwordController.text,
-                "database_name": dbNameController.text,
-                "query": queryController.text,
-                "column_to_fetch": columnController.text,
-                "table_name": tableNameController.text.isEmpty
-                    ? null
-                    : tableNameController.text,
-              };
-              Navigator.pop(context, artifact);
-            },
-            child: const Text('Import'),
-          ),
-        ],
-      ),
+      builder: (context) => const ImportDatabaseDialog(),
     );
 
     if (result != null) {
@@ -392,88 +285,47 @@ class _CollectionNodeState extends State<CollectionNode> {
 
     setState(() => _isLoading = true);
 
-    int successCount = 0;
-    int failCount = 0;
-
-    try {
-      final archive = Archive();
-
-      final futures = documents.map((doc) async {
-        try {
-          final chunks = await appState.documents.getDocument(
-            appState.dio,
-            doc.id,
-          );
-          final fullContent = chunks.map((c) => c.content).join('');
-          return (doc, fullContent);
-        } catch (e) {
-          debugPrint('Failed to export document ${doc.title}: $e');
-          return null;
-        }
-      });
-
-      final results = await Future.wait(futures);
-
-      for (final result in results) {
-        if (result != null) {
-          final doc = result.$1;
-          final content = result.$2;
-
-          final safeTitle = doc.title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-          final fileName = '$safeTitle.md';
-
-          final contentBytes = utf8.encode(content);
-          archive.addFile(
-            ArchiveFile(fileName, contentBytes.length, contentBytes),
-          );
-          successCount++;
-        } else {
-          failCount++;
-        }
-      }
-
-      if (successCount > 0) {
-        final zipEncoder = ZipEncoder();
-        final encodedArchive = zipEncoder.encode(archive);
-
-        if (encodedArchive != null) {
-          final safeCollectionTitle = widget.collection.title.replaceAll(
-            RegExp(r'[<>:"/\\|?*]'),
-            '_',
-          );
-          final zipFileName = '$safeCollectionTitle.zip';
-          await downloadFile(encodedArchive, zipFileName);
-
-          if (mounted) {
+    await ImportExportService.exportCollection(
+      documents: documents,
+      collectionTitle: widget.collection.title,
+      fetchDocumentContent: (docId) async {
+        final chunks = await appState.documents.getDocument(
+          appState.dio,
+          docId,
+        );
+        return chunks.map((c) => c.content).join('');
+      },
+      onComplete: (success, failed) {
+        if (mounted) {
+          if (success > 0) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Exported $successCount documents to $zipFileName. Failed: $failCount',
+                  'Exported $success documents. Failed: $failed',
+                ),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'No documents were successfully prepared for export. Failed: $failed',
                 ),
               ),
             );
           }
         }
-      } else {
+      },
+      onError: (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'No documents were successfully prepared for export. Failed: $failCount',
-              ),
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error during export: $e')));
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error during export: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      },
+    );
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   void _showImportOptionsDialog(String collectionId) {
@@ -515,40 +367,6 @@ class _CollectionNodeState extends State<CollectionNode> {
         ],
       ),
     );
-  }
-
-  void _showDocumentMenu(
-    BuildContext context,
-    Offset position,
-    DocumentMetadata doc,
-  ) {
-    final appState = AppStateScope.of(context);
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: [
-        const PopupMenuItem(value: 'rename', child: Text('Rename')),
-        const PopupMenuItem(value: 'delete', child: Text('Delete')),
-      ],
-    ).then((value) async {
-      if (value == 'delete') {
-        appState.deleteDocument(doc.id);
-      } else if (value == 'rename') {
-        final title = await showNameDialog(
-          context,
-          'Rename Document',
-          initialValue: doc.title,
-        );
-        if (title != null && title.isNotEmpty) {
-          appState.renameDocument(doc.id, title, appState.pollTasks);
-        }
-      }
-    });
   }
 
   void _showCollectionMenu(BuildContext context, Offset position) {
@@ -613,48 +431,58 @@ class _CollectionNodeState extends State<CollectionNode> {
     }
   }
 
-  ListTile createCollectionListTile(AppState appState) {
-    return ListTile(
-      title: Tooltip(
-        preferBelow: false,
-        richMessage: WidgetSpan(
-          child: Column(
-            children: [
-              Text('Created: ${widget.collection.createdAt}'),
-              Text('Modified: ${widget.collection.lastModified}'),
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              _isExpanded ? Icons.expand_more : Icons.chevron_right,
-              size: 20,
-              color: Theme.of(context).iconTheme.color,
+  Widget createCollectionListTile(AppState appState) {
+    return Container(
+      color: _tileFocusNode.hasFocus
+          ? Theme.of(context).colorScheme.secondaryContainer
+          : null,
+      child: ListTile(
+          autofocus: widget.autofocus,
+          focusNode: _tileFocusNode,
+          onTap: () {
+            // _tileFocusNode.requestFocus();
+            _toggleExpansion();
+          },
+          title: Tooltip(
+            preferBelow: false,
+            richMessage: WidgetSpan(
+              child: Column(
+                children: [
+                  Text('Created: ${widget.collection.createdAt}'),
+                  Text('Modified: ${widget.collection.lastModified}'),
+                ],
+              ),
             ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(widget.collection.title)),
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  icon: const Icon(Icons.more_vert, size: 16),
-                  onPressed: () {
-                    final renderBox = context.findRenderObject() as RenderBox;
-                    final offset = renderBox.localToGlobal(Offset.zero);
-                    _showCollectionMenu(
-                      context,
-                      offset + Offset(0, renderBox.size.height),
+            child: Row(
+              children: [
+                Icon(
+                  _isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 20,
+                  color: Theme.of(context).iconTheme.color,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(widget.collection.title)),
+                Builder(
+                  builder: (context) {
+                    return IconButton(
+                      focusNode: _focusCollectionListTiles,
+                      icon: const Icon(Icons.more_vert, size: 16),
+                      onPressed: () {
+                        final renderBox =
+                            context.findRenderObject() as RenderBox;
+                        final offset = renderBox.localToGlobal(Offset.zero);
+                        _showCollectionMenu(
+                          context,
+                          offset + Offset(0, renderBox.size.height),
+                        );
+                      },
                     );
                   },
-                );
-              },
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-      selected:
-          appState.activeObject.type == ActiveObjectType.collection &&
-          appState.activeObject.id == widget.collection.id,
     );
   }
 
@@ -673,7 +501,6 @@ class _CollectionNodeState extends State<CollectionNode> {
         return Column(
           children: [
             GestureDetector(
-              onTap: _toggleExpansion,
               onSecondaryTapDown: (details) {
                 appState.setActiveObject(
                   ActiveObjectType.collection,
@@ -705,9 +532,9 @@ class _CollectionNodeState extends State<CollectionNode> {
                       ),
                       childWhenDragging: Opacity(
                         opacity: 0.5,
-                        child: _buildDocumentTile(context, doc, appState),
+                        child: DocumentTile(doc: doc),
                       ),
-                      child: _buildDocumentTile(context, doc, appState),
+                      child: DocumentTile(doc: doc),
                     );
                   }).toList(),
                 ),
@@ -717,68 +544,131 @@ class _CollectionNodeState extends State<CollectionNode> {
       },
     );
   }
+}
 
-  Widget _buildDocumentTile(
-    BuildContext context,
-    DocumentMetadata doc,
-    AppState appState,
-  ) {
+class DocumentTile extends StatefulWidget {
+  final DocumentMetadata doc;
+  const DocumentTile({super.key, required this.doc});
+
+  @override
+  State<DocumentTile> createState() => _DocumentTileState();
+}
+
+class _DocumentTileState extends State<DocumentTile> {
+  late final FocusNode _focusNode;
+  final FocusNode _menuFocusNode = FocusNode(skipTraversal: true);
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    final appState = AppStateScope.of(context);
+
+    if (!appState.keyBindings.isVimEnabled) {
+      return KeyEventResult.ignored;
+    }
+
+    final (action, _) = appState.keyBindings.resolve(event);
+
+    if (action != null) {
+      if (action == AppAction.cursorMoveDown) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.down);
+        return KeyEventResult.handled;
+      } else if (action == AppAction.cursorMoveUp) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.up);
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _menuFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _showMenu(Offset position) {
+    final appState = AppStateScope.of(context);
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(value: 'rename', child: Text('Rename')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    ).then((value) async {
+      if (value == 'delete') {
+        appState.deleteDocument(widget.doc.id);
+      } else if (value == 'rename') {
+        final title = await showNameDialog(
+          context,
+          'Rename Document',
+          initialValue: widget.doc.title,
+        );
+        if (title != null && title.isNotEmpty) {
+          appState.renameDocument(widget.doc.id, title, appState.pollTasks);
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = AppStateScope.of(context);
+
     return GestureDetector(
-      onSecondaryTapDown: (details) {
-        appState.setActiveObject(ActiveObjectType.document, doc.id);
-        showMenu(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-          ),
-          items: [
-            const PopupMenuItem(value: 'rename', child: Text('Rename')),
-            const PopupMenuItem(value: 'delete', child: Text('Delete')),
-          ],
-        ).then((value) async {
-          if (value == 'delete') {
-            appState.deleteDocument(doc.id);
-          } else if (value == 'rename') {
-            final title = await showNameDialog(
-              context,
-              'Rename Document',
-              initialValue: doc.title,
-            );
-            if (title != null && title.isNotEmpty) {
-              appState.renameDocument(doc.id, title, appState.pollTasks);
-            }
-          }
-        });
-      },
-      child: ListTile(
-        title: Text(doc.title),
-        leading: const Icon(Icons.article),
-        selected:
-            appState.activeObject.type == ActiveObjectType.document &&
-            appState.activeObject.id == doc.id,
-        onTap: () {
-          appState.openDocument(doc.id);
+        onSecondaryTapDown: (details) {
+          // _focusNode.requestFocus();
+          appState.setActiveObject(ActiveObjectType.document, widget.doc.id);
+          _showMenu(details.globalPosition);
         },
-        trailing: Builder(
-          builder: (context) {
-            return IconButton(
-              icon: const Icon(Icons.more_vert, size: 16),
-              onPressed: () {
-                final renderBox = context.findRenderObject() as RenderBox;
-                final offset = renderBox.localToGlobal(Offset.zero);
-                _showDocumentMenu(
-                  context,
-                  offset + Offset(0, renderBox.size.height),
-                  doc,
+        child: Container(
+          color: _focusNode.hasFocus
+              ? Theme.of(context).colorScheme.secondaryContainer
+              : null,
+          child: ListTile(
+            focusNode: _focusNode,
+            title: Text(widget.doc.title),
+            leading: const Icon(Icons.article),
+            selected:
+                appState.activeObject.type == ActiveObjectType.document &&
+                appState.activeObject.id == widget.doc.id,
+            onTap: () {
+              // _focusNode.requestFocus();
+              appState.openDocument(widget.doc.id);
+            },
+            trailing: Builder(
+              builder: (context) {
+                return IconButton(
+                  focusNode: _menuFocusNode,
+                  icon: const Icon(Icons.more_vert, size: 16),
+                  onPressed: () {
+                    final renderBox = context.findRenderObject() as RenderBox;
+                    final offset = renderBox.localToGlobal(Offset.zero);
+                    _showMenu(offset + Offset(0, renderBox.size.height));
+                  },
                 );
               },
-            );
-          },
+            ),
+          ),
         ),
-      ),
     );
   }
 }

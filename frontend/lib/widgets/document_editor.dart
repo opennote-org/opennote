@@ -86,20 +86,12 @@ class _DocumentEditorState extends State<DocumentEditor> {
     final content = appState.documentContentCache[widget.documentId] ?? '';
     bool contentUpdated = false;
 
-    // Only update if drastically different to avoid cursor jump?
-    // Or simpler: only update if controller is empty (initial load).
-    // If user is typing, we shouldn't overwrite unless it's a remote update.
-    // For now, let's assume single user editing locally.
     if (_controller.text != content &&
         content.isNotEmpty &&
         _controller.text.isEmpty) {
       _controller.text = content;
       contentUpdated = true;
     } else if (content.isNotEmpty && _controller.text != content) {
-      // Logic for remote update conflicts could go here.
-      // For now, respect local edits over cache unless cache is empty?
-      // Actually, if we switch tabs, we reload from cache.
-      // So if cache is updated by us, it's fine.
       _controller.text = content;
       contentUpdated = true;
     }
