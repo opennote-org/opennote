@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+class ImportWebpageResult {
+  final String text;
+  final bool preserveImage;
+
+  ImportWebpageResult({required this.text, required this.preserveImage});
+}
+
 class ImportWebpageDialog extends StatefulWidget {
   const ImportWebpageDialog({super.key});
 
@@ -9,6 +16,7 @@ class ImportWebpageDialog extends StatefulWidget {
 
 class _ImportWebpageDialogState extends State<ImportWebpageDialog> {
   final TextEditingController _controller = TextEditingController();
+  bool _preserveImage = false;
 
   @override
   void dispose() {
@@ -34,6 +42,18 @@ class _ImportWebpageDialogState extends State<ImportWebpageDialog> {
             maxLines: 5,
             autofocus: true,
           ),
+          const SizedBox(height: 16),
+          CheckboxListTile(
+            title: const Text('Preserve Images'),
+            value: _preserveImage,
+            onChanged: (value) {
+              setState(() {
+                _preserveImage = value ?? false;
+              });
+            },
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
         ],
       ),
       actions: [
@@ -42,7 +62,13 @@ class _ImportWebpageDialogState extends State<ImportWebpageDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, _controller.text),
+          onPressed: () => Navigator.pop(
+            context,
+            ImportWebpageResult(
+              text: _controller.text,
+              preserveImage: _preserveImage,
+            ),
+          ),
           child: const Text('Import'),
         ),
       ],

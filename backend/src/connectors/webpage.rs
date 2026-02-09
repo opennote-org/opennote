@@ -42,9 +42,9 @@ impl Connector for WebpageConnector {
         let raw_content = response.text().await?;
         
         let skip_images = if webpage_artifact.preserve_image {
-            true
-        } else {
             false
+        } else {
+            true
         };
         
         let markdown = convert_html(

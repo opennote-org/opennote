@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:notes/actions/popups.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
@@ -9,7 +8,6 @@ import 'package:notes/services/key_mapping.dart';
 import 'package:notes/state/activities.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/utils/file_utils.dart';
 import 'package:notes/widgets/configuration_popup.dart';
 import 'package:notes/widgets/dialogs/import_database_dialog.dart';
 import 'package:notes/widgets/dialogs/import_webpage_dialog.dart';
@@ -205,14 +203,14 @@ class _CollectionNodeState extends State<CollectionNode> {
   }
 
   Future<void> _importWebpages(String collectionId) async {
-    final urls = await showDialog<String>(
+    final result = await showDialog<ImportWebpageResult>(
       context: context,
       builder: (context) => const ImportWebpageDialog(),
     );
 
-    if (urls != null && urls.isNotEmpty) {
+    if (result != null && result.text.isNotEmpty) {
       if (!mounted) return;
-      final urlList = urls
+      final urlList = result.text
           .split('\n')
           .where((s) => s.trim().isNotEmpty)
           .map((s) => s.trim())
@@ -220,7 +218,13 @@ class _CollectionNodeState extends State<CollectionNode> {
       if (urlList.isEmpty) return;
 
       final imports = urlList
-          .map((url) => {"import_type": "Webpage", "artifact": url})
+          .map((url) => {
+                "import_type": "Webpage",
+                "artifact": {
+                  "url": url,
+                  "preserve_image": result.preserveImage,
+                }
+              })
           .toList();
 
       await _performImport(imports, collectionId);
@@ -300,9 +304,7 @@ class _CollectionNodeState extends State<CollectionNode> {
           if (success > 0) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  'Exported $success documents. Failed: $failed',
-                ),
+                content: Text('Exported $success documents. Failed: $failed'),
               ),
             );
           } else {
@@ -437,52 +439,51 @@ class _CollectionNodeState extends State<CollectionNode> {
           ? Theme.of(context).colorScheme.secondaryContainer
           : null,
       child: ListTile(
-          autofocus: widget.autofocus,
-          focusNode: _tileFocusNode,
-          onTap: () {
-            // _tileFocusNode.requestFocus();
-            _toggleExpansion();
-          },
-          title: Tooltip(
-            preferBelow: false,
-            richMessage: WidgetSpan(
-              child: Column(
-                children: [
-                  Text('Created: ${widget.collection.createdAt}'),
-                  Text('Modified: ${widget.collection.lastModified}'),
-                ],
-              ),
-            ),
-            child: Row(
+        autofocus: widget.autofocus,
+        focusNode: _tileFocusNode,
+        onTap: () {
+          // _tileFocusNode.requestFocus();
+          _toggleExpansion();
+        },
+        title: Tooltip(
+          preferBelow: false,
+          richMessage: WidgetSpan(
+            child: Column(
               children: [
-                Icon(
-                  _isExpanded ? Icons.expand_more : Icons.chevron_right,
-                  size: 20,
-                  color: Theme.of(context).iconTheme.color,
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: Text(widget.collection.title)),
-                Builder(
-                  builder: (context) {
-                    return IconButton(
-                      focusNode: _focusCollectionListTiles,
-                      icon: const Icon(Icons.more_vert, size: 16),
-                      onPressed: () {
-                        final renderBox =
-                            context.findRenderObject() as RenderBox;
-                        final offset = renderBox.localToGlobal(Offset.zero);
-                        _showCollectionMenu(
-                          context,
-                          offset + Offset(0, renderBox.size.height),
-                        );
-                      },
-                    );
-                  },
-                ),
+                Text('Created: ${widget.collection.createdAt}'),
+                Text('Modified: ${widget.collection.lastModified}'),
               ],
             ),
           ),
+          child: Row(
+            children: [
+              Icon(
+                _isExpanded ? Icons.expand_more : Icons.chevron_right,
+                size: 20,
+                color: Theme.of(context).iconTheme.color,
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(widget.collection.title)),
+              Builder(
+                builder: (context) {
+                  return IconButton(
+                    focusNode: _focusCollectionListTiles,
+                    icon: const Icon(Icons.more_vert, size: 16),
+                    onPressed: () {
+                      final renderBox = context.findRenderObject() as RenderBox;
+                      final offset = renderBox.localToGlobal(Offset.zero);
+                      _showCollectionMenu(
+                        context,
+                        offset + Offset(0, renderBox.size.height),
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         ),
+      ),
     );
   }
 
@@ -634,41 +635,41 @@ class _DocumentTileState extends State<DocumentTile> {
     final appState = AppStateScope.of(context);
 
     return GestureDetector(
-        onSecondaryTapDown: (details) {
-          // _focusNode.requestFocus();
-          appState.setActiveObject(ActiveObjectType.document, widget.doc.id);
-          _showMenu(details.globalPosition);
-        },
-        child: Container(
-          color: _focusNode.hasFocus
-              ? Theme.of(context).colorScheme.secondaryContainer
-              : null,
-          child: ListTile(
-            focusNode: _focusNode,
-            title: Text(widget.doc.title),
-            leading: const Icon(Icons.article),
-            selected:
-                appState.activeObject.type == ActiveObjectType.document &&
-                appState.activeObject.id == widget.doc.id,
-            onTap: () {
-              // _focusNode.requestFocus();
-              appState.openDocument(widget.doc.id);
+      onSecondaryTapDown: (details) {
+        // _focusNode.requestFocus();
+        appState.setActiveObject(ActiveObjectType.document, widget.doc.id);
+        _showMenu(details.globalPosition);
+      },
+      child: Container(
+        color: _focusNode.hasFocus
+            ? Theme.of(context).colorScheme.secondaryContainer
+            : null,
+        child: ListTile(
+          focusNode: _focusNode,
+          title: Text(widget.doc.title),
+          leading: const Icon(Icons.article),
+          selected:
+              appState.activeObject.type == ActiveObjectType.document &&
+              appState.activeObject.id == widget.doc.id,
+          onTap: () {
+            // _focusNode.requestFocus();
+            appState.openDocument(widget.doc.id);
+          },
+          trailing: Builder(
+            builder: (context) {
+              return IconButton(
+                focusNode: _menuFocusNode,
+                icon: const Icon(Icons.more_vert, size: 16),
+                onPressed: () {
+                  final renderBox = context.findRenderObject() as RenderBox;
+                  final offset = renderBox.localToGlobal(Offset.zero);
+                  _showMenu(offset + Offset(0, renderBox.size.height));
+                },
+              );
             },
-            trailing: Builder(
-              builder: (context) {
-                return IconButton(
-                  focusNode: _menuFocusNode,
-                  icon: const Icon(Icons.more_vert, size: 16),
-                  onPressed: () {
-                    final renderBox = context.findRenderObject() as RenderBox;
-                    final offset = renderBox.localToGlobal(Offset.zero);
-                    _showMenu(offset + Offset(0, renderBox.size.height));
-                  },
-                );
-              },
-            ),
           ),
         ),
+      ),
     );
   }
 }

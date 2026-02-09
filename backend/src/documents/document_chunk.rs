@@ -61,17 +61,17 @@ impl DocumentChunk {
             .collect();
         
         for mut chunk in raw_chunks {
-            let mut string = String::new();
-            match chunk.read_to_string(&mut string) {
+            let mut bytes = Vec::new();
+            match chunk.read_to_end(&mut bytes) {
                 Ok(_) => {
                     chunks.push(DocumentChunk::new(
-                        string,
+                        String::from_utf8_lossy(&bytes).to_string(),
                         document_metadata_id,
                         collection_metadata_id,
                     ));
                 },
                 Err(error) => {
-                    log::warn!("Error reading chunk: {}", error);
+                    log::warn!("Error reading chunk: {} Chunk content: {:?}", error, chunk);
                 }
             }
         }
