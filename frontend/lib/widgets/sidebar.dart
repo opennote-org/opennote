@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:notes/actions/popups.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
+import 'package:notes/services/key_mapping.dart';
 import 'package:notes/state/app_state.dart';
 import 'package:notes/state/app_state_scope.dart';
 import 'package:notes/state/activities.dart';
@@ -36,17 +37,19 @@ class Sidebar extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () async {
-                    final title = await showNameDialog(
-                      context,
-                      'New Collection',
-                    );
-                    if (title != null && title.isNotEmpty) {
-                      appState.createCollection(title);
-                    }
-                  },
+                ExcludeFocus(
+                  child: IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () async {
+                      final title = await showNameDialog(
+                        context,
+                        'New Collection',
+                      );
+                      if (title != null && title.isNotEmpty) {
+                        appState.createCollection(title);
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
@@ -55,7 +58,10 @@ class Sidebar extends StatelessWidget {
             child: ListView.builder(
               itemCount: collections.length,
               itemBuilder: (context, index) {
-                return CollectionNode(collection: collections[index]);
+                return CollectionNode(
+                  collection: collections[index],
+                  autofocus: index == 0,
+                );
               },
             ),
           ),
@@ -64,16 +70,18 @@ class Sidebar extends StatelessWidget {
             padding: const EdgeInsets.all(8.0),
             child: SizedBox(
               width: double.infinity,
-              child: TextButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const ConfigurationPopup(),
-                  );
-                },
-                icon: const Icon(Icons.settings),
-                label: const Text('Configuration'),
-                style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+              child: ExcludeFocus(
+                child: TextButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const ConfigurationPopup(),
+                    );
+                  },
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Configuration'),
+                  style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+                ),
               ),
             ),
           ),
@@ -85,7 +93,12 @@ class Sidebar extends StatelessWidget {
 
 class CollectionNode extends StatefulWidget {
   final CollectionMetadata collection;
-  const CollectionNode({super.key, required this.collection});
+  final bool autofocus;
+  const CollectionNode({
+    super.key,
+    required this.collection,
+    this.autofocus = false,
+  });
 
   @override
   State<CollectionNode> createState() => _CollectionNodeState();
@@ -94,7 +107,60 @@ class CollectionNode extends StatefulWidget {
 class _CollectionNodeState extends State<CollectionNode> {
   bool _isExpanded = false;
   bool _isLoading = false;
-  final FocusNode _focusCollectionListTiles = FocusNode();
+  final FocusNode _focusCollectionListTiles = FocusNode(skipTraversal: true);
+  late final FocusNode _tileFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _tileFocusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+    _tileFocusNode.addListener(_onFocusChange);
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    final appState = AppStateScope.of(context);
+
+    // Only handle if Vim is enabled
+    if (!appState.keyBindings.isVimEnabled) {
+      return KeyEventResult.ignored;
+    }
+
+    final (action, _) = appState.keyBindings.resolve(event);
+
+    if (action != null) {
+      if (action == AppAction.cursorMoveDown) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.down);
+        return KeyEventResult.handled;
+      } else if (action == AppAction.cursorMoveUp) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.up);
+        return KeyEventResult.handled;
+      } else if (action == AppAction.cursorMoveRight) {
+        if (!_isExpanded) {
+          _toggleExpansion();
+          return KeyEventResult.handled;
+        }
+      } else if (action == AppAction.cursorMoveLeft) {
+        if (_isExpanded) {
+          _toggleExpansion();
+          return KeyEventResult.handled;
+        }
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _tileFocusNode.removeListener(_onFocusChange);
+    _focusCollectionListTiles.dispose();
+    _tileFocusNode.dispose();
+    super.dispose();
+  }
 
   Future<void> _performImport(
     List<Map<String, dynamic>> imports,
@@ -519,40 +585,6 @@ class _CollectionNodeState extends State<CollectionNode> {
     );
   }
 
-  void _showDocumentMenu(
-    BuildContext context,
-    Offset position,
-    DocumentMetadata doc,
-  ) {
-    final appState = AppStateScope.of(context);
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: [
-        const PopupMenuItem(value: 'rename', child: Text('Rename')),
-        const PopupMenuItem(value: 'delete', child: Text('Delete')),
-      ],
-    ).then((value) async {
-      if (value == 'delete') {
-        appState.deleteDocument(doc.id);
-      } else if (value == 'rename') {
-        final title = await showNameDialog(
-          context,
-          'Rename Document',
-          initialValue: doc.title,
-        );
-        if (title != null && title.isNotEmpty) {
-          appState.renameDocument(doc.id, title, appState.pollTasks);
-        }
-      }
-    });
-  }
-
   void _showCollectionMenu(BuildContext context, Offset position) {
     final appState = AppStateScope.of(context);
     showMenu(
@@ -615,49 +647,58 @@ class _CollectionNodeState extends State<CollectionNode> {
     }
   }
 
-  ListTile createCollectionListTile(AppState appState) {
-    return ListTile(
-      title: Tooltip(
-        preferBelow: false,
-        richMessage: WidgetSpan(
-          child: Column(
-            children: [
-              Text('Created: ${widget.collection.createdAt}'),
-              Text('Modified: ${widget.collection.lastModified}'),
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              _isExpanded ? Icons.expand_more : Icons.chevron_right,
-              size: 20,
-              color: Theme.of(context).iconTheme.color,
+  Widget createCollectionListTile(AppState appState) {
+    return Container(
+      color: _tileFocusNode.hasFocus
+          ? Theme.of(context).colorScheme.secondaryContainer
+          : null,
+      child: ListTile(
+          autofocus: widget.autofocus,
+          focusNode: _tileFocusNode,
+          onTap: () {
+            // _tileFocusNode.requestFocus();
+            _toggleExpansion();
+          },
+          title: Tooltip(
+            preferBelow: false,
+            richMessage: WidgetSpan(
+              child: Column(
+                children: [
+                  Text('Created: ${widget.collection.createdAt}'),
+                  Text('Modified: ${widget.collection.lastModified}'),
+                ],
+              ),
             ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(widget.collection.title)),
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  focusNode: _focusCollectionListTiles,
-                  icon: const Icon(Icons.more_vert, size: 16),
-                  onPressed: () {
-                    final renderBox = context.findRenderObject() as RenderBox;
-                    final offset = renderBox.localToGlobal(Offset.zero);
-                    _showCollectionMenu(
-                      context,
-                      offset + Offset(0, renderBox.size.height),
+            child: Row(
+              children: [
+                Icon(
+                  _isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 20,
+                  color: Theme.of(context).iconTheme.color,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(widget.collection.title)),
+                Builder(
+                  builder: (context) {
+                    return IconButton(
+                      focusNode: _focusCollectionListTiles,
+                      icon: const Icon(Icons.more_vert, size: 16),
+                      onPressed: () {
+                        final renderBox =
+                            context.findRenderObject() as RenderBox;
+                        final offset = renderBox.localToGlobal(Offset.zero);
+                        _showCollectionMenu(
+                          context,
+                          offset + Offset(0, renderBox.size.height),
+                        );
+                      },
                     );
                   },
-                );
-              },
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-      selected:
-          appState.activeObject.type == ActiveObjectType.collection &&
-          appState.activeObject.id == widget.collection.id,
     );
   }
 
@@ -676,7 +717,6 @@ class _CollectionNodeState extends State<CollectionNode> {
         return Column(
           children: [
             GestureDetector(
-              onTap: _toggleExpansion,
               onSecondaryTapDown: (details) {
                 appState.setActiveObject(
                   ActiveObjectType.collection,
@@ -688,13 +728,7 @@ class _CollectionNodeState extends State<CollectionNode> {
                 color: candidateData.isNotEmpty
                     ? Theme.of(context).colorScheme.primaryContainer
                     : null,
-                child: Shortcuts(
-                  shortcuts: {
-                    LogicalKeySet(LogicalKeyboardKey.keyJ): const NextFocusIntent(),
-                    LogicalKeySet(LogicalKeyboardKey.keyK): const PreviousFocusIntent()
-                  },
-                  child: createCollectionListTile(appState),
-                ), 
+                child: createCollectionListTile(appState),
               ),
             ),
             if (_isExpanded)
@@ -714,9 +748,9 @@ class _CollectionNodeState extends State<CollectionNode> {
                       ),
                       childWhenDragging: Opacity(
                         opacity: 0.5,
-                        child: _buildDocumentTile(context, doc, appState),
+                        child: DocumentTile(doc: doc),
                       ),
-                      child: _buildDocumentTile(context, doc, appState),
+                      child: DocumentTile(doc: doc),
                     );
                   }).toList(),
                 ),
@@ -726,68 +760,131 @@ class _CollectionNodeState extends State<CollectionNode> {
       },
     );
   }
+}
 
-  Widget _buildDocumentTile(
-    BuildContext context,
-    DocumentMetadata doc,
-    AppState appState,
-  ) {
+class DocumentTile extends StatefulWidget {
+  final DocumentMetadata doc;
+  const DocumentTile({super.key, required this.doc});
+
+  @override
+  State<DocumentTile> createState() => _DocumentTileState();
+}
+
+class _DocumentTileState extends State<DocumentTile> {
+  late final FocusNode _focusNode;
+  final FocusNode _menuFocusNode = FocusNode(skipTraversal: true);
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    final appState = AppStateScope.of(context);
+
+    if (!appState.keyBindings.isVimEnabled) {
+      return KeyEventResult.ignored;
+    }
+
+    final (action, _) = appState.keyBindings.resolve(event);
+
+    if (action != null) {
+      if (action == AppAction.cursorMoveDown) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.down);
+        return KeyEventResult.handled;
+      } else if (action == AppAction.cursorMoveUp) {
+        FocusScope.of(context).focusInDirection(TraversalDirection.up);
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _menuFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _showMenu(Offset position) {
+    final appState = AppStateScope.of(context);
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(value: 'rename', child: Text('Rename')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    ).then((value) async {
+      if (value == 'delete') {
+        appState.deleteDocument(widget.doc.id);
+      } else if (value == 'rename') {
+        final title = await showNameDialog(
+          context,
+          'Rename Document',
+          initialValue: widget.doc.title,
+        );
+        if (title != null && title.isNotEmpty) {
+          appState.renameDocument(widget.doc.id, title, appState.pollTasks);
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = AppStateScope.of(context);
+
     return GestureDetector(
-      onSecondaryTapDown: (details) {
-        appState.setActiveObject(ActiveObjectType.document, doc.id);
-        showMenu(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-            details.globalPosition.dx,
-            details.globalPosition.dy,
-          ),
-          items: [
-            const PopupMenuItem(value: 'rename', child: Text('Rename')),
-            const PopupMenuItem(value: 'delete', child: Text('Delete')),
-          ],
-        ).then((value) async {
-          if (value == 'delete') {
-            appState.deleteDocument(doc.id);
-          } else if (value == 'rename') {
-            final title = await showNameDialog(
-              context,
-              'Rename Document',
-              initialValue: doc.title,
-            );
-            if (title != null && title.isNotEmpty) {
-              appState.renameDocument(doc.id, title, appState.pollTasks);
-            }
-          }
-        });
-      },
-      child: ListTile(
-        title: Text(doc.title),
-        leading: const Icon(Icons.article),
-        selected:
-            appState.activeObject.type == ActiveObjectType.document &&
-            appState.activeObject.id == doc.id,
-        onTap: () {
-          appState.openDocument(doc.id);
+        onSecondaryTapDown: (details) {
+          // _focusNode.requestFocus();
+          appState.setActiveObject(ActiveObjectType.document, widget.doc.id);
+          _showMenu(details.globalPosition);
         },
-        trailing: Builder(
-          builder: (context) {
-            return IconButton(
-              icon: const Icon(Icons.more_vert, size: 16),
-              onPressed: () {
-                final renderBox = context.findRenderObject() as RenderBox;
-                final offset = renderBox.localToGlobal(Offset.zero);
-                _showDocumentMenu(
-                  context,
-                  offset + Offset(0, renderBox.size.height),
-                  doc,
+        child: Container(
+          color: _focusNode.hasFocus
+              ? Theme.of(context).colorScheme.secondaryContainer
+              : null,
+          child: ListTile(
+            focusNode: _focusNode,
+            title: Text(widget.doc.title),
+            leading: const Icon(Icons.article),
+            selected:
+                appState.activeObject.type == ActiveObjectType.document &&
+                appState.activeObject.id == widget.doc.id,
+            onTap: () {
+              // _focusNode.requestFocus();
+              appState.openDocument(widget.doc.id);
+            },
+            trailing: Builder(
+              builder: (context) {
+                return IconButton(
+                  focusNode: _menuFocusNode,
+                  icon: const Icon(Icons.more_vert, size: 16),
+                  onPressed: () {
+                    final renderBox = context.findRenderObject() as RenderBox;
+                    final offset = renderBox.localToGlobal(Offset.zero);
+                    _showMenu(offset + Offset(0, renderBox.size.height));
+                  },
                 );
               },
-            );
-          },
+            ),
+          ),
         ),
-      ),
     );
   }
 }
