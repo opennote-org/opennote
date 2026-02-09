@@ -213,6 +213,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
+name = "ahash"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
+dependencies = [
+ "cfg-if",
+ "getrandom 0.3.4",
+ "once_cell",
+ "version_check",
+ "zerocopy",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1540,17 +1553,21 @@ dependencies = [
 
 [[package]]
 name = "html-to-markdown-rs"
-version = "2.14.1"
+version = "2.24.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4c5648cf0023eeccd94b7374bb998af20a976bffb863cca1d8cf1ec1b1b12ef"
+checksum = "fd0940e15a42f085d4a4ed3ac20c8278af7f8d06cd44f6b7a18148e9347c68db"
 dependencies = [
+ "ahash",
  "astral-tl",
  "base64",
  "html-escape",
  "html5ever",
+ "lru",
  "markup5ever_rcdom",
  "once_cell",
  "regex",
+ "serde",
+ "serde_json",
  "thiserror 2.0.17",
 ]
 
@@ -2150,6 +2167,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
+name = "lru"
+version = "0.16.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
+dependencies = [
+ "hashbrown 0.16.1",
+]
+
+[[package]]
 name = "lru-slab"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2265,7 +2291,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "notes-backend"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "actix-cors",
  "actix-web",
