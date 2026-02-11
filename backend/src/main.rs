@@ -5,7 +5,6 @@ mod checkups;
 mod configurations;
 mod connectors;
 mod constants;
-mod database;
 mod documents;
 mod embedder;
 mod handlers;
@@ -17,6 +16,7 @@ mod tasks_scheduler;
 mod traits;
 mod utilities;
 mod mcp;
+mod database;
 
 use std::{sync::Arc, time::Duration};
 

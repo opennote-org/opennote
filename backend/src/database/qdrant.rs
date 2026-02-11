@@ -12,24 +12,28 @@ use qdrant_client::{
 };
 
 use crate::{
-    configurations::system::Config,
-    constants::{
+    configurations::system::Config, constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-    },
-    documents::{
+    }, database::traits::VectorDatabase, documents::{
         document_chunk::DocumentChunk,
         operations::add_document_chunks_to_database,
         traits::{GetIndexableFields, IndexableField},
-    },
+    }
 };
 
 #[derive(Clone)]
-pub struct Database {
+pub struct QdrantDatabase {
     client: Qdrant,
 }
 
-impl Database {
-    pub async fn validate_configuration(
+impl VectorDatabase<Qdrant> for QdrantDatabase {
+    fn get_client(&self) ->  &Qdrant {
+        &self.client
+    }
+}
+
+impl QdrantDatabase {
+    async fn validate_configuration(
         qdrant_client: &Qdrant,
         configuration: &Config,
     ) -> Result<()> {
@@ -73,7 +77,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()> {
+    async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()> {
         let mut dense_text_vector_config = VectorsConfigBuilder::default();
         dense_text_vector_config.add_named_vector_params(
             QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
@@ -141,7 +145,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn new(configuration: &Config) -> Result<Self> {
+    async fn new(configuration: &Config) -> Result<Self> {
         let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url)
             // Timeout for preventing Qdrant killing time-consuming operations
             .timeout(std::time::Duration::from_secs(1000));
@@ -172,10 +176,6 @@ impl Database {
         }
 
         Ok(Self { client })
-    }
-
-    pub fn get_client(&self) -> &Qdrant {
-        &self.client
     }
 }
 
@@ -216,7 +216,7 @@ pub async fn reindex_documents(client: &Qdrant, configuration: &Config) -> Resul
         ))
         .await?;
 
-    Database::create_collection(client, configuration).await?;
+    QdrantDatabase::create_collection(client, configuration).await?;
 
     let document_chunks: Vec<DocumentChunk> = retrieved_points
         .into_iter()
