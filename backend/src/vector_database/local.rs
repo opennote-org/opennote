@@ -3,27 +3,12 @@ use std::collections::HashMap;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use futures::future::join_all;
+use local_vector_database::{Data, LocalVectorDatabase};
 use log::info;
-use qdrant_client::{
-    Qdrant,
-    config::QdrantConfig,
-    qdrant::{
-        CollectionExistsRequest, Condition, CreateCollectionBuilder,
-        CreateFieldIndexCollectionBuilder, DeleteCollectionBuilder, DeletePointsBuilder, FieldType,
-        Filter, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct,
-        QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse,
-        SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
-        TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder,
-        VectorsConfigBuilder,
-    },
-};
-use tokio::sync::MutexGuard;
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
     configurations::system::{Config, DatabaseConfig, EmbedderConfig},
-    constants::{
-        QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-    },
     documents::{
         collection_metadata::CollectionMetadata,
         document_chunk::{DocumentChunk, DocumentChunkSearchResult},
@@ -36,14 +21,12 @@ use crate::{
     vector_database::traits::VectorDatabase,
 };
 
-#[derive(Clone)]
-pub struct QdrantDatabase {
-    index: String,
-    client: Qdrant,
+pub struct Local {
+    database: Mutex<LocalVectorDatabase>,
 }
 
 #[async_trait]
-impl VectorDatabase for QdrantDatabase {
+impl VectorDatabase for Local {
     async fn add_document_chunks_to_database(
         &self,
         embedder_config: &EmbedderConfig,
@@ -51,7 +34,11 @@ impl VectorDatabase for QdrantDatabase {
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
         let chunks: Vec<DocumentChunk> = vectorize(embedder_config, chunks).await?;
-
+        
+        let database = self.database.lock().await;
+        
+        database.upsert(datas);
+        
         let points: Vec<PointStruct> = chunks
             .into_iter()
             .map(|chunk| PointStruct::from(chunk))

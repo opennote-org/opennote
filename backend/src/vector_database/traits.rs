@@ -7,11 +7,9 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::configurations::system::{Config, DatabaseConfig, EmbedderConfig};
-use crate::documents::document_chunk::DocumentChunk;
-use crate::documents::document_metadata::DocumentMetadata;
+use crate::documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata};
 use crate::metadata_storage::MetadataStorage;
-use crate::search::keyword::KeywordSearch;
-use crate::search::semantic::SemanticSearch;
+use crate::search::{keyword::KeywordSearch, semantic::SemanticSearch};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
