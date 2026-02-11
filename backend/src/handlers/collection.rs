@@ -2,7 +2,6 @@ use actix_web::{
     HttpResponse, Result,
     web::{self, Query},
 };
-use qdrant_client::qdrant::{Condition, DeletePointsBuilder, Filter};
 use serde_json::json;
 use tokio::sync::RwLock;
 
@@ -25,7 +24,7 @@ pub async fn create_collection(
     request: web::Json<CreateCollectionRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
+    let (_, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
 
     match metadata_storage
         .lock()
@@ -71,7 +70,7 @@ pub async fn delete_collection(
     request: web::Json<DeleteCollectionRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index, client, metadata_storage, _, _, identities_storage, _) =
+    let (vector_database, metadata_storage, _, config, identities_storage, _) =
         acquire_data(&data).await;
 
     let collection_metadata = match metadata_storage
@@ -118,16 +117,10 @@ pub async fn delete_collection(
         }
     };
 
-    let mut conditions: Vec<Condition> = Vec::new();
-    for id in collection_metadata.documents_metadata_ids.iter() {
-        conditions.push(Condition::matches("document_metadata_id", id.to_string()));
-    }
-
-    match client
-        .delete_points(
-            DeletePointsBuilder::new(&index)
-                .points(Filter::any(conditions))
-                .wait(true),
+    match vector_database
+        .delete_documents_from_database(
+            &config.database,
+            &collection_metadata.documents_metadata_ids,
         )
         .await
     {
@@ -146,7 +139,7 @@ pub async fn get_collections(
     data: web::Data<RwLock<AppState>>,
     query: Query<GetCollectionsQuery>,
 ) -> Result<HttpResponse> {
-    let (_, _, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
+    let (_, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
 
     let guard = identities_storage.lock().await;
 
@@ -177,7 +170,7 @@ pub async fn update_collections_metadata(
     data: web::Data<RwLock<AppState>>,
     request: web::Json<UpdateCollectionMetadataRequest>,
 ) -> Result<HttpResponse> {
-    let (_, _, metadata_storage, _, _, _, _) = acquire_data(&data).await;
+    let (_, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
     match metadata_storage
         .lock()

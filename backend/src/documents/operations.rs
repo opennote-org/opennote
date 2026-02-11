@@ -1,57 +1,11 @@
-use std::sync::Arc;
-
-use anyhow::Result;
-use futures::future::join_all;
-use log::error;
-use qdrant_client::{
-    Qdrant,
-    qdrant::{
-        Condition, DeletePointsBuilder, Filter, GetPointsBuilder, PointId, PointStruct,
-        UpsertPointsBuilder,
-    },
-};
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::MutexGuard;
 
 use crate::{
-    configurations::system::{DatabaseConfig, EmbedderConfig},
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
-    embedder::send_vectorization,
     identities::storage::IdentitiesStorage,
     metadata_storage::MetadataStorage,
     search::SearchScope,
 };
-
-pub async fn get_document_chunks(
-    document_chunks_ids: Vec<String>,
-    index_name: &str,
-    database_client: &Qdrant,
-) -> Result<Vec<DocumentChunk>> {
-    // Acquire chunk ids
-    let acquired_chunks: Vec<DocumentChunk> = match database_client
-        .get_points(
-            GetPointsBuilder::new(
-                index_name,
-                document_chunks_ids
-                    .into_iter()
-                    .map(|chunk| chunk.into())
-                    .collect::<Vec<PointId>>(),
-            )
-            .with_payload(true),
-        )
-        .await
-    {
-        Ok(result) => result
-            .result
-            .into_iter()
-            .map(|point| point.into())
-            .collect(),
-        Err(error) => {
-            return Err(error.into());
-        }
-    };
-
-    Ok(acquired_chunks)
-}
 
 pub fn retrieve_document_ids_by_scope(
     metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
@@ -106,107 +60,4 @@ pub fn preprocess_document(
     metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
     let metadata_id = metadata.id.clone();
     (metadata, chunks, metadata_id)
-}
-
-// Return a document metadata id on success
-pub async fn add_document_chunks_to_database(
-    client: &Qdrant,
-    embedder_config: &EmbedderConfig,
-    database_config: &DatabaseConfig,
-    chunks: Vec<DocumentChunk>,
-) -> Result<()> {
-    // Vectorize the chunks
-    // - Split the chunks into batches
-    // - Vectorize batch by batch
-    // - Batch is configurable
-    let mut batches: Vec<Vec<DocumentChunk>> = Vec::new();
-    let mut batch: Vec<DocumentChunk> = Vec::new();
-    for chunk in chunks {
-        if batch.len() == embedder_config.vectorization_batch_size {
-            batches.push(batch);
-            batch = Vec::new();
-        }
-
-        batch.push(chunk);
-    }
-
-    if !batch.is_empty() {
-        batches.push(batch);
-    }
-
-    // Record the data entries
-    let mut tasks = Vec::new();
-    for batch in batches.into_iter() {
-        tasks.push(send_vectorization(
-            &embedder_config.provider,
-            &embedder_config.base_url,
-            &embedder_config.api_key,
-            &embedder_config.model,
-            &embedder_config.encoding_format,
-            batch,
-        ));
-    }
-
-    let results: Vec<std::result::Result<Vec<DocumentChunk>, anyhow::Error>> =
-        join_all(tasks).await;
-    let mut chunks: Vec<DocumentChunk> = Vec::new();
-    for result in results {
-        let result = result?;
-        chunks.extend(result);
-    }
-
-    let points: Vec<PointStruct> = chunks
-        .into_iter()
-        .map(|chunk| PointStruct::from(chunk))
-        .collect();
-
-    client
-        .upsert_points(UpsertPointsBuilder::new(&database_config.index, points).wait(true))
-        .await?;
-
-    Ok(())
-}
-
-pub async fn add_document_chunks_to_database_and_metadata_storage(
-    client: &Qdrant,
-    embedder_config: &EmbedderConfig,
-    database_config: &DatabaseConfig,
-    chunks: Vec<DocumentChunk>,
-    metadata_storage: Arc<Mutex<MetadataStorage>>,
-    metadata: DocumentMetadata,
-) -> Result<String> {
-    add_document_chunks_to_database(client, embedder_config, database_config, chunks).await?;
-
-    let metadata_id: String = metadata.id.clone();
-    metadata_storage.lock().await.add_document(metadata).await?;
-
-    Ok(metadata_id)
-}
-
-pub async fn delete_documents_from_database(
-    client: &Qdrant,
-    database_config: &DatabaseConfig,
-    document_ids: Vec<String>,
-) -> Result<()> {
-    let mut conditions: Vec<Condition> = Vec::new();
-    for id in document_ids.iter() {
-        conditions.push(Condition::matches("document_metadata_id", id.to_owned()));
-    }
-
-    match client
-        .delete_points(
-            DeletePointsBuilder::new(&database_config.index)
-                .points(Filter::any(conditions))
-                .wait(true),
-        )
-        .await
-    {
-        Ok(_) => {}
-        Err(error) => error!(
-            "Qdrant cannot delete documents {:?} due to {}",
-            document_ids, error
-        ),
-    }
-
-    Ok(())
 }

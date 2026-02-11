@@ -5,12 +5,9 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
     app_state::AppState,
-    documents::{
-        document_chunk::DocumentChunkSearchResult, operations::retrieve_document_ids_by_scope,
-    },
-    search::{
-        build_search_results, keyword::search_documents, semantic::search_documents_semantically,
-    },
+    documents::
+        operations::retrieve_document_ids_by_scope
+    ,
     utilities::acquire_data,
 };
 
@@ -21,45 +18,39 @@ pub async fn intelligent_search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, config, identities_storage, _) =
+    let (vector_database, metadata_storage, _, config, identities_storage, _) =
         acquire_data(&data).await;
 
+    let mut metadata_storage = metadata_storage.lock().await;
+
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
-        &mut metadata_storage.lock().await,
+        &mut metadata_storage,
         &mut identities_storage.lock().await,
         request.0.scope.search_scope,
         &request.0.scope.id,
     );
-    
+
     if document_metadata_ids.is_empty() {
         log::warn!("No search results found for request {:?}", request);
         let vec: Vec<String> = Vec::new();
         return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &vec)));
     }
 
-    match search_documents_semantically(
-        &db_client,
-        document_metadata_ids,
-        &index_name,
-        &request.0.query,
-        request.0.top_n,
-        &config.embedder.provider,
-        &config.embedder.base_url,
-        &config.embedder.api_key,
-        &config.embedder.model,
-        &config.embedder.encoding_format,
-    )
-    .await
+    match vector_database
+        .search_documents_semantically(
+            &mut metadata_storage,
+            document_metadata_ids,
+            &request.0.query,
+            request.0.top_n,
+            &config.embedder.provider,
+            &config.embedder.base_url,
+            &config.embedder.api_key,
+            &config.embedder.model,
+            &config.embedder.encoding_format,
+        )
+        .await
     {
         Ok(results) => {
-            let metadata_storage = metadata_storage.lock().await;
-            let results: Vec<DocumentChunkSearchResult> = build_search_results(
-                Some(results),
-                None,
-                &metadata_storage.collections,
-                &metadata_storage.documents,
-            );
-
             return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &results)));
         }
         Err(error) => {
@@ -79,34 +70,28 @@ pub async fn search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, _, identities_storage, _) =
+    let (vector_database, metadata_storage, _, _, identities_storage, _) =
         acquire_data(&data).await;
 
+    let mut metadata_storage = metadata_storage.lock().await;
+
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
-        &mut metadata_storage.lock().await,
+        &mut metadata_storage,
         &mut identities_storage.lock().await,
         request.0.scope.search_scope,
         &request.0.scope.id,
     );
 
-    match search_documents(
-        &db_client,
-        document_metadata_ids,
-        &index_name,
-        &request.0.query,
-        request.0.top_n,
-    )
-    .await
+    match vector_database
+        .search_documents(
+            &mut metadata_storage,
+            document_metadata_ids,
+            &request.0.query,
+            request.0.top_n,
+        )
+        .await
     {
         Ok(results) => {
-            let metadata_storage = metadata_storage.lock().await;
-            let results: Vec<DocumentChunkSearchResult> = build_search_results(
-                None,
-                Some(results),
-                &metadata_storage.collections,
-                &metadata_storage.documents,
-            );
-
             return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &results)));
         }
         Err(error) => {

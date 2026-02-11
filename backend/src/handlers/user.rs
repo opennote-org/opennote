@@ -21,7 +21,7 @@ pub async fn create_user(
     request: web::Json<CreateUserRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
     match identities_storage
         .lock()
@@ -44,7 +44,7 @@ pub async fn login(
     request: web::Json<LoginRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
     match identities_storage
         .lock()
@@ -67,7 +67,7 @@ pub async fn get_user_configurations(
     request: web::Json<GetUserConfigurationsRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
     match identities_storage
         .lock()
@@ -90,7 +90,7 @@ pub async fn update_user_configurations(
     request: web::Json<UpdateUserConfigurationsRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, identities_storage, _) = acquire_data(&data).await;
+    let (_, _, _, _, identities_storage, _) = acquire_data(&data).await;
 
     match identities_storage
         .lock()

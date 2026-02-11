@@ -6,6 +6,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
+use crate::vector_database::traits::VectorDatabaseKind;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
@@ -70,6 +72,7 @@ pub struct EmbedderConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
+    pub kind: VectorDatabaseKind,
     pub index: String,
     pub base_url: String,
     pub api_key: String,
