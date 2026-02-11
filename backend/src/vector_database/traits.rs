@@ -23,14 +23,14 @@ pub enum VectorDatabaseKind {
 pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// Required for adding chunk data to the database
     async fn add_document_chunks_to_database(
-        &mut self,
+        &self,
         embedder_config: &EmbedderConfig,
         database_config: &DatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()>;
 
     async fn add_document_chunks_to_database_and_metadata_storage(
-        &mut self,
+        &self,
         embedder_config: &EmbedderConfig,
         database_config: &DatabaseConfig,
         chunks: Vec<DocumentChunk>,
@@ -47,9 +47,9 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     }
 
     async fn delete_documents_from_database(
-        &mut self,
+        &self,
         database_config: &DatabaseConfig,
-        document_ids: Vec<String>,
+        document_ids: &Vec<String>,
     ) -> Result<()>;
 
     async fn get_document_chunks(
@@ -58,5 +58,5 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     ) -> Result<Vec<DocumentChunk>>;
 
     /// Required for reindex features
-    async fn reindex_documents(&mut self, configuration: &Config) -> Result<()>;
+    async fn reindex_documents(&self, configuration: &Config) -> Result<()>;
 }

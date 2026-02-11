@@ -2,7 +2,6 @@ use actix_web::{
     HttpResponse, Result,
     web::{self, Query},
 };
-use qdrant_client::qdrant::{Condition, DeletePointsBuilder, Filter};
 use serde_json::json;
 use tokio::sync::RwLock;
 
@@ -71,7 +70,7 @@ pub async fn delete_collection(
     request: web::Json<DeleteCollectionRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (vector_database, metadata_storage, _, _, identities_storage, _) =
+    let (vector_database, metadata_storage, _, config, identities_storage, _) =
         acquire_data(&data).await;
 
     let collection_metadata = match metadata_storage
@@ -118,17 +117,10 @@ pub async fn delete_collection(
         }
     };
 
-    let mut conditions: Vec<Condition> = Vec::new();
-    for id in collection_metadata.documents_metadata_ids.iter() {
-        conditions.push(Condition::matches("document_metadata_id", id.to_string()));
-    }
-
-    let vector_database = vector_database.lock().await;
     match vector_database
-        .delete_points(
-            DeletePointsBuilder::new(&index)
-                .points(Filter::any(conditions))
-                .wait(true),
+        .delete_documents_from_database(
+            &config.database,
+            &collection_metadata.documents_metadata_ids,
         )
         .await
     {

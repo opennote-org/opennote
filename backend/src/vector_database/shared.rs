@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use tokio::sync::Mutex;
 
 use crate::{
     configurations::system::Config,
@@ -12,8 +11,8 @@ use crate::{
 };
 
 /// Dynamically create a vector database
-pub async fn create_vector_database(config: &Config) -> Result<Arc<Mutex<dyn VectorDatabase>>> {
+pub async fn create_vector_database(config: &Config) -> Result<Arc<dyn VectorDatabase>> {
     match config.database.kind {
-        VectorDatabaseKind::Qdrant => Ok(Arc::new(Mutex::new(QdrantDatabase::new(config).await?))),
+        VectorDatabaseKind::Qdrant => Ok(Arc::new(QdrantDatabase::new(config).await?)),
     }
 }

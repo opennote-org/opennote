@@ -10,7 +10,7 @@ use crate::{
 pub struct AppState {
     pub config: Config,
     pub tasks_scheduler: Arc<Mutex<TasksScheduler>>,
-    pub database: Arc<Mutex<dyn VectorDatabase>>,
+    pub database: Arc<dyn VectorDatabase>,
     pub backups_storage: Arc<Mutex<BackupsStorage>>,
     pub metadata_storage: Arc<Mutex<MetadataStorage>>,
     pub identities_storage: Arc<Mutex<IdentitiesStorage>>,

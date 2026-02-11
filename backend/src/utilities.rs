@@ -12,7 +12,7 @@ use crate::{
 pub async fn acquire_data(
     data: &web::Data<RwLock<AppState>>,
 ) -> (
-    Arc<Mutex<dyn VectorDatabase>>,
+    Arc<dyn VectorDatabase>,
     Arc<Mutex<MetadataStorage>>,
     Arc<Mutex<TasksScheduler>>,
     Config,

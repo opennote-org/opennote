@@ -55,8 +55,7 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
         || metadata_storage.embedder_model_vector_size_in_use != config.embedder.dimensions
     {
         log::info!("Embedder model has changed. Perform re-indexing. please wait...");
-        let mut vector_database = app_state.database.lock().await;
-        vector_database.reindex_documents(config).await?;
+        app_state.database.reindex_documents(config).await?;
         log::info!("Re-indexing finished.");
     }
 

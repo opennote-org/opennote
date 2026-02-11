@@ -36,8 +36,6 @@ pub async fn intelligent_search(
         return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &vec)));
     }
 
-    let vector_database = vector_database.lock().await;
-
     match vector_database
         .search_documents_semantically(
             &mut metadata_storage,
@@ -84,7 +82,6 @@ pub async fn search(
         &request.0.scope.id,
     );
 
-    let vector_database = vector_database.lock().await;
     match vector_database
         .search_documents(
             &mut metadata_storage,

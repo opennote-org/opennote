@@ -82,7 +82,6 @@ pub async fn add_document(
             user_configurations.search.document_chunk_size,
         );
 
-        let mut vector_database = vector_database.lock().await;
         match vector_database
             .add_document_chunks_to_database(&config.embedder, &config.database, chunks)
             .await
@@ -212,19 +211,18 @@ pub async fn import_documents(
 
         // Preprocess the intermediates
         let mut store_tasks = Vec::new();
-        let mut vector_database = vector_database.lock().await;
         for (index, task) in preprocess_tasks.into_iter().enumerate() {
             match task.await {
                 Ok((metadata, chunks, _)) => {
-                    store_tasks.push(
+                    store_tasks.push({
                         vector_database.add_document_chunks_to_database_and_metadata_storage(
                             &config.embedder,
                             &config.database,
                             chunks,
                             metadata_storage.clone(),
                             metadata,
-                        ),
-                    );
+                        )
+                    });
                 }
                 Err(err) => {
                     error!("Failed to preprocess: {}", err);
@@ -322,11 +320,11 @@ pub async fn delete_document(
                 log::warn!("{}", message);
             }
         };
-        let mut vector_database = vector_database.lock().await;
+
         match vector_database
             .delete_documents_from_database(
                 &config.database,
-                vec![request.document_metadata_id.clone()],
+                &vec![request.document_metadata_id.clone()],
             )
             .await
         {
@@ -463,11 +461,10 @@ pub async fn update_document_content(
                 }
             };
 
-            let mut vector_database = vector_database.lock().await;
             match vector_database
                 .delete_documents_from_database(
                     &config.database,
-                    vec![request.document_metadata_id.clone()],
+                    &vec![request.document_metadata_id.clone()],
                 )
                 .await
             {
@@ -496,7 +493,6 @@ pub async fn update_document_content(
 
         metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
 
-        let mut vector_database = vector_database.lock().await;
         match vector_database
             .add_document_chunks_to_database(&config.embedder, &config.database, chunks)
             .await
@@ -612,7 +608,6 @@ pub async fn get_document_content(
         .documents
         .get(&request.document_metadata_id)
     {
-        let vector_database = vector_database.lock().await;
         match vector_database
             .get_document_chunks(document_metadata.chunks.clone())
             .await
@@ -736,7 +731,6 @@ pub async fn reindex(
             for document_metadata in document_metadatas {
                 let collection_metadata_id: String = collection_metadata_id.clone();
                 get_document_contents_tasks.push(async {
-                    let vector_database = vector_database.lock().await;
                     let chunks: Vec<DocumentChunk> = vector_database
                         .get_document_chunks(document_metadata.chunks.clone())
                         .await
@@ -774,8 +768,9 @@ pub async fn reindex(
         }
 
         // Remove old chunks from the database before updating the new ones to prevent conflicts.
-        let vector_database = vector_database.lock().await;
-        match vector_database.delete_documents_from_database(&config.database, metadata_ids_to_delete)
+
+        match vector_database
+            .delete_documents_from_database(&config.database, &metadata_ids_to_delete)
             .await
         {
             Ok(_) => {}

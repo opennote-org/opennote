@@ -45,7 +45,7 @@ pub struct QdrantDatabase {
 #[async_trait]
 impl VectorDatabase for QdrantDatabase {
     async fn add_document_chunks_to_database(
-        &mut self,
+        &self,
         embedder_config: &EmbedderConfig,
         database_config: &DatabaseConfig,
         chunks: Vec<DocumentChunk>,
@@ -102,7 +102,7 @@ impl VectorDatabase for QdrantDatabase {
         Ok(())
     }
 
-    async fn reindex_documents(&mut self, configuration: &Config) -> Result<()> {
+    async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
         let counts: u64 = match self
             .client
             .collection_info(GetCollectionInfoRequest {
@@ -159,9 +159,9 @@ impl VectorDatabase for QdrantDatabase {
     }
 
     async fn delete_documents_from_database(
-        &mut self,
+        &self,
         database_config: &DatabaseConfig,
-        document_ids: Vec<String>,
+        document_ids: &Vec<String>,
     ) -> Result<()> {
         let mut conditions: Vec<Condition> = Vec::new();
         for id in document_ids.iter() {

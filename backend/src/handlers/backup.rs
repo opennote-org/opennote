@@ -166,7 +166,6 @@ pub async fn backup(
             .flat_map(|(_, document_metadata)| document_metadata.chunks.clone())
             .collect();
         
-        let vector_database = vector_database.lock().await;
         let document_chunks_snapshots: Vec<DocumentChunk> =
             match vector_database.get_document_chunks(document_chunks_ids).await {
                 Ok(points) => points,
@@ -280,10 +279,9 @@ pub async fn restore_backup(
                 .retain(|id, _| !document_metadatas_to_delete.contains(id));
         }
 
-        let mut vector_database = vector_database.lock().await;
         match vector_database.delete_documents_from_database(
             &config.database,
-            document_metadatas_to_delete,
+            &document_metadatas_to_delete,
         )
         .await
         {
