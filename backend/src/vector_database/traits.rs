@@ -10,6 +10,8 @@ use crate::configurations::system::{Config, DatabaseConfig, EmbedderConfig};
 use crate::documents::document_chunk::DocumentChunk;
 use crate::documents::document_metadata::DocumentMetadata;
 use crate::metadata_storage::MetadataStorage;
+use crate::search::keyword::KeywordSearch;
+use crate::search::semantic::SemanticSearch;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -18,7 +20,7 @@ pub enum VectorDatabaseKind {
 }
 
 #[async_trait]
-pub trait VectorDatabase: Send + Sync {
+pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// Required for adding chunk data to the database
     async fn add_document_chunks_to_database(
         &mut self,

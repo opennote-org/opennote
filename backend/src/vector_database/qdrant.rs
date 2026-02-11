@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use futures::future::join_all;
@@ -9,23 +11,29 @@ use qdrant_client::{
         CollectionExistsRequest, Condition, CreateCollectionBuilder,
         CreateFieldIndexCollectionBuilder, DeleteCollectionBuilder, DeletePointsBuilder, FieldType,
         Filter, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct,
-        ScrollPointsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
+        QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse,
+        SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
         TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder,
         VectorsConfigBuilder,
     },
 };
+use tokio::sync::MutexGuard;
 
 use crate::{
     configurations::system::{Config, DatabaseConfig, EmbedderConfig},
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
     },
-    vector_database::traits::VectorDatabase,
     documents::{
-        document_chunk::DocumentChunk,
+        collection_metadata::CollectionMetadata,
+        document_chunk::{DocumentChunk, DocumentChunkSearchResult},
+        document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
     },
     embedder::send_vectorization,
+    metadata_storage::MetadataStorage,
+    search::{keyword::KeywordSearch, semantic::SemanticSearch},
+    vector_database::traits::VectorDatabase,
 };
 
 #[derive(Clone)]
@@ -213,6 +221,93 @@ impl VectorDatabase for QdrantDatabase {
     }
 }
 
+#[async_trait]
+impl SemanticSearch for QdrantDatabase {
+    async fn search_documents_semantically(
+        &self,
+        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        document_metadata_ids: Vec<String>,
+        query: &str,
+        top_n: usize,
+        provider: &str,
+        base_url: &str,
+        api_key: &str,
+        model: &str,
+        encoding_format: &str,
+    ) -> Result<Vec<DocumentChunkSearchResult>> {
+        // Convert to vec
+        let chunks: Vec<DocumentChunk> = send_vectorization(
+            provider,
+            base_url,
+            api_key,
+            model,
+            encoding_format,
+            vec![DocumentChunk::new(query.to_owned(), "", "")],
+        )
+        .await?;
+
+        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
+
+        let response = self
+            .client
+            .query(
+                QueryPointsBuilder::new(&self.index)
+                    .using("dense_text_vector")
+                    .with_payload(true)
+                    .query(chunks[0].dense_text_vector.to_owned())
+                    .limit(top_n as u64)
+                    .filter(Filter::any(conditions))
+                    .params(SearchParamsBuilder::default().hnsw_ef(128).exact(false)),
+            )
+            .await?;
+
+        let results: Vec<DocumentChunkSearchResult> = build_search_results(
+            Some(response.result),
+            None,
+            &metadata_storage.collections,
+            &metadata_storage.documents,
+        );
+
+        Ok(results)
+    }
+}
+
+#[async_trait]
+impl KeywordSearch for QdrantDatabase {
+    async fn search_documents(
+        &self,
+        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        document_metadata_ids: Vec<String>,
+        query: &str,
+        top_n: usize,
+    ) -> Result<Vec<DocumentChunkSearchResult>> {
+        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
+
+        let response: ScrollResponse = self
+            .client
+            .scroll(
+                ScrollPointsBuilder::new(&self.index)
+                    .filter(Filter {
+                        should: conditions,
+                        must: vec![Condition::matches_text_any("content", query)],
+                        ..Default::default()
+                    })
+                    .limit(top_n as u32)
+                    .build(),
+            )
+            .await?;
+
+        let results: Vec<DocumentChunkSearchResult> = build_search_results(
+            None,
+            Some(response.result),
+            &metadata_storage.collections,
+            &metadata_storage.documents,
+        );
+
+        Ok(results)
+    }
+}
+
 impl QdrantDatabase {
     pub async fn new(configuration: &Config) -> Result<Self> {
         let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url)
@@ -360,4 +455,63 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
     }
 
     Ok(())
+}
+
+pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
+    document_metadata_ids
+        .into_iter()
+        .map(|id| Condition::matches("document_metadata_id", id.to_string()))
+        .collect()
+}
+
+/// To fill in the document and collection title
+pub fn build_search_results(
+    scored_points: Option<Vec<ScoredPoint>>,
+    retrieved_points: Option<Vec<RetrievedPoint>>,
+    collection_metadatas_from_storage: &HashMap<String, CollectionMetadata>,
+    document_metadatas_from_storage: &HashMap<String, DocumentMetadata>,
+) -> Vec<DocumentChunkSearchResult> {
+    let mut results = Vec::new();
+
+    if let Some(points) = scored_points {
+        for point in points {
+            let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
+
+            if let Some(document_metadata) =
+                document_metadatas_from_storage.get(&result.document_chunk.document_metadata_id)
+            {
+                result.document_title = Some(document_metadata.title.clone());
+            }
+
+            if let Some(collection_metadata) =
+                collection_metadatas_from_storage.get(&result.document_chunk.collection_metadata_id)
+            {
+                result.collection_title = Some(collection_metadata.title.clone());
+            }
+
+            results.push(result);
+        }
+    }
+
+    if let Some(points) = retrieved_points {
+        for point in points {
+            let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
+
+            if let Some(document_metadata) =
+                document_metadatas_from_storage.get(&result.document_chunk.document_metadata_id)
+            {
+                result.document_title = Some(document_metadata.title.clone());
+            }
+
+            if let Some(collection_metadata) =
+                collection_metadatas_from_storage.get(&result.document_chunk.collection_metadata_id)
+            {
+                result.collection_title = Some(collection_metadata.title.clone());
+            }
+
+            results.push(result);
+        }
+    }
+
+    results
 }
