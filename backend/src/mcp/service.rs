@@ -88,7 +88,7 @@ impl MCPService {
     #[tool(description = "Get metadatas of the user's OpenNote documents")]
     pub async fn get_all_user_documents_metadatas(&self) -> Json<MCPServiceGenericResponse> {
         let token = self.authorization.lock().await;
-        let (_, _, metadata_storage, _, _, identities_storage, _) =
+        let (_, metadata_storage, _, _, identities_storage, _) =
             acquire_data(&self.app_state).await;
 
         if let Some(token) = token.as_ref() {
@@ -132,7 +132,7 @@ impl MCPService {
         }): Parameters<MCPGetCollectionMetadata>,
     ) -> Json<MCPServiceGenericResponse> {
         let token = self.authorization.lock().await;
-        let (_, _, metadata_storage, _, _, identities_storage, _) =
+        let (_, metadata_storage, _, _, identities_storage, _) =
             acquire_data(&self.app_state).await;
 
         if let Some(token) = token.as_ref() {

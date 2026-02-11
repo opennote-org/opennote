@@ -16,7 +16,7 @@ mod tasks_scheduler;
 mod traits;
 mod utilities;
 mod mcp;
-mod database;
+mod vector_database;
 
 use std::{sync::Arc, time::Duration};
 

@@ -27,12 +27,8 @@ use crate::{
         webpage::WebpageConnector,
     },
     documents::{
-        document_chunk::DocumentChunk,
-        document_metadata::DocumentMetadata,
-        operations::{
-            add_document_chunks_to_database, add_document_chunks_to_database_and_metadata_storage,
-            delete_documents_from_database, get_document_chunks, preprocess_document,
-        },
+        document_chunk::DocumentChunk, document_metadata::DocumentMetadata,
+        operations::preprocess_document,
     },
     tasks_scheduler::TaskStatus,
     utilities::acquire_data,
@@ -54,7 +50,7 @@ pub async fn add_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
+        let (vector_database, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match identities_storage
@@ -86,13 +82,10 @@ pub async fn add_document(
             user_configurations.search.document_chunk_size,
         );
 
-        match add_document_chunks_to_database(
-            &db_client,
-            &config.embedder,
-            &config.database,
-            chunks,
-        )
-        .await
+        let mut vector_database = vector_database.lock().await;
+        match vector_database
+            .add_document_chunks_to_database(&config.embedder, &config.database, chunks)
+            .await
         {
             Ok(_) => {
                 match metadata_storage.lock().await.add_document(metadata).await {
@@ -152,7 +145,7 @@ pub async fn import_documents(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
+        let (vector_database, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match identities_storage
@@ -219,17 +212,19 @@ pub async fn import_documents(
 
         // Preprocess the intermediates
         let mut store_tasks = Vec::new();
+        let mut vector_database = vector_database.lock().await;
         for (index, task) in preprocess_tasks.into_iter().enumerate() {
             match task.await {
                 Ok((metadata, chunks, _)) => {
-                    store_tasks.push(add_document_chunks_to_database_and_metadata_storage(
-                        &db_client,
-                        &config.embedder,
-                        &config.database,
-                        chunks,
-                        metadata_storage.clone(),
-                        metadata,
-                    ));
+                    store_tasks.push(
+                        vector_database.add_document_chunks_to_database_and_metadata_storage(
+                            &config.embedder,
+                            &config.database,
+                            chunks,
+                            metadata_storage.clone(),
+                            metadata,
+                        ),
+                    );
                 }
                 Err(err) => {
                     error!("Failed to preprocess: {}", err);
@@ -310,7 +305,7 @@ pub async fn delete_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, _, _) =
+        let (vector_database, metadata_storage, tasks_scheduler, config, _, _) =
             acquire_data(&data).await;
 
         let mut metadata_storage = metadata_storage.lock().await;
@@ -327,13 +322,13 @@ pub async fn delete_document(
                 log::warn!("{}", message);
             }
         };
-
-        match delete_documents_from_database(
-            &db_client,
-            &config.database,
-            vec![request.document_metadata_id.clone()],
-        )
-        .await
+        let mut vector_database = vector_database.lock().await;
+        match vector_database
+            .delete_documents_from_database(
+                &config.database,
+                vec![request.document_metadata_id.clone()],
+            )
+            .await
         {
             Ok(_) => {}
             Err(_) => {
@@ -366,7 +361,7 @@ pub async fn update_documents_metadata(
     data: web::Data<RwLock<AppState>>,
     mut request: web::Json<UpdateDocumentMetadataRequest>,
 ) -> Result<HttpResponse> {
-    let (_, _, metadata_storage, _, _, _, _) = acquire_data(&data).await;
+    let (_, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
     let mut metadata_storage = metadata_storage.lock().await;
 
@@ -416,7 +411,7 @@ pub async fn update_document_content(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (_, db_client, metadata_storage, tasks_scheduler, config, identities_storage, _) =
+        let (vector_database, metadata_storage, tasks_scheduler, config, identities_storage, _) =
             acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match identities_storage
@@ -468,12 +463,13 @@ pub async fn update_document_content(
                 }
             };
 
-            match delete_documents_from_database(
-                &db_client,
-                &config.database,
-                vec![request.document_metadata_id.clone()],
-            )
-            .await
+            let mut vector_database = vector_database.lock().await;
+            match vector_database
+                .delete_documents_from_database(
+                    &config.database,
+                    vec![request.document_metadata_id.clone()],
+                )
+                .await
             {
                 Ok(_) => {}
                 Err(error) => {
@@ -500,13 +496,10 @@ pub async fn update_document_content(
 
         metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
 
-        match add_document_chunks_to_database(
-            &db_client,
-            &config.embedder,
-            &config.database,
-            chunks,
-        )
-        .await
+        let mut vector_database = vector_database.lock().await;
+        match vector_database
+            .add_document_chunks_to_database(&config.embedder, &config.database, chunks)
+            .await
         {
             Ok(_) => {
                 match metadata_storage
@@ -558,7 +551,7 @@ pub async fn get_documents_metadata(
     data: web::Data<RwLock<AppState>>,
     query: web::Json<GetDocumentsMetadataQuery>,
 ) -> Result<HttpResponse> {
-    let (_, _, metadata_storage, _, _, _, _) = acquire_data(&data).await;
+    let (_, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
     let is_query_not_valid: bool = query.0.collection_metadata_id.is_some()
         == query.0.document_metadata_ids.is_some()
@@ -609,7 +602,7 @@ pub async fn get_document_content(
     request: web::Json<GetDocumentRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, _, _, _) = acquire_data(&data).await;
+    let (vector_database, metadata_storage, _, _, _, _) = acquire_data(&data).await;
 
     // Acquire chunk ids
     let mut acquired_chunks: Vec<DocumentChunk> = Vec::new();
@@ -619,7 +612,11 @@ pub async fn get_document_content(
         .documents
         .get(&request.document_metadata_id)
     {
-        match get_document_chunks(document_metadata.chunks.clone(), &index_name, &db_client).await {
+        let vector_database = vector_database.lock().await;
+        match vector_database
+            .get_document_chunks(document_metadata.chunks.clone())
+            .await
+        {
             Ok(result) => {
                 acquired_chunks = result;
             }
@@ -658,15 +655,8 @@ pub async fn reindex(
     // Perform operations asynchronously
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
-        let (
-            index_name,
-            db_client,
-            metadata_storage,
-            tasks_scheduler,
-            config,
-            identities_storage,
-            _,
-        ) = acquire_data(&data).await;
+        let (vector_database, metadata_storage, tasks_scheduler, config, identities_storage, _) =
+            acquire_data(&data).await;
 
         let user_configurations: UserConfigurations = match identities_storage
             .lock()
@@ -746,13 +736,11 @@ pub async fn reindex(
             for document_metadata in document_metadatas {
                 let collection_metadata_id: String = collection_metadata_id.clone();
                 get_document_contents_tasks.push(async {
-                    let chunks: Vec<DocumentChunk> = get_document_chunks(
-                        document_metadata.chunks.clone(),
-                        &index_name,
-                        &db_client,
-                    )
-                    .await
-                    .unwrap_or(vec![]);
+                    let vector_database = vector_database.lock().await;
+                    let chunks: Vec<DocumentChunk> = vector_database
+                        .get_document_chunks(document_metadata.chunks.clone())
+                        .await
+                        .unwrap_or(vec![]);
 
                     let mut content: String = String::new();
                     for chunk in chunks {
@@ -786,7 +774,8 @@ pub async fn reindex(
         }
 
         // Remove old chunks from the database before updating the new ones to prevent conflicts.
-        match delete_documents_from_database(&db_client, &config.database, metadata_ids_to_delete)
+        let vector_database = vector_database.lock().await;
+        match vector_database.delete_documents_from_database(&config.database, metadata_ids_to_delete)
             .await
         {
             Ok(_) => {}
@@ -805,8 +794,7 @@ pub async fn reindex(
         for task in slicing_tasks {
             match task.await {
                 Ok((document_metadata, document_chunks)) => {
-                    final_update_tasks.push(add_document_chunks_to_database(
-                        &db_client,
+                    final_update_tasks.push(vector_database.add_document_chunks_to_database(
                         &config.embedder,
                         &config.database,
                         document_chunks,

@@ -1,20 +1,18 @@
 use std::sync::Arc;
 
 use actix_web::web;
-use qdrant_client::Qdrant;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     app_state::AppState, backup::storage::BackupsStorage, configurations::system::Config,
-    identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage,
-    tasks_scheduler::TasksScheduler,
+    vector_database::traits::VectorDatabase, identities::storage::IdentitiesStorage,
+    metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler,
 };
 
 pub async fn acquire_data(
     data: &web::Data<RwLock<AppState>>,
 ) -> (
-    String,
-    Qdrant,
+    Arc<Mutex<dyn VectorDatabase>>,
     Arc<Mutex<MetadataStorage>>,
     Arc<Mutex<TasksScheduler>>,
     Config,
@@ -22,8 +20,7 @@ pub async fn acquire_data(
     Arc<Mutex<BackupsStorage>>,
 ) {
     let (
-        index_name,
-        db_client,
+        vector_database,
         metadata_storage,
         tasks_scheduler,
         config,
@@ -32,8 +29,7 @@ pub async fn acquire_data(
     ) = {
         let state = data.read().await;
         (
-            state.config.database.index.clone(),
-            state.database.get_client().clone(),
+            state.database.clone(),
             state.metadata_storage.clone(),
             state.tasks_scheduler.clone(),
             state.config.clone(),
@@ -42,8 +38,7 @@ pub async fn acquire_data(
         )
     };
     (
-        index_name,
-        db_client,
+        vector_database,
         metadata_storage,
         tasks_scheduler,
         config,

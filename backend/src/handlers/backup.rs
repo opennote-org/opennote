@@ -17,9 +17,6 @@ use crate::{
         collection_metadata::CollectionMetadata,
         document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
-        operations::{
-            add_document_chunks_to_database, delete_documents_from_database, get_document_chunks,
-        },
     },
     identities::user::User,
     tasks_scheduler::TaskStatus,
@@ -33,7 +30,7 @@ pub async fn remove_backups(
     request: web::Json<RemoveBackupsRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, _, backups_storage) = acquire_data(&data).await;
+    let (_, _, _, _, _, backups_storage) = acquire_data(&data).await;
 
     match backups_storage
         .lock()
@@ -62,7 +59,7 @@ pub async fn get_backups_list(
     request: web::Json<GetBackupsListRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, _, backups_storage) = acquire_data(&data).await;
+    let (_, _, _, _, _, backups_storage) = acquire_data(&data).await;
 
     let backups: Vec<BackupListItem> = backups_storage
         .lock()
@@ -102,8 +99,7 @@ pub async fn backup(
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
         let (
-            index_name,
-            client,
+            vector_database,
             metadata_storage,
             tasks_scheduler,
             _,
@@ -169,8 +165,10 @@ pub async fn backup(
             .iter()
             .flat_map(|(_, document_metadata)| document_metadata.chunks.clone())
             .collect();
+        
+        let vector_database = vector_database.lock().await;
         let document_chunks_snapshots: Vec<DocumentChunk> =
-            match get_document_chunks(document_chunks_ids, &index_name, &client).await {
+            match vector_database.get_document_chunks(document_chunks_ids).await {
                 Ok(points) => points,
                 Err(e) => {
                     // Failed to get document chunks when trying to backup, need to use the pre-acquired variables instead
@@ -235,8 +233,7 @@ pub async fn restore_backup(
     tokio::spawn(async move {
         // Pull what we need out of AppState without holding the lock during I/O
         let (
-            _,
-            client,
+            vector_database,
             metadata_storage,
             tasks_scheduler,
             config,
@@ -283,8 +280,8 @@ pub async fn restore_backup(
                 .retain(|id, _| !document_metadatas_to_delete.contains(id));
         }
 
-        match delete_documents_from_database(
-            &client,
+        let mut vector_database = vector_database.lock().await;
+        match vector_database.delete_documents_from_database(
             &config.database,
             document_metadatas_to_delete,
         )
@@ -325,8 +322,7 @@ pub async fn restore_backup(
                 .extend(backup.document_metadata_snapshots);
         }
 
-        match add_document_chunks_to_database(
-            &client,
+        match vector_database.add_document_chunks_to_database(
             &config.embedder,
             &config.database,
             backup.document_chunks_snapshots,

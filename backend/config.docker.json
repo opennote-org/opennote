@@ -18,6 +18,7 @@
     "path": "./data/backups_storage.json"
   },
   "database": {
+    "class": "qdrant",
     "index": "notes",
     "base_url": "http://database:6334",
     "api_key": "meilimasterkey"

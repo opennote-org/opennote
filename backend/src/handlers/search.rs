@@ -21,7 +21,7 @@ pub async fn intelligent_search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, config, identities_storage, _) =
+    let (vector_database, metadata_storage, _, config, identities_storage, _) =
         acquire_data(&data).await;
 
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
@@ -79,7 +79,7 @@ pub async fn search(
 ) -> Result<HttpResponse> {
     // Perform operations synchronously
     // Pull what we need out of AppState without holding the lock during I/O
-    let (index_name, db_client, metadata_storage, _, _, identities_storage, _) =
+    let (vector_database, metadata_storage, _, _, identities_storage, _) =
         acquire_data(&data).await;
 
     let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
