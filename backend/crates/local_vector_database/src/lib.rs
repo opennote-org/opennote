@@ -20,7 +20,7 @@ pub mod constants {
 type Float = f32;
 
 /// A single vector entry with metadata
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Data {
     /// Unique identifier for the vector
     #[serde(rename = "__id__")]
@@ -284,6 +284,16 @@ impl LocalVectorDatabase {
             .iter()
             .filter(|data| id_set.contains(&data.id))
             .collect()
+    }
+    
+    /// Get all vectors in the database as owned
+    pub fn get_all_owned(&self) -> Vec<Data> {
+        self.storage.data.clone()
+    }
+    
+    /// Get all vectors in the database as a reference
+    pub fn get_all(&self) -> &Vec<Data> {
+        &self.storage.data
     }
 
     /// Delete vectors by their IDs

@@ -34,64 +34,18 @@ impl VectorDatabase for Local {
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
         let chunks: Vec<DocumentChunk> = vectorize(embedder_config, chunks).await?;
-        
-        let database = self.database.lock().await;
-        
-        database.upsert(datas);
-        
-        let points: Vec<PointStruct> = chunks
-            .into_iter()
-            .map(|chunk| PointStruct::from(chunk))
-            .collect();
 
-        self.client
-            .upsert_points(UpsertPointsBuilder::new(&database_config.index, points).wait(true))
-            .await?;
+        let mut database = self.database.lock().await;
+
+        database.upsert(chunks.into_iter().map(|item| item.into()).collect());
 
         Ok(())
     }
 
     async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
-        let counts: u64 = match self
-            .client
-            .collection_info(GetCollectionInfoRequest {
-                collection_name: configuration.database.index.to_string(),
-            })
-            .await?
-            .result
-        {
-            Some(result) => result.points_count(),
-            None => return Err(anyhow!("Cannot get points count. Re-indexation failed")),
-        };
+        let database = self.database.lock().await;
 
-        // For now, this is only a simple implementation.
-        // TODO: Should consider dealing with larger collection.
-        if counts > u32::MAX as u64 {
-            return Err(anyhow!(
-                "Number of document chunks had exceeded the re-indexation limit {}",
-                u32::MAX
-            ));
-        }
-
-        let retrieved_points = self
-            .client
-            .scroll(
-                ScrollPointsBuilder::new(configuration.database.index.clone())
-                    .with_payload(true)
-                    .limit(counts as u32)
-                    .build(),
-            )
-            .await?
-            .result;
-
-        self.client
-            .delete_collection(DeleteCollectionBuilder::new(
-                configuration.database.index.clone(),
-            ))
-            .await?;
-
-        create_collection(&self.client, configuration).await?;
-
+        let retrieved_points = database.get_all_owned();
         let document_chunks: Vec<DocumentChunk> = retrieved_points
             .into_iter()
             .map(|item| item.into())
@@ -112,27 +66,26 @@ impl VectorDatabase for Local {
         database_config: &DatabaseConfig,
         document_ids: &Vec<String>,
     ) -> Result<()> {
-        let mut conditions: Vec<Condition> = Vec::new();
-        for id in document_ids.iter() {
-            conditions.push(Condition::matches("document_metadata_id", id.to_owned()));
-        }
+        let mut database = self.database.lock().await;
 
-        match self
-            .client
-            .delete_points(
-                DeletePointsBuilder::new(&database_config.index)
-                    .points(Filter::any(conditions))
-                    .wait(true),
-            )
-            .await
-        {
-            Ok(_) => {}
-            Err(error) => log::error!(
-                "Qdrant cannot delete documents {:?} due to {}",
-                document_ids,
-                error
-            ),
-        }
+        let chunk_ids: Vec<String> = database
+            .get_all()
+            .iter()
+            .filter(|item| {
+                document_ids.contains(
+                    &item
+                        .fields
+                        .get("document_metadata_id")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_string(),
+                )
+            })
+            .map(|item| item.id.clone())
+            .collect();
+
+        database.delete(&chunk_ids);
 
         Ok(())
     }
@@ -141,37 +94,21 @@ impl VectorDatabase for Local {
         &self,
         document_chunks_ids: Vec<String>,
     ) -> Result<Vec<DocumentChunk>> {
+        let database = self.database.lock().await;
+
         // Acquire chunk ids
-        let acquired_chunks: Vec<DocumentChunk> = match self
-            .client
-            .get_points(
-                GetPointsBuilder::new(
-                    &self.index,
-                    document_chunks_ids
-                        .into_iter()
-                        .map(|chunk| chunk.into())
-                        .collect::<Vec<PointId>>(),
-                )
-                .with_payload(true),
-            )
-            .await
-        {
-            Ok(result) => result
-                .result
-                .into_iter()
-                .map(|point| point.into())
-                .collect(),
-            Err(error) => {
-                return Err(error.into());
-            }
-        };
+        let acquired_chunks: Vec<DocumentChunk> = database
+            .get(&document_chunks_ids)
+            .into_iter()
+            .map(|item| item.clone().into())
+            .collect();
 
         Ok(acquired_chunks)
     }
 }
 
 #[async_trait]
-impl SemanticSearch for QdrantDatabase {
+impl SemanticSearch for Local {
     async fn search_documents_semantically(
         &self,
         metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
@@ -194,6 +131,10 @@ impl SemanticSearch for QdrantDatabase {
             vec![DocumentChunk::new(query.to_owned(), "", "")],
         )
         .await?;
+        
+        let database = self.database.lock().await;
+        
+        database.query(&chunks[0].dense_text_vector, top_n, None, filter);
 
         let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
 
@@ -222,7 +163,7 @@ impl SemanticSearch for QdrantDatabase {
 }
 
 #[async_trait]
-impl KeywordSearch for QdrantDatabase {
+impl KeywordSearch for Local {
     async fn search_documents(
         &self,
         metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
@@ -257,7 +198,7 @@ impl KeywordSearch for QdrantDatabase {
     }
 }
 
-impl QdrantDatabase {
+impl Local {
     pub async fn new(configuration: &Config) -> Result<Self> {
         let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url)
             // Timeout for preventing Qdrant killing time-consuming operations
@@ -334,73 +275,6 @@ async fn validate_configuration(qdrant_client: &Qdrant, configuration: &Config) 
             }
         }
         Err(error) => return Err(error.into()),
-    }
-
-    Ok(())
-}
-
-async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()> {
-    let mut dense_text_vector_config = VectorsConfigBuilder::default();
-    dense_text_vector_config.add_named_vector_params(
-        QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-        VectorParamsBuilder::new(
-            configuration.embedder.dimensions as u64,
-            qdrant_client::qdrant::Distance::Cosine,
-        ),
-    );
-
-    let mut sparse_vector_config = SparseVectorsConfigBuilder::default();
-    sparse_vector_config.add_named_vector_params(
-        QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-        SparseVectorParamsBuilder::default(),
-    );
-
-    match client
-        .create_collection(
-            CreateCollectionBuilder::new(&configuration.database.index)
-                .vectors_config(dense_text_vector_config)
-                .sparse_vectors_config(sparse_vector_config)
-                .build(),
-        )
-        .await
-    {
-        Ok(_) => info!("Created a new collection `note` to record document chunks"),
-        Err(error) => {
-            // we can't use the notebook without having a collection
-            panic!("Failed to initialize collection due to: {}", error);
-        }
-    }
-
-    // Create index for these fields that are potentially be filters.
-    // This is to optimize the search performance when the user stores large datasets.
-    for field in DocumentChunk::get_indexable_fields() {
-        match field {
-            IndexableField::Keyword(field) => {
-                client
-                    .create_field_index(CreateFieldIndexCollectionBuilder::new(
-                        &configuration.database.index,
-                        field,
-                        FieldType::Keyword,
-                    ))
-                    .await?;
-            }
-            IndexableField::FullText(field) => {
-                let text_index_params = TextIndexParamsBuilder::new(TokenizerType::Multilingual)
-                    .phrase_matching(true)
-                    .build();
-
-                client
-                    .create_field_index(
-                        CreateFieldIndexCollectionBuilder::new(
-                            &configuration.database.index,
-                            field,
-                            FieldType::Text,
-                        )
-                        .field_index_params(text_index_params),
-                    )
-                    .await?;
-            }
-        }
     }
 
     Ok(())

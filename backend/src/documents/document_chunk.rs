@@ -4,6 +4,7 @@ use std::{collections::HashMap, io::Read};
 
 use chunk::chunk;
 use jieba_rs::Jieba;
+use local_vector_database::Data;
 use qdrant_client::{
     Payload,
     qdrant::{NamedVectors, PointStruct, RetrievedPoint, ScoredPoint},
@@ -45,7 +46,7 @@ impl DocumentChunk {
             dense_text_vector: Vec::new(),
         }
     }
-    
+
     pub fn slice_document_automatically(
         content: &str,
         chunk_max_words: usize,
@@ -53,13 +54,13 @@ impl DocumentChunk {
         collection_metadata_id: &str,
     ) -> Vec<DocumentChunk> {
         let mut chunks: Vec<DocumentChunk> = Vec::new();
-        
+
         let raw_chunks: Vec<_> = chunk(content.as_bytes())
             .consecutive()
             .delimiters("\n.?!。，！".as_bytes())
             .size(chunk_max_words)
             .collect();
-        
+
         for mut chunk in raw_chunks {
             let mut bytes = Vec::new();
             match chunk.read_to_end(&mut bytes) {
@@ -69,13 +70,13 @@ impl DocumentChunk {
                         document_metadata_id,
                         collection_metadata_id,
                     ));
-                },
+                }
                 Err(error) => {
                     log::warn!("Error reading chunk: {} Chunk content: {:?}", error, chunk);
                 }
             }
         }
-        
+
         chunks
     }
 
@@ -150,6 +151,28 @@ impl DocumentChunk {
         }
 
         chunks
+    }
+}
+
+impl From<DocumentChunk> for Data {
+    fn from(value: DocumentChunk) -> Self {
+        Self {
+            id: value.id.clone(),
+            vector: value.dense_text_vector.clone(),
+            fields: serde_json::from_str(&serde_json::to_string(&value).unwrap()).unwrap(),
+        }
+    }
+}
+
+impl From<Data> for DocumentChunk {
+    fn from(value: Data) -> Self {
+        Self { 
+            id: value.id, 
+            document_metadata_id: value.fields.get("document_metadata_id").unwrap().as_str().unwrap().to_string(), 
+            collection_metadata_id: value.fields.get("collection_metadata_id").unwrap().as_str().unwrap().to_string(), 
+            content: value.fields.get("content").unwrap().as_str().unwrap().to_string(), 
+            dense_text_vector: Vec::new(),
+        }
     }
 }
 
