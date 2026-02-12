@@ -134,13 +134,12 @@ impl SemanticSearch for Local {
 
         let database = self.database.lock().await;
 
-        let document_metadata_ids = Arc::new(document_metadata_ids);
         let results: Vec<HashMap<String, serde_json::Value>> = database.query(
             &chunks[0].dense_text_vector,
             top_n,
             None,
             Some(Box::new(move |item: &Data| {
-                document_metadata_ids.clone().contains(
+                document_metadata_ids.contains(
                     &item
                         .fields
                         .get("document_metadata_id")
