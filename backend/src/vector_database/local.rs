@@ -1,10 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_trait::async_trait;
-use futures::future::join_all;
 use local_vector_database::{Data, LocalVectorDatabase};
-use log::info;
 use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
@@ -13,11 +11,13 @@ use crate::{
         collection_metadata::CollectionMetadata,
         document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
-        traits::{GetIndexableFields, IndexableField},
     },
     embedder::{send_vectorization, vectorize},
     metadata_storage::MetadataStorage,
-    search::{document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch, semantic::SemanticSearch},
+    search::{
+        document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
+        semantic::SemanticSearch,
+    },
     vector_database::traits::VectorDatabase,
 };
 
@@ -199,91 +199,16 @@ impl KeywordSearch for Local {
 
 impl Local {
     pub async fn new(configuration: &Config) -> Result<Self> {
-        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url)
-            // Timeout for preventing Qdrant killing time-consuming operations
-            .timeout(std::time::Duration::from_secs(1000));
-        let client: Qdrant = Qdrant::new(qdrant_config)?;
-
-        if client
-            .collection_exists(CollectionExistsRequest {
-                collection_name: configuration.database.index.to_string(),
-            })
-            .await?
-        {
-            info!("Collection `note` has already existed. Skip creation");
-            return Ok(Self {
-                index: configuration.database.index.clone(),
-                client,
-            });
-        }
-
-        create_collection(&client, configuration).await?;
-
-        match validate_configuration(&client, configuration).await {
-            Ok(_) => {}
-            Err(error) => {
-                if error.to_string().contains("Mismatched") {
-                    log::warn!("{}", error);
-                } else {
-                    log::info!("{}", error);
-                    return Err(error);
-                }
-            }
-        }
-
         Ok(Self {
-            index: configuration.database.index.clone(),
-            client,
+            database: Mutex::new(
+                LocalVectorDatabase::new(
+                    configuration.embedder.dimensions,
+                    &configuration.database.base_url,
+                )
+                .unwrap(),
+            ),
         })
     }
-}
-
-async fn validate_configuration(qdrant_client: &Qdrant, configuration: &Config) -> Result<()> {
-    match qdrant_client
-        .collection_info(GetCollectionInfoRequest {
-            collection_name: configuration.database.index.to_string(),
-        })
-        .await
-    {
-        Ok(result) => {
-            let error_message: &'static str = "Collection configuration is missing, please check if the program has been configured properly";
-            let info = result.result.expect(error_message);
-            let config = info.config.expect(error_message);
-            let params = config.params.expect(error_message);
-            let vectors_config = params.vectors_config.expect(error_message);
-            let vectors_config = vectors_config.config.expect(error_message);
-            let size_in_collection = match vectors_config {
-                qdrant_client::qdrant::vectors_config::Config::Params(params) => params.size,
-                qdrant_client::qdrant::vectors_config::Config::ParamsMap(params) => {
-                    if let Some(dense_vector_params) =
-                        params.map.get(QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME)
-                    {
-                        dense_vector_params.size
-                    } else {
-                        return Err(anyhow!("Misconfigured. Please raise an issue on GitHub"));
-                    }
-                }
-            };
-
-            if size_in_collection != configuration.embedder.dimensions as u64 {
-                return Err(anyhow!(
-                    "Collection uses {} dimensional vecotor, but config uses {}. Mismatched",
-                    size_in_collection,
-                    configuration.embedder.dimensions
-                ));
-            }
-        }
-        Err(error) => return Err(error.into()),
-    }
-
-    Ok(())
-}
-
-pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
-    document_metadata_ids
-        .into_iter()
-        .map(|id| Condition::matches("document_metadata_id", id.to_string()))
-        .collect()
 }
 
 /// To fill in the document and collection title

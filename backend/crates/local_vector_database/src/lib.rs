@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
-use base64::{engine::general_purpose, Engine as _};
+use anyhow::{anyhow, Result};
+use base64::{Engine as _, engine::general_purpose};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -36,15 +36,15 @@ pub struct Data {
 #[derive(Debug, Serialize, Deserialize)]
 struct DataBase {
     embedding_dim: usize,
-    
+
     data: Vec<Data>,
-    
+
     #[serde(with = "base64_bytes")]
     matrix: Vec<Float>,
-    
+
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     additional_data: HashMap<String, serde_json::Value>,
-    
+
     keywords_index: HashMap<String, Vec<String>>,
 }
 
@@ -148,20 +148,48 @@ impl LocalVectorDatabase {
         })
     }
 
+    /// Creates a LocalVectorDatabase instance with a previous storage file
+    pub fn load(storage_file: &str) -> Result<Self> {
+        let storage_file = PathBuf::from(storage_file);
+
+        if storage_file.exists() && storage_file.metadata()?.len() > 0 {
+            let contents = fs::read_to_string(&storage_file)?;
+            let db: DataBase = serde_json::from_str(&contents)?;
+
+            let expected_len = db.data.len() * db.embedding_dim;
+            if db.matrix.len() != expected_len {
+                anyhow::bail!(
+                    "Matrix size mismatch: expected {}, got {}",
+                    expected_len,
+                    db.matrix.len()
+                );
+            }
+
+            return Ok(Self {
+                embedding_dim: db.embedding_dim,
+                metric: "cosine".to_string(),
+                storage_file,
+                storage: db,
+            });
+        };
+
+        Err(anyhow!("Storage file not found or empty"))
+    }
+
     /// Upserts vectors into the database
     pub fn upsert(&mut self, mut datas: Vec<Data>) -> Result<(Vec<String>, Vec<String>)> {
         let mut updates = Vec::new();
         let mut inserts = Vec::new();
         let existing_ids: HashSet<_> = self.storage.data.iter().map(|d| &d.id).collect();
-        
+
         // 1. Extract keywords out of the data
         // 2. update the index hashmap
-        
+
         // Alternative approach to Rewrite vector database
         // store chunks info in the backend
         // only preserve id references to the chunks in the vector database
         // user could recover the vector database from the backend
-        // 
+        //
         // this also allows making the keyword search a separate module aside from the vector databases
 
         for data in datas.iter_mut() {
@@ -195,9 +223,13 @@ impl LocalVectorDatabase {
 
         Ok((updates, inserts))
     }
-    
+
     /// Queries the database with keywords
-    pub fn query_keywords(&self, query: &str, filter: Option<DataFilter>) -> Vec<HashMap<String, serde_json::Value>> {
+    pub fn query_keywords(
+        &self,
+        query: &str,
+        filter: Option<DataFilter>,
+    ) -> Vec<HashMap<String, serde_json::Value>> {
         vec![]
     }
 
@@ -285,12 +317,12 @@ impl LocalVectorDatabase {
             .filter(|data| id_set.contains(&data.id))
             .collect()
     }
-    
+
     /// Get all vectors in the database as owned
     pub fn get_all_owned(&self) -> Vec<Data> {
         self.storage.data.clone()
     }
-    
+
     /// Get all vectors in the database as a reference
     pub fn get_all(&self) -> &Vec<Data> {
         &self.storage.data
