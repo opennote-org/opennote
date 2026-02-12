@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use tokio::sync::MutexGuard;
 
 use crate::{
-    documents::document_chunk::DocumentChunkSearchResult, metadata_storage::MetadataStorage,
+    metadata_storage::MetadataStorage, search::document_search_results::DocumentChunkSearchResult,
 };
 
 #[async_trait]

@@ -1,8 +1,9 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 pub mod keyword;
 pub mod semantic;
+pub mod document_search_results;
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct SearchScopeIndicator {

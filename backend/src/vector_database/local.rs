@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -11,13 +11,13 @@ use crate::{
     configurations::system::{Config, DatabaseConfig, EmbedderConfig},
     documents::{
         collection_metadata::CollectionMetadata,
-        document_chunk::{DocumentChunk, DocumentChunkSearchResult},
+        document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
     },
     embedder::{send_vectorization, vectorize},
     metadata_storage::MetadataStorage,
-    search::{keyword::KeywordSearch, semantic::SemanticSearch},
+    search::{document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch, semantic::SemanticSearch},
     vector_database::traits::VectorDatabase,
 };
 
@@ -131,29 +131,29 @@ impl SemanticSearch for Local {
             vec![DocumentChunk::new(query.to_owned(), "", "")],
         )
         .await?;
-        
+
         let database = self.database.lock().await;
-        
-        database.query(&chunks[0].dense_text_vector, top_n, None, filter);
 
-        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
-
-        let response = self
-            .client
-            .query(
-                QueryPointsBuilder::new(&self.index)
-                    .using("dense_text_vector")
-                    .with_payload(true)
-                    .query(chunks[0].dense_text_vector.to_owned())
-                    .limit(top_n as u64)
-                    .filter(Filter::any(conditions))
-                    .params(SearchParamsBuilder::default().hnsw_ef(128).exact(false)),
-            )
-            .await?;
+        let document_metadata_ids = Arc::new(document_metadata_ids);
+        let results: Vec<HashMap<String, serde_json::Value>> = database.query(
+            &chunks[0].dense_text_vector,
+            top_n,
+            None,
+            Some(Box::new(move |item: &Data| {
+                document_metadata_ids.clone().contains(
+                    &item
+                        .fields
+                        .get("document_metadata_id")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_string(),
+                )
+            })),
+        );
 
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
-            Some(response.result),
-            None,
+            results,
             &metadata_storage.collections,
             &metadata_storage.documents,
         );
@@ -289,51 +289,28 @@ pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
 
 /// To fill in the document and collection title
 pub fn build_search_results(
-    scored_points: Option<Vec<ScoredPoint>>,
-    retrieved_points: Option<Vec<RetrievedPoint>>,
+    query_results: Vec<HashMap<String, serde_json::Value>>,
     collection_metadatas_from_storage: &HashMap<String, CollectionMetadata>,
     document_metadatas_from_storage: &HashMap<String, DocumentMetadata>,
 ) -> Vec<DocumentChunkSearchResult> {
     let mut results = Vec::new();
 
-    if let Some(points) = scored_points {
-        for point in points {
-            let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
+    for point in query_results {
+        let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
 
-            if let Some(document_metadata) =
-                document_metadatas_from_storage.get(&result.document_chunk.document_metadata_id)
-            {
-                result.document_title = Some(document_metadata.title.clone());
-            }
-
-            if let Some(collection_metadata) =
-                collection_metadatas_from_storage.get(&result.document_chunk.collection_metadata_id)
-            {
-                result.collection_title = Some(collection_metadata.title.clone());
-            }
-
-            results.push(result);
+        if let Some(document_metadata) =
+            document_metadatas_from_storage.get(&result.document_chunk.document_metadata_id)
+        {
+            result.document_title = Some(document_metadata.title.clone());
         }
-    }
 
-    if let Some(points) = retrieved_points {
-        for point in points {
-            let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
-
-            if let Some(document_metadata) =
-                document_metadatas_from_storage.get(&result.document_chunk.document_metadata_id)
-            {
-                result.document_title = Some(document_metadata.title.clone());
-            }
-
-            if let Some(collection_metadata) =
-                collection_metadatas_from_storage.get(&result.document_chunk.collection_metadata_id)
-            {
-                result.collection_title = Some(collection_metadata.title.clone());
-            }
-
-            results.push(result);
+        if let Some(collection_metadata) =
+            collection_metadatas_from_storage.get(&result.document_chunk.collection_metadata_id)
+        {
+            result.collection_title = Some(collection_metadata.title.clone());
         }
+
+        results.push(result);
     }
 
     results

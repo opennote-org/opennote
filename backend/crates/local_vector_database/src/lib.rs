@@ -197,7 +197,7 @@ impl LocalVectorDatabase {
     }
     
     /// Queries the database with keywords
-    pub fn query_keywords(&self, query: &str) -> Vec<HashMap<String, serde_json::Value>> {
+    pub fn query_keywords(&self, query: &str, filter: Option<DataFilter>) -> Vec<HashMap<String, serde_json::Value>> {
         vec![]
     }
 

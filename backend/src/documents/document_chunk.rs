@@ -195,6 +195,28 @@ impl From<DocumentChunk> for PointStruct {
     }
 }
 
+impl From<HashMap<String, serde_json::Value>> for DocumentChunk {
+    fn from(value: HashMap<String, serde_json::Value>) -> Self {
+        Self {
+            id: value.get("id").unwrap().as_str().unwrap().to_string(),
+            content: value.get("content").unwrap().as_str().unwrap().to_string(),
+            document_metadata_id: value
+                .get("document_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            collection_metadata_id: value
+                .get("collection_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            dense_text_vector: vec![],
+        }
+    }
+}
+
 impl From<HashMap<String, qdrant_client::qdrant::Value>> for DocumentChunk {
     fn from(value: HashMap<String, qdrant_client::qdrant::Value>) -> Self {
         Self {
@@ -220,45 +242,6 @@ impl From<HashMap<String, qdrant_client::qdrant::Value>> for DocumentChunk {
 impl From<RetrievedPoint> for DocumentChunk {
     fn from(value: RetrievedPoint) -> Self {
         DocumentChunk::from(value.payload)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct DocumentChunkSearchResult {
-    pub document_title: Option<String>,
-    pub collection_title: Option<String>,
-    pub document_chunk: DocumentChunk,
-    /// Similarity score
-    pub score: f32,
-}
-
-impl Default for DocumentChunkSearchResult {
-    fn default() -> Self {
-        Self {
-            document_title: None,
-            collection_title: None,
-            document_chunk: DocumentChunk::default(),
-            score: 0.0,
-        }
-    }
-}
-
-impl From<RetrievedPoint> for DocumentChunkSearchResult {
-    fn from(value: RetrievedPoint) -> Self {
-        Self {
-            document_chunk: value.into(),
-            ..Default::default()
-        }
-    }
-}
-
-impl From<ScoredPoint> for DocumentChunkSearchResult {
-    fn from(value: ScoredPoint) -> Self {
-        Self {
-            document_chunk: DocumentChunk::from(value.payload),
-            score: value.score,
-            ..Default::default()
-        }
     }
 }
 

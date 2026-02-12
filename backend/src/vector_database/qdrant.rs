@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use futures::future::join_all;
 use log::info;
 use qdrant_client::{
     Qdrant,
@@ -26,13 +25,16 @@ use crate::{
     },
     documents::{
         collection_metadata::CollectionMetadata,
-        document_chunk::{DocumentChunk, DocumentChunkSearchResult},
+        document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
     },
     embedder::{send_vectorization, vectorize},
     metadata_storage::MetadataStorage,
-    search::{keyword::KeywordSearch, semantic::SemanticSearch},
+    search::{
+        document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
+        semantic::SemanticSearch,
+    },
     vector_database::traits::VectorDatabase,
 };
 
