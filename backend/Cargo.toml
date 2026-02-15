@@ -28,4 +28,3 @@ catsu = "0.1.7"
 rmcp = "0.14.0"
 rmcp-actix-web = { version = "0.11.0", features = ["authorization-token-passthrough"] }
 local_vector_database = { path = "./crates/local_vector_database" }
-dotenv = "0.15.0"
