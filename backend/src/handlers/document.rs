@@ -83,7 +83,7 @@ pub async fn add_document(
         );
 
         match vector_database
-            .add_document_chunks_to_database(&config.embedder, &config.database, chunks)
+            .add_document_chunks_to_database(&config.embedder, &config.vector_database, chunks)
             .await
         {
             Ok(_) => {
@@ -217,7 +217,7 @@ pub async fn import_documents(
                     store_tasks.push({
                         vector_database.add_document_chunks_to_database_and_metadata_storage(
                             &config.embedder,
-                            &config.database,
+                            &config.vector_database,
                             chunks,
                             metadata_storage.clone(),
                             metadata,
@@ -323,7 +323,7 @@ pub async fn delete_document(
 
         match vector_database
             .delete_documents_from_database(
-                &config.database,
+                &config.vector_database,
                 &vec![request.document_metadata_id.clone()],
             )
             .await
@@ -463,7 +463,7 @@ pub async fn update_document_content(
 
             match vector_database
                 .delete_documents_from_database(
-                    &config.database,
+                    &config.vector_database,
                     &vec![request.document_metadata_id.clone()],
                 )
                 .await
@@ -494,7 +494,7 @@ pub async fn update_document_content(
         metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
 
         match vector_database
-            .add_document_chunks_to_database(&config.embedder, &config.database, chunks)
+            .add_document_chunks_to_database(&config.embedder, &config.vector_database, chunks)
             .await
         {
             Ok(_) => {
@@ -770,7 +770,7 @@ pub async fn reindex(
         // Remove old chunks from the database before updating the new ones to prevent conflicts.
 
         match vector_database
-            .delete_documents_from_database(&config.database, &metadata_ids_to_delete)
+            .delete_documents_from_database(&config.vector_database, &metadata_ids_to_delete)
             .await
         {
             Ok(_) => {}
@@ -791,7 +791,7 @@ pub async fn reindex(
                 Ok((document_metadata, document_chunks)) => {
                     final_update_tasks.push(vector_database.add_document_chunks_to_database(
                         &config.embedder,
-                        &config.database,
+                        &config.vector_database,
                         document_chunks,
                     ));
 

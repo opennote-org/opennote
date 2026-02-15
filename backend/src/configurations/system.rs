@@ -24,6 +24,8 @@ pub struct Config {
     
     pub database: DatabaseConfig,
     
+    pub vector_database: VectorDatabaseConfig,
+     
     pub embedder: EmbedderConfig,
 }
 
@@ -72,6 +74,11 @@ pub struct EmbedderConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
+    pub connection_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VectorDatabaseConfig {
     pub kind: VectorDatabaseKind,
     pub index: String,
     pub base_url: String,

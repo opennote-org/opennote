@@ -19,7 +19,7 @@ use qdrant_client::{
 use tokio::sync::MutexGuard;
 
 use crate::{
-    configurations::system::{Config, DatabaseConfig, EmbedderConfig},
+    configurations::system::{Config, VectorDatabaseConfig, EmbedderConfig},
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
     },
@@ -49,7 +49,7 @@ impl VectorDatabase for QdrantDatabase {
     async fn add_document_chunks_to_database(
         &self,
         embedder_config: &EmbedderConfig,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
         let chunks: Vec<DocumentChunk> = vectorize(embedder_config, chunks).await?;
@@ -60,7 +60,7 @@ impl VectorDatabase for QdrantDatabase {
             .collect();
 
         self.client
-            .upsert_points(UpsertPointsBuilder::new(&database_config.index, points).wait(true))
+            .upsert_points(UpsertPointsBuilder::new(&vector_database_config.index, points).wait(true))
             .await?;
 
         Ok(())
@@ -70,7 +70,7 @@ impl VectorDatabase for QdrantDatabase {
         let counts: u64 = match self
             .client
             .collection_info(GetCollectionInfoRequest {
-                collection_name: configuration.database.index.to_string(),
+                collection_name: configuration.vector_database.index.to_string(),
             })
             .await?
             .result
@@ -91,7 +91,7 @@ impl VectorDatabase for QdrantDatabase {
         let retrieved_points = self
             .client
             .scroll(
-                ScrollPointsBuilder::new(configuration.database.index.clone())
+                ScrollPointsBuilder::new(configuration.vector_database.index.clone())
                     .with_payload(true)
                     .limit(counts as u32)
                     .build(),
@@ -101,7 +101,7 @@ impl VectorDatabase for QdrantDatabase {
 
         self.client
             .delete_collection(DeleteCollectionBuilder::new(
-                configuration.database.index.clone(),
+                configuration.vector_database.index.clone(),
             ))
             .await?;
 
@@ -114,7 +114,7 @@ impl VectorDatabase for QdrantDatabase {
 
         self.add_document_chunks_to_database(
             &configuration.embedder,
-            &configuration.database,
+            &configuration.vector_database,
             document_chunks,
         )
         .await?;
@@ -124,7 +124,7 @@ impl VectorDatabase for QdrantDatabase {
 
     async fn delete_documents_from_database(
         &self,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         document_ids: &Vec<String>,
     ) -> Result<()> {
         let mut conditions: Vec<Condition> = Vec::new();
@@ -135,7 +135,7 @@ impl VectorDatabase for QdrantDatabase {
         match self
             .client
             .delete_points(
-                DeletePointsBuilder::new(&database_config.index)
+                DeletePointsBuilder::new(&vector_database_config.index)
                     .points(Filter::any(conditions))
                     .wait(true),
             )
@@ -274,20 +274,20 @@ impl KeywordSearch for QdrantDatabase {
 
 impl QdrantDatabase {
     pub async fn new(configuration: &Config) -> Result<Self> {
-        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url)
+        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.vector_database.base_url)
             // Timeout for preventing Qdrant killing time-consuming operations
             .timeout(std::time::Duration::from_secs(1000));
         let client: Qdrant = Qdrant::new(qdrant_config)?;
 
         if client
             .collection_exists(CollectionExistsRequest {
-                collection_name: configuration.database.index.to_string(),
+                collection_name: configuration.vector_database.index.to_string(),
             })
             .await?
         {
             info!("Collection `note` has already existed. Skip creation");
             return Ok(Self {
-                index: configuration.database.index.clone(),
+                index: configuration.vector_database.index.clone(),
                 client,
             });
         }
@@ -307,7 +307,7 @@ impl QdrantDatabase {
         }
 
         Ok(Self {
-            index: configuration.database.index.clone(),
+            index: configuration.vector_database.index.clone(),
             client,
         })
     }
@@ -316,7 +316,7 @@ impl QdrantDatabase {
 async fn validate_configuration(qdrant_client: &Qdrant, configuration: &Config) -> Result<()> {
     match qdrant_client
         .collection_info(GetCollectionInfoRequest {
-            collection_name: configuration.database.index.to_string(),
+            collection_name: configuration.vector_database.index.to_string(),
         })
         .await
     {
@@ -372,7 +372,7 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
 
     match client
         .create_collection(
-            CreateCollectionBuilder::new(&configuration.database.index)
+            CreateCollectionBuilder::new(&configuration.vector_database.index)
                 .vectors_config(dense_text_vector_config)
                 .sparse_vectors_config(sparse_vector_config)
                 .build(),
@@ -393,7 +393,7 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
             IndexableField::Keyword(field) => {
                 client
                     .create_field_index(CreateFieldIndexCollectionBuilder::new(
-                        &configuration.database.index,
+                        &configuration.vector_database.index,
                         field,
                         FieldType::Keyword,
                     ))
@@ -407,7 +407,7 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
                 client
                     .create_field_index(
                         CreateFieldIndexCollectionBuilder::new(
-                            &configuration.database.index,
+                            &configuration.vector_database.index,
                             field,
                             FieldType::Text,
                         )

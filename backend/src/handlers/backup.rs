@@ -280,7 +280,7 @@ pub async fn restore_backup(
         }
 
         match vector_database.delete_documents_from_database(
-            &config.database,
+            &config.vector_database,
             &document_metadatas_to_delete,
         )
         .await
@@ -322,7 +322,7 @@ pub async fn restore_backup(
 
         match vector_database.add_document_chunks_to_database(
             &config.embedder,
-            &config.database,
+            &config.vector_database,
             backup.document_chunks_snapshots,
         )
         .await

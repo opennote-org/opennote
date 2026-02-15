@@ -12,7 +12,7 @@ use crate::{
 
 /// Dynamically create a vector database
 pub async fn create_vector_database(config: &Config) -> Result<Arc<dyn VectorDatabase>> {
-    match config.database.kind {
+    match config.vector_database.kind {
         VectorDatabaseKind::Qdrant => Ok(Arc::new(QdrantDatabase::new(config).await?)),
     }
 }

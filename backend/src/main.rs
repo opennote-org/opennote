@@ -17,6 +17,7 @@ mod traits;
 mod utilities;
 mod mcp;
 mod vector_database;
+mod database;
 
 use std::{sync::Arc, time::Duration};
 
@@ -103,7 +104,7 @@ async fn main() -> Result<(), std::io::Error> {
                 "Task scheduler has {} registered tasks",
                 state.tasks_scheduler.lock().await.registered_tasks.len()
             );
-            info!("Database will connect to {}", config.database.base_url);
+            info!("Vector database will connect to {}", config.vector_database.base_url);
 
             // Checkups
             match handshake_embedding_service(&config.embedder).await {

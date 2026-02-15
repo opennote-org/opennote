@@ -6,7 +6,7 @@ use local_vector_database::{Data, LocalVectorDatabase};
 use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
-    configurations::system::{Config, DatabaseConfig, EmbedderConfig},
+    configurations::system::{Config, VectorDatabaseConfig, EmbedderConfig},
     documents::{
         collection_metadata::CollectionMetadata,
         document_chunk::DocumentChunk,
@@ -22,7 +22,7 @@ use crate::{
 };
 
 pub struct Local {
-    database: Mutex<LocalVectorDatabase>,
+    vector_database: Mutex<LocalVectorDatabase>,
 }
 
 #[async_trait]
@@ -30,22 +30,22 @@ impl VectorDatabase for Local {
     async fn add_document_chunks_to_database(
         &self,
         embedder_config: &EmbedderConfig,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
         let chunks: Vec<DocumentChunk> = vectorize(embedder_config, chunks).await?;
 
-        let mut database = self.database.lock().await;
+        let mut vector_database = self.vector_database.lock().await;
 
-        database.upsert(chunks.into_iter().map(|item| item.into()).collect());
+        vector_database.upsert(chunks.into_iter().map(|item| item.into()).collect());
 
         Ok(())
     }
 
     async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
-        let database = self.database.lock().await;
+        let vector_database = self.vector_database.lock().await;
 
-        let retrieved_points = database.get_all_owned();
+        let retrieved_points = vector_database.get_all_owned();
         let document_chunks: Vec<DocumentChunk> = retrieved_points
             .into_iter()
             .map(|item| item.into())
@@ -53,7 +53,7 @@ impl VectorDatabase for Local {
 
         self.add_document_chunks_to_database(
             &configuration.embedder,
-            &configuration.database,
+            &configuration.vector_database,
             document_chunks,
         )
         .await?;
@@ -63,12 +63,12 @@ impl VectorDatabase for Local {
 
     async fn delete_documents_from_database(
         &self,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         document_ids: &Vec<String>,
     ) -> Result<()> {
-        let mut database = self.database.lock().await;
+        let mut vector_database = self.vector_database.lock().await;
 
-        let chunk_ids: Vec<String> = database
+        let chunk_ids: Vec<String> = vector_database
             .get_all()
             .iter()
             .filter(|item| {
@@ -85,7 +85,7 @@ impl VectorDatabase for Local {
             .map(|item| item.id.clone())
             .collect();
 
-        database.delete(&chunk_ids);
+        vector_database.delete(&chunk_ids);
 
         Ok(())
     }
@@ -94,10 +94,10 @@ impl VectorDatabase for Local {
         &self,
         document_chunks_ids: Vec<String>,
     ) -> Result<Vec<DocumentChunk>> {
-        let database = self.database.lock().await;
+        let vector_database = self.vector_database.lock().await;
 
         // Acquire chunk ids
-        let acquired_chunks: Vec<DocumentChunk> = database
+        let acquired_chunks: Vec<DocumentChunk> = vector_database
             .get(&document_chunks_ids)
             .into_iter()
             .map(|item| item.clone().into())
@@ -132,9 +132,9 @@ impl SemanticSearch for Local {
         )
         .await?;
 
-        let database = self.database.lock().await;
+        let vector_database = self.vector_database.lock().await;
 
-        let results: Vec<HashMap<String, serde_json::Value>> = database.query(
+        let results: Vec<HashMap<String, serde_json::Value>> = vector_database.query(
             &chunks[0].dense_text_vector,
             top_n,
             None,
@@ -200,10 +200,10 @@ impl KeywordSearch for Local {
 impl Local {
     pub async fn new(configuration: &Config) -> Result<Self> {
         Ok(Self {
-            database: Mutex::new(
+            vector_database: Mutex::new(
                 LocalVectorDatabase::new(
                     configuration.embedder.dimensions,
-                    &configuration.database.base_url,
+                    &configuration.vector_database.base_url,
                 )
                 .unwrap(),
             ),

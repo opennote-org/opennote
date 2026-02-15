@@ -119,7 +119,7 @@ pub async fn delete_collection(
 
     match vector_database
         .delete_documents_from_database(
-            &config.database,
+            &config.vector_database,
             &collection_metadata.documents_metadata_ids,
         )
         .await

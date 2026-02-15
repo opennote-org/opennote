@@ -18,6 +18,9 @@
     "path": "./data/backups_storage.json"
   },
   "database": {
+    "connection_url": "sqlite:./data/database.db"
+  },
+  "vector_database": {
     "kind": "qdrant",
     "index": "notes",
     "base_url": "http://database:6334",

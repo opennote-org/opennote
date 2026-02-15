@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::Mutex;
 
-use crate::configurations::system::{Config, DatabaseConfig, EmbedderConfig};
+use crate::configurations::system::{Config, VectorDatabaseConfig, EmbedderConfig};
 use crate::documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata};
 use crate::metadata_storage::MetadataStorage;
 use crate::search::{keyword::KeywordSearch, semantic::SemanticSearch};
@@ -23,19 +23,19 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     async fn add_document_chunks_to_database(
         &self,
         embedder_config: &EmbedderConfig,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()>;
 
     async fn add_document_chunks_to_database_and_metadata_storage(
         &self,
         embedder_config: &EmbedderConfig,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
         metadata_storage: Arc<Mutex<MetadataStorage>>,
         metadata: DocumentMetadata,
     ) -> Result<String> {
-        self.add_document_chunks_to_database(embedder_config, database_config, chunks)
+        self.add_document_chunks_to_database(embedder_config, vector_database_config, chunks)
             .await?;
 
         let metadata_id: String = metadata.id.clone();
@@ -46,7 +46,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
 
     async fn delete_documents_from_database(
         &self,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         document_ids: &Vec<String>,
     ) -> Result<()>;
 
