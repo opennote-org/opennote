@@ -34,7 +34,7 @@ use routes::configure_routes;
 use sqlx::any::install_default_drivers;
 use tokio::sync::RwLock;
 
-use crate::{checkups::{align_embedder_model, handshake_embedding_service}, mcp::service::MCPService};
+use crate::{checkups::{align_embedder_model, handshake_embedding_service}, database::traits::MetadataManagement, mcp::service::MCPService};
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -89,8 +89,8 @@ async fn main() -> Result<(), std::io::Error> {
     let app_state = match AppState::new(config.clone()).await {
         Ok(state) => {
             info!(
-                "Metadata storage file contains {} documents",
-                state.metadata_storage.lock().await.documents.len()
+                "Metadata contains {} documents",
+                state.database.get_number_documents().await.unwrap()
             );
             info!(
                 "User information storage file contains {} entries",

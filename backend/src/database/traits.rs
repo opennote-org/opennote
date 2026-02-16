@@ -1,9 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::documents::{
+use crate::{database::metadata::MetadataSettings, documents::{
     collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
-};
+}};
 
 /// it defines methods for managing metadata
 #[async_trait]
@@ -38,9 +38,15 @@ pub trait MetadataManagement {
 
     async fn add_document(&mut self, metadata: DocumentMetadata) -> Result<()>;
 
-    async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<&DocumentMetadata>;
+    async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<DocumentMetadata>;
 
     async fn remove_document(&mut self, metdata_id: &str) -> Option<DocumentMetadata>;
 
-    async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<&String>;
+    async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String>;
+    
+    async fn get_number_documents(&self) -> Result<usize>;
+    
+    async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
+    
+    async fn update_metadata_settings(&self, metadata_settings: MetadataSettings) -> Result<MetadataSettings>;
 }
