@@ -1,9 +1,14 @@
 pub mod metadata;
+pub mod traits;
+
+mod utilities;
 
 use anyhow::Result;
-use sqlx::{SqlitePool, migrate::Migrator};
+use sqlx::{migrate::{MigrateDatabase, Migrator}, SqlitePool};
 
-use crate::{metadata_storage::MetadataStorage, traits::LoadAndSave};
+use crate::{
+    database::utilities::parse_timestamp, metadata_storage::MetadataStorage, traits::LoadAndSave,
+};
 
 static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
 
@@ -15,6 +20,11 @@ pub struct Database {
 impl Database {
     /// It will load the existing database, otherwise it will create a new one
     pub async fn new(connection_url: &str) -> Result<Self> {
+        if !sqlx::Sqlite::database_exists(connection_url).await? {
+            sqlx::Sqlite::create_database(connection_url).await?;
+            log::info!("Database does not exist. Created a new one");
+        }
+        
         let pool: sqlx::Pool<sqlx::Sqlite> = SqlitePool::connect(connection_url).await?;
 
         Ok(Self { pool })
@@ -47,8 +57,8 @@ impl Database {
             )
             .bind(&collection.id)
             .bind(&collection.title)
-            .bind(&collection.created_at)
-            .bind(&collection.last_modified)
+            .bind(parse_timestamp(&collection.created_at))
+            .bind(parse_timestamp(&collection.last_modified))
             .execute(&mut *connection)
             .await?;
         }
@@ -57,25 +67,28 @@ impl Database {
         for (_, document) in metadata_storage.documents {
             sqlx::query(
                 "INSERT OR IGNORE INTO documents (id, collection_metadata_id, title, created_at, last_modified)
-                 VALUES (?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?)",
             )
             .bind(&document.id)
             .bind(&document.collection_metadata_id)
             .bind(&document.title)
-            .bind(&document.created_at)
-            .bind(&document.last_modified)
+            .bind(parse_timestamp(&document.created_at))
+            .bind(parse_timestamp(&document.last_modified))
             .execute(&mut *connection)
             .await?;
 
             // migrate all document chunks
             for (chunk_order, document_chunk_id) in document.chunks.iter().enumerate() {
                 sqlx::query(
-                    "INSERT OR IGNORE INTO document_chunks (document_metadata_id, chunk_order, document_chunk_id)
-                     VALUES (?, ?, ?)",
+                    "INSERT OR IGNORE INTO document_chunks (id, document_metadata_id, collection_metadata_id, content, chunk_order, dense_text_vector)
+                     VALUES (?, ?, ?, ?, ?, ?)",
                 )
-                .bind(&document.id)
-                .bind(chunk_order as i64)
                 .bind(document_chunk_id)
+                .bind(&document.id)
+                .bind(&document.collection_metadata_id)
+                .bind("") // Content is not available in metadata storage
+                .bind(chunk_order as i64)
+                .bind(Vec::<u8>::new()) // Dense vector is not available in metadata storage
                 .execute(&mut *connection)
                 .await?;
             }

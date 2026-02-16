@@ -13,8 +13,8 @@ VALUES (1, '', 0);
 CREATE TABLE IF NOT EXISTS collections (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    last_modified TEXT NOT NULL
+    created_at INTEGER NOT NULL,
+    last_modified INTEGER NOT NULL
 );
 
 -- Create table for documents
@@ -22,17 +22,20 @@ CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     collection_metadata_id TEXT NOT NULL,
     title TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    last_modified TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_modified INTEGER NOT NULL,
     FOREIGN KEY (collection_metadata_id) REFERENCES collections(id) ON DELETE CASCADE
 );
 
 -- Create table for document chunks
+-- The `chunk_order` is a new entry to preserve the original order in the Vecs of `chunks`
 CREATE TABLE IF NOT EXISTS document_chunks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     document_metadata_id TEXT NOT NULL,
-    chunk_order INTEGER NOT NULL,
-    document_chunk_id TEXT NOT NULL,
+    collection_metadata_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    dense_text_vector BLOB NOT NULL,
+    chunk_order INTEGER NOT NULL, 
     FOREIGN KEY (document_metadata_id) REFERENCES documents(id) ON DELETE CASCADE,
     UNIQUE(document_metadata_id, chunk_order)
 );

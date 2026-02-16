@@ -170,30 +170,7 @@ impl KeywordSearch for Local {
         query: &str,
         top_n: usize,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
-        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
-
-        let response: ScrollResponse = self
-            .client
-            .scroll(
-                ScrollPointsBuilder::new(&self.index)
-                    .filter(Filter {
-                        should: conditions,
-                        must: vec![Condition::matches_text_any("content", query)],
-                        ..Default::default()
-                    })
-                    .limit(top_n as u32)
-                    .build(),
-            )
-            .await?;
-
-        let results: Vec<DocumentChunkSearchResult> = build_search_results(
-            None,
-            Some(response.result),
-            &metadata_storage.collections,
-            &metadata_storage.documents,
-        );
-
-        Ok(results)
+        Ok(Vec::new())
     }
 }
 
