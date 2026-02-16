@@ -5,6 +5,7 @@ use anyhow::{Result, anyhow};
 use crate::{
     app_state::AppState,
     configurations::system::{Config, EmbedderConfig},
+    database::traits::MetadataManagement,
     documents::document_chunk::DocumentChunk,
     embedder::send_vectorization,
     traits::LoadAndSave,
@@ -48,20 +49,23 @@ pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> 
 }
 
 pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Result<()> {
-    let mut metadata_storage = app_state.metadata_storage.lock().await;
+    let mut metadata_settings = app_state.database.get_metadata_settings().await?;
 
     // This means the embedder model has changed
-    if metadata_storage.embedder_model_in_use != config.embedder.model
-        || metadata_storage.embedder_model_vector_size_in_use != config.embedder.dimensions
+    if metadata_settings.embedder_model_in_use != config.embedder.model
+        || metadata_settings.embedder_model_vector_size_in_use != config.embedder.dimensions
     {
         log::info!("Embedder model has changed. Perform re-indexing. please wait...");
-        app_state.database.reindex_documents(config).await?;
+        app_state.vector_database.reindex_documents(config).await?;
         log::info!("Re-indexing finished.");
     }
 
-    metadata_storage.embedder_model_in_use = config.embedder.model.clone();
-    metadata_storage.embedder_model_vector_size_in_use = config.embedder.dimensions;
-    metadata_storage.save().await?;
+    metadata_settings.embedder_model_in_use = config.embedder.model.clone();
+    metadata_settings.embedder_model_vector_size_in_use = config.embedder.dimensions;
+    app_state
+        .database
+        .update_metadata_settings(metadata_settings)
+        .await?;
 
     Ok(())
 }
