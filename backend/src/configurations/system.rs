@@ -6,26 +6,26 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
-use crate::vector_database::traits::VectorDatabaseKind;
+use crate::{database::shared::DatabaseProvider, vector_database::traits::VectorDatabaseProvider};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
-    
+
     pub logging: LoggingConfig,
-    
+
     #[serde(alias = "archieve_storage")]
     pub backups_storage: BackupsStorageConfig,
-    
+
     pub metadata_storage: MetadataStorageConfig,
-    
+
     #[serde(alias = "user_information_storage")]
     pub identities_storage: IdentitiesStorageConfig,
-    
+
     pub database: DatabaseConfig,
-    
+
     pub vector_database: VectorDatabaseConfig,
-     
+
     pub embedder: EmbedderConfig,
 }
 
@@ -50,36 +50,37 @@ pub struct EmbedderConfig {
     /// Leave it empty if you are using a locally hosted, OpenAI compatible API
     #[serde(skip)]
     pub provider: String,
-    
-    /// base url of your local embedder service. 
+
+    /// base url of your local embedder service.
     /// Leave it empty if you are using one from a provider.
     pub base_url: String,
-    
+
     /// Model name of the embedding model
     pub model: String,
-    
-    /// Larger number will make the vectorization faster, 
+
+    /// Larger number will make the vectorization faster,
     /// but try reducing the number to prevent overflowing the API
     pub vectorization_batch_size: usize,
-    
+
     /// Dimension of the embedding model
     pub dimensions: usize,
-    
+
     /// Usually this is a float
     pub encoding_format: String,
-    
+
     /// API key of the model
     pub api_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
+    pub provider: DatabaseProvider,
     pub connection_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VectorDatabaseConfig {
-    pub kind: VectorDatabaseKind,
+    pub provider: VectorDatabaseProvider,
     pub index: String,
     pub base_url: String,
     pub api_key: String,

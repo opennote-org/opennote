@@ -11,7 +11,9 @@ use sqlx::{
 
 use crate::{
     database::{
-        metadata::MetadataSettings, traits::MetadataManagement, utilities::parse_timestamp,
+        metadata::MetadataSettings,
+        traits::{Database, MetadataManagement},
+        utilities::parse_timestamp,
     },
     documents::{
         collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
@@ -27,6 +29,8 @@ static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
 pub struct SQLiteDatabase {
     pool: SqlitePool,
 }
+
+impl Database for SQLiteDatabase {}
 
 impl SQLiteDatabase {
     /// It will load the existing database, otherwise it will create a new one

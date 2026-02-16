@@ -5,6 +5,9 @@ use crate::{database::metadata::MetadataSettings, documents::{
     collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
 }};
 
+#[async_trait]
+pub trait Database: MetadataManagement {}
+
 /// it defines methods for managing metadata
 #[async_trait]
 pub trait MetadataManagement {

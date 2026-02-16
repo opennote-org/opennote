@@ -13,7 +13,7 @@ use crate::search::{keyword::KeywordSearch, semantic::SemanticSearch};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum VectorDatabaseKind {
+pub enum VectorDatabaseProvider {
     Qdrant,
 }
 
