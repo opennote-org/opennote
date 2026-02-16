@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-    backup::storage::BackupsStorage, configurations::system::Config, vector_database::{shared::create_vector_database, traits::VectorDatabase}, identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler, traits::LoadAndSave
+    backup::storage::BackupsStorage, configurations::system::Config, database::Database, identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler, traits::LoadAndSave, vector_database::{shared::create_vector_database, traits::VectorDatabase}
 };
 
 #[derive(Clone)]
@@ -20,6 +20,9 @@ impl AppState {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         let config_clone = config.clone();
         let vector_database = create_vector_database(&config).await?;
+        
+        let database = Database::new(&config.database.connection_url).await?;
+        database.migrate(&config.metadata_storage.path).await?;
 
         Ok(Self {
             config,

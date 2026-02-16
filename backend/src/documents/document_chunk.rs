@@ -7,14 +7,15 @@ use jieba_rs::Jieba;
 use local_vector_database::Data;
 use qdrant_client::{
     Payload,
-    qdrant::{NamedVectors, PointStruct, RetrievedPoint, ScoredPoint},
+    qdrant::{NamedVectors, PointStruct, RetrievedPoint},
 };
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use super::traits::{GetIndexableFields, IndexableField};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, FromRow)]
 pub struct DocumentChunk {
     pub id: String,
     pub document_metadata_id: String,
