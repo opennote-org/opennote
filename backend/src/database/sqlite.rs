@@ -122,7 +122,7 @@ impl SQLiteDatabase {
 
 #[async_trait]
 impl Identities for SQLiteDatabase {
-    async fn create_user(&mut self, username: String, password: String) -> Result<()> {
+    async fn create_user(&self, username: String, password: String) -> Result<()> {
         let user = User::new(username, password);
         let config_json = serde_json::to_string(&user.configuration)?;
 
@@ -140,6 +140,136 @@ impl Identities for SQLiteDatabase {
         Ok(())
     }
 
+    async fn add_users(&self, users: Vec<User>) -> Result<()> {
+        if users.is_empty() {
+            return Ok(());
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        let mut user_data = Vec::new();
+
+        for user in users.iter() {
+            let config_json = serde_json::to_string(&user.configuration).map_err(|e| {
+                anyhow!(
+                    "Failed to serialize configuration for user {}: {}",
+                    user.username,
+                    e
+                )
+            })?;
+            user_data.push((&user.id, &user.username, &user.password, config_json));
+        }
+
+        let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> =
+            sqlx::QueryBuilder::new("INSERT INTO users (id, username, password, configuration) ");
+
+        query_builder.push_values(user_data, |mut b, (id, username, password, config)| {
+            b.push_bind(id)
+                .push_bind(username)
+                .push_bind(password)
+                .push_bind(config);
+        });
+
+        let query = query_builder.build();
+
+        query
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| anyhow!("Failed to batch insert users: {}", e))?;
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn delete_users(&self, usernames: Vec<String>) -> Result<Vec<User>> {
+        if usernames.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut transaction = self.pool.begin().await?;
+
+        // 1. Fetch all users in one query
+        // Construct "SELECT ... WHERE username IN (?, ?, ...)"
+        let query_str = format!(
+            "SELECT id, username, password, configuration FROM users WHERE username IN ({})",
+            vec!["?"; usernames.len()].join(",")
+        );
+
+        let mut query = sqlx::query(&query_str);
+        for username in &usernames {
+            query = query.bind(username);
+        }
+
+        let user_rows = query.fetch_all(&mut *transaction).await?;
+
+        // Collect IDs for resource fetching and deletion
+        let user_ids: Vec<String> = user_rows.iter().map(|r| r.get("id")).collect();
+
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // 2. Fetch all resources in one query
+        let resource_query_str = format!(
+            "SELECT user_id, resource_id FROM user_resources WHERE user_id IN ({})",
+            vec!["?"; user_ids.len()].join(",")
+        );
+
+        let mut resource_query = sqlx::query(&resource_query_str);
+        for id in &user_ids {
+            resource_query = resource_query.bind(id);
+        }
+
+        let resource_rows = resource_query.fetch_all(&mut *transaction).await?;
+
+        // Group resources by user_id
+        let mut resources_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for row in resource_rows {
+            let user_id: String = row.get("user_id");
+            let resource_id: String = row.get("resource_id");
+            resources_map.entry(user_id).or_default().push(resource_id);
+        }
+
+        // 3. Construct the result list
+        let mut deleted_users = Vec::with_capacity(user_rows.len());
+        for row in user_rows {
+            let id: String = row.get("id");
+            let username: String = row.get("username");
+            let password: String = row.get("password");
+            let config_json: String = row.get("configuration");
+            // Gracefully handle JSON errors or propagate them
+            let configuration: UserConfigurations = serde_json::from_str(&config_json)?;
+
+            let resources = resources_map.remove(&id).unwrap_or_default();
+
+            deleted_users.push(User {
+                id,
+                username,
+                password,
+                resources,
+                configuration,
+            });
+        }
+
+        // 4. Delete users in one query (Cascades to user_resources)
+        let delete_query_str = format!(
+            "DELETE FROM users WHERE id IN ({})",
+            vec!["?"; user_ids.len()].join(",")
+        );
+
+        let mut delete_query = sqlx::query(&delete_query_str);
+        for id in &user_ids {
+            delete_query = delete_query.bind(id);
+        }
+
+        delete_query.execute(&mut *transaction).await?;
+
+        transaction.commit().await?;
+
+        Ok(deleted_users)
+    }
+
     async fn validate_user_password(&self, username: &str, password: &str) -> Result<bool> {
         let row = sqlx::query("SELECT password FROM users WHERE username = ?")
             .bind(username)
@@ -155,7 +285,7 @@ impl Identities for SQLiteDatabase {
     }
 
     async fn add_authorized_resources(
-        &mut self,
+        &self,
         username: &str,
         resource_ids: Vec<String>,
     ) -> Result<()> {
@@ -182,7 +312,7 @@ impl Identities for SQLiteDatabase {
     }
 
     async fn remove_authorized_resources(
-        &mut self,
+        &self,
         username: &str,
         resource_ids: Vec<String>,
     ) -> Result<()> {
@@ -212,7 +342,7 @@ impl Identities for SQLiteDatabase {
     }
 
     async fn update_user_configurations(
-        &mut self,
+        &self,
         username: &str,
         user_configurations: UserConfigurations,
     ) -> Result<()> {
@@ -336,7 +466,7 @@ impl Identities for SQLiteDatabase {
             Ok(false)
         }
     }
-    
+
     async fn get_all_users(&self) -> Result<Vec<User>> {
         let rows = sqlx::query("SELECT id, username, password, configuration FROM users")
             .fetch_all(&self.pool)
@@ -376,7 +506,7 @@ impl Identities for SQLiteDatabase {
 
 #[async_trait]
 impl MetadataManagement for SQLiteDatabase {
-    async fn create_collection(&mut self, title: &str) -> Result<String> {
+    async fn create_collection(&self, title: &str) -> Result<String> {
         let collection = CollectionMetadata::new(title.to_string());
         sqlx::query(
             "INSERT INTO collections (id, title, created_at, last_modified) VALUES (?, ?, ?, ?)",
@@ -391,7 +521,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn delete_collection(
-        &mut self,
+        &self,
         collection_metadata_id: &str,
     ) -> Option<CollectionMetadata> {
         let mut tx = self.pool.begin().await.ok()?;
@@ -440,7 +570,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn update_collection(
-        &mut self,
+        &self,
         mut collection_metadatas: Vec<CollectionMetadata>,
     ) -> Result<()> {
         let mut tx = self.pool.begin().await?;
@@ -474,7 +604,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn update_documents_with_new_chunks(
-        &mut self,
+        &self,
         document_metadatas: Vec<DocumentMetadata>,
     ) -> Result<()> {
         let mut tx = self.pool.begin().await?;
@@ -567,7 +697,7 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(())
     }
 
-    async fn update_documents(&mut self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
+    async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
         let mut tx = self.pool.begin().await?;
 
         for mut metadata in document_metadatas {
@@ -616,7 +746,7 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(())
     }
 
-    async fn add_document(&mut self, metadata: DocumentMetadata) -> Result<()> {
+    async fn add_document(&self, metadata: DocumentMetadata) -> Result<()> {
         let mut tx = self.pool.begin().await?;
 
         let exists = sqlx::query("SELECT 1 FROM collections WHERE id = ?")
@@ -689,7 +819,7 @@ impl MetadataManagement for SQLiteDatabase {
         })
     }
 
-    async fn remove_document(&mut self, metdata_id: &str) -> Option<DocumentMetadata> {
+    async fn remove_document(&self, metdata_id: &str) -> Option<DocumentMetadata> {
         let doc = self.get_document(metdata_id).await?;
 
         sqlx::query("DELETE FROM documents WHERE id = ?")
@@ -729,7 +859,8 @@ impl MetadataManagement for SQLiteDatabase {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut chunks_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut chunks_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for row in chunks_rows {
             let doc_id: String = row.get("document_metadata_id");
             let chunk_id: String = row.get("id");
@@ -762,22 +893,20 @@ impl MetadataManagement for SQLiteDatabase {
 
         Ok(documents)
     }
-    
+
     async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>> {
-        let rows = sqlx::query(
-            "SELECT id, title, created_at, last_modified FROM collections",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows = sqlx::query("SELECT id, title, created_at, last_modified FROM collections")
+            .fetch_all(&self.pool)
+            .await?;
 
         // Optimization: Fetch all document IDs in one go to avoid N+1 query problem
-        let doc_rows = sqlx::query(
-            "SELECT id, collection_metadata_id FROM documents ORDER BY id ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let doc_rows =
+            sqlx::query("SELECT id, collection_metadata_id FROM documents ORDER BY id ASC")
+                .fetch_all(&self.pool)
+                .await?;
 
-        let mut docs_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut docs_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for row in doc_rows {
             let collection_id: String = row.get("collection_metadata_id");
             let doc_id: String = row.get("id");
@@ -809,7 +938,10 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(collections)
     }
 
-    async fn get_collections_by_collection_metadata_id(&self, ids: Vec<String>) -> Result<Vec<CollectionMetadata>> {
+    async fn get_collections_by_collection_metadata_id(
+        &self,
+        ids: Vec<String>,
+    ) -> Result<Vec<CollectionMetadata>> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -851,7 +983,8 @@ impl MetadataManagement for SQLiteDatabase {
 
         let doc_rows = doc_query.fetch_all(&self.pool).await?;
 
-        let mut docs_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut docs_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for row in doc_rows {
             let collection_id: String = row.get("collection_metadata_id");
             let doc_id: String = row.get("id");
@@ -905,5 +1038,280 @@ impl MetadataManagement for SQLiteDatabase {
             .execute(&self.pool)
             .await?;
         Ok(metadata_settings)
+    }
+
+    async fn delete_collections(
+        &self,
+        collection_metadata_ids: &Vec<String>,
+    ) -> Result<Vec<CollectionMetadata>> {
+        if collection_metadata_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        // Build IN clause for collections
+        let placeholders: Vec<&str> = collection_metadata_ids.iter().map(|_| "?").collect();
+        let in_clause = placeholders.join(",");
+
+        // Fetch full CollectionMetadata before deletion
+        let query_str = format!(
+            "SELECT id, title, created_at, last_modified FROM collections WHERE id IN ({})",
+            in_clause
+        );
+        let mut query = sqlx::query(&query_str);
+        for id in collection_metadata_ids {
+            query = query.bind(id);
+        }
+        let rows = query.fetch_all(&mut *tx).await?;
+
+        // Build map of doc_ids per collection for metadata
+        // We need this to return the complete metadata of deleted collections
+        let doc_query_str = format!(
+            "SELECT id, collection_metadata_id FROM documents WHERE collection_metadata_id IN ({})",
+            in_clause
+        );
+        let mut doc_query = sqlx::query(&doc_query_str);
+        for id in collection_metadata_ids {
+            doc_query = doc_query.bind(id);
+        }
+        let doc_rows = doc_query.fetch_all(&mut *tx).await?;
+
+        let mut docs_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for row in doc_rows {
+            let collection_id: String = row.get("collection_metadata_id");
+            let doc_id: String = row.get("id");
+            docs_map.entry(collection_id).or_default().push(doc_id);
+        }
+
+        let mut deleted = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: String = row.get("id");
+            let title: String = row.get("title");
+            let created_at: i64 = row.get("created_at");
+            let last_modified: i64 = row.get("last_modified");
+
+            let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
+
+            deleted.push(CollectionMetadata {
+                id,
+                title,
+                created_at: UtcDateTime::from_unix_timestamp(created_at)
+                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
+                    .to_string(),
+                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
+                    .to_string(),
+                documents_metadata_ids,
+            });
+        }
+
+        // Batch delete collections
+        // With ON DELETE CASCADE enabled in the schema, this will automatically delete
+        // dependent documents and document_chunks.
+        let delete_query_str = format!("DELETE FROM collections WHERE id IN ({})", in_clause);
+        let mut delete_query = sqlx::query(&delete_query_str);
+        for id in collection_metadata_ids {
+            delete_query = delete_query.bind(id);
+        }
+        delete_query.execute(&mut *tx).await?;
+
+        tx.commit().await?;
+        Ok(deleted)
+    }
+
+    async fn delete_documents(
+        &self,
+        document_metadata_ids: &Vec<String>,
+    ) -> Result<Vec<DocumentMetadata>> {
+        if document_metadata_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        // Build IN clause for documents
+        let placeholders: Vec<&str> = document_metadata_ids.iter().map(|_| "?").collect();
+        let in_clause = placeholders.join(",");
+
+        // Fetch full DocumentMetadata before deletion
+        let query_str = format!(
+            "SELECT id, title, created_at, last_modified, collection_metadata_id FROM documents WHERE id IN ({})",
+            in_clause
+        );
+        let mut query = sqlx::query(&query_str);
+        for id in document_metadata_ids {
+            query = query.bind(id);
+        }
+        let rows = query.fetch_all(&mut *tx).await?;
+
+        // Build map of chunk_ids per document for metadata
+        let chunk_query_str = format!(
+            "SELECT id, document_metadata_id FROM document_chunks WHERE document_metadata_id IN ({}) ORDER BY chunk_order ASC",
+            in_clause
+        );
+        let mut chunk_query = sqlx::query(&chunk_query_str);
+        for id in document_metadata_ids {
+            chunk_query = chunk_query.bind(id);
+        }
+        let chunk_rows = chunk_query.fetch_all(&mut *tx).await?;
+
+        let mut chunks_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for row in chunk_rows {
+            let doc_id: String = row.get("document_metadata_id");
+            let chunk_id: String = row.get("id");
+            chunks_map.entry(doc_id).or_default().push(chunk_id);
+        }
+
+        let mut deleted = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: String = row.get("id");
+            let title: String = row.get("title");
+            let created_at: i64 = row.get("created_at");
+            let last_modified: i64 = row.get("last_modified");
+            let collection_metadata_id: String = row.get("collection_metadata_id");
+
+            let chunks = chunks_map.remove(&id).unwrap_or_default();
+
+            deleted.push(DocumentMetadata {
+                id,
+                title,
+                created_at: UtcDateTime::from_unix_timestamp(created_at)
+                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
+                    .to_string(),
+                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
+                    .to_string(),
+                collection_metadata_id,
+                chunks,
+            });
+        }
+
+        // Batch delete documents
+        // With ON DELETE CASCADE enabled in the schema, this will automatically delete
+        // dependent document_chunks.
+        let delete_query_str = format!("DELETE FROM documents WHERE id IN ({})", in_clause);
+        let mut delete_query = sqlx::query(&delete_query_str);
+        for id in document_metadata_ids {
+            delete_query = delete_query.bind(id);
+        }
+        delete_query.execute(&mut *tx).await?;
+
+        tx.commit().await?;
+        Ok(deleted)
+    }
+
+    async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()> {
+        if collection_metadatas.is_empty() {
+            return Ok(());
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
+            "INSERT INTO collections (id, title, created_at, last_modified) ",
+        );
+
+        query_builder.push_values(collection_metadatas, |mut b, collection| {
+            b.push_bind(collection.id)
+                .push_bind(collection.title)
+                .push_bind(parse_timestamp(&collection.created_at))
+                .push_bind(parse_timestamp(&collection.last_modified));
+        });
+
+        query_builder.build().execute(&mut *tx).await?;
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn add_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
+        if document_metadatas.is_empty() {
+            return Ok(());
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        // Verify collections exist
+        let collection_ids: Vec<&String> = document_metadatas
+            .iter()
+            .map(|d| &d.collection_metadata_id)
+            .collect();
+
+        if !collection_ids.is_empty() {
+            let placeholders: Vec<&str> = collection_ids.iter().map(|_| "?").collect();
+            let query = format!(
+                "SELECT id FROM collections WHERE id IN ({})",
+                placeholders.join(",")
+            );
+
+            let mut q = sqlx::query(&query);
+            for id in &collection_ids {
+                q = q.bind(id);
+            }
+
+            let rows = q.fetch_all(&mut *tx).await?;
+            let existing_ids: std::collections::HashSet<String> =
+                rows.into_iter().map(|r| r.get("id")).collect();
+
+            for id in collection_ids {
+                if !existing_ids.contains(id) {
+                    return Err(anyhow!(
+                        "Collection {} is missing. Please create a collection before adding new documents to it",
+                        id
+                    ));
+                }
+            }
+        }
+
+        // Insert documents
+        let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
+            "INSERT INTO documents (id, collection_metadata_id, title, created_at, last_modified) ",
+        );
+
+        query_builder.push_values(&document_metadatas, |mut b, metadata| {
+            b.push_bind(metadata.id.clone())
+                .push_bind(metadata.collection_metadata_id.clone())
+                .push_bind(metadata.title.clone())
+                .push_bind(parse_timestamp(&metadata.created_at))
+                .push_bind(parse_timestamp(&metadata.last_modified));
+        });
+
+        query_builder.build().execute(&mut *tx).await?;
+
+        // Insert chunks
+        let mut all_chunks = Vec::new();
+        for metadata in &document_metadatas {
+            for (i, chunk_id) in metadata.chunks.iter().enumerate() {
+                all_chunks.push((
+                    chunk_id,
+                    &metadata.id,
+                    &metadata.collection_metadata_id,
+                    i as i64,
+                ));
+            }
+        }
+
+        for chunk_batch in all_chunks.chunks(50) {
+            let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
+                "INSERT INTO document_chunks (id, document_metadata_id, collection_metadata_id, content, dense_text_vector, chunk_order) ",
+            );
+
+            query_builder.push_values(chunk_batch, |mut b, (chunk_id, doc_id, col_id, order)| {
+                b.push_bind(chunk_id)
+                    .push_bind(doc_id)
+                    .push_bind(col_id)
+                    .push_bind("")
+                    .push_bind(Vec::<u8>::new())
+                    .push_bind(order);
+            });
+
+            query_builder.build().execute(&mut *tx).await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
     }
 }

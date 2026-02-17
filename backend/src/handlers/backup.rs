@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use actix_web::{HttpResponse, Result, web};
-use tokio::sync::RwLock;
 
 use crate::{
     api_models::{
@@ -19,7 +18,6 @@ use crate::{
     },
     identities::user::User,
     tasks_scheduler::TaskStatus,
-    traits::LoadAndSave,
 };
 
 // Sync endpoint
@@ -184,7 +182,8 @@ pub async fn backup(
             .flat_map(|(_, document_metadata)| document_metadata.chunks.clone())
             .collect();
 
-        let document_chunks_snapshots: Vec<DocumentChunk> = match data.vector_database
+        let document_chunks_snapshots: Vec<DocumentChunk> = match data
+            .vector_database
             .get_document_chunks(document_chunks_ids)
             .await
         {
@@ -237,20 +236,15 @@ pub async fn backup(
 
 // Async endpoint
 pub async fn restore_backup(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<RestoreBackupRequest>,
 ) -> Result<HttpResponse> {
-    let task_id = data
-        .write()
-        .await
-        .tasks_scheduler
-        .lock()
-        .await
-        .create_new_task();
+    let task_id = data.tasks_scheduler.lock().await.create_new_task();
     let task_id_cloned = task_id.clone();
 
     tokio::spawn(async move {
-        let backup: Backup = match backups_storage
+        let backup: Backup = match data
+            .backups_storage
             .lock()
             .await
             .get_backup_by_id(&request.0.backup_id)
@@ -259,7 +253,7 @@ pub async fn restore_backup(
             None => {
                 // Failed to find the backup when trying to restore, need to use the pre-acquired variables instead
                 log::error!("Can't find backup when trying to restore: backup not found");
-                tasks_scheduler.lock().await.update_status_by_task_id(
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
                     Some("backup not found".to_string()),
@@ -273,24 +267,59 @@ pub async fn restore_backup(
         let document_metadatas_to_delete: Vec<String> = backup.get_document_metadata_ids();
 
         // Remove the old data from metadata, user information, database
-        identities_storage
-            .lock()
-            .await
-            .users
-            .retain(|item| !users_to_delete.contains(&item.username));
-
-        {
-            let mut metadata_storage = metadata_storage.lock().await;
-            metadata_storage
-                .collections
-                .retain(|id, _| !collection_metadatas_to_delete.contains(id));
-            metadata_storage
-                .documents
-                .retain(|id, _| !document_metadatas_to_delete.contains(id));
+        match data.database.delete_users(users_to_delete).await {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to delete users during restore: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to delete users: {}", e)),
+                );
+                return;
+            }
         }
 
-        match vector_database
-            .delete_documents_from_database(&config.vector_database, &document_metadatas_to_delete)
+        match data
+            .database
+            .delete_collections(&collection_metadatas_to_delete)
+            .await
+        {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to delete collections during restore: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to delete collections: {}", e)),
+                );
+                return;
+            }
+        }
+
+        match data
+            .database
+            .delete_documents(&document_metadatas_to_delete)
+            .await
+        {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to delete documents during restore: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to delete documents: {}", e)),
+                );
+                return;
+            }
+        }
+
+        match data
+            .vector_database
+            .delete_documents_from_database(
+                &data.config.vector_database,
+                &document_metadatas_to_delete,
+            )
             .await
         {
             Ok(_) => {}
@@ -299,7 +328,7 @@ pub async fn restore_backup(
                     "Failed to delete old documents from database during restore: {}",
                     e
                 );
-                tasks_scheduler.lock().await.update_status_by_task_id(
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
                     Some(format!(
@@ -312,26 +341,74 @@ pub async fn restore_backup(
         }
 
         // Swap the data from the backup in
-        identities_storage
-            .lock()
+        match data
+            .database
+            .add_users(backup.user_information_snapshots)
             .await
-            .users
-            .extend(backup.user_information_snapshots);
-
         {
-            let mut metadata_storage = metadata_storage.lock().await;
-            metadata_storage
-                .collections
-                .extend(backup.collection_metadata_snapshots);
-            metadata_storage
-                .documents
-                .extend(backup.document_metadata_snapshots);
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to add users during restore: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to add users: {}", e)),
+                );
+                return;
+            }
         }
 
-        match vector_database
+        match data
+            .database
+            .add_collections(
+                backup
+                    .collection_metadata_snapshots
+                    .into_iter()
+                    .map(|item| item.1)
+                    .collect(),
+            )
+            .await
+        {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to add collections during restore: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to add collections: {}", e)),
+                );
+                return;
+            }
+        }
+
+        match data
+            .database
+            .add_documents(
+                backup
+                    .document_metadata_snapshots
+                    .into_iter()
+                    .map(|item| item.1)
+                    .collect(),
+            )
+            .await
+        {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to add documents during restore: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(format!("Failed to add documents: {}", e)),
+                );
+                return;
+            }
+        }
+
+        match data
+            .vector_database
             .add_document_chunks_to_database(
-                &config.embedder,
-                &config.vector_database,
+                &data.config.embedder,
+                &data.config.vector_database,
                 backup.document_chunks_snapshots,
             )
             .await
@@ -342,7 +419,7 @@ pub async fn restore_backup(
                     "Failed to add document chunks to database during restore: {}",
                     e
                 );
-                tasks_scheduler.lock().await.update_status_by_task_id(
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
                     Some(format!("Failed to add document chunks to database: {}", e)),
@@ -351,33 +428,7 @@ pub async fn restore_backup(
             }
         }
 
-        match metadata_storage.lock().await.save().await {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("Failed to save metadata storage during restore: {}", e);
-                tasks_scheduler.lock().await.update_status_by_task_id(
-                    &task_id,
-                    TaskStatus::Failed,
-                    Some(format!("Failed to save metadata storage: {}", e)),
-                );
-                return;
-            }
-        };
-
-        match identities_storage.lock().await.save().await {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("Failed to save identities storage during restore: {}", e);
-                tasks_scheduler.lock().await.update_status_by_task_id(
-                    &task_id,
-                    TaskStatus::Failed,
-                    Some(format!("Failed to save metadata storage: {}", e)),
-                );
-                return;
-            }
-        }
-
-        tasks_scheduler
+        data.tasks_scheduler
             .lock()
             .await
             .set_status_to_complete(&task_id, serde_json::to_value("").unwrap());
