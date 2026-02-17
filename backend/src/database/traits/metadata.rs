@@ -8,23 +8,33 @@ use crate::{database::metadata::MetadataSettings, documents::{
 /// it defines methods for managing metadata
 #[async_trait]
 pub trait MetadataManagement {
-    async fn create_collection(&mut self, title: &str) -> Result<String>;
+    async fn create_collection(&self, title: &str) -> Result<String>;
 
     /// Return None if the given metadata id is not found
     async fn delete_collection(
-        &mut self,
+        &self,
         collection_metadata_id: &str,
     ) -> Option<CollectionMetadata>;
+    
+    async fn delete_collections(
+        &self,
+        collection_metadata_ids: &Vec<String>,
+    ) -> Result<Vec<CollectionMetadata>>;
+    
+    async fn delete_documents(
+        &self,
+        document_metadata_ids: &Vec<String>,
+    ) -> Result<Vec<DocumentMetadata>>;
 
     async fn update_collection(
-        &mut self,
+        &self,
         mut collection_metadatas: Vec<CollectionMetadata>,
     ) -> Result<()>;
 
     /// For updating chunks in document metadatas.
     /// The update method won't allow mutate the chunks for security reason.
     async fn update_documents_with_new_chunks(
-        &mut self,
+        &self,
         document_metadatas: Vec<DocumentMetadata>,
     ) -> Result<()>;
 
@@ -34,13 +44,13 @@ pub trait MetadataManagement {
         document_metadatas: &mut Vec<DocumentMetadata>,
     ) -> Result<()>;
 
-    async fn update_documents(&mut self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
+    async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
 
-    async fn add_document(&mut self, metadata: DocumentMetadata) -> Result<()>;
+    async fn add_document(&self, metadata: DocumentMetadata) -> Result<()>;
 
     async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<DocumentMetadata>;
 
-    async fn remove_document(&mut self, metdata_id: &str) -> Option<DocumentMetadata>;
+    async fn remove_document(&self, metdata_id: &str) -> Option<DocumentMetadata>;
 
     async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String>;
     
@@ -53,4 +63,8 @@ pub trait MetadataManagement {
     async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
     
     async fn update_metadata_settings(&self, metadata_settings: MetadataSettings) -> Result<MetadataSettings>;
+    
+    async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()>;
+    
+    async fn add_documents(&self, document_metadatas:Vec<DocumentMetadata>) -> Result<()>;
 }
