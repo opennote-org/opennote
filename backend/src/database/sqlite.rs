@@ -10,15 +10,17 @@ use sqlx::{
 };
 
 use crate::{
+    configurations::user::UserConfigurations,
     database::{
         metadata::MetadataSettings,
-        traits::{Database, MetadataManagement},
+        traits::{database::Database, identities::Identities, metadata::MetadataManagement},
         utilities::parse_timestamp,
     },
     documents::{
         collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
         traits::ValidateDataMutabilitiesForAPICaller,
     },
+    identities::user::User,
     metadata_storage::MetadataStorage,
     traits::LoadAndSave,
 };
@@ -30,28 +32,11 @@ pub struct SQLiteDatabase {
     pool: SqlitePool,
 }
 
-impl Database for SQLiteDatabase {}
-
-impl SQLiteDatabase {
-    /// It will load the existing database, otherwise it will create a new one
-    pub async fn new(connection_url: &str) -> Result<Self> {
-        if !sqlx::Sqlite::database_exists(connection_url).await? {
-            sqlx::Sqlite::create_database(connection_url).await?;
-            log::info!("Database does not exist. Created a new one");
-        }
-
-        let options = SqliteConnectOptions::from_str(connection_url)?
-            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-            .busy_timeout(Duration::from_secs(5));
-
-        let pool = SqlitePool::connect_with(options).await?;
-
-        Ok(Self { pool })
-    }
-
+#[async_trait]
+impl Database for SQLiteDatabase {
     /// Perform upgrades to the existing database
     /// The `path` is to specify the legacy `metadata_storage` path
-    pub async fn migrate(&self, path: &str) -> Result<()> {
+    async fn migrate(&self, path: &str) -> Result<()> {
         MIGRATOR.run(&self.pool).await?;
 
         let metadata_storage = MetadataStorage::load(path)?;
@@ -114,6 +99,278 @@ impl SQLiteDatabase {
         }
 
         Ok(())
+    }
+}
+
+impl SQLiteDatabase {
+    /// It will load the existing database, otherwise it will create a new one
+    pub async fn new(connection_url: &str) -> Result<Self> {
+        if !sqlx::Sqlite::database_exists(connection_url).await? {
+            sqlx::Sqlite::create_database(connection_url).await?;
+            log::info!("Database does not exist. Created a new one");
+        }
+
+        let options = SqliteConnectOptions::from_str(connection_url)?
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            .busy_timeout(Duration::from_secs(5));
+
+        let pool = SqlitePool::connect_with(options).await?;
+
+        Ok(Self { pool })
+    }
+}
+
+#[async_trait]
+impl Identities for SQLiteDatabase {
+    async fn create_user(&mut self, username: String, password: String) -> Result<()> {
+        let user = User::new(username, password);
+        let config_json = serde_json::to_string(&user.configuration)?;
+
+        sqlx::query(
+            "INSERT INTO users (id, username, password, configuration) VALUES (?, ?, ?, ?)",
+        )
+        .bind(&user.id)
+        .bind(&user.username)
+        .bind(&user.password)
+        .bind(config_json)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| anyhow!("Failed to create user: {}", e))?;
+
+        Ok(())
+    }
+
+    async fn validate_user_password(&self, username: &str, password: &str) -> Result<bool> {
+        let row = sqlx::query("SELECT password FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = row {
+            let stored_password: String = row.get("password");
+            return Ok(stored_password == password);
+        }
+
+        Err(anyhow!("User `{}` does not exist", username))
+    }
+
+    async fn add_authorized_resources(
+        &mut self,
+        username: &str,
+        resource_ids: Vec<String>,
+    ) -> Result<()> {
+        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = user_row {
+            let user_id: String = row.get("id");
+            for resource_id in resource_ids {
+                sqlx::query(
+                    "INSERT OR IGNORE INTO user_resources (user_id, resource_id) VALUES (?, ?)",
+                )
+                .bind(&user_id)
+                .bind(resource_id)
+                .execute(&self.pool)
+                .await?;
+            }
+            Ok(())
+        } else {
+            Err(anyhow!("User `{}` does not exist", username))
+        }
+    }
+
+    async fn remove_authorized_resources(
+        &mut self,
+        username: &str,
+        resource_ids: Vec<String>,
+    ) -> Result<()> {
+        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = user_row {
+            let user_id: String = row.get("id");
+            for resource_id in resource_ids {
+                sqlx::query("DELETE FROM user_resources WHERE user_id = ? AND resource_id = ?")
+                    .bind(&user_id)
+                    .bind(resource_id)
+                    .execute(&self.pool)
+                    .await?;
+            }
+            Ok(())
+        } else {
+            Err(anyhow!("User `{}` does not exist", username))
+        }
+    }
+
+    async fn check_permission(&self, username: &str, resource_ids: Vec<String>) -> Result<bool> {
+        self.is_user_owning_collections(username, &resource_ids)
+            .await
+    }
+
+    async fn update_user_configurations(
+        &mut self,
+        username: &str,
+        user_configurations: UserConfigurations,
+    ) -> Result<()> {
+        let config_json = serde_json::to_string(&user_configurations)?;
+
+        let result = sqlx::query("UPDATE users SET configuration = ? WHERE username = ?")
+            .bind(config_json)
+            .bind(username)
+            .execute(&self.pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            Err(anyhow!("User `{}` does not exist", username))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn get_user_configurations(&self, username: &str) -> Result<UserConfigurations> {
+        let row = sqlx::query("SELECT configuration FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = row {
+            let config_json: String = row.get("configuration");
+            let config: UserConfigurations = serde_json::from_str(&config_json)?;
+            Ok(config)
+        } else {
+            Err(anyhow!("User `{}` does not exist", username))
+        }
+    }
+
+    async fn get_users_by_resource_id(&self, id: &str) -> Result<Vec<User>> {
+        let rows = sqlx::query(
+            "SELECT u.id, u.username, u.password, u.configuration
+             FROM users u
+             JOIN user_resources ur ON u.id = ur.user_id
+             WHERE ur.resource_id = ?",
+        )
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            let user_id: String = row.get("id");
+            let username: String = row.get("username");
+            let password: String = row.get("password");
+            let config_json: String = row.get("configuration");
+            let configuration: UserConfigurations = serde_json::from_str(&config_json)?;
+
+            let resource_rows =
+                sqlx::query("SELECT resource_id FROM user_resources WHERE user_id = ?")
+                    .bind(&user_id)
+                    .fetch_all(&self.pool)
+                    .await?;
+
+            let resources: Vec<String> =
+                resource_rows.iter().map(|r| r.get("resource_id")).collect();
+
+            users.push(User {
+                id: user_id,
+                username,
+                password,
+                resources,
+                configuration,
+            });
+        }
+
+        Ok(users)
+    }
+
+    async fn get_resource_ids_by_username(&self, username: &str) -> Result<Vec<String>> {
+        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = user_row {
+            let user_id: String = row.get("id");
+            let resource_rows =
+                sqlx::query("SELECT resource_id FROM user_resources WHERE user_id = ?")
+                    .bind(&user_id)
+                    .fetch_all(&self.pool)
+                    .await?;
+
+            Ok(resource_rows.iter().map(|r| r.get("resource_id")).collect())
+        } else {
+            Err(anyhow!("User `{}` does not exist", username))
+        }
+    }
+
+    async fn is_user_owning_collections(
+        &self,
+        username: &str,
+        collection_metadata_ids: &[String],
+    ) -> Result<bool> {
+        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = user_row {
+            let user_id: String = row.get("id");
+            // Check if all collection_metadata_ids are in user_resources
+            for id in collection_metadata_ids {
+                let exists = sqlx::query(
+                    "SELECT 1 FROM user_resources WHERE user_id = ? AND resource_id = ?",
+                )
+                .bind(&user_id)
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+                if exists.is_none() {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+    
+    async fn get_all_users(&self) -> Result<Vec<User>> {
+        let rows = sqlx::query("SELECT id, username, password, configuration FROM users")
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut users = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let id: String = row.get("id");
+            let username: String = row.get("username");
+            let password: String = row.get("password");
+            let config_json: String = row.get("configuration");
+            let configuration: UserConfigurations = serde_json::from_str(&config_json)?;
+
+            // Fetch resource IDs for this user
+            let resource_rows =
+                sqlx::query("SELECT resource_id FROM user_resources WHERE user_id = ?")
+                    .bind(&id)
+                    .fetch_all(&self.pool)
+                    .await?;
+
+            let resources: Vec<String> =
+                resource_rows.iter().map(|r| r.get("resource_id")).collect();
+
+            users.push(User {
+                id,
+                username,
+                password,
+                resources,
+                configuration,
+            });
+        }
+
+        Ok(users)
     }
 }
 
@@ -458,12 +715,172 @@ impl MetadataManagement for SQLiteDatabase {
         }
     }
 
-    async fn get_number_documents(&self) -> Result<usize> {
-        let row = sqlx::query("SELECT COUNT(*) as count FROM documents")
-            .fetch_one(&self.pool)
-            .await?;
-        let count: i64 = row.get("count");
-        Ok(count as usize)
+    async fn get_all_documents(&self) -> Result<Vec<DocumentMetadata>> {
+        let rows = sqlx::query(
+            "SELECT id, title, created_at, last_modified, collection_metadata_id FROM documents",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Optimization: Fetch all chunk IDs in one go to avoid N+1 query problem
+        let chunks_rows = sqlx::query(
+            "SELECT id, document_metadata_id FROM document_chunks ORDER BY chunk_order ASC",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut chunks_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for row in chunks_rows {
+            let doc_id: String = row.get("document_metadata_id");
+            let chunk_id: String = row.get("id");
+            chunks_map.entry(doc_id).or_default().push(chunk_id);
+        }
+
+        let mut documents = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: String = row.get("id");
+            let title: String = row.get("title");
+            let created_at: i64 = row.get("created_at");
+            let last_modified: i64 = row.get("last_modified");
+            let collection_metadata_id: String = row.get("collection_metadata_id");
+
+            let chunks = chunks_map.remove(&id).unwrap_or_default();
+
+            documents.push(DocumentMetadata {
+                id,
+                title,
+                created_at: UtcDateTime::from_unix_timestamp(created_at)
+                    .unwrap()
+                    .to_string(),
+                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+                    .unwrap()
+                    .to_string(),
+                collection_metadata_id,
+                chunks,
+            });
+        }
+
+        Ok(documents)
+    }
+    
+    async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>> {
+        let rows = sqlx::query(
+            "SELECT id, title, created_at, last_modified FROM collections",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Optimization: Fetch all document IDs in one go to avoid N+1 query problem
+        let doc_rows = sqlx::query(
+            "SELECT id, collection_metadata_id FROM documents ORDER BY id ASC",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut docs_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for row in doc_rows {
+            let collection_id: String = row.get("collection_metadata_id");
+            let doc_id: String = row.get("id");
+            docs_map.entry(collection_id).or_default().push(doc_id);
+        }
+
+        let mut collections = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: String = row.get("id");
+            let title: String = row.get("title");
+            let created_at: i64 = row.get("created_at");
+            let last_modified: i64 = row.get("last_modified");
+
+            let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
+
+            collections.push(CollectionMetadata {
+                id,
+                title,
+                created_at: UtcDateTime::from_unix_timestamp(created_at)
+                    .unwrap()
+                    .to_string(),
+                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+                    .unwrap()
+                    .to_string(),
+                documents_metadata_ids,
+            });
+        }
+
+        Ok(collections)
+    }
+
+    async fn get_collections_by_collection_metadata_id(&self, ids: Vec<String>) -> Result<Vec<CollectionMetadata>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Build the IN clause placeholders
+        let placeholders: Vec<&str> = ids.iter().map(|_| "?").collect();
+        let in_clause = placeholders.join(",");
+
+        let query_str = format!(
+            "SELECT id, title, created_at, last_modified FROM collections WHERE id IN ({})",
+            in_clause
+        );
+
+        let mut query = sqlx::query(&query_str);
+        for id in &ids {
+            query = query.bind(id);
+        }
+
+        let rows = query.fetch_all(&self.pool).await?;
+
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Optimization: Fetch all document IDs for these collections in one go
+        let found_ids: Vec<String> = rows.iter().map(|r| r.get("id")).collect();
+        let doc_placeholders: Vec<&str> = found_ids.iter().map(|_| "?").collect();
+        let doc_in_clause = doc_placeholders.join(",");
+
+        let doc_query_str = format!(
+            "SELECT id, collection_metadata_id FROM documents WHERE collection_metadata_id IN ({})",
+            doc_in_clause
+        );
+
+        let mut doc_query = sqlx::query(&doc_query_str);
+        for id in &found_ids {
+            doc_query = doc_query.bind(id);
+        }
+
+        let doc_rows = doc_query.fetch_all(&self.pool).await?;
+
+        let mut docs_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for row in doc_rows {
+            let collection_id: String = row.get("collection_metadata_id");
+            let doc_id: String = row.get("id");
+            docs_map.entry(collection_id).or_default().push(doc_id);
+        }
+
+        let mut collections = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: String = row.get("id");
+            let title: String = row.get("title");
+            let created_at: i64 = row.get("created_at");
+            let last_modified: i64 = row.get("last_modified");
+
+            let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
+
+            collections.push(CollectionMetadata {
+                id,
+                title,
+                created_at: UtcDateTime::from_unix_timestamp(created_at)
+                    .unwrap()
+                    .to_string(),
+                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+                    .unwrap()
+                    .to_string(),
+                documents_metadata_ids,
+            });
+        }
+
+        Ok(collections)
     }
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings> {

@@ -14,7 +14,6 @@ mod routes;
 mod search;
 mod tasks_scheduler;
 mod traits;
-mod utilities;
 mod mcp;
 mod vector_database;
 mod database;
@@ -32,9 +31,8 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp_actix_web::transport::StreamableHttpService;
 use routes::configure_routes;
 use sqlx::any::install_default_drivers;
-use tokio::sync::RwLock;
 
-use crate::{checkups::{align_embedder_model, handshake_embedding_service}, database::traits::MetadataManagement, mcp::service::MCPService};
+use crate::{checkups::{align_embedder_model, handshake_embedding_service}, database::traits::metadata::MetadataManagement, mcp::service::MCPService};
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -90,7 +88,7 @@ async fn main() -> Result<(), std::io::Error> {
         Ok(state) => {
             info!(
                 "Metadata contains {} documents",
-                state.database.get_number_documents().await.unwrap()
+                state.database.get_all_documents().await.unwrap().len()
             );
             info!(
                 "User information storage file contains {} entries",
@@ -120,7 +118,7 @@ async fn main() -> Result<(), std::io::Error> {
                 }
             }
 
-            web::Data::new(RwLock::new(state))
+            web::Data::new(state)
         }
         Err(e) => {
             error!("Failed to initialize app state: {}", e);

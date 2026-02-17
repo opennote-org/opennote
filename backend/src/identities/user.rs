@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use crate::configurations::user::UserConfigurations;
@@ -7,7 +8,7 @@ use crate::configurations::user::UserConfigurations;
 /// 1. APIs: Login, Logout,
 /// 2. Each resource will check against the token retrieved from Login
 /// 3. Each resource will unhash the token and check agains the record
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, FromRow)]
 pub struct User {
     pub id: String,
     pub username: String,

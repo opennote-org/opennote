@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use crate::{
     backup::storage::BackupsStorage,
     configurations::system::Config,
-    database::sqlite::SQLiteDatabase,
+    database::{shared::create_database, traits::database::Database},
     identities::storage::IdentitiesStorage,
     tasks_scheduler::TasksScheduler,
     traits::LoadAndSave,
@@ -19,15 +19,15 @@ pub struct AppState {
     pub vector_database: Arc<dyn VectorDatabase>,
     pub backups_storage: Arc<Mutex<BackupsStorage>>,
     pub identities_storage: Arc<Mutex<IdentitiesStorage>>,
-    pub database: Arc<SQLiteDatabase>,
+    pub database: Arc<dyn Database>,
 }
 
 impl AppState {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         let config_clone = config.clone();
         let vector_database = create_vector_database(&config).await?;
-
-        let database: SQLiteDatabase = SQLiteDatabase::new(&config.database.connection_url).await?;
+        
+        let database = create_database(&config).await?;
         database.migrate(&config.metadata_storage.path).await?;
 
         Ok(Self {
@@ -40,7 +40,7 @@ impl AppState {
             identities_storage: Arc::new(Mutex::new(IdentitiesStorage::load(
                 &config_clone.identities_storage.path,
             )?)),
-            database: Arc::new(database),
+            database,
         })
     }
 }

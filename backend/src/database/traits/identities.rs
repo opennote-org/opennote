@@ -1,0 +1,49 @@
+use anyhow::Result;
+use async_trait::async_trait;
+
+use crate::{configurations::user::UserConfigurations, identities::user::User};
+
+#[async_trait]
+pub trait Identities {
+    /// Username must be unique
+    async fn create_user(&mut self, username: String, password: String) -> Result<()>;
+
+    async fn validate_user_password(&self, username: &str, password: &str) -> Result<bool>;
+
+    async fn add_authorized_resources(
+        &mut self,
+        username: &str,
+        resource_ids: Vec<String>,
+    ) -> Result<()>;
+
+    async fn remove_authorized_resources(
+        &mut self,
+        username: &str,
+        resource_ids: Vec<String>,
+    ) -> Result<()>;
+
+    /// See if the user has the permission to access the given resources
+    async fn check_permission(&self, username: &str, resource_ids: Vec<String>) -> Result<bool>;
+
+    async fn update_user_configurations(
+        &mut self,
+        username: &str,
+        user_configurations: UserConfigurations,
+    ) -> Result<()>;
+
+    async fn get_user_configurations(&self, username: &str) -> Result<UserConfigurations>;
+
+    async fn get_users_by_resource_id(&self, id: &str) -> Result<Vec<User>>;
+
+    async fn get_resource_ids_by_username(&self, username: &str) -> Result<Vec<String>>;
+
+    /// Return false if the username does not exist or not owning the specified collections.
+    /// Vice versa.
+    async fn is_user_owning_collections(
+        &self,
+        username: &str,
+        collection_metadata_ids: &[String],
+    ) -> Result<bool>;
+    
+    async fn get_all_users(&self) -> Result<Vec<User>>;
+}
