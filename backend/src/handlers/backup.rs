@@ -14,25 +14,22 @@ use crate::{
     app_state::AppState,
     backup::{base::Backup, list_item::BackupListItem},
     documents::{
-        collection_metadata::CollectionMetadata,
-        document_chunk::DocumentChunk,
+        collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
     identities::user::User,
     tasks_scheduler::TaskStatus,
     traits::LoadAndSave,
-    utilities::acquire_data,
 };
 
 // Sync endpoint
 pub async fn remove_backups(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<RemoveBackupsRequest>,
 ) -> Result<HttpResponse> {
     // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, backups_storage) = acquire_data(&data).await;
-
-    match backups_storage
+    match data
+        .backups_storage
         .lock()
         .await
         .remove_backups_by_ids(&request.backup_ids)
@@ -55,13 +52,11 @@ pub async fn remove_backups(
 
 // Sync endpoint
 pub async fn get_backups_list(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<GetBackupsListRequest>,
 ) -> Result<HttpResponse> {
-    // Pull what we need out of AppState without holding the lock during I/O
-    let (_, _, _, _, _, backups_storage) = acquire_data(&data).await;
-
-    let backups: Vec<BackupListItem> = backups_storage
+    let backups: Vec<BackupListItem> = data
+        .backups_storage
         .lock()
         .await
         .get_backups_by_scope(&request.0.scope)
@@ -77,7 +72,7 @@ pub async fn get_backups_list(
 
 // Async endpoint
 pub async fn backup(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<BackupRequest>,
 ) -> Result<HttpResponse> {
     // TODO: need to distinguish between User scope and others
@@ -87,30 +82,24 @@ pub async fn backup(
     // 2. All resources under this user
     // 3. Database entries that belongs to this user
 
-    let task_id = data
-        .write()
-        .await
-        .tasks_scheduler
-        .lock()
-        .await
-        .create_new_task();
+    let task_id = data.tasks_scheduler.lock().await.create_new_task();
     let task_id_cloned = task_id.clone();
 
     tokio::spawn(async move {
-        // Pull what we need out of AppState without holding the lock during I/O
-        let (
-            vector_database,
-            metadata_storage,
-            tasks_scheduler,
-            _,
-            identities_storage,
-            backups_storage,
-        ) = acquire_data(&data).await;
+        let users = match data.database.get_all_users().await {
+            Ok(users) => users,
+            Err(e) => {
+                log::error!("Failed to fetch users when trying to backup: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(e.to_string()),
+                );
+                return;
+            }
+        };
 
-        let user_information_snapshots: Vec<User> = identities_storage
-            .lock()
-            .await
-            .users
+        let user_information_snapshots: Vec<User> = users
             .iter()
             .filter(|item| item.username == request.0.scope.id)
             .map(|item| item.to_owned())
@@ -121,7 +110,7 @@ pub async fn backup(
             log::error!(
                 "Can't fetch user information when trying to backup: no backup targets found"
             );
-            tasks_scheduler.lock().await.update_status_by_task_id(
+            data.tasks_scheduler.lock().await.update_status_by_task_id(
                 &task_id,
                 TaskStatus::Failed,
                 Some("no backup targets found".to_string()),
@@ -130,9 +119,38 @@ pub async fn backup(
         }
 
         let mut collection_metadata_snapshots: HashMap<String, CollectionMetadata> =
-            metadata_storage.lock().await.collections.clone();
+            match data.database.get_all_collections().await {
+                Ok(collections) => collections
+                    .into_iter()
+                    .map(|item| (item.id.clone(), item))
+                    .collect(),
+                Err(e) => {
+                    log::error!("Failed to fetch collections when trying to backup: {}", e);
+                    data.tasks_scheduler.lock().await.update_status_by_task_id(
+                        &task_id,
+                        TaskStatus::Failed,
+                        Some(e.to_string()),
+                    );
+                    return;
+                }
+            };
+
         let mut document_metadata_snapshots: HashMap<String, DocumentMetadata> =
-            metadata_storage.lock().await.documents.clone();
+            match data.database.get_all_documents().await {
+                Ok(documents) => documents
+                    .into_iter()
+                    .map(|item| (item.id.clone(), item))
+                    .collect(),
+                Err(e) => {
+                    log::error!("Failed to fetch documents when trying to backup: {}", e);
+                    data.tasks_scheduler.lock().await.update_status_by_task_id(
+                        &task_id,
+                        TaskStatus::Failed,
+                        Some(e.to_string()),
+                    );
+                    return;
+                }
+            };
 
         for user_information_snapshot in user_information_snapshots.iter() {
             let mut collection_metadata_ids: Vec<String> = Vec::new();
@@ -165,21 +183,23 @@ pub async fn backup(
             .iter()
             .flat_map(|(_, document_metadata)| document_metadata.chunks.clone())
             .collect();
-        
-        let document_chunks_snapshots: Vec<DocumentChunk> =
-            match vector_database.get_document_chunks(document_chunks_ids).await {
-                Ok(points) => points,
-                Err(e) => {
-                    // Failed to get document chunks when trying to backup, need to use the pre-acquired variables instead
-                    log::error!("Can't get document chunks when trying to backup: {}", e);
-                    tasks_scheduler.lock().await.update_status_by_task_id(
-                        &task_id,
-                        TaskStatus::Failed,
-                        Some(e.to_string()),
-                    );
-                    return;
-                }
-            };
+
+        let document_chunks_snapshots: Vec<DocumentChunk> = match data.vector_database
+            .get_document_chunks(document_chunks_ids)
+            .await
+        {
+            Ok(points) => points,
+            Err(e) => {
+                // Failed to get document chunks when trying to backup, need to use the pre-acquired variables instead
+                log::error!("Can't get document chunks when trying to backup: {}", e);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(e.to_string()),
+                );
+                return;
+            }
+        };
 
         let backup: Backup = Backup::new(
             request.0.scope.clone(),
@@ -190,11 +210,11 @@ pub async fn backup(
         );
         let backup_id = backup.id.clone();
 
-        match backups_storage.lock().await.add_backup(backup).await {
+        match data.backups_storage.lock().await.add_backup(backup).await {
             Ok(_) => {}
             Err(e) => {
                 log::error!("Failed to save backup: {}", e);
-                tasks_scheduler.lock().await.update_status_by_task_id(
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
                     Some(format!("Failed to save backup: {}", e)),
@@ -203,7 +223,7 @@ pub async fn backup(
             }
         };
 
-        tasks_scheduler.lock().await.set_status_to_complete(
+        data.tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,
             serde_json::to_value(BackupResponse { backup_id }).unwrap(),
         );
@@ -230,16 +250,6 @@ pub async fn restore_backup(
     let task_id_cloned = task_id.clone();
 
     tokio::spawn(async move {
-        // Pull what we need out of AppState without holding the lock during I/O
-        let (
-            vector_database,
-            metadata_storage,
-            tasks_scheduler,
-            config,
-            identities_storage,
-            backups_storage,
-        ) = acquire_data(&data).await;
-
         let backup: Backup = match backups_storage
             .lock()
             .await
@@ -279,11 +289,9 @@ pub async fn restore_backup(
                 .retain(|id, _| !document_metadatas_to_delete.contains(id));
         }
 
-        match vector_database.delete_documents_from_database(
-            &config.vector_database,
-            &document_metadatas_to_delete,
-        )
-        .await
+        match vector_database
+            .delete_documents_from_database(&config.vector_database, &document_metadatas_to_delete)
+            .await
         {
             Ok(_) => {}
             Err(e) => {
@@ -320,12 +328,13 @@ pub async fn restore_backup(
                 .extend(backup.document_metadata_snapshots);
         }
 
-        match vector_database.add_document_chunks_to_database(
-            &config.embedder,
-            &config.vector_database,
-            backup.document_chunks_snapshots,
-        )
-        .await
+        match vector_database
+            .add_document_chunks_to_database(
+                &config.embedder,
+                &config.vector_database,
+                backup.document_chunks_snapshots,
+            )
+            .await
         {
             Ok(_) => {}
             Err(e) => {

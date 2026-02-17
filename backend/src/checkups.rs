@@ -5,10 +5,9 @@ use anyhow::{Result, anyhow};
 use crate::{
     app_state::AppState,
     configurations::system::{Config, EmbedderConfig},
-    database::traits::MetadataManagement,
+    database::traits::metadata::MetadataManagement,
     documents::document_chunk::DocumentChunk,
     embedder::send_vectorization,
-    traits::LoadAndSave,
 };
 
 pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> {

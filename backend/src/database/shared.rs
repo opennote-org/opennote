@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     configurations::system::Config,
-    database::{sqlite::SQLiteDatabase, traits::Database},
+    database::{sqlite::SQLiteDatabase, traits::database::Database},
 };
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]

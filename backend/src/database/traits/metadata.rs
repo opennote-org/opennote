@@ -5,9 +5,6 @@ use crate::{database::metadata::MetadataSettings, documents::{
     collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
 }};
 
-#[async_trait]
-pub trait Database: MetadataManagement {}
-
 /// it defines methods for managing metadata
 #[async_trait]
 pub trait MetadataManagement {
@@ -47,7 +44,11 @@ pub trait MetadataManagement {
 
     async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String>;
     
-    async fn get_number_documents(&self) -> Result<usize>;
+    async fn get_all_documents(&self) -> Result<Vec<DocumentMetadata>>;
+    
+    async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>>;
+    
+    async fn get_collections_by_collection_metadata_id(&self, ids: Vec<String>) -> Result<Vec<CollectionMetadata>>;
     
     async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
     
