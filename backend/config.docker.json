@@ -19,7 +19,7 @@
   },
   "database": {
     "provider": "sqlite",
-    "connection_url": "sqlite:./data/database.db"
+    "connection_url": "sqlite://./data/database.sqlite?mode=rwc"
   },
   "vector_database": {
     "provider": "qdrant",

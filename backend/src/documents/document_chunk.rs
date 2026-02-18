@@ -10,12 +10,11 @@ use qdrant_client::{
     qdrant::{NamedVectors, PointStruct, RetrievedPoint},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use super::traits::{GetIndexableFields, IndexableField};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct DocumentChunk {
     pub id: String,
     pub document_metadata_id: String,

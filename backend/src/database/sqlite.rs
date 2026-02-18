@@ -1,13 +1,15 @@
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use actix_web::cookie::time::UtcDateTime;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use sqlx::{
-    Row, SqlitePool,
-    migrate::{MigrateDatabase, Migrator},
-    sqlite::SqliteConnectOptions,
+use migration::{Migrator, MigratorTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter, Set,
+    sea_query::{Expr, OnConflict},
 };
+use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
+use crate::traits::LoadAndSave;
 
 use crate::{
     configurations::user::UserConfigurations,
@@ -21,82 +23,185 @@ use crate::{
         traits::ValidateDataMutabilitiesForAPICaller,
     },
     identities::user::User,
-    metadata_storage::MetadataStorage,
-    traits::LoadAndSave,
 };
-
-static MIGRATOR: Migrator = sqlx::migrate!(); // defaults to "./migrations"
 
 #[derive(Debug, Clone)]
 pub struct SQLiteDatabase {
-    pool: SqlitePool,
+    pool: DatabaseConnection,
 }
 
 #[async_trait]
 impl Database for SQLiteDatabase {
-    /// Perform upgrades to the existing database
-    /// The `path` is to specify the legacy `metadata_storage` path
-    async fn migrate(&self, path: &str) -> Result<()> {
-        MIGRATOR.run(&self.pool).await?;
+    async fn migrate_users(
+        &self,
+        identities_storage: &IdentitiesStorage,
+    ) -> Result<()> {
+        // migrate all users
+        use crate::database::entity::users;
+        use crate::database::entity::user_resources;
 
-        let metadata_storage = MetadataStorage::load(path)?;
-        let mut connection = self.pool.acquire().await?;
+        let mut users_to_insert = Vec::new();
+        let mut user_resources_to_insert = Vec::new();
 
-        // migrate the global settings in metadata storage first
-        sqlx::query(
-            "UPDATE metadata_settings
-             SET embedder_model_in_use = ?, embedder_model_vector_size_in_use = ?
-             WHERE id = 1",
-        )
-        .bind(&metadata_storage.embedder_model_in_use)
-        .bind(metadata_storage.embedder_model_vector_size_in_use as i64)
-        .execute(&mut *connection)
-        .await?;
+        for user in identities_storage.users.iter() {
+            let config_json = serde_json::to_string(&user.configuration)
+                .map_err(|e| anyhow!("Failed to serialize user configuration: {}", e))?;
 
-        // migrate all collection records
-        for (_, collection) in metadata_storage.collections {
-            sqlx::query(
-                "INSERT OR IGNORE INTO collections (id, title, created_at, last_modified)
-                 VALUES (?, ?, ?, ?)",
-            )
-            .bind(&collection.id)
-            .bind(&collection.title)
-            .bind(parse_timestamp(&collection.created_at))
-            .bind(parse_timestamp(&collection.last_modified))
-            .execute(&mut *connection)
-            .await?;
+            users_to_insert.push(users::ActiveModel {
+                id: Set(user.id.clone()),
+                username: Set(user.username.clone()),
+                password: Set(user.password.clone()),
+                configuration: Set(config_json),
+                ..Default::default()
+            });
+
+            for resource_id in user.resources.iter() {
+                user_resources_to_insert.push(user_resources::ActiveModel {
+                    user_id: Set(user.id.clone()),
+                    resource_id: Set(resource_id.to_string()),
+                    ..Default::default()
+                });
+            }
         }
 
-        // migrate all document records
-        for (_, document) in metadata_storage.documents {
-            sqlx::query(
-                "INSERT OR IGNORE INTO documents (id, collection_metadata_id, title, created_at, last_modified)
-                 VALUES (?, ?, ?, ?, ?)",
+        if !users_to_insert.is_empty() {
+            users::Entity::insert_many(users_to_insert)
+                .on_conflict(
+                    OnConflict::column(users::Column::Id)
+                        .do_nothing()
+                        .to_owned(),
+                )
+                .exec(&self.pool)
+                .await?;
+        }
+
+        if !user_resources_to_insert.is_empty() {
+            user_resources::Entity::insert_many(user_resources_to_insert)
+                .on_conflict(
+                    OnConflict::column(user_resources::Column::UserId)
+                        .do_nothing()
+                        .to_owned(),
+                )
+                .exec(&self.pool)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn migrate_collections(&self, metadata_storage: &MetadataStorage) -> Result<()> {
+        // migrate all collection records
+        use crate::database::entity::collections;
+        let mut collections_to_insert = Vec::new();
+        for (_, collection) in metadata_storage.collections.iter() {
+            collections_to_insert.push(collections::ActiveModel {
+                id: Set(collection.id.to_string()),
+                title: Set(collection.title.to_string()),
+                created_at: Set(parse_timestamp(&collection.created_at)),
+                last_modified: Set(parse_timestamp(&collection.last_modified)),
+                ..Default::default()
+            });
+
+        }
+        
+        collections::Entity::insert_many(collections_to_insert)
+            .on_conflict(
+                OnConflict::column(collections::Column::Id)
+                    .do_nothing()
+                    .to_owned(),
             )
-            .bind(&document.id)
-            .bind(&document.collection_metadata_id)
-            .bind(&document.title)
-            .bind(parse_timestamp(&document.created_at))
-            .bind(parse_timestamp(&document.last_modified))
-            .execute(&mut *connection)
+            .exec(&self.pool)
             .await?;
+
+        Ok(())
+    }
+    
+    async fn migrate_documents(&self, metadata_storage: &MetadataStorage) -> Result<()> {
+        // migrate all document records
+        use crate::database::entity::document_chunks;
+        use crate::database::entity::documents;
+
+        let mut documents_to_insert = Vec::new();
+        let mut chunks_to_insert = Vec::new();
+        for (_, document) in metadata_storage.documents.iter() {
+            documents_to_insert.push(documents::ActiveModel {
+                id: Set(document.id.clone()),
+                collection_metadata_id: Set(document.collection_metadata_id.clone()),
+                title: Set(document.title.to_string()),
+                created_at: Set(parse_timestamp(&document.created_at)),
+                last_modified: Set(parse_timestamp(&document.last_modified)),
+                ..Default::default()
+            });
 
             // migrate all document chunks
             for (chunk_order, document_chunk_id) in document.chunks.iter().enumerate() {
-                sqlx::query(
-                    "INSERT OR IGNORE INTO document_chunks (id, document_metadata_id, collection_metadata_id, content, chunk_order, dense_text_vector)
-                     VALUES (?, ?, ?, ?, ?, ?)",
-                )
-                .bind(document_chunk_id)
-                .bind(&document.id)
-                .bind(&document.collection_metadata_id)
-                .bind("") // Content is not available in metadata storage
-                .bind(chunk_order as i64)
-                .bind(Vec::<u8>::new()) // Dense vector is not available in metadata storage
-                .execute(&mut *connection)
-                .await?;
+                chunks_to_insert.push(document_chunks::ActiveModel {
+                    id: Set(document_chunk_id.clone()),
+                    document_metadata_id: Set(document.id.clone()),
+                    collection_metadata_id: Set(document.collection_metadata_id.clone()),
+                    content: Set("".to_string()),
+                    chunk_order: Set(chunk_order as i64),
+                    dense_text_vector: Set(Vec::new()),
+                    ..Default::default()
+                });
             }
         }
+
+        if !documents_to_insert.is_empty() {
+            documents::Entity::insert_many(documents_to_insert)
+                .on_conflict(
+                    OnConflict::column(documents::Column::Id)
+                        .do_nothing()
+                        .to_owned(),
+                )
+                .exec(&self.pool)
+                .await?;
+        }
+
+        if !chunks_to_insert.is_empty() {
+            document_chunks::Entity::insert_many(chunks_to_insert)
+                .on_conflict(
+                    OnConflict::column(document_chunks::Column::Id)
+                        .do_nothing()
+                        .to_owned(),
+                )
+                .exec(&self.pool)
+                .await?;
+        }
+
+        Ok(())
+    }
+    
+    async fn migrate_metadata_settings(&self, metadata_storage: &MetadataStorage) -> Result<()> {
+        // migrate the global settings in metadata storage first
+        use crate::database::entity::metadata_settings;
+        metadata_settings::Entity::update_many()
+            .col_expr(
+                metadata_settings::Column::EmbedderModelInUse,
+                Expr::value(metadata_storage.embedder_model_in_use.clone()),
+            )
+            .col_expr(
+                metadata_settings::Column::EmbedderModelVectorSizeInUse,
+                Expr::value(metadata_storage.embedder_model_vector_size_in_use as i64),
+            )
+            .filter(metadata_settings::Column::Id.eq(1))
+            .exec(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Perform upgrades to the existing database
+    async fn migrate(&self, metadata_storage_path: &str, identities_storage_path: &str) -> Result<()> {
+        Migrator::up(&self.pool, None).await?;
+
+        let metadata_storage = MetadataStorage::load(metadata_storage_path)?;
+        let identities_storage = IdentitiesStorage::load(identities_storage_path)?;
+        
+        self.migrate_metadata_settings(&metadata_storage).await?;
+        self.migrate_collections(&metadata_storage).await?;
+        self.migrate_documents(&metadata_storage).await?;
+        self.migrate_users(&identities_storage).await?;
 
         Ok(())
     }
@@ -105,17 +210,18 @@ impl Database for SQLiteDatabase {
 impl SQLiteDatabase {
     /// It will load the existing database, otherwise it will create a new one
     pub async fn new(connection_url: &str) -> Result<Self> {
-        if !sqlx::Sqlite::database_exists(connection_url).await? {
-            sqlx::Sqlite::create_database(connection_url).await?;
-            log::info!("Database does not exist. Created a new one");
-        }
+        // sea-orm will create file when it does not exist, 
+        // therefore, we don't need to do a manual check like we did when
+        // using sqlx
+        let mut options = ConnectOptions::new(connection_url);
+        options.map_sqlx_sqlite_opts(|options| {
+            options
+                .busy_timeout(Duration::from_secs(5))
+                .journal_mode(sea_orm::sqlx::sqlite::SqliteJournalMode::Wal)
+        });
 
-        let options = SqliteConnectOptions::from_str(connection_url)?
-            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-            .busy_timeout(Duration::from_secs(5));
-
-        let pool = SqlitePool::connect_with(options).await?;
-
+        let pool = sea_orm::Database::connect(options).await?;
+        
         Ok(Self { pool })
     }
 }
@@ -125,6 +231,8 @@ impl Identities for SQLiteDatabase {
     async fn create_user(&self, username: String, password: String) -> Result<()> {
         let user = User::new(username, password);
         let config_json = serde_json::to_string(&user.configuration)?;
+        
+        let user = 
 
         sqlx::query(
             "INSERT INTO users (id, username, password, configuration) VALUES (?, ?, ?, ?)",
@@ -520,10 +628,7 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(collection.id)
     }
 
-    async fn delete_collection(
-        &self,
-        collection_metadata_id: &str,
-    ) -> Option<CollectionMetadata> {
+    async fn delete_collection(&self, collection_metadata_id: &str) -> Option<CollectionMetadata> {
         let mut tx = self.pool.begin().await.ok()?;
 
         let row = sqlx::query(
@@ -900,17 +1005,15 @@ impl MetadataManagement for SQLiteDatabase {
             .await?;
 
         // Optimization: Fetch all document IDs in one go to avoid N+1 query problem
-        let doc_rows =
-            sqlx::query("SELECT id, collection_metadata_id FROM documents ORDER BY id ASC")
-                .fetch_all(&self.pool)
-                .await?;
+        let document_metadatas = self.get_all_documents().await?;
 
         let mut docs_map: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
-        for row in doc_rows {
-            let collection_id: String = row.get("collection_metadata_id");
-            let doc_id: String = row.get("id");
-            docs_map.entry(collection_id).or_default().push(doc_id);
+        for row in document_metadatas {
+            docs_map
+                .entry(row.collection_metadata_id)
+                .or_default()
+                .push(row.id);
         }
 
         let mut collections = Vec::with_capacity(rows.len());
