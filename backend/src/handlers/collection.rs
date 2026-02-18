@@ -3,7 +3,6 @@ use actix_web::{
     web::{self, Query},
 };
 use serde_json::json;
-use tokio::sync::RwLock;
 
 use crate::{
     api_models::{
@@ -15,27 +14,21 @@ use crate::{
     },
     app_state::AppState,
     documents::collection_metadata::CollectionMetadata,
-    utilities::acquire_data,
 };
 
 // Sync Endpoint
 pub async fn create_collection(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<CreateCollectionRequest>,
 ) -> Result<HttpResponse> {
-    // Pull what we need out of AppState without holding the lock during I/O
-    let (_, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
-
-    match metadata_storage
-        .lock()
-        .await
+    match data
+        .database
         .create_collection(&request.collection_title)
         .await
     {
         Ok(collection_metadata_id) => {
-            match identities_storage
-                .lock()
-                .await
+            match data
+                .database
                 .add_authorized_resources(&request.username, vec![collection_metadata_id.clone()])
                 .await
             {
@@ -66,31 +59,33 @@ pub async fn create_collection(
 ///
 /// TODO: need to delete all belonging documents under the collection from the database
 pub async fn delete_collection(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<DeleteCollectionRequest>,
 ) -> Result<HttpResponse> {
-    // Pull what we need out of AppState without holding the lock during I/O
-    let (vector_database, metadata_storage, _, config, identities_storage, _) =
-        acquire_data(&data).await;
-
-    let collection_metadata = match metadata_storage
-        .lock()
-        .await
+    let collection_metadata = match data
+        .database
         .delete_collection(&request.collection_metadata_id)
         .await
     {
         Some(collection_metadata) => {
-            let usernames: Vec<String> = identities_storage
-                .lock()
-                .await
+            let users = match data
+                .database
                 .get_users_by_resource_id(&request.0.collection_metadata_id)
-                .iter()
-                .map(|user| user.username.clone())
-                .collect();
+                .await
+            {
+                Ok(users) => users,
+                Err(error) => {
+                    log::error!("Failed to get users by resource id: {}", error);
+                    return Ok(HttpResponse::Ok()
+                        .json(GenericResponse::fail("".to_string(), error.to_string())));
+                }
+            };
 
-            let mut identities_storage = identities_storage.lock().await;
+            let usernames: Vec<String> = users.iter().map(|user| user.username.clone()).collect();
+
             for username in usernames {
-                match identities_storage
+                match data
+                    .database
                     .remove_authorized_resources(
                         &username,
                         vec![request.0.collection_metadata_id.clone()],
@@ -117,9 +112,10 @@ pub async fn delete_collection(
         }
     };
 
-    match vector_database
+    match data
+        .vector_database
         .delete_documents_from_database(
-            &config.vector_database,
+            &data.config.vector_database,
             &collection_metadata.documents_metadata_ids,
         )
         .await
@@ -136,24 +132,28 @@ pub async fn delete_collection(
 
 /// Sync endpoint
 pub async fn get_collections(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     query: Query<GetCollectionsQuery>,
 ) -> Result<HttpResponse> {
-    let (_, metadata_storage, _, _, identities_storage, _) = acquire_data(&data).await;
+    let collections = match data.database.get_collections_by_collection_metadata_id().await {
+        Ok(collections) => collections,
+        Err(error) => {
+            log::error!("Failed to get collections: {}", error);
+            return Ok(
+                HttpResponse::Ok().json(GenericResponse::fail("".to_string(), error.to_string()))
+            );
+        }
+    };
 
-    let guard = identities_storage.lock().await;
-
-    let collection_metadata: Vec<CollectionMetadata> = metadata_storage
-        .lock()
-        .await
-        .collections
+    let collection_metadata: Vec<CollectionMetadata> = collections
         .iter()
-        .filter(|(_, collection)| {
-            guard
+        .filter(async |collection| {
+            data.database
                 .check_permission(&query.username, vec![collection.id.clone()])
+                .await
                 .unwrap()
         })
-        .map(|(_, collection)| collection.to_owned())
+        .map(|collection| collection.to_owned())
         .collect();
 
     // Return an immediate response with a task id
@@ -167,7 +167,7 @@ pub async fn get_collections(
 
 /// Sync endpoint
 pub async fn update_collections_metadata(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<UpdateCollectionMetadataRequest>,
 ) -> Result<HttpResponse> {
     let (_, metadata_storage, _, _, _, _) = acquire_data(&data).await;

@@ -1,11 +1,10 @@
 use actix_web::cookie::time::UtcDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use super::traits::ValidateDataMutabilitiesForAPICaller;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollectionMetadata {
     #[serde(alias = "metadata_id")]
     pub id: String,
