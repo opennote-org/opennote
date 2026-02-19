@@ -1,3 +1,4 @@
+use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
@@ -26,6 +27,29 @@ impl User {
             password,
             resources: Vec::new(),
             configuration: UserConfigurations::default(),
+        }
+    }
+}
+
+impl From<User> for crate::database::entity::users::ActiveModel {
+    fn from(value: User) -> Self {
+        Self {
+            id: Set(value.id),
+            username: Set(value.username),
+            password: Set(value.password),
+            configuration: Set(serde_json::to_string(&value.configuration).unwrap()),
+        }
+    }
+}
+
+impl From<crate::database::entity::users::Model> for User {
+    fn from(value: crate::database::entity::users::Model) -> Self {
+        Self {
+            id: value.id,
+            username: value.username,
+            password: value.password,
+            resources: vec![],
+            configuration: serde_json::from_str(&value.configuration).unwrap(),
         }
     }
 }

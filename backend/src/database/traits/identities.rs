@@ -47,6 +47,7 @@ pub trait Identities {
     
     async fn get_all_users(&self) -> Result<Vec<User>>;
     
+    /// This method will delete users, as well as its owning resources/collections
     async fn delete_users(&self, usernames: Vec<String>) -> Result<Vec<User>>;
     
     async fn add_users(&self, users: Vec<User>) -> Result<()>;

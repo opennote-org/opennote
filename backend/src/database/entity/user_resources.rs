@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: String,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub resource_id: String,
+    pub resource_ids: String,
     #[sea_orm(
         belongs_to,
         from = "user_id",
