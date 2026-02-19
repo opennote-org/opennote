@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::database::entity;
+use crate::database::entity::{self, user_resources};
 use crate::traits::LoadAndSave;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 use actix_web::cookie::time::UtcDateTime;
@@ -229,7 +229,7 @@ impl SQLiteDatabase {
 }
 
 #[async_trait]
-impl Identities for SQLiteDatabase { 
+impl Identities for SQLiteDatabase {
     async fn create_user(&self, username: String, password: String) -> Result<()> {
         use crate::database::entity::users::*;
 
@@ -241,18 +241,16 @@ impl Identities for SQLiteDatabase {
 
         Ok(())
     }
-    
+
     async fn add_users(&self, users: Vec<User>) -> Result<()> {
         if users.is_empty() {
             return Ok(());
         }
-        
+
         use crate::database::entity::users::*;
-        
-        let users: Vec<ActiveModel> = users.into_iter()
-            .map(|item| item.into())
-            .collect();
-        
+
+        let users: Vec<ActiveModel> = users.into_iter().map(|item| item.into()).collect();
+
         Entity::insert_many(users).exec(&self.pool).await?;
 
         Ok(())
@@ -262,56 +260,54 @@ impl Identities for SQLiteDatabase {
         if usernames.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         use crate::database::entity;
-        
+
         // delete the users and their user resources
         let mut conditions = sea_orm::Condition::any();
         for username in usernames {
-            conditions = conditions.add(
-                entity::users::Column::Username.eq(username)
-            );
+            conditions = conditions.add(entity::users::Column::Username.eq(username));
         }
-        
+
         let users = entity::users::Entity::delete_many()
             .filter(conditions)
             .exec_with_returning(&self.pool)
             .await?;
-        
+
         // delete users' collections/resources
         let mut conditions = sea_orm::Condition::any();
         for user in users.iter() {
-            conditions = conditions.add(
-                entity::user_resources::Column::UserId.eq(user.id.clone())
-            );
+            conditions = conditions.add(entity::user_resources::Column::UserId.eq(user.id.clone()));
         }
-        
+
         let users_resources = entity::user_resources::Entity::delete_many()
             .filter(conditions)
             .exec_with_returning(&self.pool)
             .await?;
-        
+
         self.delete_collections(
-            &users_resources.into_iter()
+            &users_resources
+                .into_iter()
                 .flat_map(|item| {
-                    let resource_ids: Vec<String> = serde_json::from_str(&item.resource_ids).unwrap();
+                    let resource_ids: Vec<String> =
+                        serde_json::from_str(&item.resource_ids).unwrap();
                     resource_ids
                 })
-                .collect()
+                .collect(),
         );
 
         Ok(users.into_iter().map(|item| item.into()).collect())
     }
 
     async fn validate_user_password(&self, username: &str, password: &str) -> Result<bool> {
-        let row = sqlx::query("SELECT password FROM users WHERE username = ?")
-            .bind(username)
-            .fetch_optional(&self.pool)
+        use crate::database::entity::users;
+
+        let result = users::Entity::find_by_username(username)
+            .one(&self.pool)
             .await?;
 
-        if let Some(row) = row {
-            let stored_password: String = row.get("password");
-            return Ok(stored_password == password);
+        if let Some(result) = result {
+            return Ok(result.password == password);
         }
 
         Err(anyhow!("User `{}` does not exist", username))
@@ -322,26 +318,29 @@ impl Identities for SQLiteDatabase {
         username: &str,
         resource_ids: Vec<String>,
     ) -> Result<()> {
-        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
-            .bind(username)
-            .fetch_optional(&self.pool)
-            .await?;
+        use crate::database::entity::user_resources;
+        use crate::database::entity::users;
 
-        if let Some(row) = user_row {
-            let user_id: String = row.get("id");
-            for resource_id in resource_ids {
-                sqlx::query(
-                    "INSERT OR IGNORE INTO user_resources (user_id, resource_id) VALUES (?, ?)",
-                )
-                .bind(&user_id)
-                .bind(resource_id)
-                .execute(&self.pool)
+        if let Some(user) = users::Entity::find_by_username(username)
+            .one(&self.pool)
+            .await?
+        {
+            let user_resource = user_resources::Entity::find()
+                .filter(user_resources::Column::UserId.eq(user.id))
+                .one(&self.pool)
                 .await?;
+
+            if let Some(user_resource) = user_resource {
+                let mut user_resource: user_resources::ActiveModel = user_resource.into();
+                let mut existing_resource_ids: Vec<String> =
+                    serde_json::from_str(&user_resource.resource_ids.take().unwrap())?;
+                
+                existing_resource_ids.extend(resource_ids);
+                user_resource.resource_ids = Set(serde_json::to_string(&existing_resource_ids)?);
             }
-            Ok(())
-        } else {
-            Err(anyhow!("User `{}` does not exist", username))
         }
+
+        Err(anyhow!("username {} does not exist", username))
     }
 
     async fn remove_authorized_resources(
