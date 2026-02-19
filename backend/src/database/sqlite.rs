@@ -1,15 +1,17 @@
 use std::time::Duration;
 
+use crate::database::entity;
+use crate::traits::LoadAndSave;
+use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 use actix_web::cookie::time::UtcDateTime;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter, Set,
+    ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
+    Set,
     sea_query::{Expr, OnConflict},
 };
-use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
-use crate::traits::LoadAndSave;
 
 use crate::{
     configurations::user::UserConfigurations,
@@ -32,13 +34,10 @@ pub struct SQLiteDatabase {
 
 #[async_trait]
 impl Database for SQLiteDatabase {
-    async fn migrate_users(
-        &self,
-        identities_storage: &IdentitiesStorage,
-    ) -> Result<()> {
+    async fn migrate_users(&self, identities_storage: &IdentitiesStorage) -> Result<()> {
         // migrate all users
-        use crate::database::entity::users;
         use crate::database::entity::user_resources;
+        use crate::database::entity::users;
 
         let mut users_to_insert = Vec::new();
         let mut user_resources_to_insert = Vec::new();
@@ -101,9 +100,8 @@ impl Database for SQLiteDatabase {
                 last_modified: Set(parse_timestamp(&collection.last_modified)),
                 ..Default::default()
             });
-
         }
-        
+
         collections::Entity::insert_many(collections_to_insert)
             .on_conflict(
                 OnConflict::column(collections::Column::Id)
@@ -115,7 +113,7 @@ impl Database for SQLiteDatabase {
 
         Ok(())
     }
-    
+
     async fn migrate_documents(&self, metadata_storage: &MetadataStorage) -> Result<()> {
         // migrate all document records
         use crate::database::entity::document_chunks;
@@ -171,7 +169,7 @@ impl Database for SQLiteDatabase {
 
         Ok(())
     }
-    
+
     async fn migrate_metadata_settings(&self, metadata_storage: &MetadataStorage) -> Result<()> {
         // migrate the global settings in metadata storage first
         use crate::database::entity::metadata_settings;
@@ -192,12 +190,16 @@ impl Database for SQLiteDatabase {
     }
 
     /// Perform upgrades to the existing database
-    async fn migrate(&self, metadata_storage_path: &str, identities_storage_path: &str) -> Result<()> {
+    async fn migrate(
+        &self,
+        metadata_storage_path: &str,
+        identities_storage_path: &str,
+    ) -> Result<()> {
         Migrator::up(&self.pool, None).await?;
 
         let metadata_storage = MetadataStorage::load(metadata_storage_path)?;
         let identities_storage = IdentitiesStorage::load(identities_storage_path)?;
-        
+
         self.migrate_metadata_settings(&metadata_storage).await?;
         self.migrate_collections(&metadata_storage).await?;
         self.migrate_documents(&metadata_storage).await?;
@@ -210,7 +212,7 @@ impl Database for SQLiteDatabase {
 impl SQLiteDatabase {
     /// It will load the existing database, otherwise it will create a new one
     pub async fn new(connection_url: &str) -> Result<Self> {
-        // sea-orm will create file when it does not exist, 
+        // sea-orm will create file when it does not exist,
         // therefore, we don't need to do a manual check like we did when
         // using sqlx
         let mut options = ConnectOptions::new(connection_url);
@@ -221,71 +223,38 @@ impl SQLiteDatabase {
         });
 
         let pool = sea_orm::Database::connect(options).await?;
-        
+
         Ok(Self { pool })
     }
 }
 
 #[async_trait]
-impl Identities for SQLiteDatabase {
+impl Identities for SQLiteDatabase { 
     async fn create_user(&self, username: String, password: String) -> Result<()> {
-        let user = User::new(username, password);
-        let config_json = serde_json::to_string(&user.configuration)?;
-        
-        let user = 
+        use crate::database::entity::users::*;
 
-        sqlx::query(
-            "INSERT INTO users (id, username, password, configuration) VALUES (?, ?, ?, ?)",
-        )
-        .bind(&user.id)
-        .bind(&user.username)
-        .bind(&user.password)
-        .bind(config_json)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| anyhow!("Failed to create user: {}", e))?;
+        let user = User::new(username, password);
+
+        Entity::insert::<ActiveModel>(user.into())
+            .exec(&self.pool)
+            .await?;
 
         Ok(())
     }
-
+    
     async fn add_users(&self, users: Vec<User>) -> Result<()> {
         if users.is_empty() {
             return Ok(());
         }
+        
+        use crate::database::entity::users::*;
+        
+        let users: Vec<ActiveModel> = users.into_iter()
+            .map(|item| item.into())
+            .collect();
+        
+        Entity::insert_many(users).exec(&self.pool).await?;
 
-        let mut tx = self.pool.begin().await?;
-
-        let mut user_data = Vec::new();
-
-        for user in users.iter() {
-            let config_json = serde_json::to_string(&user.configuration).map_err(|e| {
-                anyhow!(
-                    "Failed to serialize configuration for user {}: {}",
-                    user.username,
-                    e
-                )
-            })?;
-            user_data.push((&user.id, &user.username, &user.password, config_json));
-        }
-
-        let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> =
-            sqlx::QueryBuilder::new("INSERT INTO users (id, username, password, configuration) ");
-
-        query_builder.push_values(user_data, |mut b, (id, username, password, config)| {
-            b.push_bind(id)
-                .push_bind(username)
-                .push_bind(password)
-                .push_bind(config);
-        });
-
-        let query = query_builder.build();
-
-        query
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| anyhow!("Failed to batch insert users: {}", e))?;
-
-        tx.commit().await?;
         Ok(())
     }
 
@@ -293,89 +262,45 @@ impl Identities for SQLiteDatabase {
         if usernames.is_empty() {
             return Ok(Vec::new());
         }
-
-        let mut transaction = self.pool.begin().await?;
-
-        // 1. Fetch all users in one query
-        // Construct "SELECT ... WHERE username IN (?, ?, ...)"
-        let query_str = format!(
-            "SELECT id, username, password, configuration FROM users WHERE username IN ({})",
-            vec!["?"; usernames.len()].join(",")
+        
+        use crate::database::entity;
+        
+        // delete the users and their user resources
+        let mut conditions = sea_orm::Condition::any();
+        for username in usernames {
+            conditions = conditions.add(
+                entity::users::Column::Username.eq(username)
+            );
+        }
+        
+        let users = entity::users::Entity::delete_many()
+            .filter(conditions)
+            .exec_with_returning(&self.pool)
+            .await?;
+        
+        // delete users' collections/resources
+        let mut conditions = sea_orm::Condition::any();
+        for user in users.iter() {
+            conditions = conditions.add(
+                entity::user_resources::Column::UserId.eq(user.id.clone())
+            );
+        }
+        
+        let users_resources = entity::user_resources::Entity::delete_many()
+            .filter(conditions)
+            .exec_with_returning(&self.pool)
+            .await?;
+        
+        self.delete_collections(
+            &users_resources.into_iter()
+                .flat_map(|item| {
+                    let resource_ids: Vec<String> = serde_json::from_str(&item.resource_ids).unwrap();
+                    resource_ids
+                })
+                .collect()
         );
 
-        let mut query = sqlx::query(&query_str);
-        for username in &usernames {
-            query = query.bind(username);
-        }
-
-        let user_rows = query.fetch_all(&mut *transaction).await?;
-
-        // Collect IDs for resource fetching and deletion
-        let user_ids: Vec<String> = user_rows.iter().map(|r| r.get("id")).collect();
-
-        if user_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        // 2. Fetch all resources in one query
-        let resource_query_str = format!(
-            "SELECT user_id, resource_id FROM user_resources WHERE user_id IN ({})",
-            vec!["?"; user_ids.len()].join(",")
-        );
-
-        let mut resource_query = sqlx::query(&resource_query_str);
-        for id in &user_ids {
-            resource_query = resource_query.bind(id);
-        }
-
-        let resource_rows = resource_query.fetch_all(&mut *transaction).await?;
-
-        // Group resources by user_id
-        let mut resources_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for row in resource_rows {
-            let user_id: String = row.get("user_id");
-            let resource_id: String = row.get("resource_id");
-            resources_map.entry(user_id).or_default().push(resource_id);
-        }
-
-        // 3. Construct the result list
-        let mut deleted_users = Vec::with_capacity(user_rows.len());
-        for row in user_rows {
-            let id: String = row.get("id");
-            let username: String = row.get("username");
-            let password: String = row.get("password");
-            let config_json: String = row.get("configuration");
-            // Gracefully handle JSON errors or propagate them
-            let configuration: UserConfigurations = serde_json::from_str(&config_json)?;
-
-            let resources = resources_map.remove(&id).unwrap_or_default();
-
-            deleted_users.push(User {
-                id,
-                username,
-                password,
-                resources,
-                configuration,
-            });
-        }
-
-        // 4. Delete users in one query (Cascades to user_resources)
-        let delete_query_str = format!(
-            "DELETE FROM users WHERE id IN ({})",
-            vec!["?"; user_ids.len()].join(",")
-        );
-
-        let mut delete_query = sqlx::query(&delete_query_str);
-        for id in &user_ids {
-            delete_query = delete_query.bind(id);
-        }
-
-        delete_query.execute(&mut *transaction).await?;
-
-        transaction.commit().await?;
-
-        Ok(deleted_users)
+        Ok(users.into_iter().map(|item| item.into()).collect())
     }
 
     async fn validate_user_password(&self, username: &str, password: &str) -> Result<bool> {

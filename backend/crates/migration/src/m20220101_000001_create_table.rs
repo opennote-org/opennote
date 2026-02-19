@@ -52,7 +52,7 @@ impl MigrationTrait for Migration {
                     .col(integer(Documents::LastModified))
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_documents_collection_metadata_id")
+                            .name("fk_documents_collection_metadata_id") // `fk` stands for foreign key
                             .from(Documents::Table, Documents::CollectionMetadataId)
                             .to(Collections::Table, Collections::Id)
                             .on_delete(ForeignKeyAction::Cascade),
@@ -113,12 +113,12 @@ impl MigrationTrait for Migration {
                     .table(UserResources::Table)
                     .if_not_exists()
                     .col(string(UserResources::UserId))
-                    .col(string(UserResources::ResourceId))
+                    .col(string(UserResources::ResourceIds))
                     .primary_key(
                         Index::create()
-                            .name("pk_user_resources")
+                            .name("pk_user_resources") // `pk` stands for primary key
                             .col(UserResources::UserId)
-                            .col(UserResources::ResourceId),
+                            .col(UserResources::ResourceIds),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -193,5 +193,5 @@ enum Users {
 enum UserResources {
     Table,
     UserId,
-    ResourceId,
+    ResourceIds,
 }
