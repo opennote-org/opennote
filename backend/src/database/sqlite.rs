@@ -1,10 +1,9 @@
 use std::time::Duration;
 
-use crate::database::entity::{self, user_resources};
 use crate::traits::LoadAndSave;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 use actix_web::cookie::time::UtcDateTime;
-use anyhow::{Result, anyhow};
+use anyhow::{Ok, Result, anyhow};
 use async_trait::async_trait;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
@@ -57,7 +56,7 @@ impl Database for SQLiteDatabase {
             for resource_id in user.resources.iter() {
                 user_resources_to_insert.push(user_resources::ActiveModel {
                     user_id: Set(user.id.clone()),
-                    resource_id: Set(resource_id.to_string()),
+                    resource_ids: Set(resource_id.to_string()),
                     ..Default::default()
                 });
             }
@@ -334,9 +333,13 @@ impl Identities for SQLiteDatabase {
                 let mut user_resource: user_resources::ActiveModel = user_resource.into();
                 let mut existing_resource_ids: Vec<String> =
                     serde_json::from_str(&user_resource.resource_ids.take().unwrap())?;
-                
+
                 existing_resource_ids.extend(resource_ids);
                 user_resource.resource_ids = Set(serde_json::to_string(&existing_resource_ids)?);
+
+                user_resource.update(&self.pool).await?;
+
+                return Ok(());
             }
         }
 
@@ -348,24 +351,32 @@ impl Identities for SQLiteDatabase {
         username: &str,
         resource_ids: Vec<String>,
     ) -> Result<()> {
-        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
-            .bind(username)
-            .fetch_optional(&self.pool)
-            .await?;
+        use crate::database::entity::user_resources;
+        use crate::database::entity::users;
 
-        if let Some(row) = user_row {
-            let user_id: String = row.get("id");
-            for resource_id in resource_ids {
-                sqlx::query("DELETE FROM user_resources WHERE user_id = ? AND resource_id = ?")
-                    .bind(&user_id)
-                    .bind(resource_id)
-                    .execute(&self.pool)
-                    .await?;
+        if let Some(user) = users::Entity::find_by_username(username)
+            .one(&self.pool)
+            .await?
+        {
+            if let Some(user_resource) = user_resources::Entity::find()
+                .filter(user_resources::Column::UserId.eq(user.id))
+                .one(&self.pool)
+                .await?
+            {
+                let mut user_resource: user_resources::ActiveModel = user_resource.into();
+                let mut existing_resource_ids: Vec<String> =
+                    serde_json::from_str(&user_resource.resource_ids.take().unwrap())?;
+
+                existing_resource_ids.retain(|item| !resource_ids.contains(item));
+                user_resource.resource_ids = Set(serde_json::to_string(&existing_resource_ids)?);
+
+                user_resource.update(&self.pool).await?;
+
+                return Ok(());
             }
-            Ok(())
-        } else {
-            Err(anyhow!("User `{}` does not exist", username))
         }
+
+        Err(anyhow!("User `{}` does not exist", username))
     }
 
     async fn check_permission(&self, username: &str, resource_ids: Vec<String>) -> Result<bool> {
@@ -378,94 +389,98 @@ impl Identities for SQLiteDatabase {
         username: &str,
         user_configurations: UserConfigurations,
     ) -> Result<()> {
+        use crate::database::entity::users;
+
         let config_json = serde_json::to_string(&user_configurations)?;
 
-        let result = sqlx::query("UPDATE users SET configuration = ? WHERE username = ?")
-            .bind(config_json)
-            .bind(username)
-            .execute(&self.pool)
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq(username))
+            .one(&self.pool)
             .await?;
 
-        if result.rows_affected() == 0 {
-            Err(anyhow!("User `{}` does not exist", username))
-        } else {
-            Ok(())
+        if let Some(user) = user {
+            let mut user: users::ActiveModel = user.into();
+            user.configuration = Set(config_json);
+            user.update(&self.pool).await?;
+
+            return Ok(());
         }
+
+        Err(anyhow!("User `{}` does not exist", username))
     }
 
     async fn get_user_configurations(&self, username: &str) -> Result<UserConfigurations> {
-        let row = sqlx::query("SELECT configuration FROM users WHERE username = ?")
-            .bind(username)
-            .fetch_optional(&self.pool)
+        use crate::database::entity::users;
+
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq(username))
+            .one(&self.pool)
             .await?;
 
-        if let Some(row) = row {
-            let config_json: String = row.get("configuration");
-            let config: UserConfigurations = serde_json::from_str(&config_json)?;
-            Ok(config)
-        } else {
-            Err(anyhow!("User `{}` does not exist", username))
+        if let Some(user) = user {
+            let config: UserConfigurations = serde_json::from_str(&user.configuration)?;
+            return Ok(config);
         }
+
+        Err(anyhow!("User `{}` does not exist", username))
     }
 
     async fn get_users_by_resource_id(&self, id: &str) -> Result<Vec<User>> {
-        let rows = sqlx::query(
-            "SELECT u.id, u.username, u.password, u.configuration
-             FROM users u
-             JOIN user_resources ur ON u.id = ur.user_id
-             WHERE ur.resource_id = ?",
-        )
-        .bind(id)
-        .fetch_all(&self.pool)
-        .await?;
+        use crate::database::entity::{user_resources, users};
 
-        let mut users = Vec::new();
-        for row in rows {
-            let user_id: String = row.get("id");
-            let username: String = row.get("username");
-            let password: String = row.get("password");
-            let config_json: String = row.get("configuration");
-            let configuration: UserConfigurations = serde_json::from_str(&config_json)?;
+        let users_with_resources = users::Entity::find()
+            .find_with_related(user_resources::Entity)
+            .all(&self.pool)
+            .await?;
 
-            let resource_rows =
-                sqlx::query("SELECT resource_id FROM user_resources WHERE user_id = ?")
-                    .bind(&user_id)
-                    .fetch_all(&self.pool)
-                    .await?;
+        let mut domain_users = Vec::new();
 
-            let resources: Vec<String> =
-                resource_rows.iter().map(|r| r.get("resource_id")).collect();
+        for (user, resources) in users_with_resources {
+            let resource_ids: Vec<String> = if let Some(res) = resources.first() {
+                serde_json::from_str(&res.resource_ids)?
+            } else {
+                Vec::new()
+            };
 
-            users.push(User {
-                id: user_id,
-                username,
-                password,
-                resources,
-                configuration,
-            });
+            if resource_ids.contains(&id.to_string()) {
+                let config: UserConfigurations = serde_json::from_str(&user.configuration)?;
+
+                domain_users.push(User {
+                    id: user.id,
+                    username: user.username,
+                    password: user.password,
+                    resources: resource_ids,
+                    configuration: config,
+                });
+            }
         }
 
-        Ok(users)
+        Ok(domain_users)
     }
 
     async fn get_resource_ids_by_username(&self, username: &str) -> Result<Vec<String>> {
-        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
-            .bind(username)
-            .fetch_optional(&self.pool)
+        use crate::database::entity::{user_resources, users};
+
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq(username))
+            .one(&self.pool)
             .await?;
 
-        if let Some(row) = user_row {
-            let user_id: String = row.get("id");
-            let resource_rows =
-                sqlx::query("SELECT resource_id FROM user_resources WHERE user_id = ?")
-                    .bind(&user_id)
-                    .fetch_all(&self.pool)
-                    .await?;
+        if let Some(user) = user {
+            let user_res = user_resources::Entity::find()
+                .filter(user_resources::Column::UserId.eq(&user.id))
+                .one(&self.pool)
+                .await?;
 
-            Ok(resource_rows.iter().map(|r| r.get("resource_id")).collect())
-        } else {
-            Err(anyhow!("User `{}` does not exist", username))
+            if let Some(ur) = user_res {
+                let resources: Vec<String> = serde_json::from_str(&ur.resource_ids)?;
+                return Ok(resources);
+            }
+
+            return Ok(Vec::new());
         }
+
+        Err(anyhow!("User `{}` does not exist", username))
     }
 
     async fn is_user_owning_collections(
@@ -473,66 +488,66 @@ impl Identities for SQLiteDatabase {
         username: &str,
         collection_metadata_ids: &[String],
     ) -> Result<bool> {
-        let user_row = sqlx::query("SELECT id FROM users WHERE username = ?")
-            .bind(username)
-            .fetch_optional(&self.pool)
+        use crate::database::entity::{user_resources, users};
+
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq(username))
+            .one(&self.pool)
             .await?;
 
-        if let Some(row) = user_row {
-            let user_id: String = row.get("id");
-            // Check if all collection_metadata_ids are in user_resources
-            for id in collection_metadata_ids {
-                let exists = sqlx::query(
-                    "SELECT 1 FROM user_resources WHERE user_id = ? AND resource_id = ?",
-                )
-                .bind(&user_id)
-                .bind(id)
-                .fetch_optional(&self.pool)
+        if let Some(user) = user {
+            let user_resource = user_resources::Entity::find()
+                .filter(user_resources::Column::UserId.eq(&user.id))
+                .one(&self.pool)
                 .await?;
-                if exists.is_none() {
+
+            let resources: Vec<String> = if let Some(user_resource) = user_resource {
+                serde_json::from_str(&user_resource.resource_ids)?
+            } else {
+                Vec::new()
+            };
+
+            for id in collection_metadata_ids {
+                if !resources.contains(id) {
                     return Ok(false);
                 }
             }
-            Ok(true)
-        } else {
-            Ok(false)
+
+            return Ok(true);
         }
+
+        Ok(false)
     }
 
     async fn get_all_users(&self) -> Result<Vec<User>> {
-        let rows = sqlx::query("SELECT id, username, password, configuration FROM users")
-            .fetch_all(&self.pool)
+        use crate::database::entity::{user_resources, users};
+
+        let users_with_resources = users::Entity::find()
+            .find_with_related(user_resources::Entity)
+            .all(&self.pool)
             .await?;
 
-        let mut users = Vec::with_capacity(rows.len());
+        let mut domain_users = Vec::new();
 
-        for row in rows {
-            let id: String = row.get("id");
-            let username: String = row.get("username");
-            let password: String = row.get("password");
-            let config_json: String = row.get("configuration");
-            let configuration: UserConfigurations = serde_json::from_str(&config_json)?;
+        for (user, resources) in users_with_resources {
+            let resource_ids: Vec<String> = if let Some(resource) = resources.first() {
+                serde_json::from_str(&resource.resource_ids)?
+            } else {
+                Vec::new()
+            };
 
-            // Fetch resource IDs for this user
-            let resource_rows =
-                sqlx::query("SELECT resource_id FROM user_resources WHERE user_id = ?")
-                    .bind(&id)
-                    .fetch_all(&self.pool)
-                    .await?;
+            let config: UserConfigurations = serde_json::from_str(&user.configuration)?;
 
-            let resources: Vec<String> =
-                resource_rows.iter().map(|r| r.get("resource_id")).collect();
-
-            users.push(User {
-                id,
-                username,
-                password,
-                resources,
-                configuration,
+            domain_users.push(User {
+                id: user.id,
+                username: user.username,
+                password: user.password,
+                resources: resource_ids,
+                configuration: config,
             });
         }
 
-        Ok(users)
+        Ok(domain_users)
     }
 }
 
