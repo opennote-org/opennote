@@ -37,7 +37,8 @@ impl From<User> for crate::database::entity::users::ActiveModel {
             id: Set(value.id),
             username: Set(value.username),
             password: Set(value.password),
-            configuration: Set(serde_json::to_string(&value.configuration).unwrap()),
+            configuration: Set(serde_json::to_value(&value.configuration).unwrap()),
+            resource_ids: Set(serde_json::to_value(&value.resources).unwrap()),
         }
     }
 }

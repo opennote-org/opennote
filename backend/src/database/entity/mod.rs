@@ -6,5 +6,4 @@ pub mod collections;
 pub mod document_chunks;
 pub mod documents;
 pub mod metadata_settings;
-pub mod user_resources;
 pub mod users;

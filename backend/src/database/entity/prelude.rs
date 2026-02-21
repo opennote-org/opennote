@@ -4,5 +4,4 @@ pub use super::collections::Entity as Collections;
 pub use super::document_chunks::Entity as DocumentChunks;
 pub use super::documents::Entity as Documents;
 pub use super::metadata_settings::Entity as MetadataSettings;
-pub use super::user_resources::Entity as UserResources;
 pub use super::users::Entity as Users;
