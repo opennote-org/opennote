@@ -15,6 +15,7 @@ use sea_orm::{
 use crate::{
     configurations::user::UserConfigurations,
     database::{
+        filters::get_users::GetUserFilter,
         metadata::MetadataSettings,
         traits::{database::Database, identities::Identities, metadata::MetadataManagement},
         utilities::parse_timestamp,
@@ -519,14 +520,44 @@ impl Identities for SQLiteDatabase {
         Ok(false)
     }
 
-    async fn get_all_users(&self) -> Result<Vec<User>> {
+    async fn get_users(&self, filter: &GetUserFilter) -> Result<Vec<User>> {
         use crate::database::entity::{user_resources, users};
 
+        if filter.is_over_constrained() {
+            return Err(anyhow!("only one filter is applicable"));
+        }
+
+        // Construct a sql filter to the user_resources table
+        let mut sql_filter_to_user_resources = sea_orm::Condition::any();
+
+        // todo: Should the table be redesigned? 
+        if let Some(resources) = filter.resources {
+            sql_filter_to_user_resources =
+                sql_filter_to_user_resources.add(
+                    users::Column::Id.eq(
+                        serde_json::to_string(&resources).unwrap()
+                    )
+                );
+        }
+        
         let users_with_resources = users::Entity::find()
             .find_with_related(user_resources::Entity)
+            .filter(filter)
             .all(&self.pool)
             .await?;
 
+        // Construct a sql filter to the users table
+        let mut sql_filter_to_users = sea_orm::Condition::any();
+
+        if let Some(id) = filter.id {
+            sql_filter_to_users = sql_filter_to_users.add(users::Column::Id.eq(id));
+        }
+
+        if let Some(username) = filter.username {
+            sql_filter_to_users = sql_filter_to_users.add(users::Column::Username.eq(username));
+        }
+
+        // Start filtering
         let mut domain_users = Vec::new();
 
         for (user, resources) in users_with_resources {
