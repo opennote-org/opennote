@@ -257,23 +257,12 @@ impl Identities for SQLiteDatabase {
             .exec_with_returning(&self.pool)
             .await?;
 
-        // delete users' collections/resources
-        let mut conditions = sea_orm::Condition::any();
-        for user in users.iter() {
-            conditions = conditions.add(entity::user_resources::Column::UserId.eq(user.id.clone()));
-        }
-
-        let users_resources = entity::user_resources::Entity::delete_many()
-            .filter(conditions)
-            .exec_with_returning(&self.pool)
-            .await?;
-
         self.delete_collections(
-            &users_resources
-                .into_iter()
+            &users
+                .iter()
                 .flat_map(|item| {
                     let resource_ids: Vec<String> =
-                        serde_json::from_str(&item.resource_ids).unwrap();
+                        serde_json::from_value(item.resource_ids.clone()).unwrap();
                     resource_ids
                 })
                 .collect(),
@@ -301,30 +290,22 @@ impl Identities for SQLiteDatabase {
         username: &str,
         resource_ids: Vec<String>,
     ) -> Result<()> {
-        use crate::database::entity::user_resources;
         use crate::database::entity::users;
 
         if let Some(user) = users::Entity::find_by_username(username)
             .one(&self.pool)
             .await?
         {
-            let user_resource = user_resources::Entity::find()
-                .filter(user_resources::Column::UserId.eq(user.id))
-                .one(&self.pool)
-                .await?;
+            let mut user: users::ActiveModel = user.into();
+            let mut existing_resource_ids: Vec<String> =
+                serde_json::from_value(user.resource_ids.take().unwrap())?;
 
-            if let Some(user_resource) = user_resource {
-                let mut user_resource: user_resources::ActiveModel = user_resource.into();
-                let mut existing_resource_ids: Vec<String> =
-                    serde_json::from_str(&user_resource.resource_ids.take().unwrap())?;
+            existing_resource_ids.extend(resource_ids);
+            user.resource_ids = Set(serde_json::to_value(&existing_resource_ids)?);
 
-                existing_resource_ids.extend(resource_ids);
-                user_resource.resource_ids = Set(serde_json::to_string(&existing_resource_ids)?);
+            user.update(&self.pool).await?;
 
-                user_resource.update(&self.pool).await?;
-
-                return Ok(());
-            }
+            return Ok(());
         }
 
         Err(anyhow!("username {} does not exist", username))
@@ -335,29 +316,22 @@ impl Identities for SQLiteDatabase {
         username: &str,
         resource_ids: Vec<String>,
     ) -> Result<()> {
-        use crate::database::entity::user_resources;
         use crate::database::entity::users;
 
         if let Some(user) = users::Entity::find_by_username(username)
             .one(&self.pool)
             .await?
         {
-            if let Some(user_resource) = user_resources::Entity::find()
-                .filter(user_resources::Column::UserId.eq(user.id))
-                .one(&self.pool)
-                .await?
-            {
-                let mut user_resource: user_resources::ActiveModel = user_resource.into();
-                let mut existing_resource_ids: Vec<String> =
-                    serde_json::from_str(&user_resource.resource_ids.take().unwrap())?;
+            let mut user: users::ActiveModel = user.into();
+            let mut existing_resource_ids: Vec<String> =
+                serde_json::from_value(user.resource_ids.take().unwrap())?;
 
-                existing_resource_ids.retain(|item| !resource_ids.contains(item));
-                user_resource.resource_ids = Set(serde_json::to_string(&existing_resource_ids)?);
+            existing_resource_ids.retain(|item| !resource_ids.contains(item));
+            user.resource_ids = Set(serde_json::to_value(&existing_resource_ids)?);
 
-                user_resource.update(&self.pool).await?;
+            user.update(&self.pool).await?;
 
-                return Ok(());
-            }
+            return Ok(());
         }
 
         Err(anyhow!("User `{}` does not exist", username))
@@ -375,7 +349,8 @@ impl Identities for SQLiteDatabase {
     ) -> Result<()> {
         use crate::database::entity::users;
 
-        let config_json = serde_json::to_string(&user_configurations)?;
+        let config_json = serde_json::to_value(&user_configurations)
+            .context("user configuration serialization failed")?;
 
         let user = users::Entity::find()
             .filter(users::Column::Username.eq(username))
@@ -393,7 +368,7 @@ impl Identities for SQLiteDatabase {
         Err(anyhow!("User `{}` does not exist", username))
     }
 
-    async fn get_user_configurations(&self, username: &str) -> Result<UserConfigurations> {
+    async fn get_resource_ids_by_username(&self, username: &str) -> Result<Vec<String>> {
         use crate::database::entity::users;
 
         let user = users::Entity::find()
@@ -402,66 +377,8 @@ impl Identities for SQLiteDatabase {
             .await?;
 
         if let Some(user) = user {
-            let config: UserConfigurations = serde_json::from_str(&user.configuration)?;
-            return Ok(config);
-        }
-
-        Err(anyhow!("User `{}` does not exist", username))
-    }
-
-    async fn get_users_by_resource_id(&self, id: &str) -> Result<Vec<User>> {
-        use crate::database::entity::{user_resources, users};
-
-        let users_with_resources = users::Entity::find()
-            .find_with_related(user_resources::Entity)
-            .all(&self.pool)
-            .await?;
-
-        let mut domain_users = Vec::new();
-
-        for (user, resources) in users_with_resources {
-            let resource_ids: Vec<String> = if let Some(res) = resources.first() {
-                serde_json::from_str(&res.resource_ids)?
-            } else {
-                Vec::new()
-            };
-
-            if resource_ids.contains(&id.to_string()) {
-                let config: UserConfigurations = serde_json::from_str(&user.configuration)?;
-
-                domain_users.push(User {
-                    id: user.id,
-                    username: user.username,
-                    password: user.password,
-                    resources: resource_ids,
-                    configuration: config,
-                });
-            }
-        }
-
-        Ok(domain_users)
-    }
-
-    async fn get_resource_ids_by_username(&self, username: &str) -> Result<Vec<String>> {
-        use crate::database::entity::{user_resources, users};
-
-        let user = users::Entity::find()
-            .filter(users::Column::Username.eq(username))
-            .one(&self.pool)
-            .await?;
-
-        if let Some(user) = user {
-            let user_res = user_resources::Entity::find()
-                .filter(user_resources::Column::UserId.eq(&user.id))
-                .one(&self.pool)
-                .await?;
-
-            if let Some(ur) = user_res {
-                let resources: Vec<String> = serde_json::from_str(&ur.resource_ids)?;
-                return Ok(resources);
-            }
-
-            return Ok(Vec::new());
+            let resources: Vec<String> = serde_json::from_value(user.resource_ids)?;
+            return Ok(resources);
         }
 
         Err(anyhow!("User `{}` does not exist", username))
@@ -472,7 +389,7 @@ impl Identities for SQLiteDatabase {
         username: &str,
         collection_metadata_ids: &[String],
     ) -> Result<bool> {
-        use crate::database::entity::{user_resources, users};
+        use crate::database::entity::users;
 
         let user = users::Entity::find()
             .filter(users::Column::Username.eq(username))
@@ -480,16 +397,8 @@ impl Identities for SQLiteDatabase {
             .await?;
 
         if let Some(user) = user {
-            let user_resource = user_resources::Entity::find()
-                .filter(user_resources::Column::UserId.eq(&user.id))
-                .one(&self.pool)
-                .await?;
-
-            let resources: Vec<String> = if let Some(user_resource) = user_resource {
-                serde_json::from_str(&user_resource.resource_ids)?
-            } else {
-                Vec::new()
-            };
+            let resources: Vec<String> = serde_json::from_value(user.resource_ids)
+                .context("user resources serialization failed")?;
 
             for id in collection_metadata_ids {
                 if !resources.contains(id) {

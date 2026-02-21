@@ -49,8 +49,8 @@ impl From<crate::database::entity::users::Model> for User {
             id: value.id,
             username: value.username,
             password: value.password,
-            resources: vec![],
-            configuration: serde_json::from_str(&value.configuration).unwrap(),
+            resources: serde_json::from_value(value.resource_ids).unwrap(),
+            configuration: serde_json::from_value(value.configuration).unwrap(),
         }
     }
 }
