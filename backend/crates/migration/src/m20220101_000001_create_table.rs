@@ -71,7 +71,11 @@ impl MigrationTrait for Migration {
                     .col(string(DocumentChunks::DocumentMetadataId))
                     .col(string(DocumentChunks::CollectionMetadataId))
                     .col(string(DocumentChunks::Content))
-                    .col(ColumnDef::new(DocumentChunks::DenseTextVector).binary().not_null())
+                    .col(
+                        ColumnDef::new(DocumentChunks::DenseTextVector)
+                            .binary()
+                            .not_null(),
+                    )
                     .col(integer(DocumentChunks::ChunkOrder))
                     .foreign_key(
                         ForeignKey::create()
@@ -101,44 +105,29 @@ impl MigrationTrait for Migration {
                     .col(string(Users::Id).primary_key())
                     .col(string(Users::Username).unique_key())
                     .col(string(Users::Password))
-                    .col(string(Users::Configuration))
-                    .to_owned(),
-            )
-            .await?;
-
-        // UserResources
-        manager
-            .create_table(
-                Table::create()
-                    .table(UserResources::Table)
-                    .if_not_exists()
-                    .col(string(UserResources::UserId))
-                    .col(string(UserResources::ResourceIds))
-                    .primary_key(
-                        Index::create()
-                            .name("pk_user_resources") // `pk` stands for primary key
-                            .col(UserResources::UserId)
-                            .col(UserResources::ResourceIds),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_user_resources_user_id")
-                            .from(UserResources::Table, UserResources::UserId)
-                            .to(Users::Table, Users::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
+                    .col(json(Users::Configuration))
+                    .col(json(Users::ResourceIds))
                     .to_owned(),
             )
             .await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.drop_table(Table::drop().table(UserResources::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Users::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(DocumentChunks::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Documents::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Collections::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(MetadataSettings::Table).to_owned()).await
+        manager
+            .drop_table(Table::drop().table(Users::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(DocumentChunks::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Documents::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Collections::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(MetadataSettings::Table).to_owned())
+            .await
     }
 }
 
@@ -187,11 +176,5 @@ enum Users {
     Username,
     Password,
     Configuration,
-}
-
-#[derive(Iden)]
-enum UserResources {
-    Table,
-    UserId,
     ResourceIds,
 }

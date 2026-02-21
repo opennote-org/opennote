@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::traits::LoadAndSave;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 use actix_web::cookie::time::UtcDateTime;
-use anyhow::{Ok, Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
@@ -36,48 +36,31 @@ pub struct SQLiteDatabase {
 impl Database for SQLiteDatabase {
     async fn migrate_users(&self, identities_storage: &IdentitiesStorage) -> Result<()> {
         // migrate all users
-        use crate::database::entity::user_resources;
         use crate::database::entity::users;
 
         let mut users_to_insert = Vec::new();
-        let mut user_resources_to_insert = Vec::new();
 
         for user in identities_storage.users.iter() {
-            let config_json = serde_json::to_string(&user.configuration)
-                .map_err(|e| anyhow!("Failed to serialize user configuration: {}", e))?;
+            let config_json = serde_json::to_value(&user.configuration)
+                .context("Failed to serialize user configurations")?;
+
+            let resource_ids = serde_json::to_value(&user.resources)
+                .context("Failed to serialize user resource ids")?;
 
             users_to_insert.push(users::ActiveModel {
                 id: Set(user.id.clone()),
                 username: Set(user.username.clone()),
                 password: Set(user.password.clone()),
                 configuration: Set(config_json),
+                resource_ids: Set(resource_ids),
                 ..Default::default()
             });
-
-            for resource_id in user.resources.iter() {
-                user_resources_to_insert.push(user_resources::ActiveModel {
-                    user_id: Set(user.id.clone()),
-                    resource_ids: Set(resource_id.to_string()),
-                    ..Default::default()
-                });
-            }
         }
 
         if !users_to_insert.is_empty() {
             users::Entity::insert_many(users_to_insert)
                 .on_conflict(
                     OnConflict::column(users::Column::Id)
-                        .do_nothing()
-                        .to_owned(),
-                )
-                .exec(&self.pool)
-                .await?;
-        }
-
-        if !user_resources_to_insert.is_empty() {
-            user_resources::Entity::insert_many(user_resources_to_insert)
-                .on_conflict(
-                    OnConflict::column(user_resources::Column::UserId)
                         .do_nothing()
                         .to_owned(),
                 )
@@ -521,64 +504,38 @@ impl Identities for SQLiteDatabase {
     }
 
     async fn get_users(&self, filter: &GetUserFilter) -> Result<Vec<User>> {
-        use crate::database::entity::{user_resources, users};
+        use crate::database::entity::users;
 
         if filter.is_over_constrained() {
             return Err(anyhow!("only one filter is applicable"));
         }
 
-        // Construct a sql filter to the user_resources table
-        let mut sql_filter_to_user_resources = sea_orm::Condition::any();
-
-        // todo: Should the table be redesigned? 
-        if let Some(resources) = filter.resources {
-            sql_filter_to_user_resources =
-                sql_filter_to_user_resources.add(
-                    users::Column::Id.eq(
-                        serde_json::to_string(&resources).unwrap()
-                    )
-                );
-        }
-        
-        let users_with_resources = users::Entity::find()
-            .find_with_related(user_resources::Entity)
-            .filter(filter)
-            .all(&self.pool)
-            .await?;
-
         // Construct a sql filter to the users table
         let mut sql_filter_to_users = sea_orm::Condition::any();
 
-        if let Some(id) = filter.id {
+        if let Some(id) = &filter.id {
             sql_filter_to_users = sql_filter_to_users.add(users::Column::Id.eq(id));
         }
 
-        if let Some(username) = filter.username {
+        if let Some(username) = &filter.username {
             sql_filter_to_users = sql_filter_to_users.add(users::Column::Username.eq(username));
         }
 
-        // Start filtering
-        let mut domain_users = Vec::new();
+        if let Some(resource_ids) = &filter.resources {
+            let resource_ids =
+                serde_json::to_value(&resource_ids).context("Failed to serialize resource ids")?;
 
-        for (user, resources) in users_with_resources {
-            let resource_ids: Vec<String> = if let Some(resource) = resources.first() {
-                serde_json::from_str(&resource.resource_ids)?
-            } else {
-                Vec::new()
-            };
-
-            let config: UserConfigurations = serde_json::from_str(&user.configuration)?;
-
-            domain_users.push(User {
-                id: user.id,
-                username: user.username,
-                password: user.password,
-                resources: resource_ids,
-                configuration: config,
-            });
+            sql_filter_to_users =
+                sql_filter_to_users.add(users::Column::ResourceIds.eq(resource_ids));
         }
 
-        Ok(domain_users)
+        // Start filtering
+        let users = users::Entity::find()
+            .filter(sql_filter_to_users)
+            .all(&self.pool)
+            .await?;
+
+        Ok(users.into_iter().map(|item| item.into()).collect())
     }
 }
 

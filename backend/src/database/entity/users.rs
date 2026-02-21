@@ -11,9 +11,8 @@ pub struct Model {
     #[sea_orm(unique)]
     pub username: String,
     pub password: String,
-    pub configuration: String,
-    #[sea_orm(has_many)]
-    pub user_resources: HasMany<super::user_resources::Entity>,
+    pub configuration: Json,
+    pub resource_ids: Json,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
