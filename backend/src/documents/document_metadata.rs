@@ -2,6 +2,8 @@ use actix_web::cookie::time::UtcDateTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::{database, documents::document_chunk::DocumentChunk};
+
 use super::traits::ValidateDataMutabilitiesForAPICaller;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,7 +19,7 @@ pub struct DocumentMetadata {
 
     pub title: String,
 
-    pub chunks: Vec<String>,
+    pub chunks: Vec<DocumentChunk>,
 }
 
 impl DocumentMetadata {
@@ -55,5 +57,30 @@ impl ValidateDataMutabilitiesForAPICaller for DocumentMetadata {
         }
 
         Ok(())
+    }
+}
+
+impl
+    From<(
+        database::entity::documents::Model,
+        Vec<database::entity::document_chunks::Model>,
+    )> for DocumentMetadata
+{
+    fn from(
+        mut value: (
+            database::entity::documents::Model,
+            Vec<database::entity::document_chunks::Model>,
+        ),
+    ) -> Self {
+        value.1.sort_by(|a, b| a.chunk_order.cmp(&b.chunk_order));
+        
+        Self {
+            id: value.0.id,
+            created_at: UtcDateTime::from_unix_timestamp(value.0.created_at).unwrap().to_string(),
+            last_modified: UtcDateTime::from_unix_timestamp(value.0.last_modified).unwrap().to_string(),
+            collection_metadata_id: value.0.collection_metadata_id,
+            title: value.0.title,
+            chunks: value.1.into_iter().map(|item| item.into()).collect(),
+        }
     }
 }

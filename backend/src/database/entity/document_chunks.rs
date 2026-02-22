@@ -15,7 +15,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub content: String,
     #[sea_orm(column_type = "Blob")]
-    pub dense_text_vector: Vec<u8>,
+    pub dense_text_vector: Json,
     pub chunk_order: i64,
     #[sea_orm(
         belongs_to,
