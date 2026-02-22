@@ -16,3 +16,13 @@ impl GetFilterValidation for GetUserFilter {
         ]
     }
 }
+
+impl Default for GetUserFilter {
+    fn default() -> Self {
+        Self {
+            id: None,
+            username: None,
+            resources: None,
+        }
+    }
+}

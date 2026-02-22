@@ -24,3 +24,15 @@ impl GetFilterValidation for GetDocumentFilter {
         ]
     }
 }
+
+impl Default for GetDocumentFilter {
+    fn default() -> Self {
+        Self {
+            id: None,
+            created_at: None,
+            last_modified: None,
+            title: None,
+            collection_metadata_id: None,
+        }
+    }
+}

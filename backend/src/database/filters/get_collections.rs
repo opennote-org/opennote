@@ -9,9 +9,6 @@ pub struct GetCollectionFilter {
     pub last_modified: Option<String>,
 
     pub title: Option<String>,
-
-    // metadata ids of its owned documents
-    pub documents_metadata_ids: Option<Vec<String>>,
 }
 
 impl GetFilterValidation for GetCollectionFilter {
@@ -21,7 +18,17 @@ impl GetFilterValidation for GetCollectionFilter {
             self.created_at.is_some(),
             self.last_modified.is_some(),
             self.title.is_some(),
-            self.documents_metadata_ids.is_some(),
         ]
+    }
+}
+
+impl Default for GetCollectionFilter {
+    fn default() -> Self {
+        Self {
+            id: None,
+            created_at: None,
+            last_modified: None,
+            title: None,
+        }
     }
 }
