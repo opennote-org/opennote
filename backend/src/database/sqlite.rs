@@ -1,11 +1,15 @@
 use std::time::Duration;
 
+use crate::database::filters::get_collections::GetCollectionFilter;
+use crate::database::filters::get_documents::GetDocumentFilter;
+use crate::database::filters::traits::GetFilterValidation;
 use crate::traits::LoadAndSave;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 use actix_web::cookie::time::UtcDateTime;
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use migration::{Migrator, MigratorTrait};
+use sea_orm::Related;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
     Set,
@@ -727,39 +731,6 @@ impl MetadataManagement for SQLiteDatabase {
         }
     }
 
-    async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<DocumentMetadata> {
-        let row = sqlx::query("SELECT id, title, created_at, last_modified, collection_metadata_id FROM documents WHERE id = ?")
-            .bind(docuemnt_metadata_id)
-            .fetch_optional(&self.pool)
-            .await.ok()??;
-
-        let id: String = row.get("id");
-        let title: String = row.get("title");
-        let created_at: i64 = row.get("created_at");
-        let last_modified: i64 = row.get("last_modified");
-        let collection_metadata_id: String = row.get("collection_metadata_id");
-
-        let chunks_rows = sqlx::query("SELECT id FROM document_chunks WHERE document_metadata_id = ? ORDER BY chunk_order ASC")
-            .bind(docuemnt_metadata_id)
-            .fetch_all(&self.pool)
-            .await.ok()?;
-
-        let chunks: Vec<String> = chunks_rows.iter().map(|r| r.get("id")).collect();
-
-        Some(DocumentMetadata {
-            id,
-            title,
-            created_at: UtcDateTime::from_unix_timestamp(created_at)
-                .unwrap()
-                .to_string(),
-            last_modified: UtcDateTime::from_unix_timestamp(last_modified)
-                .unwrap()
-                .to_string(),
-            collection_metadata_id,
-            chunks,
-        })
-    }
-
     async fn remove_document(&self, metdata_id: &str) -> Option<DocumentMetadata> {
         let doc = self.get_document(metdata_id).await?;
 
@@ -771,189 +742,222 @@ impl MetadataManagement for SQLiteDatabase {
 
         Some(doc)
     }
+    
+    // async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<DocumentMetadata> {
+    //     let row = sqlx::query("SELECT id, title, created_at, last_modified, collection_metadata_id FROM documents WHERE id = ?")
+    //         .bind(docuemnt_metadata_id)
+    //         .fetch_optional(&self.pool)
+    //         .await.ok()??;
 
-    async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String> {
-        let rows = sqlx::query("SELECT id FROM documents WHERE collection_metadata_id = ?")
-            .bind(collection_metadata_id)
-            .fetch_all(&self.pool)
-            .await
-            .ok();
+    //     let id: String = row.get("id");
+    //     let title: String = row.get("title");
+    //     let created_at: i64 = row.get("created_at");
+    //     let last_modified: i64 = row.get("last_modified");
+    //     let collection_metadata_id: String = row.get("collection_metadata_id");
 
-        if let Some(rows) = rows {
-            rows.iter().map(|r| r.get("id")).collect()
-        } else {
-            Vec::new()
-        }
-    }
+    //     let chunks_rows = sqlx::query("SELECT id FROM document_chunks WHERE document_metadata_id = ? ORDER BY chunk_order ASC")
+    //         .bind(docuemnt_metadata_id)
+    //         .fetch_all(&self.pool)
+    //         .await.ok()?;
 
-    async fn get_all_documents(&self) -> Result<Vec<DocumentMetadata>> {
-        let rows = sqlx::query(
-            "SELECT id, title, created_at, last_modified, collection_metadata_id FROM documents",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+    //     let chunks: Vec<String> = chunks_rows.iter().map(|r| r.get("id")).collect();
 
-        // Optimization: Fetch all chunk IDs in one go to avoid N+1 query problem
-        let chunks_rows = sqlx::query(
-            "SELECT id, document_metadata_id FROM document_chunks ORDER BY chunk_order ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+    //     Some(DocumentMetadata {
+    //         id,
+    //         title,
+    //         created_at: UtcDateTime::from_unix_timestamp(created_at)
+    //             .unwrap()
+    //             .to_string(),
+    //         last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+    //             .unwrap()
+    //             .to_string(),
+    //         collection_metadata_id,
+    //         chunks,
+    //     })
+    // }
 
-        let mut chunks_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for row in chunks_rows {
-            let doc_id: String = row.get("document_metadata_id");
-            let chunk_id: String = row.get("id");
-            chunks_map.entry(doc_id).or_default().push(chunk_id);
-        }
+    // async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String> {
+    //     let rows = sqlx::query("SELECT id FROM documents WHERE collection_metadata_id = ?")
+    //         .bind(collection_metadata_id)
+    //         .fetch_all(&self.pool)
+    //         .await
+    //         .ok();
 
-        let mut documents = Vec::with_capacity(rows.len());
-        for row in rows {
-            let id: String = row.get("id");
-            let title: String = row.get("title");
-            let created_at: i64 = row.get("created_at");
-            let last_modified: i64 = row.get("last_modified");
-            let collection_metadata_id: String = row.get("collection_metadata_id");
+    //     if let Some(rows) = rows {
+    //         rows.iter().map(|r| r.get("id")).collect()
+    //     } else {
+    //         Vec::new()
+    //     }
+    // }
 
-            let chunks = chunks_map.remove(&id).unwrap_or_default();
+    // async fn get_all_documents(&self) -> Result<Vec<DocumentMetadata>> {
+    //     let rows = sqlx::query(
+    //         "SELECT id, title, created_at, last_modified, collection_metadata_id FROM documents",
+    //     )
+    //     .fetch_all(&self.pool)
+    //     .await?;
 
-            documents.push(DocumentMetadata {
-                id,
-                title,
-                created_at: UtcDateTime::from_unix_timestamp(created_at)
-                    .unwrap()
-                    .to_string(),
-                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
-                    .unwrap()
-                    .to_string(),
-                collection_metadata_id,
-                chunks,
-            });
-        }
+    //     // Optimization: Fetch all chunk IDs in one go to avoid N+1 query problem
+    //     let chunks_rows = sqlx::query(
+    //         "SELECT id, document_metadata_id FROM document_chunks ORDER BY chunk_order ASC",
+    //     )
+    //     .fetch_all(&self.pool)
+    //     .await?;
 
-        Ok(documents)
-    }
+    //     let mut chunks_map: std::collections::HashMap<String, Vec<String>> =
+    //         std::collections::HashMap::new();
+    //     for row in chunks_rows {
+    //         let doc_id: String = row.get("document_metadata_id");
+    //         let chunk_id: String = row.get("id");
+    //         chunks_map.entry(doc_id).or_default().push(chunk_id);
+    //     }
 
-    async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>> {
-        let rows = sqlx::query("SELECT id, title, created_at, last_modified FROM collections")
-            .fetch_all(&self.pool)
-            .await?;
+    //     let mut documents = Vec::with_capacity(rows.len());
+    //     for row in rows {
+    //         let id: String = row.get("id");
+    //         let title: String = row.get("title");
+    //         let created_at: i64 = row.get("created_at");
+    //         let last_modified: i64 = row.get("last_modified");
+    //         let collection_metadata_id: String = row.get("collection_metadata_id");
 
-        // Optimization: Fetch all document IDs in one go to avoid N+1 query problem
-        let document_metadatas = self.get_all_documents().await?;
+    //         let chunks = chunks_map.remove(&id).unwrap_or_default();
 
-        let mut docs_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for row in document_metadatas {
-            docs_map
-                .entry(row.collection_metadata_id)
-                .or_default()
-                .push(row.id);
-        }
+    //         documents.push(DocumentMetadata {
+    //             id,
+    //             title,
+    //             created_at: UtcDateTime::from_unix_timestamp(created_at)
+    //                 .unwrap()
+    //                 .to_string(),
+    //             last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+    //                 .unwrap()
+    //                 .to_string(),
+    //             collection_metadata_id,
+    //             chunks,
+    //         });
+    //     }
 
-        let mut collections = Vec::with_capacity(rows.len());
-        for row in rows {
-            let id: String = row.get("id");
-            let title: String = row.get("title");
-            let created_at: i64 = row.get("created_at");
-            let last_modified: i64 = row.get("last_modified");
+    //     Ok(documents)
+    // }
 
-            let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
+    // async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>> {
+    //     let rows = sqlx::query("SELECT id, title, created_at, last_modified FROM collections")
+    //         .fetch_all(&self.pool)
+    //         .await?;
 
-            collections.push(CollectionMetadata {
-                id,
-                title,
-                created_at: UtcDateTime::from_unix_timestamp(created_at)
-                    .unwrap()
-                    .to_string(),
-                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
-                    .unwrap()
-                    .to_string(),
-                documents_metadata_ids,
-            });
-        }
+    //     // Optimization: Fetch all document IDs in one go to avoid N+1 query problem
+    //     let document_metadatas = self.get_all_documents().await?;
 
-        Ok(collections)
-    }
+    //     let mut docs_map: std::collections::HashMap<String, Vec<String>> =
+    //         std::collections::HashMap::new();
+    //     for row in document_metadatas {
+    //         docs_map
+    //             .entry(row.collection_metadata_id)
+    //             .or_default()
+    //             .push(row.id);
+    //     }
 
-    async fn get_collections_by_collection_metadata_id(
-        &self,
-        ids: Vec<String>,
-    ) -> Result<Vec<CollectionMetadata>> {
-        if ids.is_empty() {
-            return Ok(Vec::new());
-        }
+    //     let mut collections = Vec::with_capacity(rows.len());
+    //     for row in rows {
+    //         let id: String = row.get("id");
+    //         let title: String = row.get("title");
+    //         let created_at: i64 = row.get("created_at");
+    //         let last_modified: i64 = row.get("last_modified");
 
-        // Build the IN clause placeholders
-        let placeholders: Vec<&str> = ids.iter().map(|_| "?").collect();
-        let in_clause = placeholders.join(",");
+    //         let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
 
-        let query_str = format!(
-            "SELECT id, title, created_at, last_modified FROM collections WHERE id IN ({})",
-            in_clause
-        );
+    //         collections.push(CollectionMetadata {
+    //             id,
+    //             title,
+    //             created_at: UtcDateTime::from_unix_timestamp(created_at)
+    //                 .unwrap()
+    //                 .to_string(),
+    //             last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+    //                 .unwrap()
+    //                 .to_string(),
+    //             documents_metadata_ids,
+    //         });
+    //     }
 
-        let mut query = sqlx::query(&query_str);
-        for id in &ids {
-            query = query.bind(id);
-        }
+    //     Ok(collections)
+    // }
 
-        let rows = query.fetch_all(&self.pool).await?;
+    // async fn get_collections_by_collection_metadata_id(
+    //     &self,
+    //     ids: Vec<String>,
+    // ) -> Result<Vec<CollectionMetadata>> {
+    //     if ids.is_empty() {
+    //         return Ok(Vec::new());
+    //     }
 
-        if rows.is_empty() {
-            return Ok(Vec::new());
-        }
+    //     // Build the IN clause placeholders
+    //     let placeholders: Vec<&str> = ids.iter().map(|_| "?").collect();
+    //     let in_clause = placeholders.join(",");
 
-        // Optimization: Fetch all document IDs for these collections in one go
-        let found_ids: Vec<String> = rows.iter().map(|r| r.get("id")).collect();
-        let doc_placeholders: Vec<&str> = found_ids.iter().map(|_| "?").collect();
-        let doc_in_clause = doc_placeholders.join(",");
+    //     let query_str = format!(
+    //         "SELECT id, title, created_at, last_modified FROM collections WHERE id IN ({})",
+    //         in_clause
+    //     );
 
-        let doc_query_str = format!(
-            "SELECT id, collection_metadata_id FROM documents WHERE collection_metadata_id IN ({})",
-            doc_in_clause
-        );
+    //     let mut query = sqlx::query(&query_str);
+    //     for id in &ids {
+    //         query = query.bind(id);
+    //     }
 
-        let mut doc_query = sqlx::query(&doc_query_str);
-        for id in &found_ids {
-            doc_query = doc_query.bind(id);
-        }
+    //     let rows = query.fetch_all(&self.pool).await?;
 
-        let doc_rows = doc_query.fetch_all(&self.pool).await?;
+    //     if rows.is_empty() {
+    //         return Ok(Vec::new());
+    //     }
 
-        let mut docs_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for row in doc_rows {
-            let collection_id: String = row.get("collection_metadata_id");
-            let doc_id: String = row.get("id");
-            docs_map.entry(collection_id).or_default().push(doc_id);
-        }
+    //     // Optimization: Fetch all document IDs for these collections in one go
+    //     let found_ids: Vec<String> = rows.iter().map(|r| r.get("id")).collect();
+    //     let doc_placeholders: Vec<&str> = found_ids.iter().map(|_| "?").collect();
+    //     let doc_in_clause = doc_placeholders.join(",");
 
-        let mut collections = Vec::with_capacity(rows.len());
-        for row in rows {
-            let id: String = row.get("id");
-            let title: String = row.get("title");
-            let created_at: i64 = row.get("created_at");
-            let last_modified: i64 = row.get("last_modified");
+    //     let doc_query_str = format!(
+    //         "SELECT id, collection_metadata_id FROM documents WHERE collection_metadata_id IN ({})",
+    //         doc_in_clause
+    //     );
 
-            let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
+    //     let mut doc_query = sqlx::query(&doc_query_str);
+    //     for id in &found_ids {
+    //         doc_query = doc_query.bind(id);
+    //     }
 
-            collections.push(CollectionMetadata {
-                id,
-                title,
-                created_at: UtcDateTime::from_unix_timestamp(created_at)
-                    .unwrap()
-                    .to_string(),
-                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
-                    .unwrap()
-                    .to_string(),
-                documents_metadata_ids,
-            });
-        }
+    //     let doc_rows = doc_query.fetch_all(&self.pool).await?;
 
-        Ok(collections)
-    }
+    //     let mut docs_map: std::collections::HashMap<String, Vec<String>> =
+    //         std::collections::HashMap::new();
+    //     for row in doc_rows {
+    //         let collection_id: String = row.get("collection_metadata_id");
+    //         let doc_id: String = row.get("id");
+    //         docs_map.entry(collection_id).or_default().push(doc_id);
+    //     }
+
+    //     let mut collections = Vec::with_capacity(rows.len());
+    //     for row in rows {
+    //         let id: String = row.get("id");
+    //         let title: String = row.get("title");
+    //         let created_at: i64 = row.get("created_at");
+    //         let last_modified: i64 = row.get("last_modified");
+
+    //         let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
+
+    //         collections.push(CollectionMetadata {
+    //             id,
+    //             title,
+    //             created_at: UtcDateTime::from_unix_timestamp(created_at)
+    //                 .unwrap()
+    //                 .to_string(),
+    //             last_modified: UtcDateTime::from_unix_timestamp(last_modified)
+    //                 .unwrap()
+    //                 .to_string(),
+    //             documents_metadata_ids,
+    //         });
+    //     }
+
+    //     Ok(collections)
+    // }
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
         let row = sqlx::query("SELECT embedder_model_in_use, embedder_model_vector_size_in_use FROM metadata_settings WHERE id = 1")
@@ -1253,4 +1257,42 @@ impl MetadataManagement for SQLiteDatabase {
         tx.commit().await?;
         Ok(())
     }
+    
+    async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>> {
+        use crate::database::entity::{documents, document_chunks};
+
+        if filter.is_over_constrained() {
+            return Err(anyhow!("only one filter is applicable"));
+        }
+
+        // Construct a sql filter to the table
+        let mut sql_filter = sea_orm::Condition::any();
+
+        if let Some(id) = &filter.id {
+            sql_filter = sql_filter.add(documents::Column::Id.eq(id));
+        }
+
+        if let Some(collection_metadata_id) = &filter.collection_metadata_id {
+            sql_filter = sql_filter.add(documents::Column::CollectionMetadataId.eq(collection_metadata_id));
+        }
+        
+        if let Some(created_at) = &filter.created_at {
+            sql_filter = sql_filter.add(documents::Column::CreatedAt.eq(created_at));
+        }
+        
+        if let Some(last_modified) = &filter.last_modified {
+            sql_filter = sql_filter.add(documents::Column::CreatedAt.eq(last_modified));
+        }
+
+        // Start filtering
+        let documents = documents::Entity::find()
+            .find_with_related(document_chunks::Entity)
+            .filter(sql_filter)
+            .all(&self.pool)
+            .await?;
+
+        Ok(documents.into_iter().map(|item| item.into()).collect())
+    }
+    
+    async fn get_collections(&self, filter: GetCollectionFilter) -> Result<Vec<DocumentMetadata>>;
 }

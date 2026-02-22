@@ -71,11 +71,7 @@ impl MigrationTrait for Migration {
                     .col(string(DocumentChunks::DocumentMetadataId))
                     .col(string(DocumentChunks::CollectionMetadataId))
                     .col(string(DocumentChunks::Content))
-                    .col(
-                        ColumnDef::new(DocumentChunks::DenseTextVector)
-                            .binary()
-                            .not_null(),
-                    )
+                    .col(json(DocumentChunks::DenseTextVector))
                     .col(integer(DocumentChunks::ChunkOrder))
                     .foreign_key(
                         ForeignKey::create()

@@ -56,15 +56,19 @@ pub trait MetadataManagement {
     
     async fn add_documents(&self, document_metadatas:Vec<DocumentMetadata>) -> Result<()>;
     
-    async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<DocumentMetadata>;
+    // async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<DocumentMetadata>;
 
-    async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String>;
+    // async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String>;
     
-    async fn get_all_documents(&self) -> Result<Vec<DocumentMetadata>>;
+    // async fn get_all_documents(&self) -> Result<Vec<DocumentMetadata>>;
     
-    async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>>;
+    // async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>>;
     
-    async fn get_collections_by_collection_metadata_id(&self, ids: Vec<String>) -> Result<Vec<CollectionMetadata>>;
+    // async fn get_collections_by_collection_metadata_id(&self, ids: Vec<String>) -> Result<Vec<CollectionMetadata>>;
+    
+    async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
+    
+    async fn get_collections(&self, filter: GetCollectionFilter) -> Result<Vec<DocumentMetadata>>;
     
     async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
 }
