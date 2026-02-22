@@ -2,6 +2,8 @@ use actix_web::cookie::time::UtcDateTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::{database, documents::document_metadata::DocumentMetadata};
+
 use super::traits::ValidateDataMutabilitiesForAPICaller;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +18,7 @@ pub struct CollectionMetadata {
     pub title: String,
 
     // metadata ids of its owned documents
-    pub documents_metadata_ids: Vec<String>,
+    pub documents_metadatas: Vec<DocumentMetadata>,
 }
 
 impl CollectionMetadata {
@@ -27,14 +29,14 @@ impl CollectionMetadata {
             created_at: now.clone(),
             last_modified: now,
             title,
-            documents_metadata_ids: Vec::new(),
+            documents_metadatas: Vec::new(),
         }
     }
 }
 
 impl ValidateDataMutabilitiesForAPICaller for CollectionMetadata {
     fn is_mutated(&self) -> anyhow::Result<()> {
-        if !self.documents_metadata_ids.is_empty() {
+        if !self.documents_metadatas.is_empty() {
             return Err(anyhow::anyhow!(
                 "Document metadata ids are immutable to API callers"
             ));
@@ -53,5 +55,31 @@ impl ValidateDataMutabilitiesForAPICaller for CollectionMetadata {
         }
 
         Ok(())
+    }
+}
+
+impl
+    From<(
+        database::entity::collections::Model,
+        Vec<database::entity::documents::Model>,
+    )> for CollectionMetadata
+{
+    fn from(
+        value: (
+            database::entity::collections::Model,
+            Vec<database::entity::documents::Model>,
+        ),
+    ) -> Self {
+        Self {
+            id: value.0.id,
+            created_at: UtcDateTime::from_unix_timestamp(value.0.created_at)
+                .unwrap()
+                .to_string(),
+            last_modified: UtcDateTime::from_unix_timestamp(value.0.last_modified)
+                .unwrap()
+                .to_string(),
+            title: value.0.title,
+            documents_metadatas: value.1.into_iter().map(|item| item.into()).collect(),
+        }
     }
 }

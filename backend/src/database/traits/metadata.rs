@@ -1,9 +1,13 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::{database::metadata::MetadataSettings, documents::{
-    collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
-}};
+use crate::{
+    database::{
+        filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+        metadata::MetadataSettings,
+    },
+    documents::{collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata},
+};
 
 /// it defines methods for managing metadata
 #[async_trait]
@@ -11,16 +15,13 @@ pub trait MetadataManagement {
     async fn create_collection(&self, title: &str) -> Result<String>;
 
     /// Return None if the given metadata id is not found
-    async fn delete_collection(
-        &self,
-        collection_metadata_id: &str,
-    ) -> Option<CollectionMetadata>;
-    
+    async fn delete_collection(&self, collection_metadata_id: &str) -> Option<CollectionMetadata>;
+
     async fn delete_collections(
         &self,
         collection_metadata_ids: &Vec<String>,
     ) -> Result<Vec<CollectionMetadata>>;
-    
+
     async fn delete_documents(
         &self,
         document_metadata_ids: &Vec<String>,
@@ -50,25 +51,19 @@ pub trait MetadataManagement {
 
     async fn remove_document(&self, metdata_id: &str) -> Option<DocumentMetadata>;
 
-    async fn update_metadata_settings(&self, metadata_settings: MetadataSettings) -> Result<MetadataSettings>;
-    
-    async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()>;
-    
-    async fn add_documents(&self, document_metadatas:Vec<DocumentMetadata>) -> Result<()>;
-    
-    // async fn get_document(&self, docuemnt_metadata_id: &str) -> Option<DocumentMetadata>;
+    async fn update_metadata_settings(
+        &self,
+        metadata_settings: MetadataSettings,
+    ) -> Result<MetadataSettings>;
 
-    // async fn get_document_ids_by_collection(&self, collection_metadata_id: &str) -> Vec<String>;
-    
-    // async fn get_all_documents(&self) -> Result<Vec<DocumentMetadata>>;
-    
-    // async fn get_all_collections(&self) -> Result<Vec<CollectionMetadata>>;
-    
-    // async fn get_collections_by_collection_metadata_id(&self, ids: Vec<String>) -> Result<Vec<CollectionMetadata>>;
-    
+    async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()>;
+
+    async fn add_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
+
     async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
-    
-    async fn get_collections(&self, filter: GetCollectionFilter) -> Result<Vec<DocumentMetadata>>;
-    
+
+    async fn get_collections(&self, filter: GetCollectionFilter, include_chunk_data: bool)
+    -> Result<Vec<CollectionMetadata>>;
+
     async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
 }
