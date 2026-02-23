@@ -19,7 +19,7 @@ use qdrant_client::{
 use tokio::sync::MutexGuard;
 
 use crate::{
-    configurations::system::{Config, VectorDatabaseConfig, EmbedderConfig},
+    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
     },
@@ -60,7 +60,9 @@ impl VectorDatabase for QdrantDatabase {
             .collect();
 
         self.client
-            .upsert_points(UpsertPointsBuilder::new(&vector_database_config.index, points).wait(true))
+            .upsert_points(
+                UpsertPointsBuilder::new(&vector_database_config.index, points).wait(true),
+            )
             .await?;
 
         Ok(())
@@ -274,9 +276,10 @@ impl KeywordSearch for QdrantDatabase {
 
 impl QdrantDatabase {
     pub async fn new(configuration: &Config) -> Result<Self> {
-        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.vector_database.base_url)
-            // Timeout for preventing Qdrant killing time-consuming operations
-            .timeout(std::time::Duration::from_secs(1000));
+        let qdrant_config: QdrantConfig =
+            QdrantConfig::from_url(&configuration.vector_database.base_url)
+                // Timeout for preventing Qdrant killing time-consuming operations
+                .timeout(std::time::Duration::from_secs(1000));
         let client: Qdrant = Qdrant::new(qdrant_config)?;
 
         if client

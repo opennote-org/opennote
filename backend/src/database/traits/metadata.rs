@@ -14,9 +14,6 @@ use crate::{
 pub trait MetadataManagement {
     async fn create_collection(&self, title: &str) -> Result<String>;
 
-    /// Return None if the given metadata id is not found
-    async fn delete_collection(&self, collection_metadata_id: &str) -> Option<CollectionMetadata>;
-
     async fn delete_collections(
         &self,
         collection_metadata_ids: &Vec<String>,
@@ -27,7 +24,7 @@ pub trait MetadataManagement {
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>>;
 
-    async fn update_collection(
+    async fn update_collections(
         &self,
         mut collection_metadatas: Vec<CollectionMetadata>,
     ) -> Result<()>;
@@ -47,10 +44,6 @@ pub trait MetadataManagement {
 
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
 
-    async fn add_document(&self, metadata: DocumentMetadata) -> Result<()>;
-
-    async fn remove_document(&self, metdata_id: &str) -> Option<DocumentMetadata>;
-
     async fn update_metadata_settings(
         &self,
         metadata_settings: MetadataSettings,
@@ -62,8 +55,11 @@ pub trait MetadataManagement {
 
     async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
 
-    async fn get_collections(&self, filter: GetCollectionFilter, include_chunk_data: bool)
-    -> Result<Vec<CollectionMetadata>>;
+    async fn get_collections(
+        &self,
+        filter: GetCollectionFilter,
+        include_chunk_data: bool,
+    ) -> Result<Vec<CollectionMetadata>>;
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
 }

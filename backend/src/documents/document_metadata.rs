@@ -93,8 +93,12 @@ impl From<database::entity::documents::Model> for DocumentMetadata {
     fn from(value: database::entity::documents::Model) -> Self {
         Self {
             id: value.id,
-            created_at: UtcDateTime::from_unix_timestamp(value.created_at).unwrap().to_string(),
-            last_modified: UtcDateTime::from_unix_timestamp(value.last_modified).unwrap().to_string(),
+            created_at: UtcDateTime::from_unix_timestamp(value.created_at)
+                .unwrap()
+                .to_string(),
+            last_modified: UtcDateTime::from_unix_timestamp(value.last_modified)
+                .unwrap()
+                .to_string(),
             collection_metadata_id: value.collection_metadata_id,
             title: value.title,
             chunks: Vec::new(),

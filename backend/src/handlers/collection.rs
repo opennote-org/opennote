@@ -135,7 +135,11 @@ pub async fn get_collections(
     data: web::Data<AppState>,
     query: Query<GetCollectionsQuery>,
 ) -> Result<HttpResponse> {
-    let collections = match data.database.get_collections_by_collection_metadata_id().await {
+    let collections = match data
+        .database
+        .get_collections_by_collection_metadata_id()
+        .await
+    {
         Ok(collections) => collections,
         Err(error) => {
             log::error!("Failed to get collections: {}", error);

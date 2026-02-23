@@ -1,8 +1,12 @@
 use actix_web::cookie::time::UtcDateTime;
+use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{database, documents::document_metadata::DocumentMetadata};
+use crate::{
+    database::{self, utilities::parse_timestamp},
+    documents::document_metadata::DocumentMetadata,
+};
 
 use super::traits::ValidateDataMutabilitiesForAPICaller;
 
@@ -55,6 +59,28 @@ impl ValidateDataMutabilitiesForAPICaller for CollectionMetadata {
         }
 
         Ok(())
+    }
+}
+
+impl Into<database::entity::collections::ActiveModel> for CollectionMetadata {
+    fn into(self) -> database::entity::collections::ActiveModel {
+        database::entity::collections::ActiveModel {
+            id: Set(self.id),
+            title: Set(self.title),
+            created_at: Set(parse_timestamp(&self.created_at)),
+            last_modified: Set(parse_timestamp(&self.last_modified)),
+        }
+    }
+}
+
+impl Into<database::entity::collections::ActiveModel> for &mut CollectionMetadata {
+    fn into(self) -> database::entity::collections::ActiveModel {
+        database::entity::collections::ActiveModel {
+            id: Set(self.id.clone()),
+            title: Set(self.title.clone()),
+            created_at: Set(parse_timestamp(&self.created_at)),
+            last_modified: Set(parse_timestamp(&self.last_modified)),
+        }
     }
 }
 

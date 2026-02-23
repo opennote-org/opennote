@@ -6,10 +6,9 @@ use local_vector_database::{Data, LocalVectorDatabase};
 use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
-    configurations::system::{Config, VectorDatabaseConfig, EmbedderConfig},
+    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
     documents::{
-        collection_metadata::CollectionMetadata,
-        document_chunk::DocumentChunk,
+        collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
     embedder::{send_vectorization, vectorize},

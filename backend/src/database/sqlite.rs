@@ -11,6 +11,7 @@ use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
+use sea_orm::UpdateMany;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
     Set,
@@ -198,7 +199,8 @@ impl Database for SQLiteDatabase {
 
         self.migrate_metadata_settings(&metadata_storage).await?;
         self.migrate_collections(&metadata_storage).await?;
-        self.migrate_documents(&metadata_storage, vector_database).await?;
+        self.migrate_documents(&metadata_storage, vector_database)
+            .await?;
         self.migrate_users(&identities_storage).await?;
 
         Ok(())
@@ -464,96 +466,43 @@ impl Identities for SQLiteDatabase {
 #[async_trait]
 impl MetadataManagement for SQLiteDatabase {
     async fn create_collection(&self, title: &str) -> Result<String> {
-        let collection = CollectionMetadata::new(title.to_string());
-        sqlx::query(
-            "INSERT INTO collections (id, title, created_at, last_modified) VALUES (?, ?, ?, ?)",
-        )
-        .bind(&collection.id)
-        .bind(&collection.title)
-        .bind(parse_timestamp(&collection.created_at))
-        .bind(parse_timestamp(&collection.last_modified))
-        .execute(&self.pool)
-        .await?;
-        Ok(collection.id)
+        use crate::database::entity::collections;
+
+        let collection: collections::ActiveModel =
+            CollectionMetadata::new(title.to_string()).into();
+
+        // Clone the id for return before it is consumed
+        let collection_id: String = collection.id.clone().take().unwrap();
+
+        collection.insert(&self.pool).await?;
+
+        Ok(collection_id)
     }
 
-    async fn delete_collection(&self, collection_metadata_id: &str) -> Option<CollectionMetadata> {
-        let mut tx = self.pool.begin().await.ok()?;
-
-        let row = sqlx::query(
-            "SELECT id, title, created_at, last_modified FROM collections WHERE id = ?",
-        )
-        .bind(collection_metadata_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .ok()??;
-
-        let id: String = row.get("id");
-        let title: String = row.get("title");
-        let created_at: i64 = row.get("created_at");
-        let last_modified: i64 = row.get("last_modified");
-
-        let doc_rows = sqlx::query("SELECT id FROM documents WHERE collection_metadata_id = ?")
-            .bind(collection_metadata_id)
-            .fetch_all(&mut *tx)
-            .await
-            .ok()?;
-
-        let documents_metadata_ids: Vec<String> = doc_rows.iter().map(|r| r.get("id")).collect();
-
-        let collection = CollectionMetadata {
-            id,
-            title,
-            created_at: UtcDateTime::from_unix_timestamp(created_at)
-                .unwrap()
-                .to_string(),
-            last_modified: UtcDateTime::from_unix_timestamp(last_modified)
-                .unwrap()
-                .to_string(),
-            documents_metadata_ids,
-        };
-
-        sqlx::query("DELETE FROM collections WHERE id = ?")
-            .bind(collection_metadata_id)
-            .execute(&mut *tx)
-            .await
-            .ok()?;
-
-        tx.commit().await.ok()?;
-        Some(collection)
-    }
-
-    async fn update_collection(
+    async fn update_collections(
         &self,
         mut collection_metadatas: Vec<CollectionMetadata>,
     ) -> Result<()> {
-        let mut tx = self.pool.begin().await?;
+        use crate::database::entity::collections;
 
+        let mut tasks = Vec::new();
         for metadata in collection_metadatas.iter_mut() {
-            let exists = sqlx::query("SELECT 1 FROM collections WHERE id = ?")
-                .bind(&metadata.id)
-                .fetch_optional(&mut *tx)
-                .await?;
+            metadata.is_mutated()?;
+            metadata.last_modified = UtcDateTime::now().to_string();
 
-            if exists.is_some() {
-                metadata.is_mutated()?;
+            tasks.push(async {
+                let active_model: collections::ActiveModel = metadata.into();
+                active_model.update(&self.pool).await?;
 
-                metadata.last_modified = UtcDateTime::now().to_string();
-
-                sqlx::query("UPDATE collections SET title = ?, last_modified = ? WHERE id = ?")
-                    .bind(&metadata.title)
-                    .bind(parse_timestamp(&metadata.last_modified))
-                    .bind(&metadata.id)
-                    .execute(&mut *tx)
-                    .await?;
-            } else {
-                return Err(anyhow!(
-                    "Collection metadata id {} was not found, update operation terminated",
-                    metadata.id
-                ));
-            }
+                Ok::<_, anyhow::Error>(())
+            });
         }
-        tx.commit().await?;
+
+        let results = join_all(tasks).await;
+        for result in results {
+            result?;
+        }
+
         Ok(())
     }
 
@@ -738,18 +687,6 @@ impl MetadataManagement for SQLiteDatabase {
                 metadata.collection_metadata_id
             ))
         }
-    }
-
-    async fn remove_document(&self, metdata_id: &str) -> Option<DocumentMetadata> {
-        let doc = self.get_document(metdata_id).await?;
-
-        sqlx::query("DELETE FROM documents WHERE id = ?")
-            .bind(metdata_id)
-            .execute(&self.pool)
-            .await
-            .ok()?;
-
-        Some(doc)
     }
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
