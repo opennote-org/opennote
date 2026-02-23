@@ -4,6 +4,7 @@ use crate::database::filters::get_collections::GetCollectionFilter;
 use crate::database::filters::get_documents::GetDocumentFilter;
 use crate::database::filters::traits::GetFilterValidation;
 use crate::traits::LoadAndSave;
+use crate::vector_database::traits::VectorDatabase;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 use actix_web::cookie::time::UtcDateTime;
 use anyhow::{Context, Result, anyhow};
@@ -101,33 +102,40 @@ impl Database for SQLiteDatabase {
         Ok(())
     }
 
-    async fn migrate_documents(&self, metadata_storage: &MetadataStorage) -> Result<()> {
+    async fn migrate_documents(
+        &self,
+        metadata_storage: &MetadataStorage,
+        vector_database: &dyn VectorDatabase,
+    ) -> Result<()> {
         // migrate all document records
-        use crate::database::entity::document_chunks;
-        use crate::database::entity::documents;
+        use crate::database::entity::{document_chunks, documents};
 
         let mut documents_to_insert = Vec::new();
         let mut chunks_to_insert = Vec::new();
         for (_, document) in metadata_storage.documents.iter() {
+            let chunks = vector_database
+                .get_document_chunks(vec![document.id.clone()])
+                .await?;
+
             documents_to_insert.push(documents::ActiveModel {
                 id: Set(document.id.clone()),
                 collection_metadata_id: Set(document.collection_metadata_id.clone()),
                 title: Set(document.title.to_string()),
                 created_at: Set(parse_timestamp(&document.created_at)),
                 last_modified: Set(parse_timestamp(&document.last_modified)),
-                ..Default::default()
             });
 
             // migrate all document chunks
-            for (chunk_order, document_chunk_id) in document.chunks.iter().enumerate() {
+            for (chunk_order, document_chunk) in chunks.into_iter().enumerate() {
                 chunks_to_insert.push(document_chunks::ActiveModel {
-                    id: Set(document_chunk_id.clone()),
+                    id: Set(document_chunk.id),
                     document_metadata_id: Set(document.id.clone()),
                     collection_metadata_id: Set(document.collection_metadata_id.clone()),
-                    content: Set("".to_string()),
+                    content: Set(document_chunk.content),
                     chunk_order: Set(chunk_order as i64),
-                    dense_text_vector: Set(Vec::new()),
-                    ..Default::default()
+                    dense_text_vector: Set(
+                        serde_json::to_value(document_chunk.dense_text_vector).unwrap()
+                    ),
                 });
             }
         }
@@ -181,6 +189,7 @@ impl Database for SQLiteDatabase {
         &self,
         metadata_storage_path: &str,
         identities_storage_path: &str,
+        vector_database: &dyn VectorDatabase,
     ) -> Result<()> {
         Migrator::up(&self.pool, None).await?;
 
@@ -189,7 +198,7 @@ impl Database for SQLiteDatabase {
 
         self.migrate_metadata_settings(&metadata_storage).await?;
         self.migrate_collections(&metadata_storage).await?;
-        self.migrate_documents(&metadata_storage).await?;
+        self.migrate_documents(&metadata_storage, vector_database).await?;
         self.migrate_users(&identities_storage).await?;
 
         Ok(())
@@ -1119,9 +1128,10 @@ impl MetadataManagement for SQLiteDatabase {
             .filter(sql_filter)
             .all(&self.pool)
             .await?;
-        
+
         // No chunk data yet
-        let mut collection_metadatas: Vec<CollectionMetadata> = collections.into_iter().map(|item| item.into()).collect();
+        let mut collection_metadatas: Vec<CollectionMetadata> =
+            collections.into_iter().map(|item| item.into()).collect();
 
         // Conduct an additional query if the user decides to include the chunk data
         if !include_chunk_data {
@@ -1131,18 +1141,18 @@ impl MetadataManagement for SQLiteDatabase {
         // Query the chunk details in parallel to reduce round-trips
         let mut tasks = Vec::new();
         for collection in collection_metadatas.iter_mut() {
-            tasks.push(
-                async {
-                    collection.documents_metadatas = self.get_documents(GetDocumentFilter {
+            tasks.push(async {
+                collection.documents_metadatas = self
+                    .get_documents(GetDocumentFilter {
                         id: Some(collection.id.clone()),
                         ..Default::default()
-                    }).await?;
-                    
-                    Ok::<_, anyhow::Error>(())
-                }
-            );
+                    })
+                    .await?;
+
+                Ok::<_, anyhow::Error>(())
+            });
         }
-        
+
         let results = join_all(tasks).await;
         for result in results {
             result?;
