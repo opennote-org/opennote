@@ -13,10 +13,10 @@ pub struct MCPGetCollectionMetadata {
 pub struct MCPSearchDocumentRequest {
     #[schemars(description = "keywords, phrases or sentences you may want to search")]
     pub query: String,
-    
+
     #[schemars(description = "number of results you want. 20 is recommended for first try")]
     pub top_n: usize,
-    
+
     #[schemars(description = "in which range, you want to search")]
     #[serde(flatten)]
     pub scope: SearchScopeIndicator,

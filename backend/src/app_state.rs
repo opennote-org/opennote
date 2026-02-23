@@ -26,7 +26,7 @@ impl AppState {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         let config_clone = config.clone();
         let vector_database = create_vector_database(&config).await?;
-        
+
         let database = create_database(&config).await?;
         database.migrate(&config.metadata_storage.path).await?;
 

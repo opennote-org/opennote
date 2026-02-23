@@ -11,7 +11,10 @@ use crate::handlers::{
     },
     general::{get_info, health_check, retrieve_task_result},
     search::{intelligent_search, search},
-    user::{create_user, get_user_configurations, get_user_configurations_schemars, login, update_user_configurations},
+    user::{
+        create_user, get_user_configurations, get_user_configurations_schemars, login,
+        update_user_configurations,
+    },
 };
 
 pub fn configure_routes() -> Scope {
@@ -35,7 +38,10 @@ pub fn configure_routes() -> Scope {
                 )
                 .route("/async/reindex", web::post().to(reindex))
                 .route("/sync/login", web::post().to(login))
-                .route("/sync/get_user_configurations_schemars", web::get().to(get_user_configurations_schemars))
+                .route(
+                    "/sync/get_user_configurations_schemars",
+                    web::get().to(get_user_configurations_schemars),
+                ),
         )
         .service(
             web::scope("collections")

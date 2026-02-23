@@ -19,9 +19,8 @@ pub struct WebpageConnector;
 #[async_trait]
 impl Connector for WebpageConnector {
     async fn get_intermediate(artifact: Value) -> Result<ImportTaskIntermediate> {
-        let webpage_artifact: WebpageArtifact =
-            serde_json::from_value(artifact)?;
-        
+        let webpage_artifact: WebpageArtifact = serde_json::from_value(artifact)?;
+
         let mut headers = header::HeaderMap::new();
         headers.insert(
             "Accept", 
@@ -40,13 +39,13 @@ impl Connector for WebpageConnector {
 
         let response = client.get(webpage_artifact.url.clone()).send().await?;
         let raw_content = response.text().await?;
-        
+
         let skip_images = if webpage_artifact.preserve_image {
             false
         } else {
             true
         };
-        
+
         let markdown = convert_html(
             &raw_content,
             &ConversionOptions {

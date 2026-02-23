@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::Mutex;
 
-use crate::configurations::system::{Config, VectorDatabaseConfig, EmbedderConfig};
+use crate::configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig};
 use crate::documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata};
 use crate::metadata_storage::MetadataStorage;
 use crate::search::{keyword::KeywordSearch, semantic::SemanticSearch};

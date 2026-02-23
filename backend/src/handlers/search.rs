@@ -5,9 +5,7 @@ use tokio::sync::RwLock;
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
     app_state::AppState,
-    documents::
-        operations::retrieve_document_ids_by_scope
-    ,
+    documents::operations::retrieve_document_ids_by_scope,
     utilities::acquire_data,
 };
 
