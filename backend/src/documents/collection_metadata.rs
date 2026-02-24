@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
     database::{self, utilities::parse_timestamp},
-    documents::document_metadata::DocumentMetadata,
+    documents::{document_metadata::DocumentMetadata, traits::GetId},
 };
 
 use super::traits::ValidateDataMutabilitiesForAPICaller;
@@ -35,6 +35,12 @@ impl CollectionMetadata {
             title,
             documents_metadatas: Vec::new(),
         }
+    }
+}
+
+impl GetId for CollectionMetadata {
+    fn get_id(&self) -> &str {
+        &self.id
     }
 }
 

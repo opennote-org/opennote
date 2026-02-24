@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::database::filters::get_collections::GetCollectionFilter;
 use crate::database::filters::get_documents::GetDocumentFilter;
 use crate::database::filters::traits::GetFilterValidation;
+use crate::database::utilities::map_order_by_ids;
 use crate::traits::LoadAndSave;
 use crate::vector_database::traits::VectorDatabase;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
@@ -11,7 +13,7 @@ use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
-use sea_orm::UpdateMany;
+use sea_orm::IntoActiveModel;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
     Set,
@@ -506,55 +508,6 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(())
     }
 
-    async fn update_documents_with_new_chunks(
-        &self,
-        document_metadatas: Vec<DocumentMetadata>,
-    ) -> Result<()> {
-        let mut tx = self.pool.begin().await?;
-        for metadata in document_metadatas {
-            let exists = sqlx::query("SELECT 1 FROM documents WHERE id = ?")
-                .bind(&metadata.id)
-                .fetch_optional(&mut *tx)
-                .await?;
-
-            if exists.is_some() {
-                // Update basic fields just in case (MetadataStorage replaces entire object)
-                sqlx::query("UPDATE documents SET title = ?, last_modified = ?, collection_metadata_id = ? WHERE id = ?")
-                    .bind(&metadata.title)
-                    .bind(parse_timestamp(&metadata.last_modified))
-                    .bind(&metadata.collection_metadata_id)
-                    .bind(&metadata.id)
-                    .execute(&mut *tx)
-                    .await?;
-
-                // Swap the chunks out
-                sqlx::query("DELETE FROM document_chunks WHERE document_metadata_id = ?")
-                    .bind(&metadata.id)
-                    .execute(&mut *tx)
-                    .await?;
-
-                for (i, chunk_id) in metadata.chunks.iter().enumerate() {
-                    sqlx::query("INSERT INTO document_chunks (id, document_metadata_id, collection_metadata_id, content, dense_text_vector, chunk_order) VALUES (?, ?, ?, ?, ?, ?)")
-                        .bind(chunk_id)
-                        .bind(&metadata.id)
-                        .bind(&metadata.collection_metadata_id)
-                        .bind("")
-                        .bind(Vec::<u8>::new())
-                        .bind(i as i64)
-                        .execute(&mut *tx)
-                        .await?;
-                }
-            } else {
-                return Err(anyhow!(
-                    "Document metadata id {} was not found, update operation terminated",
-                    metadata.id
-                ));
-            }
-        }
-        tx.commit().await?;
-        Ok(())
-    }
-
     async fn verify_immutable_fields_in_document_metadatas(
         &self,
         document_metadatas: &mut Vec<DocumentMetadata>,
@@ -601,92 +554,48 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
-        let mut tx = self.pool.begin().await?;
+        use crate::database::entity::{document_chunks, documents};
 
-        for mut metadata in document_metadatas {
-            let row = sqlx::query("SELECT collection_metadata_id FROM documents WHERE id = ?")
-                .bind(&metadata.id)
-                .fetch_optional(&mut *tx)
-                .await?;
-
-            if let Some(row) = row {
-                let old_collection_id: String = row.get("collection_metadata_id");
-
-                let now_ts = UtcDateTime::now().to_string();
-                let now_i64 = parse_timestamp(&now_ts);
-                metadata.last_modified = now_ts.clone();
-
-                sqlx::query("UPDATE collections SET last_modified = ? WHERE id = ?")
-                    .bind(now_i64)
-                    .bind(&old_collection_id)
-                    .execute(&mut *tx)
-                    .await?;
-
-                if metadata.collection_metadata_id != old_collection_id {
-                    sqlx::query("UPDATE collections SET last_modified = ? WHERE id = ?")
-                        .bind(now_i64)
-                        .bind(&metadata.collection_metadata_id)
-                        .execute(&mut *tx)
-                        .await?;
-
-                    sqlx::query("UPDATE document_chunks SET collection_metadata_id = ? WHERE document_metadata_id = ?")
-                        .bind(&metadata.collection_metadata_id)
-                        .bind(&metadata.id)
-                        .execute(&mut *tx)
-                        .await?;
-                }
-
-                sqlx::query("UPDATE documents SET title = ?, last_modified = ?, collection_metadata_id = ? WHERE id = ?")
-                    .bind(&metadata.title)
-                    .bind(now_i64)
-                    .bind(&metadata.collection_metadata_id)
-                    .bind(&metadata.id)
-                    .execute(&mut *tx)
-                    .await?;
-            }
-        }
-        tx.commit().await?;
-        Ok(())
-    }
-
-    async fn add_document(&self, metadata: DocumentMetadata) -> Result<()> {
-        let mut tx = self.pool.begin().await?;
-
-        let exists = sqlx::query("SELECT 1 FROM collections WHERE id = ?")
-            .bind(&metadata.collection_metadata_id)
-            .fetch_optional(&mut *tx)
+        // Get the documents to update first
+        let old_document_metadatas = self
+            .get_documents(GetDocumentFilter {
+                ids: document_metadatas
+                    .iter()
+                    .map(|item| item.id.clone())
+                    .collect(),
+                ..Default::default()
+            })
             .await?;
 
-        if exists.is_some() {
-            sqlx::query("INSERT INTO documents (id, collection_metadata_id, title, created_at, last_modified) VALUES (?, ?, ?, ?, ?)")
-                .bind(&metadata.id)
-                .bind(&metadata.collection_metadata_id)
-                .bind(&metadata.title)
-                .bind(parse_timestamp(&metadata.created_at))
-                .bind(parse_timestamp(&metadata.last_modified))
-                .execute(&mut *tx)
-                .await?;
+        // Concurrently update the document metadatas first
+        let mut update_document_metadata_tasks = Vec::new();
+        let mut chunks_to_update = Vec::new();
+        for (old, new) in old_document_metadatas.into_iter().zip(document_metadatas) {
+            let (document_model, chunks_model): (documents::Model, Vec<document_chunks::Model>) =
+                new.inherit(old).into();
 
-            for (i, chunk_id) in metadata.chunks.iter().enumerate() {
-                sqlx::query("INSERT INTO document_chunks (id, document_metadata_id, collection_metadata_id, content, dense_text_vector, chunk_order) VALUES (?, ?, ?, ?, ?, ?)")
-                        .bind(chunk_id)
-                        .bind(&metadata.id)
-                        .bind(&metadata.collection_metadata_id)
-                        .bind("")
-                        .bind(Vec::<u8>::new())
-                        .bind(i as i64)
-                        .execute(&mut *tx)
-                        .await?;
-            }
+            update_document_metadata_tasks
+                .push(document_model.into_active_model().update(&self.pool));
 
-            tx.commit().await?;
-            Ok(())
-        } else {
-            Err(anyhow!(
-                "Collection {} is missing. Please create a collection before adding new documents to it",
-                metadata.collection_metadata_id
-            ))
+            chunks_to_update.extend(chunks_model);
         }
+
+        let results = join_all(update_document_metadata_tasks).await;
+        for result in results {
+            result?;
+        }
+
+        // Update the chunks after the metadatas to prevent conflicts
+        let mut update_chunks_tasks = Vec::new();
+        for chunk in chunks_to_update {
+            update_chunks_tasks.push(chunk.into_active_model().update(&self.pool));
+        }
+        let results = join_all(update_chunks_tasks).await;
+        for result in results {
+            result?;
+        }
+
+        Ok(())
     }
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
@@ -798,82 +707,7 @@ impl MetadataManagement for SQLiteDatabase {
         &self,
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>> {
-        if document_metadata_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut tx = self.pool.begin().await?;
-
-        // Build IN clause for documents
-        let placeholders: Vec<&str> = document_metadata_ids.iter().map(|_| "?").collect();
-        let in_clause = placeholders.join(",");
-
-        // Fetch full DocumentMetadata before deletion
-        let query_str = format!(
-            "SELECT id, title, created_at, last_modified, collection_metadata_id FROM documents WHERE id IN ({})",
-            in_clause
-        );
-        let mut query = sqlx::query(&query_str);
-        for id in document_metadata_ids {
-            query = query.bind(id);
-        }
-        let rows = query.fetch_all(&mut *tx).await?;
-
-        // Build map of chunk_ids per document for metadata
-        let chunk_query_str = format!(
-            "SELECT id, document_metadata_id FROM document_chunks WHERE document_metadata_id IN ({}) ORDER BY chunk_order ASC",
-            in_clause
-        );
-        let mut chunk_query = sqlx::query(&chunk_query_str);
-        for id in document_metadata_ids {
-            chunk_query = chunk_query.bind(id);
-        }
-        let chunk_rows = chunk_query.fetch_all(&mut *tx).await?;
-
-        let mut chunks_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for row in chunk_rows {
-            let doc_id: String = row.get("document_metadata_id");
-            let chunk_id: String = row.get("id");
-            chunks_map.entry(doc_id).or_default().push(chunk_id);
-        }
-
-        let mut deleted = Vec::with_capacity(rows.len());
-        for row in rows {
-            let id: String = row.get("id");
-            let title: String = row.get("title");
-            let created_at: i64 = row.get("created_at");
-            let last_modified: i64 = row.get("last_modified");
-            let collection_metadata_id: String = row.get("collection_metadata_id");
-
-            let chunks = chunks_map.remove(&id).unwrap_or_default();
-
-            deleted.push(DocumentMetadata {
-                id,
-                title,
-                created_at: UtcDateTime::from_unix_timestamp(created_at)
-                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
-                    .to_string(),
-                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
-                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
-                    .to_string(),
-                collection_metadata_id,
-                chunks,
-            });
-        }
-
-        // Batch delete documents
-        // With ON DELETE CASCADE enabled in the schema, this will automatically delete
-        // dependent document_chunks.
-        let delete_query_str = format!("DELETE FROM documents WHERE id IN ({})", in_clause);
-        let mut delete_query = sqlx::query(&delete_query_str);
-        for id in document_metadata_ids {
-            delete_query = delete_query.bind(id);
-        }
-        delete_query.execute(&mut *tx).await?;
-
-        tx.commit().await?;
-        Ok(deleted)
+        Ok(())
     }
 
     async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()> {
@@ -988,6 +822,7 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(())
     }
 
+    /// It gurantees the order of the metadata will follow the input ids order
     async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>> {
         use crate::database::entity::{document_chunks, documents};
 
@@ -998,13 +833,14 @@ impl MetadataManagement for SQLiteDatabase {
         // Construct a sql filter to the table
         let mut sql_filter = sea_orm::Condition::any();
 
-        if let Some(id) = &filter.id {
-            sql_filter = sql_filter.add(documents::Column::Id.eq(id));
+        if !filter.ids.is_empty() {
+            sql_filter = sql_filter.add(documents::Column::Id.is_in(&filter.ids));
         }
 
-        if let Some(collection_metadata_id) = &filter.collection_metadata_id {
-            sql_filter =
-                sql_filter.add(documents::Column::CollectionMetadataId.eq(collection_metadata_id));
+        if !filter.collection_metadata_ids.is_empty() {
+            sql_filter = sql_filter.add(
+                documents::Column::CollectionMetadataId.is_in(&filter.collection_metadata_ids),
+            );
         }
 
         if let Some(created_at) = &filter.created_at {
@@ -1020,15 +856,16 @@ impl MetadataManagement for SQLiteDatabase {
         }
 
         // Start filtering
-        let documents = documents::Entity::find()
+        let documents_with_chunks = documents::Entity::find()
             .find_with_related(document_chunks::Entity)
             .filter(sql_filter)
             .all(&self.pool)
             .await?;
 
-        Ok(documents.into_iter().map(|item| item.into()).collect())
+        Ok(map_order_by_ids(documents_with_chunks, &filter.ids))
     }
 
+    /// It gurantees the order of the metadata will follow the input ids order
     async fn get_collections(
         &self,
         filter: GetCollectionFilter,
@@ -1043,8 +880,8 @@ impl MetadataManagement for SQLiteDatabase {
         // Construct a sql filter to the table
         let mut sql_filter = sea_orm::Condition::any();
 
-        if let Some(id) = &filter.id {
-            sql_filter = sql_filter.add(documents::Column::Id.eq(id));
+        if !filter.ids.is_empty() {
+            sql_filter = sql_filter.add(documents::Column::Id.is_in(&filter.ids));
         }
 
         if let Some(created_at) = &filter.created_at {
@@ -1081,7 +918,7 @@ impl MetadataManagement for SQLiteDatabase {
             tasks.push(async {
                 collection.documents_metadatas = self
                     .get_documents(GetDocumentFilter {
-                        id: Some(collection.id.clone()),
+                        collection_metadata_ids: vec![collection.id.clone()],
                         ..Default::default()
                     })
                     .await?;
@@ -1095,6 +932,6 @@ impl MetadataManagement for SQLiteDatabase {
             result?;
         }
 
-        Ok(collection_metadatas)
+        Ok(map_order_by_ids(collection_metadatas, &filter.ids))
     }
 }

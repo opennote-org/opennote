@@ -6,7 +6,7 @@ use crate::{
         filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
         metadata::MetadataSettings,
     },
-    documents::{collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata},
+    documents::{collection_metadata::CollectionMetadata, document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
 };
 
 /// it defines methods for managing metadata
@@ -26,14 +26,7 @@ pub trait MetadataManagement {
 
     async fn update_collections(
         &self,
-        mut collection_metadatas: Vec<CollectionMetadata>,
-    ) -> Result<()>;
-
-    /// For updating chunks in document metadatas.
-    /// The update method won't allow mutate the chunks for security reason.
-    async fn update_documents_with_new_chunks(
-        &self,
-        document_metadatas: Vec<DocumentMetadata>,
+        collection_metadatas: Vec<CollectionMetadata>,
     ) -> Result<()>;
 
     /// Prevent immutable fields to get accidentally mutated
@@ -52,6 +45,17 @@ pub trait MetadataManagement {
     async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()>;
 
     async fn add_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
+    
+    async fn delete_document_chunks(&self, document_chunk_ids: &Vec<String>) -> Result<Vec<DocumentChunk>>;
+    
+    async fn add_document_chunks(&self, document_chunk_ids: &Vec<String>) -> Result<Vec<DocumentChunk>>;
+    
+    async fn update_document_chunks(
+        &self,
+        document_chunks: Vec<DocumentChunk>,
+    ) -> Result<()>;
+    
+    async fn get_document_chunks(&self, filter: GetDocumentChunkFilter) -> Result<Vec<DocumentChunk>>;
 
     async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
 
