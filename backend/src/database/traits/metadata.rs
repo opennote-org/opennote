@@ -3,10 +3,16 @@ use async_trait::async_trait;
 
 use crate::{
     database::{
-        filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+        filters::{
+            get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
+            get_documents::GetDocumentFilter,
+        },
         metadata::MetadataSettings,
     },
-    documents::{collection_metadata::CollectionMetadata, document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
+    documents::{
+        collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
+        document_metadata::DocumentMetadata,
+    },
 };
 
 /// it defines methods for managing metadata
@@ -24,10 +30,8 @@ pub trait MetadataManagement {
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>>;
 
-    async fn update_collections(
-        &self,
-        collection_metadatas: Vec<CollectionMetadata>,
-    ) -> Result<()>;
+    async fn update_collections(&self, collection_metadatas: Vec<CollectionMetadata>)
+    -> Result<()>;
 
     /// Prevent immutable fields to get accidentally mutated
     async fn verify_immutable_fields_in_document_metadatas(
@@ -45,17 +49,24 @@ pub trait MetadataManagement {
     async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()>;
 
     async fn add_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
-    
-    async fn delete_document_chunks(&self, document_chunk_ids: &Vec<String>) -> Result<Vec<DocumentChunk>>;
-    
-    async fn add_document_chunks(&self, document_chunk_ids: &Vec<String>) -> Result<Vec<DocumentChunk>>;
-    
-    async fn update_document_chunks(
+
+    async fn delete_document_chunks(
+        &self,
+        document_chunk_ids: &Vec<String>,
+    ) -> Result<Vec<DocumentChunk>>;
+
+    async fn add_document_chunks(
         &self,
         document_chunks: Vec<DocumentChunk>,
     ) -> Result<()>;
-    
-    async fn get_document_chunks(&self, filter: GetDocumentChunkFilter) -> Result<Vec<DocumentChunk>>;
+
+    /// Update existing chunks. No deletion nor additions involved.
+    async fn update_document_chunks(&self, document_chunks: Vec<DocumentChunk>) -> Result<()>;
+
+    async fn get_document_chunks(
+        &self,
+        filter: GetDocumentChunkFilter,
+    ) -> Result<Vec<DocumentChunk>>;
 
     async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
 

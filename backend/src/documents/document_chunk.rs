@@ -9,6 +9,7 @@ use qdrant_client::{
     Payload,
     qdrant::{NamedVectors, PointStruct, RetrievedPoint},
 };
+use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
