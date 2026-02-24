@@ -2,7 +2,10 @@ use actix_web::cookie::time::UtcDateTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{database, documents::document_chunk::DocumentChunk};
+use crate::{
+    database::{self, utilities::parse_timestamp},
+    documents::{document_chunk::DocumentChunk, traits::GetId},
+};
 
 use super::traits::ValidateDataMutabilitiesForAPICaller;
 
@@ -33,6 +36,26 @@ impl DocumentMetadata {
             title,
             chunks: Vec::new(),
         }
+    }
+
+    /// Use this when trying to make an update
+    /// This method will inherit fields like `id` and automatically
+    /// update the last_modified value
+    pub fn inherit(self, from: DocumentMetadata) -> Self {
+        Self {
+            id: from.id,
+            created_at: from.created_at,
+            last_modified: UtcDateTime::now().to_string(),
+            collection_metadata_id: self.collection_metadata_id,
+            title: self.title,
+            chunks: self.chunks,
+        }
+    }
+}
+
+impl GetId for DocumentMetadata {
+    fn get_id(&self) -> &str {
+        &self.id
     }
 }
 
@@ -86,6 +109,36 @@ impl
             title: value.0.title,
             chunks: value.1.into_iter().map(|item| item.into()).collect(),
         }
+    }
+}
+
+impl From<DocumentMetadata>
+    for (
+        database::entity::documents::Model,
+        Vec<database::entity::document_chunks::Model>,
+    )
+{
+    fn from(value: DocumentMetadata) -> Self {
+        let document_model = database::entity::documents::Model {
+            id: value.id,
+            created_at: parse_timestamp(&value.created_at),
+            last_modified: parse_timestamp(&value.last_modified),
+            collection_metadata_id: value.collection_metadata_id,
+            title: value.title,
+        };
+
+        let chunk_models: Vec<database::entity::document_chunks::Model> = value
+            .chunks
+            .into_iter()
+            .enumerate()
+            .map(|(index, chunk)| {
+                let mut model: database::entity::document_chunks::Model = chunk.into();
+                model.chunk_order = index as i64;
+                model
+            })
+            .collect();
+
+        (document_model, chunk_models)
     }
 }
 

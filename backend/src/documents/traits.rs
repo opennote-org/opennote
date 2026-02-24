@@ -18,3 +18,8 @@ pub enum IndexableField {
 pub trait GetIndexableFields {
     fn get_indexable_fields() -> Vec<IndexableField>;
 }
+
+/// Get the id of the implemented data model
+pub trait GetId {
+    fn get_id(&self) -> &str;
+}
