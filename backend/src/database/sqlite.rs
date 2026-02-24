@@ -1,10 +1,11 @@
-use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::database::filters::get_collections::GetCollectionFilter;
+use crate::database::filters::get_document_chunks::GetDocumentChunkFilter;
 use crate::database::filters::get_documents::GetDocumentFilter;
 use crate::database::filters::traits::GetFilterValidation;
 use crate::database::utilities::map_order_by_ids;
+use crate::documents::document_chunk::DocumentChunk;
 use crate::traits::LoadAndSave;
 use crate::vector_database::traits::VectorDatabase;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
@@ -13,6 +14,7 @@ use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
+use sea_orm::ActiveValue::Unchanged;
 use sea_orm::IntoActiveModel;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
@@ -820,6 +822,116 @@ impl MetadataManagement for SQLiteDatabase {
 
         tx.commit().await?;
         Ok(())
+    }
+
+    async fn update_document_chunks(&self, document_chunks: Vec<DocumentChunk>) -> Result<()> {
+        use crate::database::entity::document_chunks;
+
+        let models: Vec<document_chunks::ActiveModel> = document_chunks
+            .into_iter()
+            .enumerate()
+            .map(|(index, item)| document_chunks::ActiveModel {
+                id: Unchanged(item.id),
+                document_metadata_id: Set(item.document_metadata_id),
+                collection_metadata_id: Set(item.collection_metadata_id),
+                content: Set(item.content),
+                dense_text_vector: Set(serde_json::to_value(item.dense_text_vector).unwrap()),
+                chunk_order: Set(index as i64),
+            })
+            .collect();
+        
+        let mut tasks = Vec::new();
+        for model in models {
+            tasks.push(
+                model.update(&self.pool)
+            );
+        }
+        
+        let results = join_all(tasks).await;
+        for result in results {
+            result?;
+        }
+
+        Ok(())
+    }
+
+    async fn add_document_chunks(
+        &self,
+        document_chunks: Vec<DocumentChunk>,
+    ) -> Result<()> {
+        use crate::database::entity::document_chunks;
+
+        let models: Vec<document_chunks::ActiveModel> = document_chunks
+            .into_iter()
+            .enumerate()
+            .map(|(index, item)| document_chunks::ActiveModel {
+                id: Set(item.id),
+                document_metadata_id: Set(item.document_metadata_id),
+                collection_metadata_id: Set(item.collection_metadata_id),
+                content: Set(item.content),
+                dense_text_vector: Set(serde_json::to_value(item.dense_text_vector).unwrap()),
+                chunk_order: Set(index as i64),
+            })
+            .collect();
+
+        document_chunks::Entity::insert_many(models)
+            .exec(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn delete_document_chunks(
+        &self,
+        document_chunk_ids: &Vec<String>,
+    ) -> Result<Vec<DocumentChunk>> {
+        use crate::database::entity::document_chunks;
+
+        let chunks = document_chunks::Entity::delete_many()
+            .filter_by_ids(document_chunk_ids.clone())
+            .exec_with_returning(&self.pool)
+            .await?;
+
+        Ok(map_order_by_ids(chunks, document_chunk_ids))
+    }
+
+    async fn get_document_chunks(
+        &self,
+        filter: GetDocumentChunkFilter,
+    ) -> Result<Vec<DocumentChunk>> {
+        use crate::database::entity::document_chunks;
+
+        if filter.is_over_constrained() {
+            return Err(anyhow!("only one filter is applicable"));
+        }
+
+        // Construct a sql filter to the table
+        let mut sql_filter = sea_orm::Condition::any();
+
+        if !filter.ids.is_empty() {
+            sql_filter = sql_filter.add(document_chunks::Column::Id.is_in(&filter.ids));
+        }
+
+        if !filter.document_metadata_ids.is_empty() {
+            sql_filter = sql_filter.add(
+                document_chunks::Column::DocumentMetadataId.is_in(&filter.collection_metadata_ids),
+            );
+        }
+
+        if !filter.collection_metadata_ids.is_empty() {
+            sql_filter = sql_filter.add(
+                document_chunks::Column::CollectionMetadataId
+                    .is_in(&filter.collection_metadata_ids),
+            );
+        }
+
+        // Start filtering
+        let chunks = document_chunks::Entity::find()
+            .filter(sql_filter)
+            .all(&self.pool)
+            .await?;
+
+        Ok(map_order_by_ids(chunks, &filter.ids))
     }
 
     /// It gurantees the order of the metadata will follow the input ids order
