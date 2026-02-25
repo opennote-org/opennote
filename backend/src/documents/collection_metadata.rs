@@ -90,6 +90,22 @@ impl Into<database::entity::collections::ActiveModel> for &mut CollectionMetadat
     }
 }
 
+impl From<database::entity::collections::Model> for CollectionMetadata {
+    fn from(value: database::entity::collections::Model) -> Self {
+        Self {
+            id: value.id,
+            created_at: UtcDateTime::from_unix_timestamp(value.created_at)
+                .unwrap()
+                .to_string(),
+            last_modified: UtcDateTime::from_unix_timestamp(value.last_modified)
+                .unwrap()
+                .to_string(),
+            title: value.title,
+            documents_metadatas: Vec::new(),
+        }
+    }
+}
+
 impl
     From<(
         database::entity::collections::Model,

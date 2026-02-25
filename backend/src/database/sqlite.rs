@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use crate::database::entity::metadata_settings;
 use crate::database::filters::get_collections::GetCollectionFilter;
 use crate::database::filters::get_document_chunks::GetDocumentChunkFilter;
 use crate::database::filters::get_documents::GetDocumentFilter;
@@ -510,76 +511,27 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(())
     }
 
-    async fn verify_immutable_fields_in_document_metadatas(
-        &self,
-        document_metadatas: &mut Vec<DocumentMetadata>,
-    ) -> Result<()> {
-        for metadata in document_metadatas.iter_mut() {
-            let row = sqlx::query(
-                "SELECT created_at, collection_metadata_id FROM documents WHERE id = ?",
-            )
-            .bind(&metadata.id)
-            .fetch_optional(&self.pool)
-            .await?;
-
-            if let Some(row) = row {
-                metadata.is_mutated()?;
-
-                let chunks_rows = sqlx::query("SELECT id FROM document_chunks WHERE document_metadata_id = ? ORDER BY chunk_order ASC")
-                    .bind(&metadata.id)
-                    .fetch_all(&self.pool)
-                    .await?;
-                metadata.chunks = chunks_rows.iter().map(|r| r.get("id")).collect();
-
-                let original_collection_id: String = row.get("collection_metadata_id");
-
-                if metadata.collection_metadata_id != original_collection_id {
-                    let exists = sqlx::query("SELECT 1 FROM collections WHERE id = ?")
-                        .bind(&metadata.collection_metadata_id)
-                        .fetch_optional(&self.pool)
-                        .await?;
-                    if exists.is_none() {
-                        return Err(anyhow!(
-                            "Target collection id {} was not found, update operation terminated",
-                            metadata.collection_metadata_id
-                        ));
-                    }
-                }
-            } else {
-                return Err(anyhow!(
-                    "Document metadata id {} was not found, update operation terminated",
-                    metadata.id
-                ));
-            }
-        }
-        Ok(())
-    }
-
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
         use crate::database::entity::{document_chunks, documents};
 
-        // Get the documents to update first
-        let old_document_metadatas = self
-            .get_documents(GetDocumentFilter {
-                ids: document_metadatas
-                    .iter()
-                    .map(|item| item.id.clone())
-                    .collect(),
-                ..Default::default()
-            })
-            .await?;
-
         // Concurrently update the document metadatas first
         let mut update_document_metadata_tasks = Vec::new();
-        let mut chunks_to_update = Vec::new();
-        for (old, new) in old_document_metadatas.into_iter().zip(document_metadatas) {
-            let (document_model, chunks_model): (documents::Model, Vec<document_chunks::Model>) =
-                new.inherit(old).into();
+        let mut chunks_to_update: Vec<document_chunks::ActiveModel> = Vec::new();
+        for metadata in document_metadatas.into_iter() {
+            chunks_to_update.extend(
+                metadata
+                    .chunks
+                    .clone()
+                    .into_iter()
+                    .map(|item| {
+                        let active_model: document_chunks::Model = item.into();
+                        active_model.into()
+                    })
+                    .collect::<Vec<document_chunks::ActiveModel>>(),
+            );
 
-            update_document_metadata_tasks
-                .push(document_model.into_active_model().update(&self.pool));
-
-            chunks_to_update.extend(chunks_model);
+            let metadata: documents::Model = metadata.into();
+            update_document_metadata_tasks.push(metadata.into_active_model().update(&self.pool));
         }
 
         let results = join_all(update_document_metadata_tasks).await;
@@ -588,239 +540,107 @@ impl MetadataManagement for SQLiteDatabase {
         }
 
         // Update the chunks after the metadatas to prevent conflicts
-        let mut update_chunks_tasks = Vec::new();
-        for chunk in chunks_to_update {
-            update_chunks_tasks.push(chunk.into_active_model().update(&self.pool));
-        }
-        let results = join_all(update_chunks_tasks).await;
-        for result in results {
-            result?;
-        }
+        self.delete_document_chunks(
+            &chunks_to_update
+                .iter()
+                .map(|item| item.id.as_ref().clone())
+                .collect(),
+        );
+
+        document_chunks::Entity::insert_many(chunks_to_update)
+            .exec(&self.pool)
+            .await?;
 
         Ok(())
     }
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
-        let row = sqlx::query("SELECT embedder_model_in_use, embedder_model_vector_size_in_use FROM metadata_settings WHERE id = 1")
-            .fetch_one(&self.pool)
-            .await?;
-        Ok(MetadataSettings {
-            embedder_model_in_use: row.get("embedder_model_in_use"),
-            embedder_model_vector_size_in_use: row
-                .get::<i64, _>("embedder_model_vector_size_in_use")
-                as usize,
-        })
+        use crate::database::entity::metadata_settings;
+
+        match metadata_settings::Entity::find().one(&self.pool).await? {
+            Some(result) => Ok(result.into()),
+            None => return Err(anyhow!("Metadata settings missed")),
+        }
     }
 
-    async fn update_metadata_settings(
-        &self,
-        metadata_settings: MetadataSettings,
-    ) -> Result<MetadataSettings> {
-        sqlx::query("UPDATE metadata_settings SET embedder_model_in_use = ?, embedder_model_vector_size_in_use = ? WHERE id = 1")
-            .bind(&metadata_settings.embedder_model_in_use)
-            .bind(metadata_settings.embedder_model_vector_size_in_use as i64)
-            .execute(&self.pool)
+    async fn update_metadata_settings(&self, settings: MetadataSettings) -> Result<()> {
+        use crate::database::entity::metadata_settings;
+
+        let model: metadata_settings::Model = settings.into();
+
+        metadata_settings::Entity::update::<metadata_settings::ActiveModel>(model.into())
+            .exec(&self.pool)
             .await?;
-        Ok(metadata_settings)
+
+        Ok(())
     }
 
     async fn delete_collections(
         &self,
         collection_metadata_ids: &Vec<String>,
     ) -> Result<Vec<CollectionMetadata>> {
-        if collection_metadata_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut tx = self.pool.begin().await?;
-
-        // Build IN clause for collections
-        let placeholders: Vec<&str> = collection_metadata_ids.iter().map(|_| "?").collect();
-        let in_clause = placeholders.join(",");
-
-        // Fetch full CollectionMetadata before deletion
-        let query_str = format!(
-            "SELECT id, title, created_at, last_modified FROM collections WHERE id IN ({})",
-            in_clause
-        );
-        let mut query = sqlx::query(&query_str);
-        for id in collection_metadata_ids {
-            query = query.bind(id);
-        }
-        let rows = query.fetch_all(&mut *tx).await?;
-
-        // Build map of doc_ids per collection for metadata
-        // We need this to return the complete metadata of deleted collections
-        let doc_query_str = format!(
-            "SELECT id, collection_metadata_id FROM documents WHERE collection_metadata_id IN ({})",
-            in_clause
-        );
-        let mut doc_query = sqlx::query(&doc_query_str);
-        for id in collection_metadata_ids {
-            doc_query = doc_query.bind(id);
-        }
-        let doc_rows = doc_query.fetch_all(&mut *tx).await?;
-
-        let mut docs_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for row in doc_rows {
-            let collection_id: String = row.get("collection_metadata_id");
-            let doc_id: String = row.get("id");
-            docs_map.entry(collection_id).or_default().push(doc_id);
-        }
-
-        let mut deleted = Vec::with_capacity(rows.len());
-        for row in rows {
-            let id: String = row.get("id");
-            let title: String = row.get("title");
-            let created_at: i64 = row.get("created_at");
-            let last_modified: i64 = row.get("last_modified");
-
-            let documents_metadata_ids = docs_map.remove(&id).unwrap_or_default();
-
-            deleted.push(CollectionMetadata {
-                id,
-                title,
-                created_at: UtcDateTime::from_unix_timestamp(created_at)
-                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
-                    .to_string(),
-                last_modified: UtcDateTime::from_unix_timestamp(last_modified)
-                    .unwrap_or_else(|_| UtcDateTime::from_unix_timestamp(0).unwrap())
-                    .to_string(),
-                documents_metadata_ids,
-            });
-        }
-
-        // Batch delete collections
-        // With ON DELETE CASCADE enabled in the schema, this will automatically delete
-        // dependent documents and document_chunks.
-        let delete_query_str = format!("DELETE FROM collections WHERE id IN ({})", in_clause);
-        let mut delete_query = sqlx::query(&delete_query_str);
-        for id in collection_metadata_ids {
-            delete_query = delete_query.bind(id);
-        }
-        delete_query.execute(&mut *tx).await?;
-
-        tx.commit().await?;
-        Ok(deleted)
+        use crate::database::entity::collections;
+        Ok(collections::Entity::delete_many()
+            .filter_by_ids(collection_metadata_ids.clone())
+            .exec_with_returning(&self.pool)
+            .await?
+            .into_iter()
+            .map(|item| item.into())
+            .collect())
     }
 
     async fn delete_documents(
         &self,
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>> {
-        Ok(())
+        use crate::database::entity::documents;
+
+        Ok(documents::Entity::delete_many()
+            .filter_by_ids(document_metadata_ids.clone())
+            .exec_with_returning(&self.pool)
+            .await?
+            .into_iter()
+            .map(|item| item.into())
+            .collect())
     }
 
     async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()> {
-        if collection_metadatas.is_empty() {
-            return Ok(());
-        }
+        use crate::database::entity::collections;
 
-        let mut tx = self.pool.begin().await?;
+        collections::Entity::insert_many(
+            collection_metadatas
+                .into_iter()
+                .map(|item| item.into())
+                .collect::<Vec<collections::ActiveModel>>(),
+        )
+        .exec(&self.pool)
+        .await?;
 
-        let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
-            "INSERT INTO collections (id, title, created_at, last_modified) ",
-        );
-
-        query_builder.push_values(collection_metadatas, |mut b, collection| {
-            b.push_bind(collection.id)
-                .push_bind(collection.title)
-                .push_bind(parse_timestamp(&collection.created_at))
-                .push_bind(parse_timestamp(&collection.last_modified));
-        });
-
-        query_builder.build().execute(&mut *tx).await?;
-
-        tx.commit().await?;
         Ok(())
     }
 
     async fn add_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
-        if document_metadatas.is_empty() {
-            return Ok(());
-        }
+        use crate::database::entity::documents;
 
-        let mut tx = self.pool.begin().await?;
-
-        // Verify collections exist
-        let collection_ids: Vec<&String> = document_metadatas
+        let chunks = document_metadatas
             .iter()
-            .map(|d| &d.collection_metadata_id)
+            .flat_map(|item| item.chunks.clone())
             .collect();
 
-        if !collection_ids.is_empty() {
-            let placeholders: Vec<&str> = collection_ids.iter().map(|_| "?").collect();
-            let query = format!(
-                "SELECT id FROM collections WHERE id IN ({})",
-                placeholders.join(",")
-            );
+        let active_model_documents: Vec<documents::ActiveModel> = document_metadatas
+            .into_iter()
+            .map(|item| {
+                let model: documents::Model = item.into();
+                model.into_active_model()
+            })
+            .collect();
 
-            let mut q = sqlx::query(&query);
-            for id in &collection_ids {
-                q = q.bind(id);
-            }
+        documents::Entity::insert_many(active_model_documents)
+            .exec(&self.pool)
+            .await?;
 
-            let rows = q.fetch_all(&mut *tx).await?;
-            let existing_ids: std::collections::HashSet<String> =
-                rows.into_iter().map(|r| r.get("id")).collect();
+        self.add_document_chunks(chunks).await?;
 
-            for id in collection_ids {
-                if !existing_ids.contains(id) {
-                    return Err(anyhow!(
-                        "Collection {} is missing. Please create a collection before adding new documents to it",
-                        id
-                    ));
-                }
-            }
-        }
-
-        // Insert documents
-        let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
-            "INSERT INTO documents (id, collection_metadata_id, title, created_at, last_modified) ",
-        );
-
-        query_builder.push_values(&document_metadatas, |mut b, metadata| {
-            b.push_bind(metadata.id.clone())
-                .push_bind(metadata.collection_metadata_id.clone())
-                .push_bind(metadata.title.clone())
-                .push_bind(parse_timestamp(&metadata.created_at))
-                .push_bind(parse_timestamp(&metadata.last_modified));
-        });
-
-        query_builder.build().execute(&mut *tx).await?;
-
-        // Insert chunks
-        let mut all_chunks = Vec::new();
-        for metadata in &document_metadatas {
-            for (i, chunk_id) in metadata.chunks.iter().enumerate() {
-                all_chunks.push((
-                    chunk_id,
-                    &metadata.id,
-                    &metadata.collection_metadata_id,
-                    i as i64,
-                ));
-            }
-        }
-
-        for chunk_batch in all_chunks.chunks(50) {
-            let mut query_builder: sqlx::QueryBuilder<sqlx::Sqlite> = sqlx::QueryBuilder::new(
-                "INSERT INTO document_chunks (id, document_metadata_id, collection_metadata_id, content, dense_text_vector, chunk_order) ",
-            );
-
-            query_builder.push_values(chunk_batch, |mut b, (chunk_id, doc_id, col_id, order)| {
-                b.push_bind(chunk_id)
-                    .push_bind(doc_id)
-                    .push_bind(col_id)
-                    .push_bind("")
-                    .push_bind(Vec::<u8>::new())
-                    .push_bind(order);
-            });
-
-            query_builder.build().execute(&mut *tx).await?;
-        }
-
-        tx.commit().await?;
         Ok(())
     }
 
@@ -839,14 +659,12 @@ impl MetadataManagement for SQLiteDatabase {
                 chunk_order: Set(index as i64),
             })
             .collect();
-        
+
         let mut tasks = Vec::new();
         for model in models {
-            tasks.push(
-                model.update(&self.pool)
-            );
+            tasks.push(model.update(&self.pool));
         }
-        
+
         let results = join_all(tasks).await;
         for result in results {
             result?;
@@ -855,10 +673,7 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(())
     }
 
-    async fn add_document_chunks(
-        &self,
-        document_chunks: Vec<DocumentChunk>,
-    ) -> Result<()> {
+    async fn add_document_chunks(&self, document_chunks: Vec<DocumentChunk>) -> Result<()> {
         use crate::database::entity::document_chunks;
 
         let models: Vec<document_chunks::ActiveModel> = document_chunks
