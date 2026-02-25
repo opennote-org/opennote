@@ -18,6 +18,7 @@ use tokio::sync::Mutex;
 use crate::{
     api_models::{document::GetDocumentRequest, search::SearchDocumentRequest},
     app_state::AppState,
+    database::filters::get_documents::GetDocumentFilter,
     documents::document_metadata::DocumentMetadata,
     handlers::{document::get_document_content, search::intelligent_search},
     mcp::{
@@ -105,25 +106,30 @@ impl MCPService {
                 }
             };
 
-            let all_document_metadatas = match self.app_state.database.get_all_documents().await {
-                Ok(metadatas) => metadatas,
+            let all_document_metadatas: Vec<DocumentMetadata> = match self
+                .app_state
+                .database
+                .get_documents(GetDocumentFilter {
+                    collection_metadata_ids: resource_ids.clone(),
+                    ..Default::default()
+                })
+                .await
+            {
+                Ok(metadatas) => metadatas
+                    .into_iter()
+                    .map(|mut item| {
+                        // We don't need the chunk data
+                        item.chunks = vec![];
+                        item
+                    })
+                    .collect(),
                 Err(e) => {
                     log::warn!("Failed to get all documents: {}", e);
                     return Json(MCPServiceGenericResponse { results: None });
                 }
             };
 
-            let documents_metadatas_list: Vec<DocumentMetadata> = all_document_metadatas
-                .iter()
-                .filter(|metadata| resource_ids.contains(&&metadata.collection_metadata_id))
-                .map(|metadata| {
-                    let mut metadata = metadata.to_owned();
-                    metadata.chunks = vec![];
-                    metadata
-                })
-                .collect();
-
-            match serde_json::to_value(documents_metadatas_list) {
+            match serde_json::to_value(all_document_metadatas) {
                 Ok(result) => {
                     return Json(MCPServiceGenericResponse {
                         results: Some(result),
