@@ -37,20 +37,6 @@ impl DocumentMetadata {
             chunks: Vec::new(),
         }
     }
-
-    /// Use this when trying to make an update
-    /// This method will inherit fields like `id` and automatically
-    /// update the last_modified value
-    pub fn inherit(self, from: DocumentMetadata) -> Self {
-        Self {
-            id: from.id,
-            created_at: from.created_at,
-            last_modified: UtcDateTime::now().to_string(),
-            collection_metadata_id: self.collection_metadata_id,
-            title: self.title,
-            chunks: self.chunks,
-        }
-    }
 }
 
 impl GetId for DocumentMetadata {
@@ -155,6 +141,18 @@ impl From<database::entity::documents::Model> for DocumentMetadata {
             collection_metadata_id: value.collection_metadata_id,
             title: value.title,
             chunks: Vec::new(),
+        }
+    }
+}
+
+impl From<DocumentMetadata> for database::entity::documents::Model {
+    fn from(value: DocumentMetadata) -> Self {
+        Self {
+            id: value.id,
+            collection_metadata_id: value.collection_metadata_id,
+            title: value.title,
+            created_at: parse_timestamp(&value.created_at),
+            last_modified: parse_timestamp(&value.last_modified),
         }
     }
 }

@@ -33,18 +33,12 @@ pub trait MetadataManagement {
     async fn update_collections(&self, collection_metadatas: Vec<CollectionMetadata>)
     -> Result<()>;
 
-    /// Prevent immutable fields to get accidentally mutated
-    async fn verify_immutable_fields_in_document_metadatas(
-        &self,
-        document_metadatas: &mut Vec<DocumentMetadata>,
-    ) -> Result<()>;
-
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
 
     async fn update_metadata_settings(
         &self,
-        metadata_settings: MetadataSettings,
-    ) -> Result<MetadataSettings>;
+        settings: MetadataSettings,
+    ) -> Result<()>;
 
     async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()>;
 
