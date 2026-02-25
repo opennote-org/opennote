@@ -3,11 +3,10 @@ use async_trait::async_trait;
 
 use crate::{
     database::{
-        filters::{
+        database_information::DatabaseInformation, filters::{
             get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
             get_documents::GetDocumentFilter,
-        },
-        metadata::MetadataSettings,
+        }, metadata::MetadataSettings
     },
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
@@ -71,4 +70,6 @@ pub trait MetadataManagement {
     ) -> Result<Vec<CollectionMetadata>>;
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
+    
+    async fn peek(&self) -> Result<DatabaseInformation>;
 }
