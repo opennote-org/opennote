@@ -1,16 +1,17 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use tokio::sync::MutexGuard;
+use std::sync::Arc;
 
 use crate::{
-    metadata_storage::MetadataStorage, search::document_search_results::DocumentChunkSearchResult,
+    database::traits::database::Database, metadata_storage::MetadataStorage,
+    search::document_search_results::DocumentChunkSearchResult,
 };
 
 #[async_trait]
 pub trait KeywordSearch {
     async fn search_documents(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,

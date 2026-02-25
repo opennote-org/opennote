@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::database::database_information::DatabaseInformation;
 use crate::database::filters::get_collections::GetCollectionFilter;
@@ -17,12 +17,12 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::ActiveValue::Unchanged;
-use sea_orm::{IntoActiveModel, PaginatorTrait};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
     Set,
     sea_query::{Expr, OnConflict},
 };
+use sea_orm::{IntoActiveModel, PaginatorTrait};
 
 use crate::{
     configurations::user::UserConfigurations,
@@ -440,23 +440,23 @@ impl Identities for SQLiteDatabase {
             return Err(anyhow!("only one filter is applicable"));
         }
 
+        if filter.is_empty_filter() {
+            // Start filtering
+            let users = users::Entity::find().all(&self.pool).await?;
+
+            return Ok(users.into_iter().map(|item| item.into()).collect());
+        }
+
         // Construct a sql filter to the users table
         let mut sql_filter_to_users = sea_orm::Condition::any();
 
-        if let Some(id) = &filter.id {
-            sql_filter_to_users = sql_filter_to_users.add(users::Column::Id.eq(id));
+        if filter.ids.is_empty() {
+            sql_filter_to_users = sql_filter_to_users.add(users::Column::Id.is_in(&filter.ids));
         }
 
-        if let Some(username) = &filter.username {
-            sql_filter_to_users = sql_filter_to_users.add(users::Column::Username.eq(username));
-        }
-
-        if let Some(resource_ids) = &filter.resources {
-            let resource_ids =
-                serde_json::to_value(&resource_ids).context("Failed to serialize resource ids")?;
-
+        if filter.usernames.is_empty() {
             sql_filter_to_users =
-                sql_filter_to_users.add(users::Column::ResourceIds.eq(resource_ids));
+                sql_filter_to_users.add(users::Column::Username.is_in(&filter.usernames));
         }
 
         // Start filtering
@@ -711,6 +711,7 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(map_order_by_ids(chunks, document_chunk_ids))
     }
 
+    /// It does not support getting all chunks by passing an empty filter
     async fn get_document_chunks(
         &self,
         filter: GetDocumentChunkFilter,
@@ -719,6 +720,10 @@ impl MetadataManagement for SQLiteDatabase {
 
         if filter.is_over_constrained() {
             return Err(anyhow!("only one filter is applicable"));
+        }
+
+        if filter.is_empty_filter() {
+            return Err(anyhow!("Cannot get all chunks"));
         }
 
         // Construct a sql filter to the table
@@ -758,6 +763,19 @@ impl MetadataManagement for SQLiteDatabase {
             return Err(anyhow!("only one filter is applicable"));
         }
 
+        if filter.is_empty_filter() {
+            // Start filtering
+            let documents_with_chunks = documents::Entity::find()
+                .find_with_related(document_chunks::Entity)
+                .all(&self.pool)
+                .await?;
+
+            return Ok(documents_with_chunks
+                .into_iter()
+                .map(|item| item.into())
+                .collect());
+        }
+
         // Construct a sql filter to the table
         let mut sql_filter = sea_orm::Condition::any();
 
@@ -790,7 +808,15 @@ impl MetadataManagement for SQLiteDatabase {
             .all(&self.pool)
             .await?;
 
-        Ok(map_order_by_ids(documents_with_chunks, &filter.ids))
+        // id ordering only applies to filters with ids
+        if !filter.ids.is_empty() {
+            Ok(map_order_by_ids(documents_with_chunks, &filter.ids))
+        } else {
+            Ok(documents_with_chunks
+                .into_iter()
+                .map(|item| item.into())
+                .collect())
+        }
     }
 
     /// It gurantees the order of the metadata will follow the input ids order
@@ -825,11 +851,18 @@ impl MetadataManagement for SQLiteDatabase {
         }
 
         // Start filtering
-        let collections = collections::Entity::find()
-            .find_with_related(documents::Entity)
-            .filter(sql_filter)
-            .all(&self.pool)
-            .await?;
+        let collections = if filter.is_empty_filter() {
+            collections::Entity::find()
+                .find_with_related(documents::Entity)
+                .all(&self.pool)
+                .await?
+        } else {
+            collections::Entity::find()
+                .find_with_related(documents::Entity)
+                .filter(sql_filter)
+                .all(&self.pool)
+                .await?
+        };
 
         // No chunk data yet
         let mut collection_metadatas: Vec<CollectionMetadata> =
@@ -860,32 +893,32 @@ impl MetadataManagement for SQLiteDatabase {
             result?;
         }
 
-        Ok(map_order_by_ids(collection_metadatas, &filter.ids))
+        // Id ordering only applies to filtering by ids
+        if !filter.ids.is_empty() {
+            Ok(map_order_by_ids(collection_metadatas, &filter.ids))
+        } else {
+            Ok(collection_metadatas)
+        }
     }
 
     async fn peek(&self) -> Result<DatabaseInformation> {
-        use crate::database::entity::{documents, collections, users};
+        use crate::database::entity::{collections, documents, users};
 
         let mut tasks = Vec::new();
 
-        tasks.push(users::Entity::find()
-            .count(&self.pool));
+        tasks.push(users::Entity::find().count(&self.pool));
 
-        tasks.push(
-            documents::Entity::find().count(&self.pool)
-        );
-        
-        tasks.push(
-            collections::Entity::find().count(&self.pool)
-        );
-        
+        tasks.push(documents::Entity::find().count(&self.pool));
+
+        tasks.push(collections::Entity::find().count(&self.pool));
+
         let results = join_all(tasks).await;
         let info = DatabaseInformation {
             number_users: results[0].clone()? as usize,
             number_documents: results[1].clone()? as usize,
             number_collections: results[2].clone()? as usize,
         };
-        
+
         Ok(info)
     }
 }

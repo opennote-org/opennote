@@ -8,4 +8,9 @@ pub trait GetFilterValidation {
         let parameters: usize = self.get_num_some().iter().filter(|item| **item).count();
         parameters > 1
     }
+
+    fn is_empty_filter(&self) -> bool {
+        let parameters: usize = self.get_num_some().iter().filter(|item| **item).count();
+        parameters == 0
+    }
 }

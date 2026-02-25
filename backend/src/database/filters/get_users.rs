@@ -2,17 +2,15 @@ use crate::database::filters::traits::GetFilterValidation;
 
 #[derive(Debug, Clone)]
 pub struct GetUserFilter {
-    pub id: Option<String>,
-    pub username: Option<String>,
-    pub resources: Option<Vec<String>>,
+    pub ids: Vec<String>,
+    pub usernames: Vec<String>,
 }
 
 impl GetFilterValidation for GetUserFilter {
     fn get_num_some(&self) -> Vec<bool> {
         vec![
-            self.id.is_some(),
-            self.username.is_some(),
-            self.resources.is_some(),
+            !self.ids.is_empty(),
+            !self.usernames.is_empty(),
         ]
     }
 }
@@ -20,9 +18,8 @@ impl GetFilterValidation for GetUserFilter {
 impl Default for GetUserFilter {
     fn default() -> Self {
         Self {
-            id: None,
-            username: None,
-            resources: None,
+            ids: Vec::new(),
+            usernames: Vec::new(),
         }
     }
 }
