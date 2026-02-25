@@ -63,24 +63,25 @@ pub async fn intelligent_search(
 
 // Sync endpoint
 pub async fn search(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<SearchDocumentRequest>,
 ) -> Result<HttpResponse> {
-    // Perform operations synchronously
-    // Pull what we need out of AppState without holding the lock during I/O
-    let (vector_database, metadata_storage, _, _, identities_storage, _) =
-        acquire_data(&data).await;
-
-    let mut metadata_storage = metadata_storage.lock().await;
-
-    let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
-        &mut metadata_storage,
-        &mut identities_storage.lock().await,
+    let document_metadata_ids: Vec<String> = match retrieve_document_ids_by_scope(
+        &data.database,
         request.0.scope.search_scope,
         &request.0.scope.id,
-    );
+    ).await {
+        Ok(ids) => ids,
+        Err(error) => {
+            error!("Failed to retrieve document IDs by scope: {}", error);
+            return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                "".to_string(),
+                "Failed to retrieve document IDs. Please try again.".to_string(),
+            )));
+        }
+    };
 
-    match vector_database
+    match data.vector_database
         .search_documents(
             &mut metadata_storage,
             document_metadata_ids,

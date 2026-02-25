@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -17,20 +17,28 @@ use qdrant_client::{
         VectorsConfigBuilder,
     },
 };
-use tokio::sync::MutexGuard;
 
 use crate::{
-    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig}, constants::{
+    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
+    constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-    }, database::traits::database::Database, documents::{
+    },
+    database::{
+        filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+        traits::database::Database,
+    },
+    documents::{
         collection_metadata::CollectionMetadata,
         document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
-    }, embedder::{send_vectorization, vectorize}, metadata_storage::MetadataStorage, search::{
+    },
+    embedder::{send_vectorization, vectorize},
+    search::{
         document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
         semantic::SemanticSearch,
-    }, vector_database::traits::VectorDatabase
+    },
+    vector_database::traits::VectorDatabase,
 };
 
 #[derive(Clone)]
@@ -225,8 +233,18 @@ impl SemanticSearch for QdrantDatabase {
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             Some(response.result),
             None,
-            &metadata_storage.collections,
-            &metadata_storage.documents,
+            &database
+                .get_collections(GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
         );
 
         Ok(results)
@@ -237,7 +255,7 @@ impl SemanticSearch for QdrantDatabase {
 impl KeywordSearch for QdrantDatabase {
     async fn search_documents(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
@@ -261,8 +279,18 @@ impl KeywordSearch for QdrantDatabase {
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             None,
             Some(response.result),
-            &metadata_storage.collections,
-            &metadata_storage.documents,
+            &database
+                .get_collections(GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
         );
 
         Ok(results)

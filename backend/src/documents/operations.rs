@@ -71,7 +71,7 @@ pub fn preprocess_document(
         collection_metadata_id,
     );
 
-    metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
+    metadata.chunks = chunks.clone();
     let metadata_id = metadata.id.clone();
     (metadata, chunks, metadata_id)
 }
