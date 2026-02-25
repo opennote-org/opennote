@@ -1,6 +1,7 @@
 use std::time::Duration;
+use std::sync::Arc;
 
-use crate::database::entity::metadata_settings;
+use crate::database::database_information::DatabaseInformation;
 use crate::database::filters::get_collections::GetCollectionFilter;
 use crate::database::filters::get_document_chunks::GetDocumentChunkFilter;
 use crate::database::filters::get_documents::GetDocumentFilter;
@@ -16,7 +17,7 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::ActiveValue::Unchanged;
-use sea_orm::IntoActiveModel;
+use sea_orm::{IntoActiveModel, PaginatorTrait};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
     Set,
@@ -111,7 +112,7 @@ impl Database for SQLiteDatabase {
     async fn migrate_documents(
         &self,
         metadata_storage: &MetadataStorage,
-        vector_database: &dyn VectorDatabase,
+        vector_database: &Arc<dyn VectorDatabase>,
     ) -> Result<()> {
         // migrate all document records
         use crate::database::entity::{document_chunks, documents};
@@ -195,7 +196,7 @@ impl Database for SQLiteDatabase {
         &self,
         metadata_storage_path: &str,
         identities_storage_path: &str,
-        vector_database: &dyn VectorDatabase,
+        vector_database: &Arc<dyn VectorDatabase>,
     ) -> Result<()> {
         Migrator::up(&self.pool, None).await?;
 
@@ -860,5 +861,31 @@ impl MetadataManagement for SQLiteDatabase {
         }
 
         Ok(map_order_by_ids(collection_metadatas, &filter.ids))
+    }
+
+    async fn peek(&self) -> Result<DatabaseInformation> {
+        use crate::database::entity::{documents, collections, users};
+
+        let mut tasks = Vec::new();
+
+        tasks.push(users::Entity::find()
+            .count(&self.pool));
+
+        tasks.push(
+            documents::Entity::find().count(&self.pool)
+        );
+        
+        tasks.push(
+            collections::Entity::find().count(&self.pool)
+        );
+        
+        let results = join_all(tasks).await;
+        let info = DatabaseInformation {
+            number_users: results[0].clone()? as usize,
+            number_documents: results[1].clone()? as usize,
+            number_collections: results[2].clone()? as usize,
+        };
+        
+        Ok(info)
     }
 }

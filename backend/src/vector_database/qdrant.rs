@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
@@ -19,23 +20,17 @@ use qdrant_client::{
 use tokio::sync::MutexGuard;
 
 use crate::{
-    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
-    constants::{
+    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig}, constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-    },
-    documents::{
+    }, database::traits::database::Database, documents::{
         collection_metadata::CollectionMetadata,
         document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
-    },
-    embedder::{send_vectorization, vectorize},
-    metadata_storage::MetadataStorage,
-    search::{
+    }, embedder::{send_vectorization, vectorize}, metadata_storage::MetadataStorage, search::{
         document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
         semantic::SemanticSearch,
-    },
-    vector_database::traits::VectorDatabase,
+    }, vector_database::traits::VectorDatabase
 };
 
 #[derive(Clone)]
@@ -191,7 +186,7 @@ impl VectorDatabase for QdrantDatabase {
 impl SemanticSearch for QdrantDatabase {
     async fn search_documents_semantically(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,

@@ -4,11 +4,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use tokio::sync::Mutex;
 
 use crate::configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig};
+use crate::database::traits::database::Database;
 use crate::documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata};
-use crate::metadata_storage::MetadataStorage;
 use crate::search::{keyword::KeywordSearch, semantic::SemanticSearch};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -32,14 +31,14 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         embedder_config: &EmbedderConfig,
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
-        metadata_storage: Arc<Mutex<MetadataStorage>>,
+        database: Arc<dyn Database>,
         metadata: DocumentMetadata,
     ) -> Result<String> {
         self.add_document_chunks_to_database(embedder_config, vector_database_config, chunks)
             .await?;
 
         let metadata_id: String = metadata.id.clone();
-        metadata_storage.lock().await.add_document(metadata).await?;
+        database.add_documents(vec![metadata]).await?;
 
         Ok(metadata_id)
     }
