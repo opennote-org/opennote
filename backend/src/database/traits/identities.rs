@@ -22,7 +22,7 @@ pub trait Identities {
     async fn remove_authorized_resources(
         &self,
         username: &str,
-        resource_ids: Vec<String>,
+        resource_ids: &Vec<String>,
     ) -> Result<()>;
 
     /// See if the user has the permission to access the given resources

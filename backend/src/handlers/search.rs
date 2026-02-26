@@ -1,6 +1,5 @@
 use actix_web::{HttpResponse, Result, web};
 use log::error;
-use tokio::sync::RwLock;
 
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
@@ -83,7 +82,7 @@ pub async fn search(
 
     match data.vector_database
         .search_documents(
-            &mut metadata_storage,
+            &data.database,
             document_metadata_ids,
             &request.0.query,
             request.0.top_n,

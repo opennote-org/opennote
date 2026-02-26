@@ -56,73 +56,65 @@ pub async fn create_collection(
 }
 
 /// Sync endpoint
-///
-/// TODO: need to delete all belonging documents under the collection from the database
-pub async fn delete_collection(
+pub async fn delete_collections(
     data: web::Data<AppState>,
     request: web::Json<DeleteCollectionRequest>,
 ) -> Result<HttpResponse> {
     let collection_metadata = match data
         .database
-        .delete_collection(&request.collection_metadata_id)
+        .delete_collections(&request.collection_metadata_ids)
         .await
     {
-        Some(collection_metadata) => {
-            let users = match data
+        Ok(collection_metadata) => {
+            if collection_metadata.is_empty() {
+                return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                    "".to_string(),
+                    "Collection metadata id was not found. Please specify an existing collection"
+                        .to_string(),
+                )));
+            }
+
+            match data
                 .database
-                .get_users_by_resource_id(&request.0.collection_metadata_id)
+                .remove_authorized_resources(
+                    &request.0.username,
+                    &request.0.collection_metadata_ids,
+                )
                 .await
             {
-                Ok(users) => users,
-                Err(error) => {
-                    log::error!("Failed to get users by resource id: {}", error);
-                    return Ok(HttpResponse::Ok()
-                        .json(GenericResponse::fail("".to_string(), error.to_string())));
-                }
-            };
+                Ok(_) => {}
+                Err(error) => log::warn!(
+                    "Username not found when trying to remove resources {:?} from it: {}",
+                    request.0.collection_metadata_ids,
+                    error
+                ),
+            }
 
-            let usernames: Vec<String> = users.iter().map(|user| user.username.clone()).collect();
-
-            for username in usernames {
-                match data
-                    .database
-                    .remove_authorized_resources(
-                        &username,
-                        vec![request.0.collection_metadata_id.clone()],
-                    )
-                    .await
-                {
-                    Ok(_) => {}
-                    Err(error) => log::warn!(
-                        "Username not found when trying to remove resource {} from it: {}",
-                        request.0.collection_metadata_id,
-                        error
-                    ),
-                }
+            match data
+                .vector_database
+                .delete_documents_from_database(
+                    &data.config.vector_database,
+                    &collection_metadata
+                        .iter()
+                        .flat_map(|item| item.documents_metadatas.iter().map(|item| item.id))
+                        .collect(),
+                )
+                .await
+            {
+                Ok(_) => {}
+                Err(error) => log::error!("Vector database cannot delete documents due to {}", error),
             }
 
             collection_metadata
         }
-        None => {
+        Err(error) => {
+            log::error!("Error happened when deleting the collection: {}", error);
             return Ok(HttpResponse::Ok().json(GenericResponse::fail(
                 "".to_string(),
-                "Collection metadata id was not found. Please specify an existing collection"
-                    .to_string(),
+                "Error happened when deleting the collection".to_string(),
             )));
         }
     };
-
-    match data
-        .vector_database
-        .delete_documents_from_database(
-            &data.config.vector_database,
-            &collection_metadata.documents_metadata_ids,
-        )
-        .await
-    {
-        Ok(_) => {}
-        Err(error) => log::error!("Qdrant cannot delete documents due to {}", error),
-    }
 
     return Ok(HttpResponse::Ok().json(GenericResponse::succeed(
         "".to_string(),

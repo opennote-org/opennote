@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::{
-    database::traits::database::Database, metadata_storage::MetadataStorage,
+    database::traits::database::Database,
     search::document_search_results::DocumentChunkSearchResult,
 };
 

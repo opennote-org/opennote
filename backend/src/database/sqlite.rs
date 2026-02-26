@@ -260,6 +260,7 @@ impl Identities for SQLiteDatabase {
         Ok(())
     }
 
+    /// This will remove the owning collections from the database too
     async fn delete_users(&self, usernames: Vec<String>) -> Result<Vec<User>> {
         if usernames.is_empty() {
             return Ok(Vec::new());
@@ -335,7 +336,7 @@ impl Identities for SQLiteDatabase {
     async fn remove_authorized_resources(
         &self,
         username: &str,
-        resource_ids: Vec<String>,
+        resource_ids: &Vec<String>,
     ) -> Result<()> {
         use crate::database::entity::users;
 

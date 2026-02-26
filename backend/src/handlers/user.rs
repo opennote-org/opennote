@@ -61,7 +61,7 @@ pub async fn get_user_configurations(
     match data
         .database
         .get_users(&GetUserFilter {
-            username: Some(request.0.username),
+            usernames: vec![request.0.username],
             ..Default::default()
         })
         .await

@@ -1,18 +1,22 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
 use local_vector_database::{Data, LocalVectorDatabase};
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::Mutex;
 
 use crate::{
     configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
+    database::{
+        filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+        traits::database::Database,
+    },
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
     embedder::{send_vectorization, vectorize},
-    metadata_storage::MetadataStorage,
     search::{
         document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
         semantic::SemanticSearch,
@@ -110,7 +114,7 @@ impl VectorDatabase for Local {
 impl SemanticSearch for Local {
     async fn search_documents_semantically(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
@@ -152,8 +156,18 @@ impl SemanticSearch for Local {
 
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             results,
-            &metadata_storage.collections,
-            &metadata_storage.documents,
+            &database
+                .get_collections(GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
         );
 
         Ok(results)
@@ -164,12 +178,12 @@ impl SemanticSearch for Local {
 impl KeywordSearch for Local {
     async fn search_documents(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
-        Ok(Vec::new())
+        todo!()
     }
 }
 

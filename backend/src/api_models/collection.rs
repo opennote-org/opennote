@@ -19,7 +19,8 @@ pub struct CreateCollectionRequest {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DeleteCollectionRequest {
-    pub collection_metadata_id: String,
+    pub username: String,
+    pub collection_metadata_ids: Vec<String>,
 }
 
 /// region: responses
