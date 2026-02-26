@@ -65,7 +65,7 @@ pub trait MetadataManagement {
 
     async fn get_collections(
         &self,
-        filter: GetCollectionFilter,
+        filter: &GetCollectionFilter,
         include_chunk_data: bool,
     ) -> Result<Vec<CollectionMetadata>>;
 
