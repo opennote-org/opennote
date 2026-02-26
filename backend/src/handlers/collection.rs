@@ -14,7 +14,6 @@ use crate::{
     },
     app_state::AppState,
     database::filters::{get_collections::GetCollectionFilter, get_users::GetUserFilter},
-    documents::collection_metadata::CollectionMetadata,
 };
 
 // Sync Endpoint

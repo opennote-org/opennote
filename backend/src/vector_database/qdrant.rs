@@ -234,13 +234,13 @@ impl SemanticSearch for QdrantDatabase {
             Some(response.result),
             None,
             &database
-                .get_collections(GetCollectionFilter::default(), false)
+                .get_collections(&GetCollectionFilter::default(), false)
                 .await?
                 .into_iter()
                 .map(|item| (item.id.clone(), item))
                 .collect(),
             &database
-                .get_documents(GetDocumentFilter::default())
+                .get_documents(&GetDocumentFilter::default())
                 .await?
                 .into_iter()
                 .map(|item| (item.id.clone(), item))
@@ -280,13 +280,13 @@ impl KeywordSearch for QdrantDatabase {
             None,
             Some(response.result),
             &database
-                .get_collections(GetCollectionFilter::default(), false)
+                .get_collections(&GetCollectionFilter::default(), false)
                 .await?
                 .into_iter()
                 .map(|item| (item.id.clone(), item))
                 .collect(),
             &database
-                .get_documents(GetDocumentFilter::default())
+                .get_documents(&GetDocumentFilter::default())
                 .await?
                 .into_iter()
                 .map(|item| (item.id.clone(), item))
