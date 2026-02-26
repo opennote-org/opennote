@@ -3,7 +3,7 @@ use actix_web::{Scope, web};
 use crate::handlers::{
     backup::{backup, get_backups_list, remove_backups, restore_backup},
     collection::{
-        create_collection, delete_collection, get_collections, update_collections_metadata,
+        create_collection, delete_collections, get_collections, update_collections_metadata,
     },
     document::{
         add_document, delete_document, get_document_content, get_documents_metadata,
@@ -50,7 +50,7 @@ pub fn configure_routes() -> Scope {
                     web::post().to(update_collections_metadata),
                 )
                 .route("/sync/create_collection", web::post().to(create_collection))
-                .route("/sync/delete_collection", web::post().to(delete_collection))
+                .route("/sync/delete_collections", web::post().to(delete_collections))
                 .route("/sync/get_collections", web::get().to(get_collections)),
         )
         .service(
