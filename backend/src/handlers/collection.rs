@@ -13,6 +13,7 @@ use crate::{
         },
     },
     app_state::AppState,
+    database::filters::{get_collections::GetCollectionFilter, get_users::GetUserFilter},
     documents::collection_metadata::CollectionMetadata,
 };
 
@@ -96,13 +97,19 @@ pub async fn delete_collections(
                     &data.config.vector_database,
                     &collection_metadata
                         .iter()
-                        .flat_map(|item| item.documents_metadatas.iter().map(|item| item.id))
+                        .flat_map(|item| {
+                            item.documents_metadatas
+                                .iter()
+                                .map(|item| item.id.to_string())
+                        })
                         .collect(),
                 )
                 .await
             {
                 Ok(_) => {}
-                Err(error) => log::error!("Vector database cannot delete documents due to {}", error),
+                Err(error) => {
+                    log::error!("Vector database cannot delete documents due to {}", error)
+                }
             }
 
             collection_metadata
@@ -127,9 +134,42 @@ pub async fn get_collections(
     data: web::Data<AppState>,
     query: Query<GetCollectionsQuery>,
 ) -> Result<HttpResponse> {
+    let user = match data
+        .database
+        .get_users(&GetUserFilter {
+            usernames: vec![query.0.username],
+            ..Default::default()
+        })
+        .await
+    {
+        Ok(mut user) => user.pop(),
+        Err(error) => {
+            log::error!("Failed to get user: {}", error);
+            return Ok(
+                HttpResponse::Ok().json(GenericResponse::fail("".to_string(), error.to_string()))
+            );
+        }
+    };
+
+    let user = match user {
+        Some(result) => result,
+        None => {
+            return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                "".to_string(),
+                "User not found".to_string(),
+            )));
+        }
+    };
+
     let collections = match data
         .database
-        .get_collections_by_collection_metadata_id()
+        .get_collections(
+            &GetCollectionFilter {
+                ids: user.resources,
+                ..Default::default()
+            },
+            false,
+        )
         .await
     {
         Ok(collections) => collections,
@@ -141,23 +181,8 @@ pub async fn get_collections(
         }
     };
 
-    let collection_metadata: Vec<CollectionMetadata> = collections
-        .iter()
-        .filter(async |collection| {
-            data.database
-                .check_permission(&query.username, vec![collection.id.clone()])
-                .await
-                .unwrap()
-        })
-        .map(|collection| collection.to_owned())
-        .collect();
-
-    // Return an immediate response with a task id
     Ok(HttpResponse::Ok()
-        .json(GenericResponse::succeed(
-            "".to_string(),
-            &collection_metadata,
-        ))
+        .json(GenericResponse::succeed("".to_string(), &collections))
         .into())
 }
 
@@ -166,12 +191,9 @@ pub async fn update_collections_metadata(
     data: web::Data<AppState>,
     request: web::Json<UpdateCollectionMetadataRequest>,
 ) -> Result<HttpResponse> {
-    let (_, metadata_storage, _, _, _, _) = acquire_data(&data).await;
-
-    match metadata_storage
-        .lock()
-        .await
-        .update_collection(request.0.collection_metadatas)
+    match data
+        .database
+        .update_collections(request.0.collection_metadatas)
         .await
     {
         Ok(_) => Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &json!({})))),
