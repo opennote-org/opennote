@@ -757,7 +757,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     /// It gurantees the order of the metadata will follow the input ids order
-    async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>> {
+    async fn get_documents(&self, filter: &GetDocumentFilter) -> Result<Vec<DocumentMetadata>> {
         use crate::database::entity::{document_chunks, documents};
 
         if filter.is_over_constrained() {
@@ -879,7 +879,7 @@ impl MetadataManagement for SQLiteDatabase {
         for collection in collection_metadatas.iter_mut() {
             tasks.push(async {
                 collection.documents_metadatas = self
-                    .get_documents(GetDocumentFilter {
+                    .get_documents(&GetDocumentFilter {
                         collection_metadata_ids: vec![collection.id.clone()],
                         ..Default::default()
                     })

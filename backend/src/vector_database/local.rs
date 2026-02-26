@@ -157,13 +157,13 @@ impl SemanticSearch for Local {
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             results,
             &database
-                .get_collections(GetCollectionFilter::default(), false)
+                .get_collections(&GetCollectionFilter::default(), false)
                 .await?
                 .into_iter()
                 .map(|item| (item.id.clone(), item))
                 .collect(),
             &database
-                .get_documents(GetDocumentFilter::default())
+                .get_documents(&GetDocumentFilter::default())
                 .await?
                 .into_iter()
                 .map(|item| (item.id.clone(), item))

@@ -61,7 +61,7 @@ pub trait MetadataManagement {
         filter: GetDocumentChunkFilter,
     ) -> Result<Vec<DocumentChunk>>;
 
-    async fn get_documents(&self, filter: GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
+    async fn get_documents(&self, filter: &GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
 
     async fn get_collections(
         &self,

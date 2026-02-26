@@ -31,7 +31,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         embedder_config: &EmbedderConfig,
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
-        database: Arc<dyn Database>,
+        database: &Arc<dyn Database>,
         metadata: DocumentMetadata,
     ) -> Result<String> {
         self.add_document_chunks_to_database(embedder_config, vector_database_config, chunks)
