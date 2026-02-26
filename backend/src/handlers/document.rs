@@ -4,7 +4,6 @@ use actix_web::{HttpResponse, Result, web};
 use futures::future::join_all;
 use log::{error, info};
 use serde_json::json;
-use tokio::sync::RwLock;
 
 use crate::{
     api_models::{
@@ -724,32 +723,41 @@ pub async fn reindex(
 
         // Get the metadata first.
         // We will need to use concurrency in fetching document contents to maximize efficiency.
-        let mut metadata_storage = metadata_storage.lock().await;
         let mut get_document_contents_tasks_data = Vec::new();
 
         // Reserved for deleting them from the database
         let mut metadata_ids_to_delete: Vec<String> = Vec::new();
 
         for collection_metadata_id in resource_ids {
-            let document_metadata_ids =
-                metadata_storage.get_document_ids_by_collection(&collection_metadata_id);
+            let document_metadatas = match data
+                .database
+                .get_documents(&GetDocumentFilter {
+                    collection_metadata_ids: vec![collection_metadata_id.clone()],
+                    ..Default::default()
+                })
+                .await
+            {
+                Ok(ids) => ids,
+                Err(error) => {
+                    error!(
+                        "Failed to get document metadata IDs for collection {}: {}",
+                        collection_metadata_id, error
+                    );
+                    data.tasks_scheduler.lock().await.update_status_by_task_id(
+                        &task_id,
+                        TaskStatus::Failed,
+                        Some(error.to_string()),
+                    );
+                    return;
+                }
+            };
 
             metadata_ids_to_delete.extend(
-                document_metadata_ids
+                document_metadatas
                     .iter()
-                    .map(|item| item.to_owned().to_owned())
+                    .map(|item| item.id.clone())
                     .collect::<Vec<String>>(),
             );
-
-            let mut document_metadatas = Vec::new();
-
-            for document_metadata_id in document_metadata_ids {
-                if let Some(document_metadata) =
-                    metadata_storage.documents.get(document_metadata_id)
-                {
-                    document_metadatas.push(document_metadata.to_owned());
-                }
-            }
 
             get_document_contents_tasks_data.push((collection_metadata_id, document_metadatas));
         }
@@ -762,13 +770,8 @@ pub async fn reindex(
             for document_metadata in document_metadatas {
                 let collection_metadata_id: String = collection_metadata_id.clone();
                 get_document_contents_tasks.push(async {
-                    let chunks: Vec<DocumentChunk> = vector_database
-                        .get_document_chunks(document_metadata.chunks.clone())
-                        .await
-                        .unwrap_or(vec![]);
-
                     let mut content: String = String::new();
-                    for chunk in chunks {
+                    for chunk in document_metadata.chunks.iter() {
                         content.push_str(&chunk.content);
                     }
 
@@ -792,7 +795,7 @@ pub async fn reindex(
                     &collection_metadata_id,
                 );
 
-                document_metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
+                document_metadata.chunks = chunks.clone();
 
                 (document_metadata, chunks)
             }));
@@ -800,13 +803,14 @@ pub async fn reindex(
 
         // Remove old chunks from the database before updating the new ones to prevent conflicts.
 
-        match vector_database
-            .delete_documents_from_database(&config.vector_database, &metadata_ids_to_delete)
+        match data
+            .vector_database
+            .delete_documents_from_database(&data.config.vector_database, &metadata_ids_to_delete)
             .await
         {
             Ok(_) => {}
             Err(_) => {
-                tasks_scheduler.lock().await.update_status_by_task_id(
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
                     None,
@@ -820,9 +824,9 @@ pub async fn reindex(
         for task in slicing_tasks {
             match task.await {
                 Ok((document_metadata, document_chunks)) => {
-                    final_update_tasks.push(vector_database.add_document_chunks_to_database(
-                        &config.embedder,
-                        &config.vector_database,
+                    final_update_tasks.push(data.vector_database.add_document_chunks_to_database(
+                        &data.config.embedder,
+                        &data.config.vector_database,
                         document_chunks,
                     ));
 
@@ -833,7 +837,7 @@ pub async fn reindex(
                         "Failed to re-index the user {} collections: {}",
                         &request.0.username, error
                     );
-                    tasks_scheduler.lock().await.update_status_by_task_id(
+                    data.tasks_scheduler.lock().await.update_status_by_task_id(
                         &task_id,
                         TaskStatus::Failed,
                         Some(error.to_string()),
@@ -852,7 +856,7 @@ pub async fn reindex(
                         "Failed to re-index the user {} collections: {}",
                         &request.0.username, error
                     );
-                    tasks_scheduler.lock().await.update_status_by_task_id(
+                    data.tasks_scheduler.lock().await.update_status_by_task_id(
                         &task_id,
                         TaskStatus::Failed,
                         Some(error.to_string()),
@@ -866,17 +870,14 @@ pub async fn reindex(
         let metadatas_count: usize = metadatas_to_update.len();
 
         // Finally, update the metadata
-        match metadata_storage
-            .update_documents_with_new_chunks(metadatas_to_update)
-            .await
-        {
+        match data.database.update_documents(metadatas_to_update).await {
             Ok(_) => {}
             Err(error) => {
                 error!(
                     "Failed to re-index the user {} collections: {}",
                     &request.0.username, error
                 );
-                tasks_scheduler.lock().await.update_status_by_task_id(
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
                     Some(error.to_string()),
@@ -885,7 +886,7 @@ pub async fn reindex(
             }
         }
 
-        tasks_scheduler.lock().await.set_status_to_complete(
+        data.tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,
             serde_json::to_value(ReindexResponse {
                 documents_reindexed: metadatas_count,
