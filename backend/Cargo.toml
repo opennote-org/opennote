@@ -29,4 +29,4 @@ rmcp-actix-web = { version = "0.11.0", features = ["authorization-token-passthro
 local_vector_database = { path = "./crates/local_vector_database" }
 migration = { path = "./crates/migration" }
 sea-orm = { version = "2.0.0-rc.32", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
-sqlx = "0.8.6"
+sqlx = { version = "0.8.6", features = ["tls-rustls", "mysql", "postgres", "sqlite", "runtime-tokio"] }

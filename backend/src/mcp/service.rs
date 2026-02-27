@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 use crate::{
     api_models::{document::GetDocumentRequest, search::SearchDocumentRequest},
     app_state::AppState,
-    database::filters::get_documents::GetDocumentFilter,
+    database::filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
     documents::document_metadata::DocumentMetadata,
     handlers::{document::get_document_content, search::intelligent_search},
     mcp::{
@@ -109,7 +109,7 @@ impl MCPService {
             let all_document_metadatas: Vec<DocumentMetadata> = match self
                 .app_state
                 .database
-                .get_documents(GetDocumentFilter {
+                .get_documents(&GetDocumentFilter {
                     collection_metadata_ids: resource_ids.clone(),
                     ..Default::default()
                 })
@@ -171,7 +171,13 @@ impl MCPService {
             let collection_metadata = match self
                 .app_state
                 .database
-                .get_collections_by_collection_metadata_id(vec![collection_metadata_id.clone()])
+                .get_collections(
+                    &GetCollectionFilter {
+                        ids: vec![collection_metadata_id.clone()],
+                        ..Default::default()
+                    },
+                    false,
+                )
                 .await
             {
                 Ok(result) => result,
