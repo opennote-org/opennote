@@ -22,7 +22,7 @@ pub async fn retrieve_document_ids_by_scope(
             let resource_ids = database.get_resource_ids_by_username(id).await?;
             let collection_metadatas: Vec<CollectionMetadata> = database
                 .get_collections(
-                    GetCollectionFilter {
+                    &GetCollectionFilter {
                         ids: resource_ids,
                         ..Default::default()
                     },
@@ -32,18 +32,18 @@ pub async fn retrieve_document_ids_by_scope(
 
             collection_metadatas
                 .into_iter()
-                .flat_map(|item| {
-                    item.documents_metadatas
-                        .into_iter()
-                        .map(|item| item.id)
-                })
+                .flat_map(|item| item.documents_metadatas.into_iter().map(|item| item.id))
                 .collect()
         }
         SearchScope::Collection => database
-            .get_collections(GetCollectionFilter {
-                ids: vec![id.to_string()],
-                ..Default::default()
-            }, false).await?
+            .get_collections(
+                &GetCollectionFilter {
+                    ids: vec![id.to_string()],
+                    ..Default::default()
+                },
+                false,
+            )
+            .await?
             .into_iter()
             .map(|item| item.id)
             .collect(),
