@@ -24,18 +24,8 @@ impl AppState {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         let config_clone = config.clone();
         let vector_database = create_vector_database(&config).await?;
-
-        let database = create_database(&config).await?;
         
-        if !database.is_database_exist().await {
-            log::warn!("Database does not exist! Creating a new one...");
-            database.migrate(
-                &config.metadata_storage.path,
-                &config.identities_storage.path,
-                &vector_database
-            ).await?;
-        }
-        log::info!("Database exists! Skip creating a new one...");
+        let database = create_database(&config, &vector_database).await?; 
         
         Ok(Self {
             config,

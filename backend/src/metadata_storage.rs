@@ -50,3 +50,12 @@ impl LoadAndSave for MetadataStorage {
         &self.path
     }
 }
+
+impl MetadataStorage {
+    pub fn is_metadata_storage_exist(path: &str) -> bool {
+        match std::fs::exists(path) {
+            Ok(result) => result,
+            Err(_) => false,
+        }
+    }
+}

@@ -46,13 +46,6 @@ pub struct SQLiteDatabase {
 
 #[async_trait]
 impl Database for SQLiteDatabase {
-    async fn is_database_exist(&self) -> bool {
-        match self.pool.ping().await {
-            Ok(_) => true,
-            Err(_) => false,
-        }
-    }
-    
     async fn migrate_users(&self, identities_storage: &IdentitiesStorage) -> Result<()> {
         // migrate all users
         use crate::database::entity::users;
@@ -236,6 +229,20 @@ impl SQLiteDatabase {
         let pool = sea_orm::Database::connect(options).await?;
 
         Ok(Self { pool })
+    }
+    
+    pub async fn is_database_exist(connection_string: &str) -> bool {
+        let mode_trimed = match connection_string.rfind("?") {
+            Some(result) => &connection_string[..result],
+            None => connection_string,
+        };
+        
+        let start_trimed = mode_trimed.trim_start_matches("sqlite://");
+        
+        match std::fs::exists(start_trimed) {
+            Ok(result) => result,
+            Err(_) => false,
+        }
     }
 }
 
