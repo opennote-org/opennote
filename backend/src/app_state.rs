@@ -26,12 +26,17 @@ impl AppState {
         let vector_database = create_vector_database(&config).await?;
 
         let database = create_database(&config).await?;
-        database.migrate(
-            &config.metadata_storage.path,
-            &config.identities_storage.path,
-            &vector_database
-        ).await?;
-
+        
+        if !database.is_database_exist().await {
+            log::warn!("Database does not exist! Creating a new one...");
+            database.migrate(
+                &config.metadata_storage.path,
+                &config.identities_storage.path,
+                &vector_database
+            ).await?;
+        }
+        log::info!("Database exists! Skip creating a new one...");
+        
         Ok(Self {
             config,
             tasks_scheduler: Arc::new(Mutex::new(TasksScheduler::new())),

@@ -21,7 +21,11 @@ pub struct DocumentMetadata {
     pub collection_metadata_id: String,
 
     pub title: String,
+    
+    #[serde(alias = "chunks")]
+    pub chunk_ids: Vec<String>,
 
+    #[serde(skip)]
     pub chunks: Vec<DocumentChunk>,
 }
 
@@ -34,6 +38,7 @@ impl DocumentMetadata {
             last_modified: now,
             collection_metadata_id,
             title,
+            chunk_ids: Vec::new(),
             chunks: Vec::new(),
         }
     }
@@ -94,6 +99,7 @@ impl
             collection_metadata_id: value.0.collection_metadata_id,
             title: value.0.title,
             chunks: value.1.into_iter().map(|item| item.into()).collect(),
+            chunk_ids: Vec::new()
         }
     }
 }
@@ -141,6 +147,7 @@ impl From<database::entity::documents::Model> for DocumentMetadata {
             collection_metadata_id: value.collection_metadata_id,
             title: value.title,
             chunks: Vec::new(),
+            chunk_ids: Vec::new(),
         }
     }
 }

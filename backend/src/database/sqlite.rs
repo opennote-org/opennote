@@ -46,6 +46,13 @@ pub struct SQLiteDatabase {
 
 #[async_trait]
 impl Database for SQLiteDatabase {
+    async fn is_database_exist(&self) -> bool {
+        match self.pool.ping().await {
+            Ok(_) => true,
+            Err(_) => false,
+        }
+    }
+    
     async fn migrate_users(&self, identities_storage: &IdentitiesStorage) -> Result<()> {
         // migrate all users
         use crate::database::entity::users;
@@ -121,7 +128,7 @@ impl Database for SQLiteDatabase {
         let mut chunks_to_insert = Vec::new();
         for (_, document) in metadata_storage.documents.iter() {
             let chunks = vector_database
-                .get_document_chunks(vec![document.id.clone()])
+                .get_document_chunks(document.chunk_ids.clone())
                 .await?;
 
             documents_to_insert.push(documents::ActiveModel {
@@ -359,11 +366,6 @@ impl Identities for SQLiteDatabase {
         Err(anyhow!("User `{}` does not exist", username))
     }
 
-    async fn check_permission(&self, username: &str, resource_ids: Vec<String>) -> Result<bool> {
-        self.is_user_owning_collections(username, &resource_ids)
-            .await
-    }
-
     async fn update_user_configurations(
         &self,
         username: &str,
@@ -451,11 +453,11 @@ impl Identities for SQLiteDatabase {
         // Construct a sql filter to the users table
         let mut sql_filter_to_users = sea_orm::Condition::any();
 
-        if filter.ids.is_empty() {
+        if !filter.ids.is_empty() {
             sql_filter_to_users = sql_filter_to_users.add(users::Column::Id.is_in(&filter.ids));
         }
 
-        if filter.usernames.is_empty() {
+        if !filter.usernames.is_empty() {
             sql_filter_to_users =
                 sql_filter_to_users.add(users::Column::Username.is_in(&filter.usernames));
         }
@@ -836,19 +838,19 @@ impl MetadataManagement for SQLiteDatabase {
         let mut sql_filter = sea_orm::Condition::any();
 
         if !filter.ids.is_empty() {
-            sql_filter = sql_filter.add(documents::Column::Id.is_in(&filter.ids));
+            sql_filter = sql_filter.add(collections::Column::Id.is_in(&filter.ids));
         }
 
         if let Some(created_at) = &filter.created_at {
-            sql_filter = sql_filter.add(documents::Column::CreatedAt.eq(created_at));
+            sql_filter = sql_filter.add(collections::Column::CreatedAt.eq(created_at));
         }
 
         if let Some(last_modified) = &filter.last_modified {
-            sql_filter = sql_filter.add(documents::Column::CreatedAt.eq(last_modified));
+            sql_filter = sql_filter.add(collections::Column::CreatedAt.eq(last_modified));
         }
 
         if let Some(title) = &filter.title {
-            sql_filter = sql_filter.add(documents::Column::Title.eq(title));
+            sql_filter = sql_filter.add(collections::Column::Title.eq(title));
         }
 
         // Start filtering

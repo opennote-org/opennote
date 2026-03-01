@@ -20,8 +20,11 @@ pub struct CollectionMetadata {
     pub last_modified: String,
 
     pub title: String,
+    
+    pub documents_metadata_ids: Vec<String>,
 
     // metadata ids of its owned documents
+    #[serde(skip)]
     pub documents_metadatas: Vec<DocumentMetadata>,
 }
 
@@ -33,6 +36,7 @@ impl CollectionMetadata {
             created_at: now.clone(),
             last_modified: now,
             title,
+            documents_metadata_ids: Vec::new(),
             documents_metadatas: Vec::new(),
         }
     }
@@ -102,6 +106,7 @@ impl From<database::entity::collections::Model> for CollectionMetadata {
                 .to_string(),
             title: value.title,
             documents_metadatas: Vec::new(),
+            documents_metadata_ids: Vec::new(),
         }
     }
 }
@@ -128,6 +133,7 @@ impl
                 .to_string(),
             title: value.0.title,
             documents_metadatas: value.1.into_iter().map(|item| item.into()).collect(),
+            documents_metadata_ids: Vec::new(),
         }
     }
 }

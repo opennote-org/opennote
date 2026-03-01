@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:notes/constants.dart';
+import 'package:notes/services/document.dart';
 
 part 'collection.g.dart';
 
@@ -11,6 +12,7 @@ class CollectionMetadata {
   String lastModified;
   String title;
   List<String> documentsMetadataIds;
+  List<DocumentMetadata> documentsMetadatas;
 
   CollectionMetadata({
     required this.id,
@@ -18,6 +20,7 @@ class CollectionMetadata {
     required this.lastModified,
     required this.title,
     required this.documentsMetadataIds,
+    required this.documentsMetadatas,
   });
 
   factory CollectionMetadata.fromJson(Map<String, dynamic> json) => _$CollectionMetadataFromJson(json);
@@ -30,15 +33,21 @@ class CollectionManagementService {
     return response.data!["data"]["collection_metadata_id"];
   }
 
-  Future<String> deleteCollection(Dio dio, String collectionMetadataId) async {
-    final response = await dio.post(deleteCollectionEndpoint, data: {"collection_metadata_id": collectionMetadataId});
-    
+  Future<String> deleteCollection(Dio dio, String username, String collectionMetadataId) async {
+    final response = await dio.post(
+      deleteCollectionEndpoint,
+      data: {
+        "collection_metadata_ids": [collectionMetadataId],
+        "username": username,
+      },
+    );
+
     if (response.data?["data"] == null) {
       throw Exception("Invalid response: missing 'data' field");
     }
-    
+
     final metadata = CollectionMetadata.fromJson(response.data!["data"] as Map<String, dynamic>);
-    
+
     return metadata.id;
   }
 

@@ -12,6 +12,8 @@ use crate::{
 
 #[async_trait]
 pub trait Database: MetadataManagement + Identities + Send + Sync {
+    async fn is_database_exist(&self) -> bool;
+    
     async fn migrate(
         &self,
         metadata_storage_path: &str,

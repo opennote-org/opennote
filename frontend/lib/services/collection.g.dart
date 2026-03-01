@@ -15,6 +15,9 @@ CollectionMetadata _$CollectionMetadataFromJson(Map<String, dynamic> json) =>
       documentsMetadataIds: (json['documents_metadata_ids'] as List<dynamic>)
           .map((e) => e as String)
           .toList(),
+      documentsMetadatas: (json['documents_metadatas'] as List<dynamic>)
+          .map((e) => DocumentMetadata.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
 
 Map<String, dynamic> _$CollectionMetadataToJson(CollectionMetadata instance) =>
@@ -24,4 +27,5 @@ Map<String, dynamic> _$CollectionMetadataToJson(CollectionMetadata instance) =>
       'last_modified': instance.lastModified,
       'title': instance.title,
       'documents_metadata_ids': instance.documentsMetadataIds,
+      'documents_metadatas': instance.documentsMetadatas,
     };
