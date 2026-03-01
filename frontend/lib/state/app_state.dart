@@ -238,7 +238,7 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> deleteCollection(String id) async {
-    await collections.deleteCollection(dio, id);
+    await collections.deleteCollection(dio, username!, id);
     collectionById.remove(id);
     if (activeObject.id == id &&
         activeObject.type == ActiveObjectType.collection) {

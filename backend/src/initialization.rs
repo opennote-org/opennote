@@ -23,13 +23,7 @@ pub fn load_configurations() -> Result<Config> {
     // Load configuration first
     let config_path: String =
         std::env::var("CONFIG_PATH").unwrap_or_else(|_| "./config.json".to_string());
-    let config: Config = match Config::load_from_file(&config_path) {
-        Ok(config) => config,
-        Err(e) => {
-            eprintln!("Failed to load configuration: {}", e);
-            std::process::exit(1);
-        }
-    };
+    let config: Config = Config::load_from_file(&config_path)?;
 
     // Validate configuration
     config.validate()?;
@@ -105,7 +99,7 @@ pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
         }
         Err(e) => {
             log::error!("Failed to initialize app state: {}", e);
-            std::process::exit(1);
+            panic!();
         }
     }
 }
@@ -154,7 +148,7 @@ pub async fn initialize_backend_api_service(
         .with_context(|| format!("Failed to bind to {}", bind_address))
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
         .run()
-        .await;
+        .await?;
 
     Ok(())
 }

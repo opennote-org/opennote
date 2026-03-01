@@ -25,9 +25,6 @@ pub trait Identities {
         resource_ids: &Vec<String>,
     ) -> Result<()>;
 
-    /// See if the user has the permission to access the given resources
-    async fn check_permission(&self, username: &str, resource_ids: Vec<String>) -> Result<bool>;
-
     async fn update_user_configurations(
         &self,
         username: &str,
