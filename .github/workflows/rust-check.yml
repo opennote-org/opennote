@@ -1,0 +1,48 @@
+name: Quality Check - Backend
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "backend/**"
+  push:
+    branches: [ main ]
+    paths:
+      - "backend/**"
+
+jobs:
+
+  rust-check:
+    name: Rust Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Check format
+        working-directory: backend
+        run: cargo fmt --all -- --check
+
+      - name: Clippy lint
+        working-directory: backend
+        run: cargo clippy --all-targets --all-features -- -A warnings  # Allow warnings for now
+
+      - name: Compile check
+        working-directory: backend
+        run: cargo check --all --all-features
+
+      - name: Run tests (optional)
+      # Optional: just show test results, do not fail CI yet
+        working-directory: backend
+        continue-on-error: true
+        run: |
+          cargo test --all --all-features
