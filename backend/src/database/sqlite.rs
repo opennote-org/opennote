@@ -198,8 +198,6 @@ impl Database for SQLiteDatabase {
         identities_storage_path: &str,
         vector_database: &Arc<dyn VectorDatabase>,
     ) -> Result<()> {
-        Migrator::up(&self.pool, None).await?;
-
         let metadata_storage = MetadataStorage::load(metadata_storage_path)?;
         let identities_storage = IdentitiesStorage::load(identities_storage_path)?;
 
@@ -208,6 +206,12 @@ impl Database for SQLiteDatabase {
         self.migrate_documents(&metadata_storage, vector_database)
             .await?;
         self.migrate_users(&identities_storage).await?;
+
+        Ok(())
+    }
+
+    async fn create_tables(&self) -> Result<()> {
+        Migrator::up(&self.pool, None).await?;
 
         Ok(())
     }

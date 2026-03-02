@@ -50,8 +50,9 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
     let mut metadata_settings = app_state.database.get_metadata_settings().await?;
 
     // This means the embedder model has changed
-    if metadata_settings.embedder_model_in_use != config.embedder.model
-        || metadata_settings.embedder_model_vector_size_in_use != config.embedder.dimensions
+    if !metadata_settings.embedder_model_in_use.is_empty()
+        && (metadata_settings.embedder_model_in_use != config.embedder.model
+            || metadata_settings.embedder_model_vector_size_in_use != config.embedder.dimensions)
     {
         log::info!("Embedder model has changed. Perform re-indexing. please wait...");
         app_state.vector_database.reindex_documents(config).await?;
