@@ -30,4 +30,6 @@ pub trait Database: MetadataManagement + Identities + Send + Sync {
     ) -> Result<()>;
 
     async fn migrate_metadata_settings(&self, metadata_storage: &MetadataStorage) -> Result<()>;
+
+    async fn migrator_up(&self) -> Result<()>;
 }
