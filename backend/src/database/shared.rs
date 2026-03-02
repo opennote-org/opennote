@@ -32,8 +32,8 @@ pub async fn create_database(
                 MetadataStorage::is_metadata_storage_exist(&config.metadata_storage.path);
 
             let database = Arc::new(SQLiteDatabase::new(&config.database.connection_url).await?);
-            
-            database.migrator_up().await?;
+
+            database.create_tables().await?;
 
             // Migrate if the database originally didn't exist AND
             // the metadata storage exists
