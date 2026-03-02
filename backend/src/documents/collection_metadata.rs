@@ -10,6 +10,22 @@ use crate::{
 
 use super::traits::ValidateDataMutabilitiesForAPICaller;
 
+/// For backward compatibility
+/// TODO: remove this
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyCollectionMetadata {
+    #[serde(alias = "metadata_id")]
+    pub id: String,
+
+    pub created_at: String,
+
+    pub last_modified: String,
+
+    pub title: String,
+
+    pub documents_metadata_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollectionMetadata {
     #[serde(alias = "metadata_id")]
@@ -20,11 +36,8 @@ pub struct CollectionMetadata {
     pub last_modified: String,
 
     pub title: String,
-    
-    pub documents_metadata_ids: Vec<String>,
 
-    // metadata ids of its owned documents
-    #[serde(skip)]
+    // metadatas of its owned documents
     pub documents_metadatas: Vec<DocumentMetadata>,
 }
 
@@ -36,7 +49,6 @@ impl CollectionMetadata {
             created_at: now.clone(),
             last_modified: now,
             title,
-            documents_metadata_ids: Vec::new(),
             documents_metadatas: Vec::new(),
         }
     }
@@ -106,7 +118,6 @@ impl From<database::entity::collections::Model> for CollectionMetadata {
                 .to_string(),
             title: value.title,
             documents_metadatas: Vec::new(),
-            documents_metadata_ids: Vec::new(),
         }
     }
 }
@@ -133,7 +144,6 @@ impl
                 .to_string(),
             title: value.0.title,
             documents_metadatas: value.1.into_iter().map(|item| item.into()).collect(),
-            documents_metadata_ids: Vec::new(),
         }
     }
 }

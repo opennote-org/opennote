@@ -30,7 +30,7 @@ DocumentMetadata _$DocumentMetadataFromJson(Map<String, dynamic> json) =>
       collectionMetadataId: json['collection_metadata_id'] as String,
       title: json['title'] as String,
       chunks: (json['chunks'] as List<dynamic>)
-          .map((e) => e as String)
+          .map((e) => DocumentChunk.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
 

@@ -11,7 +11,6 @@ class CollectionMetadata {
   String createdAt;
   String lastModified;
   String title;
-  List<String> documentsMetadataIds;
   List<DocumentMetadata> documentsMetadatas;
 
   CollectionMetadata({
@@ -19,7 +18,6 @@ class CollectionMetadata {
     required this.createdAt,
     required this.lastModified,
     required this.title,
-    required this.documentsMetadataIds,
     required this.documentsMetadatas,
   });
 

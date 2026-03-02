@@ -121,7 +121,7 @@ impl Database for SQLiteDatabase {
         let mut chunks_to_insert = Vec::new();
         for (_, document) in metadata_storage.documents.iter() {
             let chunks = vector_database
-                .get_document_chunks(document.chunk_ids.clone())
+                .get_document_chunks(document.chunks.clone())
                 .await?;
 
             documents_to_insert.push(documents::ActiveModel {
@@ -232,6 +232,7 @@ impl SQLiteDatabase {
                 .busy_timeout(Duration::from_secs(5))
                 .journal_mode(sea_orm::sqlx::sqlite::SqliteJournalMode::Wal)
         });
+        options.sqlx_logging(false);
 
         let pool = sea_orm::Database::connect(options).await?;
 
@@ -309,7 +310,8 @@ impl Identities for SQLiteDatabase {
                     resource_ids
                 })
                 .collect(),
-        );
+        )
+        .await?;
 
         Ok(users.into_iter().map(|item| item.into()).collect())
     }
@@ -557,15 +559,21 @@ impl MetadataManagement for SQLiteDatabase {
             result?;
         }
 
-        // Update the chunks after the metadatas to prevent conflicts
-        self.delete_document_chunks(
-            &chunks_to_update
-                .iter()
-                .map(|item| item.id.as_ref().clone())
-                .collect(),
-        );
-
         document_chunks::Entity::insert_many(chunks_to_update)
+            .on_conflict(
+                OnConflict::columns([
+                    document_chunks::Column::DocumentMetadataId,
+                    document_chunks::Column::ChunkOrder,
+                ])
+                .update_columns([
+                    document_chunks::Column::Content,
+                    document_chunks::Column::DocumentMetadataId,
+                    document_chunks::Column::CollectionMetadataId,
+                    document_chunks::Column::DenseTextVector,
+                    document_chunks::Column::ChunkOrder,
+                ])
+                .to_owned(),
+            )
             .exec(&self.pool)
             .await?;
 
