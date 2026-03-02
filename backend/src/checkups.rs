@@ -5,7 +5,6 @@ use anyhow::{Result, anyhow};
 use crate::{
     app_state::AppState,
     configurations::system::{Config, EmbedderConfig},
-    database::traits::metadata::MetadataManagement,
     documents::document_chunk::DocumentChunk,
     embedder::send_vectorization,
 };

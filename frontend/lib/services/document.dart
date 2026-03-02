@@ -31,7 +31,7 @@ class DocumentMetadata {
   String lastModified;
   String collectionMetadataId;
   String title;
-  List<String> chunks;
+  List<DocumentChunk> chunks;
 
   DocumentMetadata({
     required this.id,

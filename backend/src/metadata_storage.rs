@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     documents::{
-        collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata,
+        collection_metadata::LegacyCollectionMetadata, document_metadata::LegacyDocumentMetadata,
     },
     traits::LoadAndSave,
 };
@@ -20,10 +20,10 @@ pub struct MetadataStorage {
     pub embedder_model_vector_size_in_use: usize,
 
     // key-value pair: collection id, DocumentMetadata
-    pub collections: HashMap<String, CollectionMetadata>,
+    pub collections: HashMap<String, LegacyCollectionMetadata>,
 
     // key-value pair: document id, DocumentMetadata
-    pub documents: HashMap<String, DocumentMetadata>,
+    pub documents: HashMap<String, LegacyDocumentMetadata>,
 }
 
 impl Default for MetadataStorage {
