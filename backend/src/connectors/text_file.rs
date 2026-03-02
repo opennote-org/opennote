@@ -12,9 +12,9 @@ impl Connector for TextFileConnector {
     async fn get_intermediate(artifact: Value) -> Result<ImportTaskIntermediate> {
         let artifact = artifact.as_str().unwrap().to_string();
         let mut title = String::new();
-        for line in artifact.lines() {
+
+        if let Some(line) = artifact.lines().next() {
             title = line.to_string();
-            break;
         }
 
         Ok(ImportTaskIntermediate {
