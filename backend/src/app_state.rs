@@ -3,7 +3,13 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-    backup::storage::BackupsStorage, configurations::system::Config, vector_database::{shared::create_vector_database, traits::VectorDatabase}, identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler, traits::LoadAndSave
+    backup::storage::BackupsStorage,
+    configurations::system::Config,
+    identities::storage::IdentitiesStorage,
+    metadata_storage::MetadataStorage,
+    tasks_scheduler::TasksScheduler,
+    traits::LoadAndSave,
+    vector_database::{shared::create_vector_database, traits::VectorDatabase},
 };
 
 #[derive(Clone)]

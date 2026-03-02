@@ -9,13 +9,13 @@ mod documents;
 mod embedder;
 mod handlers;
 mod identities;
+mod mcp;
 mod metadata_storage;
 mod routes;
 mod search;
 mod tasks_scheduler;
 mod traits;
 mod utilities;
-mod mcp;
 mod vector_database;
 
 use std::{sync::Arc, time::Duration};
@@ -33,7 +33,10 @@ use routes::configure_routes;
 use sqlx::any::install_default_drivers;
 use tokio::sync::RwLock;
 
-use crate::{checkups::{align_embedder_model, handshake_embedding_service}, mcp::service::MCPService};
+use crate::{
+    checkups::{align_embedder_model, handshake_embedding_service},
+    mcp::service::MCPService,
+};
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -132,16 +135,12 @@ async fn main() -> Result<(), std::io::Error> {
     // Start HTTP server
     let bind_address = format!("{}:{}", config.server.host, config.server.port);
     info!("Starting HTTP server on {}", bind_address);
-    
+
     let app_state_for_mcp = app_state.clone();
     let mcp_service = StreamableHttpService::builder()
-        .service_factory(
-            Arc::new(
-                move || {
-                    Ok(MCPService::new(app_state_for_mcp.clone()))
-                }
-            )
-        )
+        .service_factory(Arc::new(move || {
+            Ok(MCPService::new(app_state_for_mcp.clone()))
+        }))
         .session_manager(Arc::new(LocalSessionManager::default()))
         .sse_keep_alive(Duration::from_secs(30))
         .build();
@@ -153,9 +152,7 @@ async fn main() -> Result<(), std::io::Error> {
             .wrap(Cors::permissive())
             .app_data(app_state.clone())
             .service(configure_routes())
-            .service(
-                web::scope("/mcp").service(mcp_service.clone().scope())
-            )
+            .service(web::scope("/mcp").service(mcp_service.clone().scope()))
     });
 
     // Set number of workers if specified

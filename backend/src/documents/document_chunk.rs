@@ -45,7 +45,7 @@ impl DocumentChunk {
             dense_text_vector: Vec::new(),
         }
     }
-    
+
     pub fn slice_document_automatically(
         content: &str,
         chunk_max_words: usize,
@@ -53,13 +53,13 @@ impl DocumentChunk {
         collection_metadata_id: &str,
     ) -> Vec<DocumentChunk> {
         let mut chunks: Vec<DocumentChunk> = Vec::new();
-        
+
         let raw_chunks: Vec<_> = chunk(content.as_bytes())
             .consecutive()
             .delimiters("\n.?!。，！".as_bytes())
             .size(chunk_max_words)
             .collect();
-        
+
         for mut chunk in raw_chunks {
             let mut bytes = Vec::new();
             match chunk.read_to_end(&mut bytes) {
@@ -69,13 +69,13 @@ impl DocumentChunk {
                         document_metadata_id,
                         collection_metadata_id,
                     ));
-                },
+                }
                 Err(error) => {
                     log::warn!("Error reading chunk: {} Chunk content: {:?}", error, chunk);
                 }
             }
         }
-        
+
         chunks
     }
 

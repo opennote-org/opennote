@@ -5,8 +5,8 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     app_state::AppState, backup::storage::BackupsStorage, configurations::system::Config,
-    vector_database::traits::VectorDatabase, identities::storage::IdentitiesStorage,
-    metadata_storage::MetadataStorage, tasks_scheduler::TasksScheduler,
+    identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage,
+    tasks_scheduler::TasksScheduler, vector_database::traits::VectorDatabase,
 };
 
 pub async fn acquire_data(

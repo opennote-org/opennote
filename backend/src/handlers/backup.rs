@@ -14,8 +14,7 @@ use crate::{
     app_state::AppState,
     backup::{base::Backup, list_item::BackupListItem},
     documents::{
-        collection_metadata::CollectionMetadata,
-        document_chunk::DocumentChunk,
+        collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
     identities::user::User,
@@ -165,21 +164,23 @@ pub async fn backup(
             .iter()
             .flat_map(|(_, document_metadata)| document_metadata.chunks.clone())
             .collect();
-        
-        let document_chunks_snapshots: Vec<DocumentChunk> =
-            match vector_database.get_document_chunks(document_chunks_ids).await {
-                Ok(points) => points,
-                Err(e) => {
-                    // Failed to get document chunks when trying to backup, need to use the pre-acquired variables instead
-                    log::error!("Can't get document chunks when trying to backup: {}", e);
-                    tasks_scheduler.lock().await.update_status_by_task_id(
-                        &task_id,
-                        TaskStatus::Failed,
-                        Some(e.to_string()),
-                    );
-                    return;
-                }
-            };
+
+        let document_chunks_snapshots: Vec<DocumentChunk> = match vector_database
+            .get_document_chunks(document_chunks_ids)
+            .await
+        {
+            Ok(points) => points,
+            Err(e) => {
+                // Failed to get document chunks when trying to backup, need to use the pre-acquired variables instead
+                log::error!("Can't get document chunks when trying to backup: {}", e);
+                tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(e.to_string()),
+                );
+                return;
+            }
+        };
 
         let backup: Backup = Backup::new(
             request.0.scope.clone(),
@@ -279,11 +280,9 @@ pub async fn restore_backup(
                 .retain(|id, _| !document_metadatas_to_delete.contains(id));
         }
 
-        match vector_database.delete_documents_from_database(
-            &config.database,
-            &document_metadatas_to_delete,
-        )
-        .await
+        match vector_database
+            .delete_documents_from_database(&config.database, &document_metadatas_to_delete)
+            .await
         {
             Ok(_) => {}
             Err(e) => {
@@ -320,12 +319,13 @@ pub async fn restore_backup(
                 .extend(backup.document_metadata_snapshots);
         }
 
-        match vector_database.add_document_chunks_to_database(
-            &config.embedder,
-            &config.database,
-            backup.document_chunks_snapshots,
-        )
-        .await
+        match vector_database
+            .add_document_chunks_to_database(
+                &config.embedder,
+                &config.database,
+                backup.document_chunks_snapshots,
+            )
+            .await
         {
             Ok(_) => {}
             Err(e) => {
