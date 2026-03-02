@@ -27,13 +27,15 @@ pub async fn create_database(
             // Check if there is a database already first
             let is_database_exist =
                 SQLiteDatabase::is_database_exist(&config.database.connection_url).await;
-            
+
             let is_metadata_storage_exist =
                 MetadataStorage::is_metadata_storage_exist(&config.metadata_storage.path);
 
             let database = Arc::new(SQLiteDatabase::new(&config.database.connection_url).await?);
 
-            // Migrate if the database originally didn't exist AND 
+            database.create_tables().await?;
+
+            // Migrate if the database originally didn't exist AND
             // the metadata storage exists
             if !is_database_exist && is_metadata_storage_exist {
                 log::info!("Database does not exist! Try migrating...");
