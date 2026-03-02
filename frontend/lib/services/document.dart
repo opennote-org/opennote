@@ -128,8 +128,8 @@ class DocumentManagementService {
     final List<Map<String, dynamic>> data = documents.map((e) {
       return {
         "metadata_id": e.id,
-        "created_at": "",
-        "last_modified": "",
+        "created_at": e.createdAt,
+        "last_modified": e.lastModified,
         "collection_metadata_id": e.collectionMetadataId,
         "title": e.title,
         "chunks": [],

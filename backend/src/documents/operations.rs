@@ -45,7 +45,7 @@ pub async fn retrieve_document_ids_by_scope(
             )
             .await?
             .into_iter()
-            .map(|item| item.id)
+            .flat_map(|item| item.documents_metadatas.into_iter().map(|item| item.id))
             .collect(),
         SearchScope::Document => vec![id.to_string()],
     };
