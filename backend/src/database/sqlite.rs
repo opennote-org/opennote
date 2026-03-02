@@ -210,7 +210,7 @@ impl Database for SQLiteDatabase {
         Ok(())
     }
 
-    async fn migrator_up(&self) -> Result<()> {
+    async fn create_tables(&self) -> Result<()> {
         Migrator::up(&self.pool, None).await?;
 
         Ok(())
