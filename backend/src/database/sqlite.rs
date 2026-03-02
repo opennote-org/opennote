@@ -538,6 +538,8 @@ impl MetadataManagement for SQLiteDatabase {
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
         use crate::database::entity::{document_chunks, documents};
 
+        dbg!(&document_metadatas);
+
         // Concurrently update the document metadatas first
         let mut update_document_metadata_tasks = Vec::new();
         let mut chunks_to_update: Vec<document_chunks::ActiveModel> = Vec::new();
@@ -554,13 +556,24 @@ impl MetadataManagement for SQLiteDatabase {
                     .collect::<Vec<document_chunks::ActiveModel>>(),
             );
 
-            let metadata: documents::Model = metadata.into();
-            update_document_metadata_tasks.push(metadata.into_active_model().update(&self.pool));
+            let metadata_model: documents::Model = metadata.clone().into();
+            let mut metadata_active_model = metadata_model.into_active_model();
+
+            metadata_active_model.collection_metadata_id = Set(metadata.collection_metadata_id);
+            metadata_active_model.title = Set(metadata.title);
+            metadata_active_model.last_modified =
+                Set(parse_timestamp(&UtcDateTime::now().to_string()));
+
+            update_document_metadata_tasks.push(metadata_active_model.update(&self.pool));
         }
 
         let results = join_all(update_document_metadata_tasks).await;
         for result in results {
             result?;
+        }
+
+        if chunks_to_update.is_empty() {
+            return Ok(());
         }
 
         document_chunks::Entity::insert_many(chunks_to_update)
