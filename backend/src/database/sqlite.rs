@@ -216,6 +216,13 @@ impl Database for SQLiteDatabase {
 impl SQLiteDatabase {
     /// It will load the existing database, otherwise it will create a new one
     pub async fn new(connection_url: &str) -> Result<Self> {
+        // Ensure that the directory exists
+        if let Some(path) = connection_url.strip_prefix("sqlite://") {
+            if let Some(parent) = std::path::Path::new(path).parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+        }
+
         // sea-orm will create file when it does not exist,
         // therefore, we don't need to do a manual check like we did when
         // using sqlx
@@ -230,15 +237,15 @@ impl SQLiteDatabase {
 
         Ok(Self { pool })
     }
-    
+
     pub async fn is_database_exist(connection_string: &str) -> bool {
         let mode_trimed = match connection_string.rfind("?") {
             Some(result) => &connection_string[..result],
             None => connection_string,
         };
-        
+
         let start_trimed = mode_trimed.trim_start_matches("sqlite://");
-        
+
         match std::fs::exists(start_trimed) {
             Ok(result) => result,
             Err(_) => false,
