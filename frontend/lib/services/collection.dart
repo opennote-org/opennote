@@ -21,17 +21,29 @@ class CollectionMetadata {
     required this.documentsMetadatas,
   });
 
-  factory CollectionMetadata.fromJson(Map<String, dynamic> json) => _$CollectionMetadataFromJson(json);
+  factory CollectionMetadata.fromJson(Map<String, dynamic> json) =>
+      _$CollectionMetadataFromJson(json);
   Map<String, dynamic> toJson() => _$CollectionMetadataToJson(this);
 }
 
 class CollectionManagementService {
-  Future<String> createCollection(Dio dio, String title, String username) async {
-    final response = await dio.post(createCollectionEndpoint, data: {"collection_title": title, "username": username});
+  Future<String> createCollection(
+    Dio dio,
+    String title,
+    String username,
+  ) async {
+    final response = await dio.post(
+      createCollectionEndpoint,
+      data: {"collection_title": title, "username": username},
+    );
     return response.data!["data"]["collection_metadata_id"];
   }
 
-  Future<String> deleteCollection(Dio dio, String username, String collectionMetadataId) async {
+  Future<String> deleteCollection(
+    Dio dio,
+    String username,
+    String collectionMetadataId,
+  ) async {
     final response = await dio.post(
       deleteCollectionEndpoint,
       data: {
@@ -44,24 +56,48 @@ class CollectionManagementService {
       throw Exception("Invalid response: missing 'data' field");
     }
 
-    final metadata = CollectionMetadata.fromJson(response.data!["data"] as Map<String, dynamic>);
+    print(response.data);
+
+    final metadata = CollectionMetadata.fromJson(
+      response.data!["data"] as Map<String, dynamic>,
+    );
 
     return metadata.id;
   }
 
-  Future<List<CollectionMetadata>> getCollections(Dio dio, String username) async {
-    final response = await dio.get(getCollectionEndpoint, queryParameters: {"username": username});
+  Future<List<CollectionMetadata>> getCollections(
+    Dio dio,
+    String username,
+  ) async {
+    final response = await dio.get(
+      getCollectionEndpoint,
+      queryParameters: {"username": username},
+    );
     final List<dynamic> items = response.data!["data"] as List<dynamic>;
 
-    return items.map((e) => CollectionMetadata.fromJson(e as Map<String, dynamic>)).toList();
+    return items
+        .map((e) => CollectionMetadata.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<String> updateCollectionsMetadata(Dio dio, List<CollectionMetadata> collections) async {
+  Future<String> updateCollectionsMetadata(
+    Dio dio,
+    List<CollectionMetadata> collections,
+  ) async {
     final List<Map<String, dynamic>> data = collections.map((e) {
-      return {"id": e.id, "created_at": "", "last_modified": "", "title": e.title, "documents_metadata_ids": []};
+      return {
+        "id": e.id,
+        "created_at": "",
+        "last_modified": "",
+        "title": e.title,
+        "documents_metadata_ids": [],
+      };
     }).toList();
 
-    final response = await dio.post(updateCollectionsMetadataEndpoint, data: {"collection_metadatas": data});
+    final response = await dio.post(
+      updateCollectionsMetadataEndpoint,
+      data: {"collection_metadatas": data},
+    );
     return response.data!["task_id"];
   }
 }
