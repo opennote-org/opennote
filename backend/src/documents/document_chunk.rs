@@ -10,12 +10,13 @@ use qdrant_client::{
     qdrant::{NamedVectors, PointStruct, RetrievedPoint},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 use uuid::Uuid;
+
+use crate::{database, documents::traits::GetId};
 
 use super::traits::{GetIndexableFields, IndexableField};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct DocumentChunk {
     pub id: String,
     pub document_metadata_id: String,
@@ -155,6 +156,12 @@ impl DocumentChunk {
     }
 }
 
+impl GetId for DocumentChunk {
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+}
+
 impl From<DocumentChunk> for Data {
     fn from(value: DocumentChunk) -> Self {
         Self {
@@ -167,11 +174,29 @@ impl From<DocumentChunk> for Data {
 
 impl From<Data> for DocumentChunk {
     fn from(value: Data) -> Self {
-        Self { 
-            id: value.id, 
-            document_metadata_id: value.fields.get("document_metadata_id").unwrap().as_str().unwrap().to_string(), 
-            collection_metadata_id: value.fields.get("collection_metadata_id").unwrap().as_str().unwrap().to_string(), 
-            content: value.fields.get("content").unwrap().as_str().unwrap().to_string(), 
+        Self {
+            id: value.id,
+            document_metadata_id: value
+                .fields
+                .get("document_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            collection_metadata_id: value
+                .fields
+                .get("collection_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            content: value
+                .fields
+                .get("content")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
             dense_text_vector: Vec::new(),
         }
     }
@@ -254,6 +279,31 @@ impl GetIndexableFields for DocumentChunk {
             IndexableField::Keyword("collection_metadata_id".to_string()),
             IndexableField::Keyword("id".to_string()),
         ]
+    }
+}
+
+impl From<database::entity::document_chunks::Model> for DocumentChunk {
+    fn from(value: database::entity::document_chunks::Model) -> Self {
+        Self {
+            id: value.id,
+            document_metadata_id: value.document_metadata_id,
+            collection_metadata_id: value.collection_metadata_id,
+            content: value.content,
+            dense_text_vector: serde_json::from_value(value.dense_text_vector).unwrap(),
+        }
+    }
+}
+
+impl From<DocumentChunk> for database::entity::document_chunks::Model {
+    fn from(value: DocumentChunk) -> Self {
+        Self {
+            id: value.id,
+            document_metadata_id: value.document_metadata_id,
+            collection_metadata_id: value.collection_metadata_id,
+            content: value.content,
+            dense_text_vector: serde_json::to_value(value.dense_text_vector).unwrap(),
+            chunk_order: 0,
+        }
     }
 }
 

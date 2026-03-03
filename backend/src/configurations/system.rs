@@ -105,6 +105,10 @@ impl Config {
             .with_context(|| format!("Failed to read config file: {}", path))?;
 
         let config: Config = serde_json::from_str(&content)
+            .map_err(|e| {
+                eprintln!("JSON parse error: {:#?}", e);
+                e
+            })
             .with_context(|| format!("Failed to parse config file: {}", path))?;
 
         log::info!("Configuration loaded from: {}", path);

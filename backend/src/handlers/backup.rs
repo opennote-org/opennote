@@ -12,6 +12,7 @@ use crate::{
     },
     app_state::AppState,
     backup::{base::Backup, list_item::BackupListItem},
+    database::filters::{get_collections::GetCollectionFilter, get_users::GetUserFilter},
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
@@ -84,7 +85,7 @@ pub async fn backup(
     let task_id_cloned = task_id.clone();
 
     tokio::spawn(async move {
-        let users = match data.database.get_all_users().await {
+        let users = match data.database.get_users(&GetUserFilter::default()).await {
             Ok(users) => users,
             Err(e) => {
                 log::error!("Failed to fetch users when trying to backup: {}", e);
@@ -116,81 +117,17 @@ pub async fn backup(
             return;
         }
 
-        let mut collection_metadata_snapshots: HashMap<String, CollectionMetadata> =
-            match data.database.get_all_collections().await {
-                Ok(collections) => collections
-                    .into_iter()
-                    .map(|item| (item.id.clone(), item))
-                    .collect(),
-                Err(e) => {
-                    log::error!("Failed to fetch collections when trying to backup: {}", e);
-                    data.tasks_scheduler.lock().await.update_status_by_task_id(
-                        &task_id,
-                        TaskStatus::Failed,
-                        Some(e.to_string()),
-                    );
-                    return;
-                }
-            };
-
-        let mut document_metadata_snapshots: HashMap<String, DocumentMetadata> =
-            match data.database.get_all_documents().await {
-                Ok(documents) => documents
-                    .into_iter()
-                    .map(|item| (item.id.clone(), item))
-                    .collect(),
-                Err(e) => {
-                    log::error!("Failed to fetch documents when trying to backup: {}", e);
-                    data.tasks_scheduler.lock().await.update_status_by_task_id(
-                        &task_id,
-                        TaskStatus::Failed,
-                        Some(e.to_string()),
-                    );
-                    return;
-                }
-            };
-
-        for user_information_snapshot in user_information_snapshots.iter() {
-            let mut collection_metadata_ids: Vec<String> = Vec::new();
-
-            collection_metadata_snapshots = collection_metadata_snapshots
-                .into_iter()
-                .filter(|(collection_metadata_id, _)| {
-                    let is_contained: bool = user_information_snapshot
-                        .resources
-                        .contains(collection_metadata_id);
-
-                    if is_contained {
-                        collection_metadata_ids.push(collection_metadata_id.clone());
-                    }
-
-                    is_contained
-                })
-                .collect();
-
-            document_metadata_snapshots = document_metadata_snapshots
-                .into_iter()
-                .filter(|(_, document_metadata)| {
-                    collection_metadata_ids.contains(&&document_metadata.collection_metadata_id)
-                })
-                .collect();
-        }
-
-        // Backup database entries
-        let document_chunks_ids: Vec<String> = document_metadata_snapshots
-            .iter()
-            .flat_map(|(_, document_metadata)| document_metadata.chunks.clone())
-            .collect();
-
-        let document_chunks_snapshots: Vec<DocumentChunk> = match data
-            .vector_database
-            .get_document_chunks(document_chunks_ids)
+        let collection_metadata_snapshots: HashMap<String, CollectionMetadata> = match data
+            .database
+            .get_collections(&GetCollectionFilter::default(), true)
             .await
         {
-            Ok(points) => points,
+            Ok(collections) => collections
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
             Err(e) => {
-                // Failed to get document chunks when trying to backup, need to use the pre-acquired variables instead
-                log::error!("Can't get document chunks when trying to backup: {}", e);
+                log::error!("Failed to fetch collections when trying to backup: {}", e);
                 data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
@@ -200,12 +137,27 @@ pub async fn backup(
             }
         };
 
+        let document_metadatas: HashMap<String, DocumentMetadata> = collection_metadata_snapshots
+            .clone()
+            .into_iter()
+            .flat_map(|(_, item)| {
+                item.documents_metadatas
+                    .into_iter()
+                    .map(|item| (item.id.clone(), item))
+            })
+            .collect();
+
+        let document_chunks: Vec<DocumentChunk> = document_metadatas
+            .iter()
+            .flat_map(|(_, item)| item.chunks.clone())
+            .collect();
+
         let backup: Backup = Backup::new(
             request.0.scope.clone(),
             user_information_snapshots,
             collection_metadata_snapshots,
-            document_metadata_snapshots,
-            document_chunks_snapshots,
+            document_metadatas,
+            document_chunks,
         );
         let backup_id = backup.id.clone();
 
