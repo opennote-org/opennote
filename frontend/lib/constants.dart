@@ -14,7 +14,7 @@ const String retrieveTaskResultEndpoint = "$baseUrl$apiUrl/retrieve_task_result"
 
 // Collection
 const String createCollectionEndpoint = "$baseUrl$apiUrl/collections/sync/create_collection";
-const String deleteCollectionEndpoint = "$baseUrl$apiUrl/collections/sync/delete_collection";
+const String deleteCollectionEndpoint = "$baseUrl$apiUrl/collections/sync/delete_collections";
 const String getCollectionEndpoint = "$baseUrl$apiUrl/collections/sync/get_collections";
 const String updateCollectionsMetadataEndpoint = "$baseUrl$apiUrl/collections/async/update_collections_metadata";
 

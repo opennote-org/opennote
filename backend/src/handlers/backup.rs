@@ -119,7 +119,7 @@ pub async fn backup(
 
         let collection_metadata_snapshots: HashMap<String, CollectionMetadata> = match data
             .database
-            .get_collections(&GetCollectionFilter::default(), true)
+            .get_collections(&GetCollectionFilter::default(), false)
             .await
         {
             Ok(collections) => collections
