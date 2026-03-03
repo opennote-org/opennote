@@ -175,17 +175,7 @@ impl SemanticSearch for Local {
 }
 
 #[async_trait]
-impl KeywordSearch for Local {
-    async fn search_documents(
-        &self,
-        database: &Arc<dyn Database>,
-        document_metadata_ids: Vec<String>,
-        query: &str,
-        top_n: usize,
-    ) -> Result<Vec<DocumentChunkSearchResult>> {
-        todo!()
-    }
-}
+impl KeywordSearch for Local {}
 
 impl Local {
     pub async fn new(configuration: &Config) -> Result<Self> {

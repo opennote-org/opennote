@@ -215,7 +215,7 @@ impl SemanticSearch for QdrantDatabase {
         )
         .await?;
 
-        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
+        let conditions: Vec<Condition> = build_conditions(&document_metadata_ids);
 
         let response = self
             .client
@@ -256,11 +256,11 @@ impl KeywordSearch for QdrantDatabase {
     async fn search_documents(
         &self,
         database: &Arc<dyn Database>,
-        document_metadata_ids: Vec<String>,
+        document_metadata_ids: &Vec<String>,
         query: &str,
         top_n: usize,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
-        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
+        let conditions: Vec<Condition> = build_conditions(&document_metadata_ids);
 
         let response: ScrollResponse = self
             .client
@@ -447,9 +447,9 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
     Ok(())
 }
 
-pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
+pub fn build_conditions(document_metadata_ids: &Vec<String>) -> Vec<Condition> {
     document_metadata_ids
-        .into_iter()
+        .iter()
         .map(|id| Condition::matches("document_metadata_id", id.to_string()))
         .collect()
 }
