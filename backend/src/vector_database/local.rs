@@ -40,7 +40,7 @@ impl VectorDatabase for Local {
 
         let mut vector_database = self.vector_database.lock().await;
 
-        vector_database.upsert(chunks.into_iter().map(|item| item.into()).collect());
+        let _ = vector_database.upsert(chunks.into_iter().map(|item| item.into()).collect());
 
         Ok(())
     }
