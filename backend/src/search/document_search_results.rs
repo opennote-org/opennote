@@ -48,19 +48,19 @@ impl From<ScoredPoint> for DocumentChunkSearchResult {
 impl From<HashMap<String, serde_json::Value>> for DocumentChunkSearchResult {
     fn from(value: HashMap<String, serde_json::Value>) -> Self {
         // the `F_METRICS` is defined at the local vector database
-        // however, for compatibility with other potential HashMaps, 
+        // however, for compatibility with other potential HashMaps,
         // we will need to align the fields when we need to incorporate them
         let score = value.get(F_METRICS).unwrap().as_f64().unwrap() as f32;
-        
+
         // remove the fields that are not able to convert to a DocumentChunk
         // the removed ones will be put into the DocumentChunkSearchResult
         let mut value = value;
         value.remove(F_METRICS);
-        
-        // the `F_ID` is also defined in the local vector database impl 
+
+        // the `F_ID` is also defined in the local vector database impl
         // again, need to align the fields when we need to incorporate new HashMaps
         value.remove(F_ID);
-        
+
         Self {
             document_title: None,
             collection_title: None,

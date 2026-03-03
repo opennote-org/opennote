@@ -1,7 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::{configurations::user::UserConfigurations, identities::user::User};
+use crate::{
+    configurations::user::UserConfigurations, database::filters::get_users::GetUserFilter,
+    identities::user::User,
+};
 
 #[async_trait]
 pub trait Identities {
@@ -19,21 +22,14 @@ pub trait Identities {
     async fn remove_authorized_resources(
         &self,
         username: &str,
-        resource_ids: Vec<String>,
+        resource_ids: &Vec<String>,
     ) -> Result<()>;
-
-    /// See if the user has the permission to access the given resources
-    async fn check_permission(&self, username: &str, resource_ids: Vec<String>) -> Result<bool>;
 
     async fn update_user_configurations(
         &self,
         username: &str,
         user_configurations: UserConfigurations,
     ) -> Result<()>;
-
-    async fn get_user_configurations(&self, username: &str) -> Result<UserConfigurations>;
-
-    async fn get_users_by_resource_id(&self, id: &str) -> Result<Vec<User>>;
 
     async fn get_resource_ids_by_username(&self, username: &str) -> Result<Vec<String>>;
 
@@ -44,10 +40,11 @@ pub trait Identities {
         username: &str,
         collection_metadata_ids: &[String],
     ) -> Result<bool>;
-    
-    async fn get_all_users(&self) -> Result<Vec<User>>;
-    
+
+    /// This method will delete users, as well as its owning resources/collections
     async fn delete_users(&self, usernames: Vec<String>) -> Result<Vec<User>>;
-    
+
     async fn add_users(&self, users: Vec<User>) -> Result<()>;
+
+    async fn get_users(&self, filter: &GetUserFilter) -> Result<Vec<User>>;
 }

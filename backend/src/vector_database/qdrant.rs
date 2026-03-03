@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -16,12 +17,15 @@ use qdrant_client::{
         VectorsConfigBuilder,
     },
 };
-use tokio::sync::MutexGuard;
 
 use crate::{
-    configurations::system::{Config, VectorDatabaseConfig, EmbedderConfig},
+    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+    },
+    database::{
+        filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+        traits::database::Database,
     },
     documents::{
         collection_metadata::CollectionMetadata,
@@ -30,7 +34,6 @@ use crate::{
         traits::{GetIndexableFields, IndexableField},
     },
     embedder::{send_vectorization, vectorize},
-    metadata_storage::MetadataStorage,
     search::{
         document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
         semantic::SemanticSearch,
@@ -60,7 +63,9 @@ impl VectorDatabase for QdrantDatabase {
             .collect();
 
         self.client
-            .upsert_points(UpsertPointsBuilder::new(&vector_database_config.index, points).wait(true))
+            .upsert_points(
+                UpsertPointsBuilder::new(&vector_database_config.index, points).wait(true),
+            )
             .await?;
 
         Ok(())
@@ -189,7 +194,7 @@ impl VectorDatabase for QdrantDatabase {
 impl SemanticSearch for QdrantDatabase {
     async fn search_documents_semantically(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
@@ -228,8 +233,18 @@ impl SemanticSearch for QdrantDatabase {
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             Some(response.result),
             None,
-            &metadata_storage.collections,
-            &metadata_storage.documents,
+            &database
+                .get_collections(&GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(&GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
         );
 
         Ok(results)
@@ -240,7 +255,7 @@ impl SemanticSearch for QdrantDatabase {
 impl KeywordSearch for QdrantDatabase {
     async fn search_documents(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
@@ -264,8 +279,18 @@ impl KeywordSearch for QdrantDatabase {
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             None,
             Some(response.result),
-            &metadata_storage.collections,
-            &metadata_storage.documents,
+            &database
+                .get_collections(&GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(&GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
         );
 
         Ok(results)
@@ -274,9 +299,10 @@ impl KeywordSearch for QdrantDatabase {
 
 impl QdrantDatabase {
     pub async fn new(configuration: &Config) -> Result<Self> {
-        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.vector_database.base_url)
-            // Timeout for preventing Qdrant killing time-consuming operations
-            .timeout(std::time::Duration::from_secs(1000));
+        let qdrant_config: QdrantConfig =
+            QdrantConfig::from_url(&configuration.vector_database.base_url)
+                // Timeout for preventing Qdrant killing time-consuming operations
+                .timeout(std::time::Duration::from_secs(1000));
         let client: Qdrant = Qdrant::new(qdrant_config)?;
 
         if client

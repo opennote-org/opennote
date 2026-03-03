@@ -1,5 +1,4 @@
 use actix_web::{HttpResponse, Result, web};
-use tokio::sync::RwLock;
 
 use crate::{
     api_models::{
@@ -17,27 +16,26 @@ pub async fn health_check() -> Result<HttpResponse> {
     }))
 }
 
-pub async fn get_info(data: web::Data<RwLock<AppState>>) -> Result<HttpResponse> {
+pub async fn get_info(data: web::Data<AppState>) -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(GenericResponse::succeed(
         format!(""),
         &InfoResponse {
             service: "OpenNote".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            host: data.read().await.config.server.host.clone(),
-            port: data.read().await.config.server.port.clone(),
+            host: data.config.server.host.clone(),
+            port: data.config.server.port.clone(),
         },
     )))
 }
 
 pub async fn retrieve_task_result(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<RetrieveTaskResultRequest>,
 ) -> Result<HttpResponse> {
     // First, check the task status with a read lock
     log::info!("Fetching task status for id: {}", request.task_id);
     let task_record: Option<crate::tasks_scheduler::TaskRecord> = {
-        let read_guard = data.read().await;
-        if let Some(task_record) = read_guard
+        if let Some(task_record) = data
             .tasks_scheduler
             .lock()
             .await
@@ -66,8 +64,6 @@ pub async fn retrieve_task_result(
                 TaskStatus::Completed => {
                     // Now acquire write lock separately to get the result
                     let result = data
-                        .write()
-                        .await
                         .tasks_scheduler
                         .lock()
                         .await
