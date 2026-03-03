@@ -2,13 +2,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::database::database_information::DatabaseInformation;
-use crate::database::entity::document_chunks;
 use crate::database::filters::get_collections::GetCollectionFilter;
 use crate::database::filters::get_document_chunks::GetDocumentChunkFilter;
 use crate::database::filters::get_documents::GetDocumentFilter;
 use crate::database::filters::traits::GetFilterValidation;
 use crate::database::utilities::map_order_by_ids;
 use crate::documents::document_chunk::DocumentChunk;
+use crate::documents::traits::ValidateDataMutabilitiesForAPICaller;
 use crate::search::{SearchScope, SearchScopeIndicator};
 use crate::traits::LoadAndSave;
 use crate::vector_database::traits::VectorDatabase;
@@ -24,6 +24,7 @@ use sea_orm::{
     Set,
     sea_query::{Expr, OnConflict},
 };
+use sea_orm::{IntoActiveModel, PaginatorTrait};
 
 use crate::{
     configurations::user::UserConfigurations,
@@ -950,62 +951,12 @@ impl MetadataManagement for SQLiteDatabase {
     async fn search(
         &self,
         query: &str,
-        scope: &SearchScopeIndicator,
+        document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentChunk>> {
         use crate::database::entity::document_chunks;
 
-        let scope_filter: Vec<String> = match scope.search_scope {
-            SearchScope::Userspace => {
-                let resource_ids = self.get_resource_ids_by_username(&scope.id).await?;
-                let chunks = self
-                    .get_document_chunks(&GetDocumentChunkFilter {
-                        collection_metadata_ids: resource_ids,
-                        ..Default::default()
-                    })
-                    .await?;
-
-                chunks.into_iter().map(|item| item.id).collect()
-            }
-            SearchScope::Collection => {
-                let collections = self
-                    .get_collections(
-                        &GetCollectionFilter {
-                            ids: vec![scope.id],
-                            ..Default::default()
-                        },
-                        false,
-                    )
-                    .await?;
-
-                let chunks = self
-                    .get_document_chunks(&GetDocumentChunkFilter {
-                        collection_metadata_ids: collections
-                            .into_iter()
-                            .map(|item| item.id)
-                            .collect(),
-                        ..Default::default()
-                    })
-                    .await?;
-
-                chunks.into_iter().map(|item| item.id).collect()
-            }
-            SearchScope::Document => {
-                let documents = self
-                    .get_documents(&GetDocumentFilter {
-                        ids: vec![scope.id],
-                        ..Default::default()
-                    })
-                    .await?;
-
-                documents
-                    .into_iter()
-                    .flat_map(|item| item.chunks.into_iter().map(|item| item.id))
-                    .collect()
-            }
-        };
-
         let result = document_chunks::Entity::find()
-            .filter(scope_filter)
+            .filter(document_chunks::Column::DocumentMetadataId.is_in(document_metadata_ids))
             .filter(document_chunks::Column::Content.like(format!("%{}%", query)))
             .all(&self.pool)
             .await?;

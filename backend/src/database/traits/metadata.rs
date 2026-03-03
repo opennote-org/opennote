@@ -70,6 +70,6 @@ pub trait MetadataManagement {
 
     async fn peek(&self) -> Result<DatabaseInformation>;
 
-    async fn search(&self, query: &str, scope: &SearchScopeIndicator)
+    async fn search(&self, query: &str, document_metadata_ids: &Vec<String>)
     -> Result<Vec<DocumentChunk>>;
 }
