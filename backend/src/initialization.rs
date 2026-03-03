@@ -58,8 +58,9 @@ pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
             let database_information = state.database.peek().await?;
 
             log::info!(
-                "Metadata contains {} documents",
-                database_information.number_documents
+                "Metadata contains {} documents and {} collections",
+                database_information.number_documents,
+                database_information.number_collections
             );
             log::info!(
                 "User information storage file contains {} entries",
