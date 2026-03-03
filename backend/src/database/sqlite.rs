@@ -520,7 +520,11 @@ impl MetadataManagement for SQLiteDatabase {
             metadata.last_modified = UtcDateTime::now().to_string();
 
             tasks.push(async {
-                let active_model: collections::ActiveModel = metadata.into();
+                let active_model: collections::ActiveModel = collections::ActiveModel {
+                    last_modified: Set(parse_timestamp(&metadata.last_modified)),
+                    title: Set(metadata.title.clone()),
+                    ..Default::default()
+                };
                 active_model.update(&self.pool).await?;
 
                 Ok::<_, anyhow::Error>(())
@@ -536,25 +540,13 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
-        use crate::database::entity::{document_chunks, documents};
+        use crate::database::entity::documents;
 
-        dbg!(&document_metadatas);
-
-        // Concurrently update the document metadatas first
+        // Concurrently update the document metadatas
         let mut update_document_metadata_tasks = Vec::new();
-        let mut chunks_to_update: Vec<document_chunks::ActiveModel> = Vec::new();
+        let mut update_chunks_tasks = Vec::new();
         for metadata in document_metadatas.into_iter() {
-            chunks_to_update.extend(
-                metadata
-                    .chunks
-                    .clone()
-                    .into_iter()
-                    .map(|item| {
-                        let active_model: document_chunks::Model = item.into();
-                        active_model.into()
-                    })
-                    .collect::<Vec<document_chunks::ActiveModel>>(),
-            );
+            update_chunks_tasks.push(self.update_document_chunks(metadata.chunks.clone()));
 
             let metadata_model: documents::Model = metadata.clone().into();
             let mut metadata_active_model = metadata_model.into_active_model();
@@ -572,27 +564,12 @@ impl MetadataManagement for SQLiteDatabase {
             result?;
         }
 
-        if chunks_to_update.is_empty() {
-            return Ok(());
+        if !update_chunks_tasks.is_empty() {
+            let results = join_all(update_chunks_tasks).await;
+            for result in results {
+                result?;
+            }
         }
-
-        document_chunks::Entity::insert_many(chunks_to_update)
-            .on_conflict(
-                OnConflict::columns([
-                    document_chunks::Column::DocumentMetadataId,
-                    document_chunks::Column::ChunkOrder,
-                ])
-                .update_columns([
-                    document_chunks::Column::Content,
-                    document_chunks::Column::DocumentMetadataId,
-                    document_chunks::Column::CollectionMetadataId,
-                    document_chunks::Column::DenseTextVector,
-                    document_chunks::Column::ChunkOrder,
-                ])
-                .to_owned(),
-            )
-            .exec(&self.pool)
-            .await?;
 
         Ok(())
     }
@@ -703,15 +680,23 @@ impl MetadataManagement for SQLiteDatabase {
             })
             .collect();
 
-        let mut tasks = Vec::new();
-        for model in models {
-            tasks.push(model.update(&self.pool));
-        }
-
-        let results = join_all(tasks).await;
-        for result in results {
-            result?;
-        }
+        document_chunks::Entity::insert_many(models)
+            .on_conflict(
+                OnConflict::columns([
+                    document_chunks::Column::DocumentMetadataId,
+                    document_chunks::Column::ChunkOrder,
+                ])
+                .update_columns([
+                    document_chunks::Column::Content,
+                    document_chunks::Column::DocumentMetadataId,
+                    document_chunks::Column::CollectionMetadataId,
+                    document_chunks::Column::DenseTextVector,
+                    document_chunks::Column::ChunkOrder,
+                ])
+                .to_owned(),
+            )
+            .exec(&self.pool)
+            .await?;
 
         Ok(())
     }
