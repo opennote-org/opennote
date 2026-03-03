@@ -15,5 +15,7 @@ pub trait KeywordSearch {
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
-    ) -> Result<Vec<DocumentChunkSearchResult>>;
+    ) -> Result<Vec<DocumentChunkSearchResult>> {
+        Ok(())
+    }
 }

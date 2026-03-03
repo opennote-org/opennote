@@ -3,15 +3,18 @@ use async_trait::async_trait;
 
 use crate::{
     database::{
-        database_information::DatabaseInformation, filters::{
+        database_information::DatabaseInformation,
+        filters::{
             get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
             get_documents::GetDocumentFilter,
-        }, metadata::MetadataSettings
+        },
+        metadata::MetadataSettings,
     },
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
+    search::SearchScopeIndicator,
 };
 
 /// it defines methods for managing metadata
@@ -34,10 +37,7 @@ pub trait MetadataManagement {
 
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()>;
 
-    async fn update_metadata_settings(
-        &self,
-        settings: MetadataSettings,
-    ) -> Result<()>;
+    async fn update_metadata_settings(&self, settings: MetadataSettings) -> Result<()>;
 
     async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()>;
 
@@ -48,17 +48,14 @@ pub trait MetadataManagement {
         document_chunk_ids: &Vec<String>,
     ) -> Result<Vec<DocumentChunk>>;
 
-    async fn add_document_chunks(
-        &self,
-        document_chunks: Vec<DocumentChunk>,
-    ) -> Result<()>;
+    async fn add_document_chunks(&self, document_chunks: Vec<DocumentChunk>) -> Result<()>;
 
     /// Update existing chunks. No deletion nor additions involved.
     async fn update_document_chunks(&self, document_chunks: Vec<DocumentChunk>) -> Result<()>;
 
     async fn get_document_chunks(
         &self,
-        filter: GetDocumentChunkFilter,
+        filter: &GetDocumentChunkFilter,
     ) -> Result<Vec<DocumentChunk>>;
 
     async fn get_documents(&self, filter: &GetDocumentFilter) -> Result<Vec<DocumentMetadata>>;
@@ -70,6 +67,9 @@ pub trait MetadataManagement {
     ) -> Result<Vec<CollectionMetadata>>;
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings>;
-    
+
     async fn peek(&self) -> Result<DatabaseInformation>;
+
+    async fn search(&self, query: &str, scope: &SearchScopeIndicator)
+    -> Result<Vec<DocumentChunk>>;
 }

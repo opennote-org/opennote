@@ -70,7 +70,7 @@ impl MigrationTrait for Migration {
                     .col(string(DocumentChunks::Id).primary_key())
                     .col(string(DocumentChunks::DocumentMetadataId))
                     .col(string(DocumentChunks::CollectionMetadataId))
-                    .col(string(DocumentChunks::Content))
+                    .col(text(DocumentChunks::Content))
                     .col(json(DocumentChunks::DenseTextVector))
                     .col(integer(DocumentChunks::ChunkOrder))
                     .foreign_key(
