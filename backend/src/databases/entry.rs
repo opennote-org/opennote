@@ -1,18 +1,19 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use futures::future::join;
 
 use crate::{
-    configurations::system::{Config, DatabaseConfig, VectorDatabaseConfig},
+    configurations::system::{Config, DatabaseConfig, EmbedderConfig, VectorDatabaseConfig},
     databases::{
         database::{shared::create_database, traits::database::Database},
         vector_database::{shared::create_vector_database, traits::VectorDatabase},
     },
-    documents::document_metadata::DocumentMetadata,
+    documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
 };
 
 /// At the moment, it only abstracts database-related logics of documents and chunks.
-/// 
+///
 /// Users, collections, configurations and on are not yet needed for further abstractions
 #[derive(Debug)]
 pub struct DatabasesLayerEntry {
@@ -33,22 +34,36 @@ impl DatabasesLayerEntry {
 
     pub async fn add_documents(
         &self,
-        database: &DatabaseConfig,
-        vector_database: &VectorDatabaseConfig,
+        embedder_config: &EmbedderConfig,
+        vector_database_config: &VectorDatabaseConfig,
         documents: Vec<DocumentMetadata>,
     ) -> Result<()> {
+        let chunks: Vec<DocumentChunk> = documents
+            .iter()
+            .flat_map(|item| item.chunks.clone())
+            .collect();
+
+        let results = join(
+            self.database.add_documents(documents),
+            self.vector_database
+                .add_document_chunks_to_database(embedder_config, vector_database_config, chunks)
+        ).await;
+        
+        results.0?;
+        results.1?;
+
         Ok(())
     }
-    
+
     pub async fn delete_documents(
-        &self, 
+        &self,
         database: &DatabaseConfig,
         vector_database: &VectorDatabaseConfig,
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>> {
         Ok(())
     }
-    
+
     pub async fn update_documents(
         database: &DatabaseConfig,
         vector_database: &VectorDatabaseConfig,
@@ -56,15 +71,15 @@ impl DatabasesLayerEntry {
     ) -> Result<()> {
         Ok(())
     }
-    
+
     pub async fn get_documents(
         database: &DatabaseConfig,
         vector_database: &VectorDatabaseConfig,
-        document_metadata_ids: &Vec<String>
+        document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>> {
         Ok(())
     }
-    
+
     pub async fn reindex(
         database: &DatabaseConfig,
         vector_database: &VectorDatabaseConfig,
