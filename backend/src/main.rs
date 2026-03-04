@@ -5,7 +5,6 @@ mod checkups;
 mod configurations;
 mod connectors;
 mod constants;
-mod database;
 mod documents;
 mod embedder;
 mod handlers;
@@ -13,10 +12,8 @@ mod identities;
 mod mcp;
 mod metadata_storage;
 mod routes;
-mod search;
 mod tasks_scheduler;
 mod traits;
-mod vector_database;
 mod initialization;
 mod databases;
 

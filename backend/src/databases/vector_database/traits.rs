@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig};
 use crate::databases::database::traits::database::Database;
 use crate::documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata};
-use crate::search::{keyword::KeywordSearch, semantic::SemanticSearch};
+use crate::databases::search::{keyword::KeywordSearch, semantic::SemanticSearch};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -25,23 +25,6 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()>;
-
-    async fn add_document_chunks_to_database_and_metadata_storage(
-        &self,
-        embedder_config: &EmbedderConfig,
-        vector_database_config: &VectorDatabaseConfig,
-        chunks: Vec<DocumentChunk>,
-        database: &Arc<dyn Database>,
-        metadata: DocumentMetadata,
-    ) -> Result<String> {
-        self.add_document_chunks_to_database(embedder_config, vector_database_config, chunks)
-            .await?;
-
-        let metadata_id: String = metadata.id.clone();
-        database.add_documents(vec![metadata]).await?;
-
-        Ok(metadata_id)
-    }
 
     async fn delete_documents_from_database(
         &self,

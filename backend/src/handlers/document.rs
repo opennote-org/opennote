@@ -25,11 +25,12 @@ use crate::{
         traits::Connector,
         webpage::WebpageConnector,
     },
-    database::filters::{get_documents::GetDocumentFilter, get_users::GetUserFilter},
+    databases::database::filters::{get_documents::GetDocumentFilter, get_users::GetUserFilter},
     documents::{
         document_chunk::DocumentChunk, document_metadata::DocumentMetadata,
         operations::preprocess_document,
     },
+    embedder::vectorize,
     tasks_scheduler::TaskStatus,
 };
 
@@ -79,40 +80,37 @@ pub async fn add_document(
             }
         };
 
-        let (metadata, chunks, metadata_id) = preprocess_document(
+        let (mut metadata, chunks, metadata_id) = preprocess_document(
             &request.title,
             &request.content,
             &request.collection_metadata_id,
             user_configurations.search.document_chunk_size,
         );
 
-        match data
-            .vector_database
-            .add_document_chunks_to_database(
+        match vectorize(&data.config.embedder, chunks).await {
+            Ok(chunks) => metadata.chunks = chunks,
+            Err(error) => {
+                error!("Failed to vectorize document chunks: {}", error);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return;
+            }
+        };
+
+        match data.databases_layer_entry
+            .add_documents(
                 &data.config.embedder,
                 &data.config.vector_database,
-                chunks,
+                vec![metadata],
             )
             .await
         {
-            Ok(_) => {
-                match data.database.add_documents(vec![metadata]).await {
-                    Ok(_) => {}
-                    Err(error) => {
-                        error!("Failed to update document metadata: {}", error);
-                        data.tasks_scheduler.lock().await.update_status_by_task_id(
-                            &task_id,
-                            TaskStatus::Failed,
-                            Some(error.to_string()),
-                        );
-                        return;
-                    }
-                }
-                info!("Task {} has finished adding documents.", task_id);
-            }
+            Ok(_) => {}
             Err(error) => {
-                // Failed to write the task status back to the scheduler, need to use the pre-acquired variables instead
-                error!("Failed when trying saving a document: {}", error);
+                error!("Failed to add document: {}", error);
                 data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,

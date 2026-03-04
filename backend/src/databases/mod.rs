@@ -1,5 +1,5 @@
-mod database;
-mod vector_database;
-mod search;
+pub mod database;
+pub mod vector_database;
+pub mod search;
 
 pub mod entry;

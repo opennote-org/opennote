@@ -23,9 +23,16 @@ use crate::{
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
     },
-    databases::database::{
-        filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
-        traits::database::Database,
+    databases::{
+        database::{
+            filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+            traits::database::Database,
+        },
+        search::{
+            document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
+            semantic::SemanticSearch,
+        },
+        vector_database::traits::VectorDatabase,
     },
     documents::{
         collection_metadata::CollectionMetadata,
@@ -33,12 +40,7 @@ use crate::{
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
     },
-    embedder::{send_vectorization, vectorize},
-    search::{
-        document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
-        semantic::SemanticSearch,
-    },
-    vector_database::traits::VectorDatabase,
+    embedder::send_vectorization,
 };
 
 #[derive(Clone)]
@@ -55,8 +57,6 @@ impl VectorDatabase for QdrantDatabase {
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
-        let chunks: Vec<DocumentChunk> = vectorize(embedder_config, chunks).await?;
-
         let points: Vec<PointStruct> = chunks
             .into_iter()
             .map(|chunk| PointStruct::from(chunk))
