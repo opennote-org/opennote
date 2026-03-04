@@ -100,7 +100,8 @@ pub async fn add_document(
             }
         };
 
-        match data.databases_layer_entry
+        match data
+            .databases_layer_entry
             .add_documents(
                 &data.config.embedder,
                 &data.config.vector_database,
@@ -222,20 +223,14 @@ pub async fn import_documents(
         }
 
         // Preprocess the intermediates
-        let mut store_tasks = Vec::new();
+        let mut document_metadatas = Vec::new();
+        let mut document_metadata_ids = Vec::new();
         for (index, task) in preprocess_tasks.into_iter().enumerate() {
             match task.await {
-                Ok((metadata, chunks, _)) => {
-                    store_tasks.push({
-                        data.vector_database
-                            .add_document_chunks_to_database_and_metadata_storage(
-                                &data.config.embedder,
-                                &data.config.vector_database,
-                                chunks,
-                                &data.database,
-                                metadata,
-                            )
-                    });
+                Ok((mut metadata, chunks, document_metadata_id)) => {
+                    metadata.chunks = chunks;
+                    document_metadatas.push(metadata);
+                    document_metadata_ids.push(document_metadata_id);
                 }
                 Err(err) => {
                     error!("Failed to preprocess: {}", err);
@@ -245,23 +240,24 @@ pub async fn import_documents(
             }
         }
 
-        let store_results = join_all(store_tasks).await;
-        let mut document_metadata_ids = Vec::new();
-
-        for (index, store_result) in store_results.into_iter().enumerate() {
-            match store_result {
-                Ok(result) => {
-                    info!(
-                        "Task {} has finished importing document id {}.",
-                        task_id, result
-                    );
-                    document_metadata_ids.push(result);
-                }
-                Err(err) => {
-                    error!("Failed to store an imported document: {}", err);
-                    failures.insert(request.0.imports[index].clone());
-                    continue;
-                }
+        match data
+            .databases_layer_entry
+            .add_documents(
+                &data.config.embedder,
+                &data.config.vector_database,
+                document_metadatas,
+            )
+            .await
+        {
+            Ok(_) => {}
+            Err(error) => {
+                error!("Failed to add imported documents: {}", error);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return;
             }
         }
 
@@ -309,35 +305,17 @@ pub async fn delete_document(
 
     // Perform operations asynchronously
     tokio::spawn(async move {
-        match data
-            .database
-            .delete_documents(&vec![request.document_metadata_id.clone()])
-            .await
-        {
+        match data.databases_layer_entry.delete_documents(
+            &data.config.vector_database, 
+            vec![request.0.document_metadata_id.clone()]
+        ).await {
             Ok(_) => {}
             Err(error) => {
-                let message: String = format!(
-                    "Document {} deletion failed due to {}",
-                    &request.document_metadata_id, error
-                );
-                log::warn!("{}", message);
-            }
-        };
-
-        match data
-            .vector_database
-            .delete_documents_from_database(
-                &data.config.vector_database,
-                &vec![request.document_metadata_id.clone()],
-            )
-            .await
-        {
-            Ok(_) => {}
-            Err(_) => {
+                error!("Failed to delete document: {}", error);
                 data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,
-                    None,
+                    Some(error.to_string()),
                 );
                 return;
             }
@@ -346,7 +324,7 @@ pub async fn delete_document(
         data.tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,
             serde_json::to_value(DeleteDocumentResponse {
-                document_metadata_id: request.document_metadata_id.clone(),
+                document_metadata_id: request.document_metadata_id,
             })
             .unwrap(),
         );

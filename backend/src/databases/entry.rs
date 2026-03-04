@@ -45,10 +45,14 @@ impl DatabasesLayerEntry {
 
         let results = join(
             self.database.add_documents(documents),
-            self.vector_database
-                .add_document_chunks_to_database(embedder_config, vector_database_config, chunks)
-        ).await;
-        
+            self.vector_database.add_document_chunks_to_database(
+                embedder_config,
+                vector_database_config,
+                chunks,
+            ),
+        )
+        .await;
+
         results.0?;
         results.1?;
 
@@ -57,10 +61,19 @@ impl DatabasesLayerEntry {
 
     pub async fn delete_documents(
         &self,
-        database: &DatabaseConfig,
-        vector_database: &VectorDatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>> {
+        let results = join(
+            self.database.delete_documents(document_metadata_ids),
+            self.vector_database
+                .delete_documents_from_database(vector_database_config, document_metadata_ids),
+        )
+        .await;
+
+        results.0?;
+        results.1?;
+
         Ok(())
     }
 
