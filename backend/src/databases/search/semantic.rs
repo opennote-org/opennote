@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
-    database::traits::database::Database,
+    databases::database::traits::database::Database,
     search::document_search_results::DocumentChunkSearchResult,
 };
 

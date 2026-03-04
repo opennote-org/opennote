@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
-    database::{
+    databases::database::{
         filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
         traits::database::Database,
     },

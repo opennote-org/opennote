@@ -83,7 +83,7 @@ pub async fn search(
     match data.vector_database
         .search_documents(
             &data.database,
-            document_metadata_ids,
+            &document_metadata_ids,
             &request.0.query,
             request.0.top_n,
         )

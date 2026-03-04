@@ -18,6 +18,7 @@ mod tasks_scheduler;
 mod traits;
 mod vector_database;
 mod initialization;
+mod databases;
 
 use actix_web::web::Data;
 use anyhow::Result;

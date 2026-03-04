@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig};
-use crate::database::traits::database::Database;
+use crate::databases::database::traits::database::Database;
 use crate::documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata};
 use crate::search::{keyword::KeywordSearch, semantic::SemanticSearch};
 

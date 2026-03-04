@@ -1,18 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::database::database_information::DatabaseInformation;
-use crate::database::filters::get_collections::GetCollectionFilter;
-use crate::database::filters::get_document_chunks::GetDocumentChunkFilter;
-use crate::database::filters::get_documents::GetDocumentFilter;
-use crate::database::filters::traits::GetFilterValidation;
-use crate::database::utilities::map_order_by_ids;
-use crate::documents::document_chunk::DocumentChunk;
-use crate::documents::traits::ValidateDataMutabilitiesForAPICaller;
-use crate::search::{SearchScope, SearchScopeIndicator};
-use crate::traits::LoadAndSave;
-use crate::vector_database::traits::VectorDatabase;
-use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 use actix_web::cookie::time::UtcDateTime;
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
@@ -26,12 +14,25 @@ use sea_orm::{
 };
 use sea_orm::{IntoActiveModel, PaginatorTrait};
 
+use crate::documents::{
+    document_chunk::DocumentChunk, traits::ValidateDataMutabilitiesForAPICaller,
+};
+use crate::traits::LoadAndSave;
+use crate::vector_database::traits::VectorDatabase;
+use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
+
 use crate::{
     configurations::user::UserConfigurations,
-    database::{
+    databases::database::{
+        database_information::DatabaseInformation,
         filters::get_users::GetUserFilter,
+        filters::{
+            get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
+            get_documents::GetDocumentFilter, traits::GetFilterValidation,
+        },
         metadata::MetadataSettings,
         traits::{database::Database, identities::Identities, metadata::MetadataManagement},
+        utilities::map_order_by_ids,
         utilities::parse_timestamp,
     },
     documents::{collection_metadata::CollectionMetadata, document_metadata::DocumentMetadata},
@@ -47,7 +48,7 @@ pub struct SQLiteDatabase {
 impl Database for SQLiteDatabase {
     async fn migrate_users(&self, identities_storage: &IdentitiesStorage) -> Result<()> {
         // migrate all users
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         let mut users_to_insert = Vec::new();
 
@@ -84,7 +85,7 @@ impl Database for SQLiteDatabase {
 
     async fn migrate_collections(&self, metadata_storage: &MetadataStorage) -> Result<()> {
         // migrate all collection records
-        use crate::database::entity::collections;
+        use crate::databases::database::entity::collections;
         let mut collections_to_insert = Vec::new();
         for (_, collection) in metadata_storage.collections.iter() {
             collections_to_insert.push(collections::ActiveModel {
@@ -114,7 +115,7 @@ impl Database for SQLiteDatabase {
         vector_database: &Arc<dyn VectorDatabase>,
     ) -> Result<()> {
         // migrate all document records
-        use crate::database::entity::{document_chunks, documents};
+        use crate::databases::database::entity::{document_chunks, documents};
 
         let mut documents_to_insert = Vec::new();
         let mut chunks_to_insert = Vec::new();
@@ -173,7 +174,7 @@ impl Database for SQLiteDatabase {
 
     async fn migrate_metadata_settings(&self, metadata_storage: &MetadataStorage) -> Result<()> {
         // migrate the global settings in metadata storage first
-        use crate::database::entity::metadata_settings;
+        use crate::databases::database::entity::metadata_settings;
         metadata_settings::Entity::update_many()
             .col_expr(
                 metadata_settings::Column::EmbedderModelInUse,
@@ -260,7 +261,7 @@ impl SQLiteDatabase {
 #[async_trait]
 impl Identities for SQLiteDatabase {
     async fn create_user(&self, username: String, password: String) -> Result<()> {
-        use crate::database::entity::users::*;
+        use crate::databases::database::entity::users::*;
 
         let user = User::new(username, password);
 
@@ -276,7 +277,7 @@ impl Identities for SQLiteDatabase {
             return Ok(());
         }
 
-        use crate::database::entity::users::*;
+        use crate::databases::database::entity::users::*;
 
         let users: Vec<ActiveModel> = users.into_iter().map(|item| item.into()).collect();
 
@@ -291,7 +292,7 @@ impl Identities for SQLiteDatabase {
             return Ok(Vec::new());
         }
 
-        use crate::database::entity;
+        use crate::databases::database::entity;
 
         // delete the users and their user resources
         let mut conditions = sea_orm::Condition::any();
@@ -320,7 +321,7 @@ impl Identities for SQLiteDatabase {
     }
 
     async fn validate_user_password(&self, username: &str, password: &str) -> Result<bool> {
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         let result = users::Entity::find_by_username(username)
             .one(&self.pool)
@@ -338,7 +339,7 @@ impl Identities for SQLiteDatabase {
         username: &str,
         resource_ids: Vec<String>,
     ) -> Result<()> {
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         if let Some(user) = users::Entity::find_by_username(username)
             .one(&self.pool)
@@ -364,7 +365,7 @@ impl Identities for SQLiteDatabase {
         username: &str,
         resource_ids: &Vec<String>,
     ) -> Result<()> {
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         if let Some(user) = users::Entity::find_by_username(username)
             .one(&self.pool)
@@ -390,7 +391,7 @@ impl Identities for SQLiteDatabase {
         username: &str,
         user_configurations: UserConfigurations,
     ) -> Result<()> {
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         let config_json = serde_json::to_value(&user_configurations)
             .context("user configuration serialization failed")?;
@@ -412,7 +413,7 @@ impl Identities for SQLiteDatabase {
     }
 
     async fn get_resource_ids_by_username(&self, username: &str) -> Result<Vec<String>> {
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         let user = users::Entity::find()
             .filter(users::Column::Username.eq(username))
@@ -432,7 +433,7 @@ impl Identities for SQLiteDatabase {
         username: &str,
         collection_metadata_ids: &[String],
     ) -> Result<bool> {
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         let user = users::Entity::find()
             .filter(users::Column::Username.eq(username))
@@ -456,7 +457,7 @@ impl Identities for SQLiteDatabase {
     }
 
     async fn get_users(&self, filter: &GetUserFilter) -> Result<Vec<User>> {
-        use crate::database::entity::users;
+        use crate::databases::database::entity::users;
 
         if filter.is_over_constrained() {
             return Err(anyhow!("only one filter is applicable"));
@@ -494,7 +495,7 @@ impl Identities for SQLiteDatabase {
 #[async_trait]
 impl MetadataManagement for SQLiteDatabase {
     async fn create_collection(&self, title: &str) -> Result<String> {
-        use crate::database::entity::collections;
+        use crate::databases::database::entity::collections;
 
         let collection: collections::ActiveModel =
             CollectionMetadata::new(title.to_string()).into();
@@ -511,7 +512,7 @@ impl MetadataManagement for SQLiteDatabase {
         &self,
         mut collection_metadatas: Vec<CollectionMetadata>,
     ) -> Result<()> {
-        use crate::database::entity::collections;
+        use crate::databases::database::entity::collections;
 
         let mut tasks = Vec::new();
         for metadata in collection_metadatas.iter_mut() {
@@ -539,7 +540,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn update_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
-        use crate::database::entity::documents;
+        use crate::databases::database::entity::documents;
 
         // Concurrently update the document metadatas
         let mut update_document_metadata_tasks = Vec::new();
@@ -574,7 +575,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
-        use crate::database::entity::metadata_settings;
+        use crate::databases::database::entity::metadata_settings;
 
         match metadata_settings::Entity::find().one(&self.pool).await? {
             Some(result) => Ok(result.into()),
@@ -583,7 +584,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn update_metadata_settings(&self, settings: MetadataSettings) -> Result<()> {
-        use crate::database::entity::metadata_settings;
+        use crate::databases::database::entity::metadata_settings;
 
         let model: metadata_settings::Model = settings.into();
 
@@ -598,7 +599,7 @@ impl MetadataManagement for SQLiteDatabase {
         &self,
         collection_metadata_ids: &Vec<String>,
     ) -> Result<Vec<CollectionMetadata>> {
-        use crate::database::entity::collections;
+        use crate::databases::database::entity::collections;
         Ok(collections::Entity::delete_many()
             .filter_by_ids(collection_metadata_ids.clone())
             .exec_with_returning(&self.pool)
@@ -612,7 +613,7 @@ impl MetadataManagement for SQLiteDatabase {
         &self,
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentMetadata>> {
-        use crate::database::entity::documents;
+        use crate::databases::database::entity::documents;
 
         Ok(documents::Entity::delete_many()
             .filter_by_ids(document_metadata_ids.clone())
@@ -624,7 +625,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn add_collections(&self, collection_metadatas: Vec<CollectionMetadata>) -> Result<()> {
-        use crate::database::entity::collections;
+        use crate::databases::database::entity::collections;
 
         collections::Entity::insert_many(
             collection_metadatas
@@ -639,7 +640,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn add_documents(&self, document_metadatas: Vec<DocumentMetadata>) -> Result<()> {
-        use crate::database::entity::documents;
+        use crate::databases::database::entity::documents;
 
         let chunks = document_metadatas
             .iter()
@@ -664,7 +665,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn update_document_chunks(&self, document_chunks: Vec<DocumentChunk>) -> Result<()> {
-        use crate::database::entity::document_chunks;
+        use crate::databases::database::entity::document_chunks;
 
         let models: Vec<document_chunks::ActiveModel> = document_chunks
             .into_iter()
@@ -701,7 +702,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn add_document_chunks(&self, document_chunks: Vec<DocumentChunk>) -> Result<()> {
-        use crate::database::entity::document_chunks;
+        use crate::databases::database::entity::document_chunks;
 
         let models: Vec<document_chunks::ActiveModel> = document_chunks
             .into_iter()
@@ -727,7 +728,7 @@ impl MetadataManagement for SQLiteDatabase {
         &self,
         document_chunk_ids: &Vec<String>,
     ) -> Result<Vec<DocumentChunk>> {
-        use crate::database::entity::document_chunks;
+        use crate::databases::database::entity::document_chunks;
 
         let chunks = document_chunks::Entity::delete_many()
             .filter_by_ids(document_chunk_ids.clone())
@@ -742,7 +743,7 @@ impl MetadataManagement for SQLiteDatabase {
         &self,
         filter: &GetDocumentChunkFilter,
     ) -> Result<Vec<DocumentChunk>> {
-        use crate::database::entity::document_chunks;
+        use crate::databases::database::entity::document_chunks;
 
         if filter.is_over_constrained() {
             return Err(anyhow!("only one filter is applicable"));
@@ -783,7 +784,7 @@ impl MetadataManagement for SQLiteDatabase {
 
     /// It gurantees the order of the metadata will follow the input ids order
     async fn get_documents(&self, filter: &GetDocumentFilter) -> Result<Vec<DocumentMetadata>> {
-        use crate::database::entity::{document_chunks, documents};
+        use crate::databases::database::entity::{document_chunks, documents};
 
         if filter.is_over_constrained() {
             return Err(anyhow!("only one filter is applicable"));
@@ -851,7 +852,7 @@ impl MetadataManagement for SQLiteDatabase {
         filter: &GetCollectionFilter,
         include_chunk_data: bool,
     ) -> Result<Vec<CollectionMetadata>> {
-        use crate::database::entity::{collections, documents};
+        use crate::databases::database::entity::{collections, documents};
 
         if filter.is_over_constrained() {
             return Err(anyhow!("only one filter is applicable"));
@@ -928,7 +929,7 @@ impl MetadataManagement for SQLiteDatabase {
     }
 
     async fn peek(&self) -> Result<DatabaseInformation> {
-        use crate::database::entity::{collections, documents, users};
+        use crate::databases::database::entity::{collections, documents, users};
 
         let mut tasks = Vec::new();
 
@@ -953,7 +954,7 @@ impl MetadataManagement for SQLiteDatabase {
         query: &str,
         document_metadata_ids: &Vec<String>,
     ) -> Result<Vec<DocumentChunk>> {
-        use crate::database::entity::document_chunks;
+        use crate::databases::database::entity::document_chunks;
 
         let result = document_chunks::Entity::find()
             .filter(document_chunks::Column::DocumentMetadataId.is_in(document_metadata_ids))

@@ -23,7 +23,7 @@ use crate::{
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
     },
-    database::{
+    databases::database::{
         filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
         traits::database::Database,
     },

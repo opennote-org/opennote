@@ -1,4 +1,4 @@
-use crate::database::filters::traits::GetFilterValidation;
+use crate::databases::database::filters::traits::GetFilterValidation;
 
 #[derive(Debug, Clone)]
 pub struct GetDocumentChunkFilter {
