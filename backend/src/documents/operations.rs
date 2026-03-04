@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 
 use crate::{
-    database::{filters::get_collections::GetCollectionFilter, traits::database::Database},
+    databases::database::{filters::get_collections::GetCollectionFilter, traits::database::Database},
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,

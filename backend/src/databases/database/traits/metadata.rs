@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
-    database::{
+    databases::database::{
         database_information::DatabaseInformation,
         filters::{
             get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
@@ -70,6 +70,9 @@ pub trait MetadataManagement {
 
     async fn peek(&self) -> Result<DatabaseInformation>;
 
-    async fn search(&self, query: &str, document_metadata_ids: &Vec<String>)
-    -> Result<Vec<DocumentChunk>>;
+    async fn search(
+        &self,
+        query: &str,
+        document_metadata_ids: &Vec<String>,
+    ) -> Result<Vec<DocumentChunk>>;
 }

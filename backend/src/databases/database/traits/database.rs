@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
-    database::traits::{identities::Identities, metadata::MetadataManagement},
+    databases::database::traits::{identities::Identities, metadata::MetadataManagement},
     identities::storage::IdentitiesStorage,
     metadata_storage::MetadataStorage,
     vector_database::traits::VectorDatabase,

@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
-    configurations::user::UserConfigurations, database::filters::get_users::GetUserFilter,
+    configurations::user::UserConfigurations, databases::database::filters::get_users::GetUserFilter,
     identities::user::User,
 };
 

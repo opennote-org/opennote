@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     configurations::system::Config,
-    database::{sqlite::SQLiteDatabase, traits::database::Database},
+    databases::database::{sqlite::SQLiteDatabase, traits::database::Database},
     metadata_storage::MetadataStorage,
     vector_database::traits::VectorDatabase,
 };
