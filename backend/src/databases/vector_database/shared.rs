@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::{
     configurations::system::Config,
-    vector_database::{
+    databases::vector_database::{
         qdrant::QdrantDatabase,
         traits::{VectorDatabase, VectorDatabaseProvider},
     },

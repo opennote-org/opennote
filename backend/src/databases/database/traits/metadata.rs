@@ -14,7 +14,6 @@ use crate::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
-    search::SearchScopeIndicator,
 };
 
 /// it defines methods for managing metadata

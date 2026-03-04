@@ -12,16 +12,18 @@ use crate::{
         filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
         traits::database::Database,
     },
+    databases::{
+        search::{
+            document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
+            semantic::SemanticSearch,
+        },
+        vector_database::traits::VectorDatabase,
+    },
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
     embedder::{send_vectorization, vectorize},
-    search::{
-        document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
-        semantic::SemanticSearch,
-    },
-    vector_database::traits::VectorDatabase,
 };
 
 pub struct Local {

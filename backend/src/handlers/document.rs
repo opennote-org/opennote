@@ -305,10 +305,14 @@ pub async fn delete_document(
 
     // Perform operations asynchronously
     tokio::spawn(async move {
-        match data.databases_layer_entry.delete_documents(
-            &data.config.vector_database, 
-            vec![request.0.document_metadata_id.clone()]
-        ).await {
+        match data
+            .databases_layer_entry
+            .delete_documents(
+                &data.config.vector_database,
+                &vec![request.0.document_metadata_id.clone()],
+            )
+            .await
+        {
             Ok(_) => {}
             Err(error) => {
                 error!("Failed to delete document: {}", error);
@@ -432,25 +436,6 @@ pub async fn update_document_content(
                 }
             };
 
-            match data
-                .vector_database
-                .delete_documents_from_database(
-                    &data.config.vector_database,
-                    &vec![request.document_metadata_id.clone()],
-                )
-                .await
-            {
-                Ok(_) => {}
-                Err(error) => {
-                    data.tasks_scheduler.lock().await.update_status_by_task_id(
-                        &task_id,
-                        TaskStatus::Failed,
-                        Some(error.to_string()),
-                    );
-                    return;
-                }
-            }
-
             if let Some(metadata) = metadata.pop() {
                 metadata
             } else {
@@ -476,39 +461,13 @@ pub async fn update_document_content(
 
         metadata.chunks = chunks.clone();
 
-        match data
-            .vector_database
-            .add_document_chunks_to_database(
+        data.databases_layer_entry
+            .update_documents(
                 &data.config.embedder,
                 &data.config.vector_database,
-                chunks,
+                vec![metadata],
             )
-            .await
-        {
-            Ok(_) => {
-                match data.database.update_documents(vec![metadata]).await {
-                    Ok(_) => {}
-                    Err(error) => {
-                        error!("Failed to update document metadata: {}", error);
-                        data.tasks_scheduler.lock().await.update_status_by_task_id(
-                            &task_id,
-                            TaskStatus::Failed,
-                            Some(error.to_string()),
-                        );
-                        return;
-                    }
-                }
-                info!("Task {} has finished updating documents.", task_id);
-            }
-            Err(error) => {
-                data.tasks_scheduler.lock().await.update_status_by_task_id(
-                    &task_id,
-                    TaskStatus::Failed,
-                    Some(error.to_string()),
-                );
-                return;
-            }
-        }
+            .await;
 
         data.tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,

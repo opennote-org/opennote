@@ -4,10 +4,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::{
-    databases::database::traits::{identities::Identities, metadata::MetadataManagement},
+    databases::{
+        database::traits::{identities::Identities, metadata::MetadataManagement},
+        vector_database::traits::VectorDatabase,
+    },
     identities::storage::IdentitiesStorage,
     metadata_storage::MetadataStorage,
-    vector_database::traits::VectorDatabase,
 };
 
 #[async_trait]
