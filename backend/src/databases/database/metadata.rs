@@ -6,8 +6,8 @@ pub struct MetadataSettings {
     pub embedder_model_vector_size_in_use: usize,
 }
 
-impl From<crate::database::entity::metadata_settings::Model> for MetadataSettings {
-    fn from(value: crate::database::entity::metadata_settings::Model) -> Self {
+impl From<crate::databases::database::entity::metadata_settings::Model> for MetadataSettings {
+    fn from(value: crate::databases::database::entity::metadata_settings::Model) -> Self {
         Self {
             embedder_model_in_use: value.embedder_model_in_use,
             embedder_model_vector_size_in_use: value.embedder_model_vector_size_in_use as usize,
@@ -15,7 +15,7 @@ impl From<crate::database::entity::metadata_settings::Model> for MetadataSetting
     }
 }
 
-impl From<MetadataSettings> for crate::database::entity::metadata_settings::Model {
+impl From<MetadataSettings> for crate::databases::database::entity::metadata_settings::Model {
     fn from(value: MetadataSettings) -> Self {
         Self {
             id: 1,

@@ -2,8 +2,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::{
-    databases::database::{
+use crate::databases::{
+    database::{
         filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
         traits::database::Database,
     },

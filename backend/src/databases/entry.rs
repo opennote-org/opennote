@@ -15,7 +15,7 @@ use crate::{
 /// At the moment, it only abstracts database-related logics of documents and chunks.
 ///
 /// Users, collections, configurations and on are not yet needed for further abstractions
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct DatabasesLayerEntry {
     pub database: Arc<dyn Database>,
     pub vector_database: Arc<dyn VectorDatabase>,
@@ -71,17 +71,35 @@ impl DatabasesLayerEntry {
         )
         .await;
 
-        results.0?;
         results.1?;
-
-        Ok(())
+        Ok(results.0?)
     }
 
     pub async fn update_documents(
-        database: &DatabaseConfig,
-        vector_database: &VectorDatabaseConfig,
+        &self,
+        embedder_config: &EmbedderConfig,
+        vector_database_config: &VectorDatabaseConfig,
         documents: Vec<DocumentMetadata>,
     ) -> Result<()> {
+        self.vector_database
+            .delete_documents_from_database(
+                vector_database_config,
+                &documents.iter().map(|item| item.id.clone()).collect(),
+            )
+            .await?;
+
+        let results = join(
+            self.database.update_documents(documents.clone()),
+            self.vector_database.add_document_chunks_to_database(
+                embedder_config,
+                vector_database_config,
+                documents.into_iter().flat_map(|item| item.chunks).collect(),
+            )
+        ).await;
+        
+        results.0?;
+        results.1?;
+
         Ok(())
     }
 

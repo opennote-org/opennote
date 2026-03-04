@@ -14,11 +14,11 @@ use sea_orm::{
 };
 use sea_orm::{IntoActiveModel, PaginatorTrait};
 
+use crate::databases::vector_database::traits::VectorDatabase;
 use crate::documents::{
     document_chunk::DocumentChunk, traits::ValidateDataMutabilitiesForAPICaller,
 };
 use crate::traits::LoadAndSave;
-use crate::vector_database::traits::VectorDatabase;
 use crate::{identities::storage::IdentitiesStorage, metadata_storage::MetadataStorage};
 
 use crate::{
