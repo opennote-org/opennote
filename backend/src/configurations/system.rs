@@ -6,7 +6,9 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
-use crate::{database::shared::DatabaseProvider, vector_database::traits::VectorDatabaseProvider};
+use crate::databases::{
+    database::shared::DatabaseProvider, vector_database::traits::VectorDatabaseProvider,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    database::{self, utilities::parse_timestamp},
+    databases::database::{self, utilities::parse_timestamp},
     documents::{document_metadata::DocumentMetadata, traits::GetId},
 };
 

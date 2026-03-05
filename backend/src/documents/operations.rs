@@ -8,7 +8,7 @@ use crate::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
-    search::SearchScope,
+    databases::search::SearchScope,
 };
 
 pub async fn retrieve_document_ids_by_scope(

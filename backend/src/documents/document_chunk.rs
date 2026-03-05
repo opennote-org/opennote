@@ -12,7 +12,7 @@ use qdrant_client::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{database, documents::traits::GetId};
+use crate::{databases::database, documents::traits::GetId};
 
 use super::traits::{GetIndexableFields, IndexableField};
 

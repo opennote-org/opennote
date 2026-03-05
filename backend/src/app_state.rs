@@ -3,12 +3,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-    backup::storage::BackupsStorage,
-    configurations::system::Config,
-    databases::entry::DatabasesLayerEntry,
-    tasks_scheduler::TasksScheduler,
-    traits::LoadAndSave,
-    vector_database::{shared::create_vector_database, traits::VectorDatabase},
+    backup::storage::BackupsStorage, configurations::system::Config,
+    databases::entry::DatabasesLayerEntry, tasks_scheduler::TasksScheduler, traits::LoadAndSave,
 };
 
 #[derive(Clone)]
@@ -22,12 +18,12 @@ pub struct AppState {
 impl AppState {
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         Ok(Self {
-            config,
+            config: config.clone(),
             tasks_scheduler: Arc::new(Mutex::new(TasksScheduler::new())),
             backups_storage: Arc::new(Mutex::new(BackupsStorage::load(
                 &config.backups_storage.path,
             )?)),
-            databases_layer_entry: DatabasesLayerEntry::new(&config),
+            databases_layer_entry: DatabasesLayerEntry::new(&config).await?,
         })
     }
 }

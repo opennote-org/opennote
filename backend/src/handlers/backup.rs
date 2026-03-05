@@ -12,7 +12,9 @@ use crate::{
     },
     app_state::AppState,
     backup::{base::Backup, list_item::BackupListItem},
-    database::filters::{get_collections::GetCollectionFilter, get_users::GetUserFilter},
+    databases::database::filters::{
+        get_collections::GetCollectionFilter, get_users::GetUserFilter,
+    },
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
@@ -85,7 +87,12 @@ pub async fn backup(
     let task_id_cloned = task_id.clone();
 
     tokio::spawn(async move {
-        let users = match data.database.get_users(&GetUserFilter::default()).await {
+        let users = match data
+            .databases_layer_entry
+            .database
+            .get_users(&GetUserFilter::default())
+            .await
+        {
             Ok(users) => users,
             Err(e) => {
                 log::error!("Failed to fetch users when trying to backup: {}", e);
@@ -118,6 +125,7 @@ pub async fn backup(
         }
 
         let collection_metadata_snapshots: HashMap<String, CollectionMetadata> = match data
+            .databases_layer_entry
             .database
             .get_collections(&GetCollectionFilter::default(), false)
             .await
@@ -219,7 +227,12 @@ pub async fn restore_backup(
         let document_metadatas_to_delete: Vec<String> = backup.get_document_metadata_ids();
 
         // Remove the old data from metadata, user information, database
-        match data.database.delete_users(users_to_delete).await {
+        match data
+            .databases_layer_entry
+            .database
+            .delete_users(users_to_delete)
+            .await
+        {
             Ok(_) => {}
             Err(e) => {
                 log::error!("Failed to delete users during restore: {}", e);
@@ -233,6 +246,7 @@ pub async fn restore_backup(
         }
 
         match data
+            .databases_layer_entry
             .database
             .delete_collections(&collection_metadatas_to_delete)
             .await
@@ -250,6 +264,7 @@ pub async fn restore_backup(
         }
 
         match data
+            .databases_layer_entry
             .database
             .delete_documents(&document_metadatas_to_delete)
             .await
@@ -267,6 +282,7 @@ pub async fn restore_backup(
         }
 
         match data
+            .databases_layer_entry
             .vector_database
             .delete_documents_from_database(
                 &data.config.vector_database,
@@ -294,6 +310,7 @@ pub async fn restore_backup(
 
         // Swap the data from the backup in
         match data
+            .databases_layer_entry
             .database
             .add_users(backup.user_information_snapshots)
             .await
@@ -311,6 +328,7 @@ pub async fn restore_backup(
         }
 
         match data
+            .databases_layer_entry
             .database
             .add_collections(
                 backup
@@ -334,6 +352,7 @@ pub async fn restore_backup(
         }
 
         match data
+            .databases_layer_entry
             .database
             .add_documents(
                 backup
@@ -357,6 +376,7 @@ pub async fn restore_backup(
         }
 
         match data
+            .databases_layer_entry
             .vector_database
             .add_document_chunks_to_database(
                 &data.config.embedder,

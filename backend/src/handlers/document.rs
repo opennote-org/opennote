@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use actix_web::{HttpResponse, Result, web};
 use futures::future::join_all;
-use log::{error, info};
+use log::error;
 use serde_json::json;
 
 use crate::{
@@ -44,6 +44,7 @@ pub async fn add_document(
     // Perform operations asynchronously
     tokio::spawn(async move {
         let user_configurations: UserConfigurations = match data
+            .databases_layer_entry
             .database
             .get_users(&GetUserFilter {
                 usernames: vec![request.0.username.clone()],
@@ -146,6 +147,7 @@ pub async fn import_documents(
     // Perform operations asynchronously
     tokio::spawn(async move {
         let user_configurations: UserConfigurations = match data
+            .databases_layer_entry
             .database
             .get_users(&GetUserFilter {
                 usernames: vec![request.0.username.clone()],
@@ -328,7 +330,7 @@ pub async fn delete_document(
         data.tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,
             serde_json::to_value(DeleteDocumentResponse {
-                document_metadata_id: request.document_metadata_id,
+                document_metadata_id: request.document_metadata_id.to_owned(),
             })
             .unwrap(),
         );
@@ -346,6 +348,7 @@ pub async fn update_documents_metadata(
     request: web::Json<UpdateDocumentMetadataRequest>,
 ) -> Result<HttpResponse> {
     match data
+        .databases_layer_entry
         .database
         .update_documents(request.0.document_metadatas)
         .await
@@ -370,6 +373,7 @@ pub async fn update_document_content(
     // Perform operations asynchronously
     tokio::spawn(async move {
         let user_configurations: UserConfigurations = match data
+            .databases_layer_entry
             .database
             .get_users(&GetUserFilter {
                 usernames: vec![request.0.username.clone()],
@@ -413,6 +417,7 @@ pub async fn update_document_content(
         // prevent accidentally creating new docs.
         let mut metadata: DocumentMetadata = {
             let mut metadata = match data
+                .databases_layer_entry
                 .database
                 .get_documents(&GetDocumentFilter {
                     ids: vec![request.document_metadata_id.clone()],
@@ -507,6 +512,7 @@ pub async fn get_documents_metadata(
     let metadata: Vec<DocumentMetadata> =
         if let Some(ref document_metadata_ids) = query.document_metadata_ids {
             match data
+                .databases_layer_entry
                 .database
                 .get_documents(&GetDocumentFilter {
                     ids: document_metadata_ids.clone(),
@@ -525,6 +531,7 @@ pub async fn get_documents_metadata(
             }
         } else if let Some(ref collection_metadata_id) = query.collection_metadata_id {
             match data
+                .databases_layer_entry
                 .database
                 .get_documents(&GetDocumentFilter {
                     collection_metadata_ids: vec![collection_metadata_id.clone()],
@@ -554,6 +561,7 @@ pub async fn get_document_content(
     request: web::Json<GetDocumentRequest>,
 ) -> Result<HttpResponse> {
     let document_metadatas = match data
+        .databases_layer_entry
         .database
         .get_documents(&GetDocumentFilter {
             ids: vec![request.document_metadata_id.clone()],
@@ -592,6 +600,7 @@ pub async fn reindex(
     // Perform operations asynchronously
     tokio::spawn(async move {
         let user_configurations: UserConfigurations = match data
+            .databases_layer_entry
             .database
             .get_users(&GetUserFilter {
                 usernames: vec![request.0.username.clone()],
@@ -629,6 +638,7 @@ pub async fn reindex(
         };
 
         let resource_ids: Vec<String> = match data
+            .databases_layer_entry
             .database
             .get_resource_ids_by_username(&request.0.username)
             .await
@@ -665,6 +675,7 @@ pub async fn reindex(
 
         for collection_metadata_id in resource_ids {
             let document_metadatas = match data
+                .databases_layer_entry
                 .database
                 .get_documents(&GetDocumentFilter {
                     collection_metadata_ids: vec![collection_metadata_id.clone()],
@@ -716,9 +727,11 @@ pub async fn reindex(
         }
 
         // 3. Re-slice the document contents, then put the chunk ids to corresponding DocumentMetadata
+        // vectorization will happen here too
         let results = join_all(get_document_contents_tasks).await;
         let mut slicing_tasks = Vec::new();
         for (collection_metadata_id, mut document_metadata, document_content) in results {
+            let embedder_config = data.config.embedder.clone();
             slicing_tasks.push(tokio::spawn(async move {
                 // Concurrently update the document chunks and their DocumentMetadata
                 let metadata_id: String = document_metadata.id.clone();
@@ -730,43 +743,19 @@ pub async fn reindex(
                     &collection_metadata_id,
                 );
 
+                let chunks = vectorize(&embedder_config, chunks).await?;
+
                 document_metadata.chunks = chunks.clone();
 
-                (document_metadata, chunks)
+                Ok::<_, anyhow::Error>(document_metadata)
             }));
         }
 
         // Remove old chunks from the database before updating the new ones to prevent conflicts.
-
-        match data
-            .vector_database
-            .delete_documents_from_database(&data.config.vector_database, &metadata_ids_to_delete)
-            .await
-        {
-            Ok(_) => {}
-            Err(_) => {
-                data.tasks_scheduler.lock().await.update_status_by_task_id(
-                    &task_id,
-                    TaskStatus::Failed,
-                    None,
-                );
-                return;
-            }
-        }
-
-        let mut final_update_tasks = Vec::new();
         let mut metadatas_to_update = Vec::new();
         for task in slicing_tasks {
-            match task.await {
-                Ok((document_metadata, document_chunks)) => {
-                    final_update_tasks.push(data.vector_database.add_document_chunks_to_database(
-                        &data.config.embedder,
-                        &data.config.vector_database,
-                        document_chunks,
-                    ));
-
-                    metadatas_to_update.push(document_metadata);
-                }
+            let document_metadata = match task.await {
+                Ok(document_metadata) => document_metadata,
                 Err(error) => {
                     error!(
                         "Failed to re-index the user {} collections: {}",
@@ -779,16 +768,15 @@ pub async fn reindex(
                     );
                     return;
                 }
-            }
-        }
+            };
 
-        let results = join_all(final_update_tasks).await;
-        for result in results {
-            match result {
-                Ok(_) => {}
+            match document_metadata {
+                Ok(metadata) => {
+                    metadatas_to_update.push(metadata);
+                }
                 Err(error) => {
                     error!(
-                        "Failed to re-index the user {} collections: {}",
+                        "Failed to re-index a document for user {}: {}",
                         &request.0.username, error
                     );
                     data.tasks_scheduler.lock().await.update_status_by_task_id(
@@ -804,14 +792,18 @@ pub async fn reindex(
         // For returning in the response
         let metadatas_count: usize = metadatas_to_update.len();
 
-        // Finally, update the metadata
-        match data.database.update_documents(metadatas_to_update).await {
+        match data
+            .databases_layer_entry
+            .update_documents(
+                &data.config.embedder,
+                &data.config.vector_database,
+                metadatas_to_update,
+            )
+            .await
+        {
             Ok(_) => {}
             Err(error) => {
-                error!(
-                    "Failed to re-index the user {} collections: {}",
-                    &request.0.username, error
-                );
+                error!("Failed to update documents during reindexing: {}", error);
                 data.tasks_scheduler.lock().await.update_status_by_task_id(
                     &task_id,
                     TaskStatus::Failed,

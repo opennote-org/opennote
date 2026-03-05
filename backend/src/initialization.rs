@@ -55,7 +55,7 @@ pub fn initialize_logger(config: &Config) {
 pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
     match AppState::new(config.clone()).await {
         Ok(state) => {
-            let database_information = state.database.peek().await?;
+            let database_information = state.databases_layer_entry.database.peek().await?;
 
             log::info!(
                 "Metadata contains {} documents and {} collections",

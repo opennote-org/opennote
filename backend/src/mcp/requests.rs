@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use crate::search::SearchScopeIndicator;
+use crate::databases::search::SearchScopeIndicator;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct MCPGetCollectionMetadata {
