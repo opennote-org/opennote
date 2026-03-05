@@ -13,10 +13,12 @@ pub async fn intelligent_search(
     request: web::Json<SearchDocumentRequest>,
 ) -> Result<HttpResponse> {
     let document_metadata_ids: Vec<String> = match retrieve_document_ids_by_scope(
-        &data.database,
+        &data.databases_layer_entry.database,
         request.0.scope.search_scope,
         &request.0.scope.id,
-    ).await {
+    )
+    .await
+    {
         Ok(ids) => ids,
         Err(error) => {
             error!("Failed to retrieve document IDs by scope: {}", error);
@@ -33,9 +35,11 @@ pub async fn intelligent_search(
         return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &vec)));
     }
 
-    match data.vector_database
+    match data
+        .databases_layer_entry
+        .vector_database
         .search_documents_semantically(
-            &data.database,
+            &data.databases_layer_entry.database,
             document_metadata_ids,
             &request.0.query,
             request.0.top_n,
@@ -66,10 +70,12 @@ pub async fn search(
     request: web::Json<SearchDocumentRequest>,
 ) -> Result<HttpResponse> {
     let document_metadata_ids: Vec<String> = match retrieve_document_ids_by_scope(
-        &data.database,
+        &data.databases_layer_entry.database,
         request.0.scope.search_scope,
         &request.0.scope.id,
-    ).await {
+    )
+    .await
+    {
         Ok(ids) => ids,
         Err(error) => {
             error!("Failed to retrieve document IDs by scope: {}", error);
@@ -79,10 +85,18 @@ pub async fn search(
             )));
         }
     };
+    
+    if document_metadata_ids.is_empty() {
+        log::warn!("No search results found for request {:?}", request);
+        let vec: Vec<String> = Vec::new();
+        return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &vec)));
+    }
 
-    match data.vector_database
+    match data
+        .databases_layer_entry
+        .vector_database
         .search_documents(
-            &data.database,
+            &data.databases_layer_entry.database,
             &document_metadata_ids,
             &request.0.query,
             request.0.top_n,

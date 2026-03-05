@@ -56,10 +56,8 @@ class CollectionManagementService {
       throw Exception("Invalid response: missing 'data' field");
     }
 
-    print(response.data);
-
     final metadata = CollectionMetadata.fromJson(
-      response.data!["data"] as Map<String, dynamic>,
+      response.data!["data"][0] as Map<String, dynamic>,
     );
 
     return metadata.id;

@@ -31,7 +31,7 @@ impl User {
     }
 }
 
-impl From<User> for crate::database::entity::users::ActiveModel {
+impl From<User> for crate::databases::database::entity::users::ActiveModel {
     fn from(value: User) -> Self {
         Self {
             id: Set(value.id),
@@ -43,8 +43,8 @@ impl From<User> for crate::database::entity::users::ActiveModel {
     }
 }
 
-impl From<crate::database::entity::users::Model> for User {
-    fn from(value: crate::database::entity::users::Model) -> Self {
+impl From<crate::databases::database::entity::users::Model> for User {
+    fn from(value: crate::databases::database::entity::users::Model) -> Self {
         Self {
             id: value.id,
             username: value.username,

@@ -94,28 +94,13 @@ impl DatabasesLayerEntry {
                 embedder_config,
                 vector_database_config,
                 documents.into_iter().flat_map(|item| item.chunks).collect(),
-            )
-        ).await;
-        
+            ),
+        )
+        .await;
+
         results.0?;
         results.1?;
 
-        Ok(())
-    }
-
-    pub async fn get_documents(
-        database: &DatabaseConfig,
-        vector_database: &VectorDatabaseConfig,
-        document_metadata_ids: &Vec<String>,
-    ) -> Result<Vec<DocumentMetadata>> {
-        Ok(())
-    }
-
-    pub async fn reindex(
-        database: &DatabaseConfig,
-        vector_database: &VectorDatabaseConfig,
-        scope: &ReindexScope,
-    ) -> Result<()> {
         Ok(())
     }
 }
