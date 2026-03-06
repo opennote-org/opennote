@@ -5,17 +5,17 @@ mod checkups;
 mod configurations;
 mod connectors;
 mod constants;
+mod databases;
 mod documents;
 mod embedder;
 mod handlers;
 mod identities;
+mod initialization;
 mod mcp;
 mod metadata_storage;
 mod routes;
 mod tasks_scheduler;
 mod traits;
-mod initialization;
-mod databases;
 
 use actix_web::web::Data;
 use anyhow::Result;
@@ -26,7 +26,11 @@ use rmcp_actix_web::transport::StreamableHttpService;
 use sqlx::any::install_default_drivers;
 
 use crate::{
-    initialization::{initialize_app_state, initialize_backend_api_service, initialize_logger, initialize_mcp_server, load_configurations}, mcp::service::MCPService
+    initialization::{
+        initialize_app_state, initialize_backend_api_service, initialize_logger,
+        initialize_mcp_server, load_configurations,
+    },
+    mcp::service::MCPService,
 };
 
 #[actix_web::main]
@@ -49,8 +53,8 @@ async fn main() -> Result<()> {
 
     let app_state: Data<AppState> = initialize_app_state(&config).await?;
     let mcp_service: StreamableHttpService<MCPService> = initialize_mcp_server(&app_state).await?;
-    
+
     initialize_backend_api_service(app_state, mcp_service, &config).await?;
-    
+
     Ok(())
 }
