@@ -379,7 +379,6 @@ pub async fn restore_backup(
             .databases_layer_entry
             .vector_database
             .add_document_chunks_to_database(
-                &data.config.embedder,
                 &data.config.vector_database,
                 backup.document_chunks_snapshots,
             )

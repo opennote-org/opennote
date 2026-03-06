@@ -158,6 +158,7 @@ impl Database for SQLiteDatabase {
                 .await?;
         }
 
+        dbg!(&chunks_to_insert);
         if !chunks_to_insert.is_empty() {
             document_chunks::Entity::insert_many(chunks_to_insert)
                 .on_conflict(
@@ -738,7 +739,7 @@ impl MetadataManagement for SQLiteDatabase {
         Ok(map_order_by_ids(chunks, document_chunk_ids))
     }
 
-    /// It does not support getting all chunks by passing an empty filter
+    /// Pass an empty filter to get all chunks
     async fn get_document_chunks(
         &self,
         filter: &GetDocumentChunkFilter,
@@ -750,7 +751,8 @@ impl MetadataManagement for SQLiteDatabase {
         }
 
         if filter.is_empty_filter() {
-            return Err(anyhow!("Cannot get all chunks"));
+            let chunks = document_chunks::Entity::find().all(&self.pool).await?;
+            return Ok(chunks.into_iter().map(|item| item.into()).collect());
         }
 
         // Construct a sql filter to the table

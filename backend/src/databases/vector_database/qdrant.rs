@@ -8,18 +8,12 @@ use qdrant_client::{
     Qdrant,
     config::QdrantConfig,
     qdrant::{
-        CollectionExistsRequest, Condition, CreateCollectionBuilder,
-        CreateFieldIndexCollectionBuilder, DeleteCollectionBuilder, DeletePointsBuilder, FieldType,
-        Filter, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct,
-        QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse,
-        SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
-        TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder,
-        VectorsConfigBuilder,
+        CollectionExistsRequest, Condition, CreateCollectionBuilder, CreateFieldIndexCollectionBuilder, DeleteCollection, DeleteCollectionBuilder, DeletePointsBuilder, FieldType, Filter, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse, SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder, TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder, VectorsConfigBuilder
     },
 };
 
 use crate::{
-    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
+    configurations::system::{Config, VectorDatabaseConfig},
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
     },
@@ -51,9 +45,34 @@ pub struct QdrantDatabase {
 
 #[async_trait]
 impl VectorDatabase for QdrantDatabase {
+    async fn validate_data_integrity(
+        &self,
+        vector_database_config: &VectorDatabaseConfig,
+    ) -> Result<bool> {
+        let collection_info = self
+            .client
+            .collection_info(GetCollectionInfoRequest {
+                collection_name: vector_database_config.index.clone(),
+            })
+            .await?;
+
+        if collection_info.result.is_none() {
+            return Ok(false);
+        }
+
+        if let Some(info) = collection_info.result {
+            // In the current test environment,
+            // Qdrant deletes all points silently in every 3 weeks
+            if info.points_count() == 0 {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+
     async fn add_document_chunks_to_database(
         &self,
-        embedder_config: &EmbedderConfig,
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
@@ -117,12 +136,8 @@ impl VectorDatabase for QdrantDatabase {
             .map(|item| item.into())
             .collect();
 
-        self.add_document_chunks_to_database(
-            &configuration.embedder,
-            &configuration.vector_database,
-            document_chunks,
-        )
-        .await?;
+        self.add_document_chunks_to_database(&configuration.vector_database, document_chunks)
+            .await?;
 
         Ok(())
     }
