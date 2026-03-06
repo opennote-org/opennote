@@ -3,12 +3,14 @@ use std::sync::Arc;
 use anyhow::Result;
 
 use crate::{
-    databases::database::{filters::get_collections::GetCollectionFilter, traits::database::Database},
+    databases::database::{
+        filters::get_collections::GetCollectionFilter, traits::database::Database,
+    },
+    databases::search::SearchScope,
     documents::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
-    databases::search::SearchScope,
 };
 
 pub async fn retrieve_document_ids_by_scope(
