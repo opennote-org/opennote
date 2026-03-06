@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
