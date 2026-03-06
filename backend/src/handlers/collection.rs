@@ -13,7 +13,9 @@ use crate::{
         },
     },
     app_state::AppState,
-    databases::database::filters::{get_collections::GetCollectionFilter, get_users::GetUserFilter},
+    databases::database::filters::{
+        get_collections::GetCollectionFilter, get_users::GetUserFilter,
+    },
 };
 
 // Sync Endpoint
@@ -22,13 +24,15 @@ pub async fn create_collection(
     request: web::Json<CreateCollectionRequest>,
 ) -> Result<HttpResponse> {
     match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .create_collection(&request.collection_title)
         .await
     {
         Ok(collection_metadata_id) => {
             match data
-                .databases_layer_entry.database
+                .databases_layer_entry
+                .database
                 .add_authorized_resources(&request.username, vec![collection_metadata_id.clone()])
                 .await
             {
@@ -61,7 +65,8 @@ pub async fn delete_collections(
     request: web::Json<DeleteCollectionRequest>,
 ) -> Result<HttpResponse> {
     let collection_metadata = match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .delete_collections(&request.collection_metadata_ids)
         .await
     {
@@ -75,7 +80,8 @@ pub async fn delete_collections(
             }
 
             match data
-                .databases_layer_entry.database
+                .databases_layer_entry
+                .database
                 .remove_authorized_resources(
                     &request.0.username,
                     &request.0.collection_metadata_ids,
@@ -135,7 +141,8 @@ pub async fn get_collections(
     query: Query<GetCollectionsQuery>,
 ) -> Result<HttpResponse> {
     let user = match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .get_users(&GetUserFilter {
             usernames: vec![query.0.username],
             ..Default::default()
@@ -162,7 +169,8 @@ pub async fn get_collections(
     };
 
     let collections = match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .get_collections(
             &GetCollectionFilter {
                 ids: user.resources,
@@ -192,7 +200,8 @@ pub async fn update_collections_metadata(
     request: web::Json<UpdateCollectionMetadataRequest>,
 ) -> Result<HttpResponse> {
     match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .update_collections(request.0.collection_metadatas)
         .await
     {
