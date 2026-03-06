@@ -136,10 +136,15 @@ In `backend/config.prod.json` (create one and copy and paste the json below if y
   "backups_storage": {
     "path": "./data/backups_storage.json"
   },
-  "database": { // Configure Qdrant
+  "database": {
+    "provider": "sqlite",
+    "connection_url": "sqlite://./data/database.sqlite?mode=rwc"
+  },
+  "vector_database": {
+    "provider": "qdrant", // support `qdrant` and `local`
     "index": "notes", // You may just leave it, or put a cooler name here
     "base_url": "http://192.168.0.116:6336", // The gRPC API endpoint of your Qdrant instance
-    "api_key": "meilimasterkey" // Ignore this. We haven't yet supported API key. 
+    "api_key": "meilimasterkey" // Leave it empty string. We haven't yet supported API key. 
   },
   "embedder": { // Configure embedding service
     "provider": "", // Leave it empty if you use a base url. Support: openai, cloudflare, cohere, deepinfra, gemini, jina, mistral, mixedbread, nomic, together, voyageai

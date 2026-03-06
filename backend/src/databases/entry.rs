@@ -4,9 +4,12 @@ use anyhow::Result;
 use futures::future::join;
 
 use crate::{
-    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
+    configurations::system::{Config, VectorDatabaseConfig},
     databases::{
-        database::{shared::create_database, traits::database::Database},
+        database::{
+            filters::get_document_chunks::GetDocumentChunkFilter, shared::create_database,
+            traits::database::Database,
+        },
         vector_database::{shared::create_vector_database, traits::VectorDatabase},
     },
     documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
@@ -34,7 +37,6 @@ impl DatabasesLayerEntry {
 
     pub async fn add_documents(
         &self,
-        embedder_config: &EmbedderConfig,
         vector_database_config: &VectorDatabaseConfig,
         documents: Vec<DocumentMetadata>,
     ) -> Result<()> {
@@ -45,11 +47,8 @@ impl DatabasesLayerEntry {
 
         let results = join(
             self.database.add_documents(documents),
-            self.vector_database.add_document_chunks_to_database(
-                embedder_config,
-                vector_database_config,
-                chunks,
-            ),
+            self.vector_database
+                .add_document_chunks_to_database(vector_database_config, chunks),
         )
         .await;
 
@@ -77,7 +76,6 @@ impl DatabasesLayerEntry {
 
     pub async fn update_documents(
         &self,
-        embedder_config: &EmbedderConfig,
         vector_database_config: &VectorDatabaseConfig,
         documents: Vec<DocumentMetadata>,
     ) -> Result<()> {
@@ -91,7 +89,6 @@ impl DatabasesLayerEntry {
         let results = join(
             self.database.update_documents(documents.clone()),
             self.vector_database.add_document_chunks_to_database(
-                embedder_config,
                 vector_database_config,
                 documents.into_iter().flat_map(|item| item.chunks).collect(),
             ),
@@ -100,6 +97,37 @@ impl DatabasesLayerEntry {
 
         results.0?;
         results.1?;
+
+        Ok(())
+    }
+
+    /// Reover all document chunks from the relational database to the vector database
+    pub async fn recover(&self, vector_database_config: &VectorDatabaseConfig) -> Result<()> {
+        // recover:
+        // get data from the database
+        // store them to the vector database
+
+        let chunks: Vec<DocumentChunk> = self
+            .database
+            .get_document_chunks(&GetDocumentChunkFilter {
+                ..Default::default()
+            })
+            .await?;
+
+        // Only delete all documents when the vector database is not integral
+        if self.vector_database.validate_data_integrity(vector_database_config).await? {
+            self.vector_database
+                .delete_documents_from_database(
+                    vector_database_config,
+                    &chunks.iter().map(|item| item.id.clone()).collect(),
+                )
+                .await?;
+        }
+
+        self.vector_database.add_document_chunks_to_database(
+            vector_database_config, 
+            chunks
+        ).await?;
 
         Ok(())
     }
