@@ -50,7 +50,10 @@ pub fn configure_routes() -> Scope {
                     web::post().to(update_collections_metadata),
                 )
                 .route("/sync/create_collection", web::post().to(create_collection))
-                .route("/sync/delete_collections", web::post().to(delete_collections))
+                .route(
+                    "/sync/delete_collections",
+                    web::post().to(delete_collections),
+                )
                 .route("/sync/get_collections", web::get().to(get_collections)),
         )
         .service(

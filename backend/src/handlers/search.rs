@@ -85,7 +85,7 @@ pub async fn search(
             )));
         }
     };
-    
+
     if document_metadata_ids.is_empty() {
         log::warn!("No search results found for request {:?}", request);
         let vec: Vec<String> = Vec::new();

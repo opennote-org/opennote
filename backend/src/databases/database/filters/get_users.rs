@@ -8,10 +8,7 @@ pub struct GetUserFilter {
 
 impl GetFilterValidation for GetUserFilter {
     fn get_num_some(&self) -> Vec<bool> {
-        vec![
-            !self.ids.is_empty(),
-            !self.usernames.is_empty(),
-        ]
+        vec![!self.ids.is_empty(), !self.usernames.is_empty()]
     }
 }
 
