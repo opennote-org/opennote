@@ -1,42 +1,56 @@
-use tokio::sync::MutexGuard;
+use std::sync::Arc;
+
+use anyhow::Result;
 
 use crate::{
-    documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
-    identities::storage::IdentitiesStorage,
-    metadata_storage::MetadataStorage,
-    search::SearchScope,
+    databases::database::{filters::get_collections::GetCollectionFilter, traits::database::Database},
+    documents::{
+        collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
+        document_metadata::DocumentMetadata,
+    },
+    databases::search::SearchScope,
 };
 
-pub fn retrieve_document_ids_by_scope(
-    metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
-    identities_storage: &mut MutexGuard<'_, IdentitiesStorage>,
+pub async fn retrieve_document_ids_by_scope(
+    database: &Arc<dyn Database>,
     search_scope: SearchScope,
     id: &str,
-) -> Vec<String> {
+) -> Result<Vec<String>> {
     // For maximizing the performance, we are using a vec of referenced Strings.
     let document_metadata_ids: Vec<String> = match search_scope {
         SearchScope::Userspace => {
-            let collection_ids: Vec<&String> = identities_storage.get_resource_ids_by_username(id);
-            let mut document_metadata_ids: Vec<&String> = Vec::new();
+            let resource_ids = database.get_resource_ids_by_username(id).await?;
+            let collection_metadatas: Vec<CollectionMetadata> = database
+                .get_collections(
+                    &GetCollectionFilter {
+                        ids: resource_ids,
+                        ..Default::default()
+                    },
+                    false,
+                )
+                .await?;
 
-            for id in collection_ids {
-                document_metadata_ids.extend(metadata_storage.get_document_ids_by_collection(id));
-            }
-
-            document_metadata_ids
+            collection_metadatas
                 .into_iter()
-                .map(|item| item.to_string())
+                .flat_map(|item| item.documents_metadatas.into_iter().map(|item| item.id))
                 .collect()
         }
-        SearchScope::Collection => metadata_storage
-            .get_document_ids_by_collection(id)
+        SearchScope::Collection => database
+            .get_collections(
+                &GetCollectionFilter {
+                    ids: vec![id.to_string()],
+                    ..Default::default()
+                },
+                false,
+            )
+            .await?
             .into_iter()
-            .map(|item| item.to_string())
+            .flat_map(|item| item.documents_metadatas.into_iter().map(|item| item.id))
             .collect(),
         SearchScope::Document => vec![id.to_string()],
     };
 
-    document_metadata_ids
+    Ok(document_metadata_ids)
 }
 
 pub fn preprocess_document(
@@ -57,7 +71,7 @@ pub fn preprocess_document(
         collection_metadata_id,
     );
 
-    metadata.chunks = chunks.iter().map(|chunk| chunk.id.clone()).collect();
+    metadata.chunks = chunks.clone();
     let metadata_id = metadata.id.clone();
     (metadata, chunks, metadata_id)
 }

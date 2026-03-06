@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::search::SearchScopeIndicator;
+use crate::databases::search::SearchScopeIndicator;
 
 /// region: request
 

@@ -1,15 +1,18 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
+pub mod document_search_results;
 pub mod keyword;
 pub mod semantic;
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct SearchScopeIndicator {
     #[schemars(description = "in which range, you want to search")]
     pub search_scope: SearchScope,
-    
-    #[schemars(description = "respective id of the search scope. for AI, leave the id empty string when searching userspace")]
+
+    #[schemars(
+        description = "respective id of the search scope. for AI, leave the id empty string when searching userspace"
+    )]
     pub id: String,
 }
 

@@ -18,7 +18,11 @@
     "path": "./data/backups_storage.json"
   },
   "database": {
-    "kind": "qdrant",
+    "provider": "sqlite",
+    "connection_url": "sqlite://./data/database.sqlite?mode=rwc"
+  },
+  "vector_database": {
+    "provider": "qdrant",
     "index": "notes",
     "base_url": "http://database:6334",
     "api_key": "meilimasterkey"

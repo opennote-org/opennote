@@ -1,8 +1,8 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use futures::future::join_all;
 use log::info;
 use qdrant_client::{
     Qdrant,
@@ -17,23 +17,30 @@ use qdrant_client::{
         VectorsConfigBuilder,
     },
 };
-use tokio::sync::MutexGuard;
 
 use crate::{
-    configurations::system::{Config, DatabaseConfig, EmbedderConfig},
+    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
     constants::{
         QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME, QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
     },
+    databases::{
+        database::{
+            filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+            traits::database::Database,
+        },
+        search::{
+            document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
+            semantic::SemanticSearch,
+        },
+        vector_database::traits::VectorDatabase,
+    },
     documents::{
         collection_metadata::CollectionMetadata,
-        document_chunk::{DocumentChunk, DocumentChunkSearchResult},
+        document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
     },
     embedder::send_vectorization,
-    metadata_storage::MetadataStorage,
-    search::{keyword::KeywordSearch, semantic::SemanticSearch},
-    vector_database::traits::VectorDatabase,
 };
 
 #[derive(Clone)]
@@ -47,56 +54,18 @@ impl VectorDatabase for QdrantDatabase {
     async fn add_document_chunks_to_database(
         &self,
         embedder_config: &EmbedderConfig,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
-        // Vectorize the chunks
-        // - Split the chunks into batches
-        // - Vectorize batch by batch
-        // - Batch is configurable
-        let mut batches: Vec<Vec<DocumentChunk>> = Vec::new();
-        let mut batch: Vec<DocumentChunk> = Vec::new();
-        for chunk in chunks {
-            if batch.len() == embedder_config.vectorization_batch_size {
-                batches.push(batch);
-                batch = Vec::new();
-            }
-
-            batch.push(chunk);
-        }
-
-        if !batch.is_empty() {
-            batches.push(batch);
-        }
-
-        // Record the data entries
-        let mut tasks = Vec::new();
-        for batch in batches.into_iter() {
-            tasks.push(send_vectorization(
-                &embedder_config.provider,
-                &embedder_config.base_url,
-                &embedder_config.api_key,
-                &embedder_config.model,
-                &embedder_config.encoding_format,
-                batch,
-            ));
-        }
-
-        let results: Vec<std::result::Result<Vec<DocumentChunk>, anyhow::Error>> =
-            join_all(tasks).await;
-        let mut chunks: Vec<DocumentChunk> = Vec::new();
-        for result in results {
-            let result = result?;
-            chunks.extend(result);
-        }
-
         let points: Vec<PointStruct> = chunks
             .into_iter()
             .map(|chunk| PointStruct::from(chunk))
             .collect();
 
         self.client
-            .upsert_points(UpsertPointsBuilder::new(&database_config.index, points).wait(true))
+            .upsert_points(
+                UpsertPointsBuilder::new(&vector_database_config.index, points).wait(true),
+            )
             .await?;
 
         Ok(())
@@ -106,7 +75,7 @@ impl VectorDatabase for QdrantDatabase {
         let counts: u64 = match self
             .client
             .collection_info(GetCollectionInfoRequest {
-                collection_name: configuration.database.index.to_string(),
+                collection_name: configuration.vector_database.index.to_string(),
             })
             .await?
             .result
@@ -127,7 +96,7 @@ impl VectorDatabase for QdrantDatabase {
         let retrieved_points = self
             .client
             .scroll(
-                ScrollPointsBuilder::new(configuration.database.index.clone())
+                ScrollPointsBuilder::new(configuration.vector_database.index.clone())
                     .with_payload(true)
                     .limit(counts as u32)
                     .build(),
@@ -137,7 +106,7 @@ impl VectorDatabase for QdrantDatabase {
 
         self.client
             .delete_collection(DeleteCollectionBuilder::new(
-                configuration.database.index.clone(),
+                configuration.vector_database.index.clone(),
             ))
             .await?;
 
@@ -150,7 +119,7 @@ impl VectorDatabase for QdrantDatabase {
 
         self.add_document_chunks_to_database(
             &configuration.embedder,
-            &configuration.database,
+            &configuration.vector_database,
             document_chunks,
         )
         .await?;
@@ -160,7 +129,7 @@ impl VectorDatabase for QdrantDatabase {
 
     async fn delete_documents_from_database(
         &self,
-        database_config: &DatabaseConfig,
+        vector_database_config: &VectorDatabaseConfig,
         document_ids: &Vec<String>,
     ) -> Result<()> {
         let mut conditions: Vec<Condition> = Vec::new();
@@ -171,7 +140,7 @@ impl VectorDatabase for QdrantDatabase {
         match self
             .client
             .delete_points(
-                DeletePointsBuilder::new(&database_config.index)
+                DeletePointsBuilder::new(&vector_database_config.index)
                     .points(Filter::any(conditions))
                     .wait(true),
             )
@@ -225,7 +194,7 @@ impl VectorDatabase for QdrantDatabase {
 impl SemanticSearch for QdrantDatabase {
     async fn search_documents_semantically(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
+        database: &Arc<dyn Database>,
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
@@ -246,7 +215,7 @@ impl SemanticSearch for QdrantDatabase {
         )
         .await?;
 
-        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
+        let conditions: Vec<Condition> = build_conditions(&document_metadata_ids);
 
         let response = self
             .client
@@ -264,8 +233,18 @@ impl SemanticSearch for QdrantDatabase {
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             Some(response.result),
             None,
-            &metadata_storage.collections,
-            &metadata_storage.documents,
+            &database
+                .get_collections(&GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(&GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
         );
 
         Ok(results)
@@ -276,12 +255,12 @@ impl SemanticSearch for QdrantDatabase {
 impl KeywordSearch for QdrantDatabase {
     async fn search_documents(
         &self,
-        metadata_storage: &mut MutexGuard<'_, MetadataStorage>,
-        document_metadata_ids: Vec<String>,
+        database: &Arc<dyn Database>,
+        document_metadata_ids: &Vec<String>,
         query: &str,
         top_n: usize,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
-        let conditions: Vec<Condition> = build_conditions(document_metadata_ids);
+        let conditions: Vec<Condition> = build_conditions(&document_metadata_ids);
 
         let response: ScrollResponse = self
             .client
@@ -300,8 +279,18 @@ impl KeywordSearch for QdrantDatabase {
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             None,
             Some(response.result),
-            &metadata_storage.collections,
-            &metadata_storage.documents,
+            &database
+                .get_collections(&GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(&GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
         );
 
         Ok(results)
@@ -310,20 +299,21 @@ impl KeywordSearch for QdrantDatabase {
 
 impl QdrantDatabase {
     pub async fn new(configuration: &Config) -> Result<Self> {
-        let qdrant_config: QdrantConfig = QdrantConfig::from_url(&configuration.database.base_url)
-            // Timeout for preventing Qdrant killing time-consuming operations
-            .timeout(std::time::Duration::from_secs(1000));
+        let qdrant_config: QdrantConfig =
+            QdrantConfig::from_url(&configuration.vector_database.base_url)
+                // Timeout for preventing Qdrant killing time-consuming operations
+                .timeout(std::time::Duration::from_secs(1000));
         let client: Qdrant = Qdrant::new(qdrant_config)?;
 
         if client
             .collection_exists(CollectionExistsRequest {
-                collection_name: configuration.database.index.to_string(),
+                collection_name: configuration.vector_database.index.to_string(),
             })
             .await?
         {
             info!("Collection `note` has already existed. Skip creation");
             return Ok(Self {
-                index: configuration.database.index.clone(),
+                index: configuration.vector_database.index.clone(),
                 client,
             });
         }
@@ -343,7 +333,7 @@ impl QdrantDatabase {
         }
 
         Ok(Self {
-            index: configuration.database.index.clone(),
+            index: configuration.vector_database.index.clone(),
             client,
         })
     }
@@ -352,7 +342,7 @@ impl QdrantDatabase {
 async fn validate_configuration(qdrant_client: &Qdrant, configuration: &Config) -> Result<()> {
     match qdrant_client
         .collection_info(GetCollectionInfoRequest {
-            collection_name: configuration.database.index.to_string(),
+            collection_name: configuration.vector_database.index.to_string(),
         })
         .await
     {
@@ -408,7 +398,7 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
 
     match client
         .create_collection(
-            CreateCollectionBuilder::new(&configuration.database.index)
+            CreateCollectionBuilder::new(&configuration.vector_database.index)
                 .vectors_config(dense_text_vector_config)
                 .sparse_vectors_config(sparse_vector_config)
                 .build(),
@@ -429,7 +419,7 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
             IndexableField::Keyword(field) => {
                 client
                     .create_field_index(CreateFieldIndexCollectionBuilder::new(
-                        &configuration.database.index,
+                        &configuration.vector_database.index,
                         field,
                         FieldType::Keyword,
                     ))
@@ -443,7 +433,7 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
                 client
                     .create_field_index(
                         CreateFieldIndexCollectionBuilder::new(
-                            &configuration.database.index,
+                            &configuration.vector_database.index,
                             field,
                             FieldType::Text,
                         )
@@ -457,9 +447,9 @@ async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()
     Ok(())
 }
 
-pub fn build_conditions(document_metadata_ids: Vec<String>) -> Vec<Condition> {
+pub fn build_conditions(document_metadata_ids: &Vec<String>) -> Vec<Condition> {
     document_metadata_ids
-        .into_iter()
+        .iter()
         .map(|id| Condition::matches("document_metadata_id", id.to_string()))
         .collect()
 }

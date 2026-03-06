@@ -3,7 +3,7 @@ use actix_web::{Scope, web};
 use crate::handlers::{
     backup::{backup, get_backups_list, remove_backups, restore_backup},
     collection::{
-        create_collection, delete_collection, get_collections, update_collections_metadata,
+        create_collection, delete_collections, get_collections, update_collections_metadata,
     },
     document::{
         add_document, delete_document, get_document_content, get_documents_metadata,
@@ -11,7 +11,10 @@ use crate::handlers::{
     },
     general::{get_info, health_check, retrieve_task_result},
     search::{intelligent_search, search},
-    user::{create_user, get_user_configurations, get_user_configurations_schemars, login, update_user_configurations},
+    user::{
+        create_user, get_user_configurations, get_user_configurations_schemars, login,
+        update_user_configurations,
+    },
 };
 
 pub fn configure_routes() -> Scope {
@@ -35,7 +38,10 @@ pub fn configure_routes() -> Scope {
                 )
                 .route("/async/reindex", web::post().to(reindex))
                 .route("/sync/login", web::post().to(login))
-                .route("/sync/get_user_configurations_schemars", web::get().to(get_user_configurations_schemars))
+                .route(
+                    "/sync/get_user_configurations_schemars",
+                    web::get().to(get_user_configurations_schemars),
+                ),
         )
         .service(
             web::scope("collections")
@@ -44,7 +50,7 @@ pub fn configure_routes() -> Scope {
                     web::post().to(update_collections_metadata),
                 )
                 .route("/sync/create_collection", web::post().to(create_collection))
-                .route("/sync/delete_collection", web::post().to(delete_collection))
+                .route("/sync/delete_collections", web::post().to(delete_collections))
                 .route("/sync/get_collections", web::get().to(get_collections)),
         )
         .service(

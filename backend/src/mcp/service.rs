@@ -13,28 +13,31 @@ use rmcp::{
 };
 use rmcp_actix_web::transport::AuthorizationHeader;
 use serde_json::Value;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 
 use crate::{
     api_models::{document::GetDocumentRequest, search::SearchDocumentRequest},
     app_state::AppState,
+    databases::database::filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
     documents::document_metadata::DocumentMetadata,
     handlers::{document::get_document_content, search::intelligent_search},
-    mcp::{requests::{MCPGetCollectionMetadata, MCPSearchDocumentRequest}, responses::MCPServiceGenericResponse},
-    search::SearchScope,
-    utilities::acquire_data,
+    mcp::{
+        requests::{MCPGetCollectionMetadata, MCPSearchDocumentRequest},
+        responses::MCPServiceGenericResponse,
+    },
+    databases::search::SearchScope,
 };
 
 #[derive(Clone)]
 pub struct MCPService {
     authorization: Arc<Mutex<Option<String>>>,
     tool_router: ToolRouter<Self>,
-    app_state: Data<RwLock<AppState>>,
+    app_state: Data<AppState>,
 }
 
 #[tool_router]
 impl MCPService {
-    pub fn new(app_state: Data<RwLock<AppState>>) -> Self {
+    pub fn new(app_state: Data<AppState>) -> Self {
         Self {
             tool_router: Self::tool_router(),
             authorization: Arc::new(Mutex::new(None)),
@@ -88,27 +91,45 @@ impl MCPService {
     #[tool(description = "Get metadatas of the user's OpenNote documents")]
     pub async fn get_all_user_documents_metadatas(&self) -> Json<MCPServiceGenericResponse> {
         let token = self.authorization.lock().await;
-        let (_, metadata_storage, _, _, identities_storage, _) =
-            acquire_data(&self.app_state).await;
 
         if let Some(token) = token.as_ref() {
-            let identities_storage = identities_storage.lock().await;
-            let metadata_storage = metadata_storage.lock().await;
+            let resource_ids = match self
+                .app_state
+                .databases_layer_entry.database
+                .get_resource_ids_by_username(token)
+                .await
+            {
+                Ok(ids) => ids,
+                Err(e) => {
+                    log::warn!("Failed to get resource IDs: {}", e);
+                    return Json(MCPServiceGenericResponse { results: None });
+                }
+            };
 
-            let resource_ids = identities_storage.get_resource_ids_by_username(token);
-
-            let documents_metadatas_list: Vec<DocumentMetadata> = metadata_storage
-                .documents
-                .iter()
-                .filter(|(_, metadata)| resource_ids.contains(&&metadata.collection_metadata_id))
-                .map(|(_, metadata)| {
-                    let mut metadata = metadata.to_owned();
-                    metadata.chunks = vec![];
-                    metadata
+            let all_document_metadatas: Vec<DocumentMetadata> = match self
+                .app_state
+                .databases_layer_entry.database
+                .get_documents(&GetDocumentFilter {
+                    collection_metadata_ids: resource_ids.clone(),
+                    ..Default::default()
                 })
-                .collect();
+                .await
+            {
+                Ok(metadatas) => metadatas
+                    .into_iter()
+                    .map(|mut item| {
+                        // We don't need the chunk data
+                        item.chunks = vec![];
+                        item
+                    })
+                    .collect(),
+                Err(e) => {
+                    log::warn!("Failed to get all documents: {}", e);
+                    return Json(MCPServiceGenericResponse { results: None });
+                }
+            };
 
-            match serde_json::to_value(documents_metadatas_list) {
+            match serde_json::to_value(all_document_metadatas) {
                 Ok(result) => {
                     return Json(MCPServiceGenericResponse {
                         results: Some(result),
@@ -132,36 +153,51 @@ impl MCPService {
         }): Parameters<MCPGetCollectionMetadata>,
     ) -> Json<MCPServiceGenericResponse> {
         let token = self.authorization.lock().await;
-        let (_, metadata_storage, _, _, identities_storage, _) =
-            acquire_data(&self.app_state).await;
 
         if let Some(token) = token.as_ref() {
-            let identities_storage = identities_storage.lock().await;
-            let metadata_storage = metadata_storage.lock().await;
-
-            if identities_storage
+            let is_user_owning_collections = match self
+                .app_state
+                .databases_layer_entry.database
                 .is_user_owning_collections(token, &vec![collection_metadata_id.clone()])
+                .await
             {
-                if let Some(metadata) = metadata_storage.collections.get(&collection_metadata_id) {
-                    match serde_json::to_value(metadata) {
-                        Ok(result) => {
-                            return Json(MCPServiceGenericResponse {
-                                results: Some(result),
-                            });
-                        }
-                        Err(error) => {
-                            log::warn!("Failed to serialize document metadatas: {}", error);
-                            return Json(MCPServiceGenericResponse { results: None });
-                        }
-                    }
+                Ok(result) => result,
+                Err(e) => {
+                    log::warn!("Failed to check collection ownership: {}", e);
+                    return Json(MCPServiceGenericResponse { results: None });
                 }
+            };
+
+            let collection_metadata = match self
+                .app_state
+                .databases_layer_entry.database
+                .get_collections(
+                    &GetCollectionFilter {
+                        ids: vec![collection_metadata_id.clone()],
+                        ..Default::default()
+                    },
+                    false,
+                )
+                .await
+            {
+                Ok(result) => result,
+                Err(e) => {
+                    log::warn!("Failed to get collection metadata: {}", e);
+                    return Json(MCPServiceGenericResponse { results: None });
+                }
+            };
+
+            if is_user_owning_collections {
+                return Json(MCPServiceGenericResponse {
+                    results: Some(serde_json::to_value(&collection_metadata[0]).unwrap()),
+                });
             }
         }
 
         Json(MCPServiceGenericResponse { results: None })
     }
-    
-    /// TODO: 
+
+    /// TODO:
     /// - check document ownership before returning a document
     /// - enforce authentication bearer in all endpoints, not just MCP server
     #[tool(description = "Get document content by supplying a document metadata id")]
@@ -173,7 +209,9 @@ impl MCPService {
     ) -> Json<MCPServiceGenericResponse> {
         match get_document_content(
             self.app_state.clone(),
-            actix_web::web::Json(GetDocumentRequest { document_metadata_id }),
+            actix_web::web::Json(GetDocumentRequest {
+                document_metadata_id,
+            }),
         )
         .await
         {
