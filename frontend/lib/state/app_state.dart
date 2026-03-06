@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
+import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
 import 'package:notes/services/backup.dart';
 import 'package:notes/state/collections.dart';
@@ -202,7 +203,7 @@ class AppState extends ChangeNotifier
 
   Future<void> refreshCollections() async {
     if (username == null) return;
-    final list = await collections.getCollections(dio, username!);
+    final List<CollectionMetadata> list = await collections.getCollections(dio, username!);
     collectionById
       ..clear()
       ..addEntries(list.map((e) => MapEntry(e.id, e)));
@@ -238,7 +239,7 @@ class AppState extends ChangeNotifier
   }
 
   Future<void> deleteCollection(String id) async {
-    await collections.deleteCollection(dio, id);
+    await collections.deleteCollection(dio, username!, id);
     collectionById.remove(id);
     if (activeObject.id == id &&
         activeObject.type == ActiveObjectType.collection) {

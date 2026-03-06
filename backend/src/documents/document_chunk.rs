@@ -4,12 +4,15 @@ use std::{collections::HashMap, io::Read};
 
 use chunk::chunk;
 use jieba_rs::Jieba;
+use local_vector_database::Data;
 use qdrant_client::{
     Payload,
-    qdrant::{NamedVectors, PointStruct, RetrievedPoint, ScoredPoint},
+    qdrant::{NamedVectors, PointStruct, RetrievedPoint},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::{databases::database, documents::traits::GetId};
 
 use super::traits::{GetIndexableFields, IndexableField};
 
@@ -45,7 +48,7 @@ impl DocumentChunk {
             dense_text_vector: Vec::new(),
         }
     }
-    
+
     pub fn slice_document_automatically(
         content: &str,
         chunk_max_words: usize,
@@ -53,13 +56,13 @@ impl DocumentChunk {
         collection_metadata_id: &str,
     ) -> Vec<DocumentChunk> {
         let mut chunks: Vec<DocumentChunk> = Vec::new();
-        
+
         let raw_chunks: Vec<_> = chunk(content.as_bytes())
             .consecutive()
             .delimiters("\n.?!。，！".as_bytes())
             .size(chunk_max_words)
             .collect();
-        
+
         for mut chunk in raw_chunks {
             let mut bytes = Vec::new();
             match chunk.read_to_end(&mut bytes) {
@@ -69,13 +72,13 @@ impl DocumentChunk {
                         document_metadata_id,
                         collection_metadata_id,
                     ));
-                },
+                }
                 Err(error) => {
                     log::warn!("Error reading chunk: {} Chunk content: {:?}", error, chunk);
                 }
             }
         }
-        
+
         chunks
     }
 
@@ -153,6 +156,52 @@ impl DocumentChunk {
     }
 }
 
+impl GetId for DocumentChunk {
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+}
+
+impl From<DocumentChunk> for Data {
+    fn from(value: DocumentChunk) -> Self {
+        Self {
+            id: value.id.clone(),
+            vector: value.dense_text_vector.clone(),
+            fields: serde_json::from_str(&serde_json::to_string(&value).unwrap()).unwrap(),
+        }
+    }
+}
+
+impl From<Data> for DocumentChunk {
+    fn from(value: Data) -> Self {
+        Self {
+            id: value.id,
+            document_metadata_id: value
+                .fields
+                .get("document_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            collection_metadata_id: value
+                .fields
+                .get("collection_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            content: value
+                .fields
+                .get("content")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            dense_text_vector: Vec::new(),
+        }
+    }
+}
+
 impl From<DocumentChunk> for PointStruct {
     fn from(value: DocumentChunk) -> Self {
         Self::new(
@@ -169,6 +218,28 @@ impl From<DocumentChunk> for PointStruct {
                 ),
             Payload::try_from(serde_json::to_value(value).unwrap()).unwrap(),
         )
+    }
+}
+
+impl From<HashMap<String, serde_json::Value>> for DocumentChunk {
+    fn from(value: HashMap<String, serde_json::Value>) -> Self {
+        Self {
+            id: value.get("id").unwrap().as_str().unwrap().to_string(),
+            content: value.get("content").unwrap().as_str().unwrap().to_string(),
+            document_metadata_id: value
+                .get("document_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            collection_metadata_id: value
+                .get("collection_metadata_id")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            dense_text_vector: vec![],
+        }
     }
 }
 
@@ -200,45 +271,6 @@ impl From<RetrievedPoint> for DocumentChunk {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct DocumentChunkSearchResult {
-    pub document_title: Option<String>,
-    pub collection_title: Option<String>,
-    pub document_chunk: DocumentChunk,
-    /// Similarity score
-    pub score: f32,
-}
-
-impl Default for DocumentChunkSearchResult {
-    fn default() -> Self {
-        Self {
-            document_title: None,
-            collection_title: None,
-            document_chunk: DocumentChunk::default(),
-            score: 0.0,
-        }
-    }
-}
-
-impl From<RetrievedPoint> for DocumentChunkSearchResult {
-    fn from(value: RetrievedPoint) -> Self {
-        Self {
-            document_chunk: value.into(),
-            ..Default::default()
-        }
-    }
-}
-
-impl From<ScoredPoint> for DocumentChunkSearchResult {
-    fn from(value: ScoredPoint) -> Self {
-        Self {
-            document_chunk: DocumentChunk::from(value.payload),
-            score: value.score,
-            ..Default::default()
-        }
-    }
-}
-
 impl GetIndexableFields for DocumentChunk {
     fn get_indexable_fields() -> Vec<IndexableField> {
         vec![
@@ -247,6 +279,31 @@ impl GetIndexableFields for DocumentChunk {
             IndexableField::Keyword("collection_metadata_id".to_string()),
             IndexableField::Keyword("id".to_string()),
         ]
+    }
+}
+
+impl From<database::entity::document_chunks::Model> for DocumentChunk {
+    fn from(value: database::entity::document_chunks::Model) -> Self {
+        Self {
+            id: value.id,
+            document_metadata_id: value.document_metadata_id,
+            collection_metadata_id: value.collection_metadata_id,
+            content: value.content,
+            dense_text_vector: serde_json::from_value(value.dense_text_vector).unwrap(),
+        }
+    }
+}
+
+impl From<DocumentChunk> for database::entity::document_chunks::Model {
+    fn from(value: DocumentChunk) -> Self {
+        Self {
+            id: value.id,
+            document_metadata_id: value.document_metadata_id,
+            collection_metadata_id: value.collection_metadata_id,
+            content: value.content,
+            dense_text_vector: serde_json::to_value(value.dense_text_vector).unwrap(),
+            chunk_order: 0,
+        }
     }
 }
 

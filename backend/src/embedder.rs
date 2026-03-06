@@ -1,9 +1,53 @@
 use std::time::Duration;
 
 use anyhow::{Result, anyhow};
+use futures::future::join_all;
 use serde_json::{Value, json};
 
-use crate::documents::document_chunk::DocumentChunk;
+use crate::{configurations::system::EmbedderConfig, documents::document_chunk::DocumentChunk};
+
+pub async fn vectorize(
+    embedder_config: &EmbedderConfig,
+    chunks: Vec<DocumentChunk>,
+) -> Result<Vec<DocumentChunk>> {
+    let mut batches: Vec<Vec<DocumentChunk>> = Vec::new();
+    let mut batch: Vec<DocumentChunk> = Vec::new();
+    for chunk in chunks {
+        if batch.len() == embedder_config.vectorization_batch_size {
+            batches.push(batch);
+            batch = Vec::new();
+        }
+
+        batch.push(chunk);
+    }
+
+    if !batch.is_empty() {
+        batches.push(batch);
+    }
+
+    // Record the data entries
+    let mut tasks = Vec::new();
+    for batch in batches.into_iter() {
+        tasks.push(send_vectorization(
+            &embedder_config.provider,
+            &embedder_config.base_url,
+            &embedder_config.api_key,
+            &embedder_config.model,
+            &embedder_config.encoding_format,
+            batch,
+        ));
+    }
+
+    let results: Vec<std::result::Result<Vec<DocumentChunk>, anyhow::Error>> =
+        join_all(tasks).await;
+    let mut chunks: Vec<DocumentChunk> = Vec::new();
+    for result in results {
+        let result = result?;
+        chunks.extend(result);
+    }
+
+    Ok(chunks)
+}
 
 pub async fn send_vectorization(
     provider: &str,

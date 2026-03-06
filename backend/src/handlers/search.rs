@@ -1,34 +1,33 @@
 use actix_web::{HttpResponse, Result, web};
 use log::error;
-use tokio::sync::RwLock;
 
 use crate::{
     api_models::{callbacks::GenericResponse, search::SearchDocumentRequest},
     app_state::AppState,
-    documents::
-        operations::retrieve_document_ids_by_scope
-    ,
-    utilities::acquire_data,
+    documents::operations::retrieve_document_ids_by_scope,
 };
 
 // Sync endpoint
 pub async fn intelligent_search(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<SearchDocumentRequest>,
 ) -> Result<HttpResponse> {
-    // Perform operations synchronously
-    // Pull what we need out of AppState without holding the lock during I/O
-    let (vector_database, metadata_storage, _, config, identities_storage, _) =
-        acquire_data(&data).await;
-
-    let mut metadata_storage = metadata_storage.lock().await;
-
-    let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
-        &mut metadata_storage,
-        &mut identities_storage.lock().await,
+    let document_metadata_ids: Vec<String> = match retrieve_document_ids_by_scope(
+        &data.databases_layer_entry.database,
         request.0.scope.search_scope,
         &request.0.scope.id,
-    );
+    )
+    .await
+    {
+        Ok(ids) => ids,
+        Err(error) => {
+            error!("Failed to retrieve document IDs by scope: {}", error);
+            return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                "".to_string(),
+                "Failed to retrieve document IDs. Please try again.".to_string(),
+            )));
+        }
+    };
 
     if document_metadata_ids.is_empty() {
         log::warn!("No search results found for request {:?}", request);
@@ -36,17 +35,19 @@ pub async fn intelligent_search(
         return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &vec)));
     }
 
-    match vector_database
+    match data
+        .databases_layer_entry
+        .vector_database
         .search_documents_semantically(
-            &mut metadata_storage,
+            &data.databases_layer_entry.database,
             document_metadata_ids,
             &request.0.query,
             request.0.top_n,
-            &config.embedder.provider,
-            &config.embedder.base_url,
-            &config.embedder.api_key,
-            &config.embedder.model,
-            &config.embedder.encoding_format,
+            &data.config.embedder.provider,
+            &data.config.embedder.base_url,
+            &data.config.embedder.api_key,
+            &data.config.embedder.model,
+            &data.config.embedder.encoding_format,
         )
         .await
     {
@@ -65,27 +66,38 @@ pub async fn intelligent_search(
 
 // Sync endpoint
 pub async fn search(
-    data: web::Data<RwLock<AppState>>,
+    data: web::Data<AppState>,
     request: web::Json<SearchDocumentRequest>,
 ) -> Result<HttpResponse> {
-    // Perform operations synchronously
-    // Pull what we need out of AppState without holding the lock during I/O
-    let (vector_database, metadata_storage, _, _, identities_storage, _) =
-        acquire_data(&data).await;
-
-    let mut metadata_storage = metadata_storage.lock().await;
-
-    let document_metadata_ids: Vec<String> = retrieve_document_ids_by_scope(
-        &mut metadata_storage,
-        &mut identities_storage.lock().await,
+    let document_metadata_ids: Vec<String> = match retrieve_document_ids_by_scope(
+        &data.databases_layer_entry.database,
         request.0.scope.search_scope,
         &request.0.scope.id,
-    );
+    )
+    .await
+    {
+        Ok(ids) => ids,
+        Err(error) => {
+            error!("Failed to retrieve document IDs by scope: {}", error);
+            return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                "".to_string(),
+                "Failed to retrieve document IDs. Please try again.".to_string(),
+            )));
+        }
+    };
+    
+    if document_metadata_ids.is_empty() {
+        log::warn!("No search results found for request {:?}", request);
+        let vec: Vec<String> = Vec::new();
+        return Ok(HttpResponse::Ok().json(GenericResponse::succeed("".to_string(), &vec)));
+    }
 
-    match vector_database
+    match data
+        .databases_layer_entry
+        .vector_database
         .search_documents(
-            &mut metadata_storage,
-            document_metadata_ids,
+            &data.databases_layer_entry.database,
+            &document_metadata_ids,
             &request.0.query,
             request.0.top_n,
         )
