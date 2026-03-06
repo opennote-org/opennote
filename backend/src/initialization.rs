@@ -6,7 +6,7 @@ use actix_web::{
     middleware::Logger,
     web::{self, Data},
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::transport::StreamableHttpService;
@@ -76,7 +76,7 @@ pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
             );
             log::info!(
                 "Vector database will connect to {}",
-                config.vector_database.base_url
+                config.vector_database.provider
             );
 
             // Checkups
@@ -88,8 +88,9 @@ pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
             match align_embedder_model(&config, &state).await {
                 Ok(_) => log::info!("Embedder model alignment completed successfully"),
                 Err(e) => {
-                    log::error!("Failed to align embedder model: {}", e);
-                    std::process::exit(1);
+                    let error_message = format!("Failed to align embedder model: {}", e);
+                    log::error!("{}", &error_message);
+                    return Err(anyhow!(error_message));
                 }
             }
 

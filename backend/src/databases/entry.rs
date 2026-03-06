@@ -4,7 +4,7 @@ use anyhow::Result;
 use futures::future::join;
 
 use crate::{
-    configurations::system::{Config, DatabaseConfig, EmbedderConfig, VectorDatabaseConfig},
+    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
     databases::{
         database::{shared::create_database, traits::database::Database},
         vector_database::{shared::create_vector_database, traits::VectorDatabase},

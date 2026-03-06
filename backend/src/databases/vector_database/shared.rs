@@ -5,6 +5,7 @@ use anyhow::Result;
 use crate::{
     configurations::system::Config,
     databases::vector_database::{
+        local::Local,
         qdrant::QdrantDatabase,
         traits::{VectorDatabase, VectorDatabaseProvider},
     },
@@ -14,5 +15,6 @@ use crate::{
 pub async fn create_vector_database(config: &Config) -> Result<Arc<dyn VectorDatabase>> {
     match config.vector_database.provider {
         VectorDatabaseProvider::Qdrant => Ok(Arc::new(QdrantDatabase::new(config).await?)),
+        VectorDatabaseProvider::Local => Ok(Arc::new(Local::new(config).await?)),
     }
 }

@@ -466,13 +466,26 @@ pub async fn update_document_content(
 
         metadata.chunks = chunks.clone();
 
-        data.databases_layer_entry
+        match data
+            .databases_layer_entry
             .update_documents(
                 &data.config.embedder,
                 &data.config.vector_database,
                 vec![metadata],
             )
-            .await;
+            .await
+        {
+            Ok(_) => {}
+            Err(error) => {
+                error!("Failed to update document: {}", error);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return;
+            }
+        }
 
         data.tasks_scheduler.lock().await.set_status_to_complete(
             &task_id,
