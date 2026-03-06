@@ -6,8 +6,8 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig};
-use crate::documents::document_chunk::DocumentChunk;
 use crate::databases::search::{keyword::KeywordSearch, semantic::SemanticSearch};
+use crate::documents::document_chunk::DocumentChunk;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]

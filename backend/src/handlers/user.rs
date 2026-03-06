@@ -20,7 +20,8 @@ pub async fn create_user(
     request: web::Json<CreateUserRequest>,
 ) -> Result<HttpResponse> {
     match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .create_user(request.username.clone(), request.password.clone())
         .await
     {
@@ -39,7 +40,8 @@ pub async fn login(
     request: web::Json<LoginRequest>,
 ) -> Result<HttpResponse> {
     match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .validate_user_password(&request.username, &request.password)
         .await
     {
@@ -59,7 +61,8 @@ pub async fn get_user_configurations(
     request: web::Json<GetUserConfigurationsRequest>,
 ) -> Result<HttpResponse> {
     match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .get_users(&GetUserFilter {
             usernames: vec![request.0.username],
             ..Default::default()
@@ -82,7 +85,8 @@ pub async fn update_user_configurations(
     request: web::Json<UpdateUserConfigurationsRequest>,
 ) -> Result<HttpResponse> {
     match data
-        .databases_layer_entry.database
+        .databases_layer_entry
+        .database
         .update_user_configurations(&request.0.username, request.0.user_configurations)
         .await
     {

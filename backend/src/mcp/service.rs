@@ -18,14 +18,16 @@ use tokio::sync::Mutex;
 use crate::{
     api_models::{document::GetDocumentRequest, search::SearchDocumentRequest},
     app_state::AppState,
-    databases::database::filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+    databases::database::filters::{
+        get_collections::GetCollectionFilter, get_documents::GetDocumentFilter,
+    },
+    databases::search::SearchScope,
     documents::document_metadata::DocumentMetadata,
     handlers::{document::get_document_content, search::intelligent_search},
     mcp::{
         requests::{MCPGetCollectionMetadata, MCPSearchDocumentRequest},
         responses::MCPServiceGenericResponse,
     },
-    databases::search::SearchScope,
 };
 
 #[derive(Clone)]
@@ -95,7 +97,8 @@ impl MCPService {
         if let Some(token) = token.as_ref() {
             let resource_ids = match self
                 .app_state
-                .databases_layer_entry.database
+                .databases_layer_entry
+                .database
                 .get_resource_ids_by_username(token)
                 .await
             {
@@ -108,7 +111,8 @@ impl MCPService {
 
             let all_document_metadatas: Vec<DocumentMetadata> = match self
                 .app_state
-                .databases_layer_entry.database
+                .databases_layer_entry
+                .database
                 .get_documents(&GetDocumentFilter {
                     collection_metadata_ids: resource_ids.clone(),
                     ..Default::default()
@@ -157,7 +161,8 @@ impl MCPService {
         if let Some(token) = token.as_ref() {
             let is_user_owning_collections = match self
                 .app_state
-                .databases_layer_entry.database
+                .databases_layer_entry
+                .database
                 .is_user_owning_collections(token, &vec![collection_metadata_id.clone()])
                 .await
             {
@@ -170,7 +175,8 @@ impl MCPService {
 
             let collection_metadata = match self
                 .app_state
-                .databases_layer_entry.database
+                .databases_layer_entry
+                .database
                 .get_collections(
                     &GetCollectionFilter {
                         ids: vec![collection_metadata_id.clone()],
