@@ -27,10 +27,14 @@ pub async fn intelligent_search(
             )));
         }
     };
-    
+
     if !is_vector_database_valid {
         log::warn!("Vector database data is not integral! Trying to recover...");
-        match data.databases_layer_entry.recover(&data.config.vector_database).await {
+        match data
+            .databases_layer_entry
+            .recover(&data.config.vector_database)
+            .await
+        {
             Ok(_) => (),
             Err(error) => {
                 error!("Failed to recover vector database: {}", error);
@@ -114,9 +118,13 @@ pub async fn search(
             )));
         }
     };
-    
+
     if !is_vector_database_valid {
-        match data.databases_layer_entry.recover(&data.config.vector_database).await {
+        match data
+            .databases_layer_entry
+            .recover(&data.config.vector_database)
+            .await
+        {
             Ok(_) => (),
             Err(error) => {
                 error!("Failed to recover vector database: {}", error);

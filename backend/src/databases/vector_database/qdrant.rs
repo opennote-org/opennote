@@ -8,7 +8,13 @@ use qdrant_client::{
     Qdrant,
     config::QdrantConfig,
     qdrant::{
-        CollectionExistsRequest, Condition, CreateCollectionBuilder, CreateFieldIndexCollectionBuilder, DeleteCollection, DeleteCollectionBuilder, DeletePointsBuilder, FieldType, Filter, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse, SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder, TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder, VectorsConfigBuilder
+        CollectionExistsRequest, Condition, CreateCollectionBuilder,
+        CreateFieldIndexCollectionBuilder, DeleteCollection, DeleteCollectionBuilder,
+        DeletePointsBuilder, FieldType, Filter, GetCollectionInfoRequest, GetPointsBuilder,
+        PointId, PointStruct, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder,
+        ScrollResponse, SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
+        TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder,
+        VectorsConfigBuilder,
     },
 };
 

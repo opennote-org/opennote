@@ -218,9 +218,9 @@ pub async fn import_documents(
                     &request.collection_metadata_id,
                     user_configurations.search.document_chunk_size,
                 );
-                
+
                 document_metadata.chunks = vectorize(&embedder_config, chunks).await?;
-                
+
                 Ok::<_, anyhow::Error>(document_metadata)
             }));
         }
@@ -230,18 +230,16 @@ pub async fn import_documents(
         let mut document_metadata_ids = Vec::new();
         for (index, task) in preprocess_tasks.into_iter().enumerate() {
             match task.await {
-                Ok(result) => {
-                    match result {
-                        Ok(metadata) => {
-                            document_metadata_ids.push(metadata.id.clone());
-                            document_metadatas.push(metadata);
-                        }
-                        Err(err) => {
-                            error!("Failed to vectorize document: {}", err);
-                            failures.insert(request.0.imports[index].clone());
-                        }
+                Ok(result) => match result {
+                    Ok(metadata) => {
+                        document_metadata_ids.push(metadata.id.clone());
+                        document_metadatas.push(metadata);
                     }
-                }
+                    Err(err) => {
+                        error!("Failed to vectorize document: {}", err);
+                        failures.insert(request.0.imports[index].clone());
+                    }
+                },
                 Err(err) => {
                     error!("Failed to preprocess: {}", err);
                     failures.insert(request.0.imports[index].clone());

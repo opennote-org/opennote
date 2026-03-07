@@ -115,7 +115,11 @@ impl DatabasesLayerEntry {
             .await?;
 
         // Only delete all documents when the vector database is not integral
-        if self.vector_database.validate_data_integrity(vector_database_config).await? {
+        if self
+            .vector_database
+            .validate_data_integrity(vector_database_config)
+            .await?
+        {
             self.vector_database
                 .delete_documents_from_database(
                     vector_database_config,
@@ -124,10 +128,9 @@ impl DatabasesLayerEntry {
                 .await?;
         }
 
-        self.vector_database.add_document_chunks_to_database(
-            vector_database_config, 
-            chunks
-        ).await?;
+        self.vector_database
+            .add_document_chunks_to_database(vector_database_config, chunks)
+            .await?;
 
         Ok(())
     }
