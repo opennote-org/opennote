@@ -13,6 +13,7 @@ mod identities;
 mod initialization;
 mod mcp;
 mod metadata_storage;
+mod model_loader;
 mod routes;
 mod tasks_scheduler;
 mod traits;
@@ -27,8 +28,8 @@ use sqlx::any::install_default_drivers;
 
 use crate::{
     initialization::{
-        initialize_app_state, initialize_backend_api_service, initialize_logger,
-        initialize_mcp_server, load_configurations,
+        initialize_app_state, initialize_backend_api_service, initialize_local_model,
+        initialize_logger, initialize_mcp_server, load_configurations,
     },
     mcp::service::MCPService,
 };
@@ -36,7 +37,7 @@ use crate::{
 #[actix_web::main]
 async fn main() -> Result<()> {
     // Load configuration first
-    let config = load_configurations()?;
+    let mut config: configurations::system::Config = load_configurations()?;
 
     // Initialize logger with config level
     initialize_logger(&config);
@@ -50,6 +51,8 @@ async fn main() -> Result<()> {
         "Configuration: Server {}:{}",
         config.server.host, config.server.port
     );
+
+    initialize_local_model(&mut config).await?;
 
     let app_state: Data<AppState> = initialize_app_state(&config).await?;
     let mcp_service: StreamableHttpService<MCPService> = initialize_mcp_server(&app_state).await?;

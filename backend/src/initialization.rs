@@ -16,6 +16,7 @@ use crate::{
     checkups::{align_embedder_model, handshake_embedding_service},
     configurations::system::Config,
     mcp::service::MCPService,
+    model_loader::downloader,
     routes::configure_routes,
 };
 
@@ -153,4 +154,25 @@ pub async fn initialize_backend_api_service(
         .await?;
 
     Ok(())
+}
+
+pub async fn initialize_local_model(config: &mut Config) -> Result<Option<String>> {
+    if config.embedder.provider.trim() == "local" {
+        let model_local_paths: downloader::ModelLocalPaths =
+            downloader::download_model_with_config(&config.embedder.model, false).await?;
+        log::info!("{}", model_local_paths);
+
+        config.embedder.base_url = model_local_paths
+            .model_full_path
+            .to_string_lossy()
+            .into_owned();
+        log::info!(
+            "Embedder base_url remapped to local cache at {}",
+            config.embedder.base_url
+        );
+
+        return Ok(Some(config.embedder.base_url.clone()));
+    }
+
+    Ok(None)
 }
