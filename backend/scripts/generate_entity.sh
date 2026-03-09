@@ -5,7 +5,7 @@ main() {
 	# when wanting to create entities to reflect the sql data structure changes
     sea-orm-cli generate entity \
         --database-url sqlite://./data/database.sqlite?mode=rwc \
-        --output-dir ./src/database/entity \
+        --output-dir ./src/databases/database/entity \
         --entity-format dense
 }
 

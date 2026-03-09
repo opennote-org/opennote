@@ -165,6 +165,8 @@ impl SemanticSearch for Local {
                 )
             })),
         );
+        
+        dbg!(&results);
 
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             results,
@@ -196,8 +198,7 @@ impl Local {
                 LocalVectorDatabase::new(
                     configuration.embedder.dimensions,
                     &configuration.vector_database.base_url,
-                )
-                .unwrap(),
+                )?,
             ),
         })
     }

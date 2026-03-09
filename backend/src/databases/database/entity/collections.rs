@@ -6,9 +6,8 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "collections")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false, column_type = "Text")]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    #[sea_orm(column_type = "Text")]
     pub title: String,
     pub created_at: i64,
     pub last_modified: i64,
