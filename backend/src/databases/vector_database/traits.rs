@@ -19,8 +19,8 @@ pub enum VectorDatabaseProvider {
 impl Display for VectorDatabaseProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Local => f.write_str("Built-in"),
-            Self::Qdrant => f.write_str("Qdrant"),
+            Self::Local => f.write_str("local"),
+            Self::Qdrant => f.write_str("qdrant"),
         }
     }
 }

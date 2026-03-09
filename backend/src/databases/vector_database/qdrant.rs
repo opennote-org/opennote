@@ -82,10 +82,18 @@ impl VectorDatabase for QdrantDatabase {
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
-        let points: Vec<PointStruct> = chunks
-            .into_iter()
-            .map(|chunk| PointStruct::from(chunk))
-            .collect();
+        let mut points: Vec<PointStruct> = Vec::new();
+
+        for chunk in chunks {
+            if chunk.dense_text_vector.is_empty() {
+                return Err(anyhow!(
+                    "No dense text vector found in the document chunk {}",
+                    chunk.id
+                ));
+            }
+
+            points.push(PointStruct::from(chunk));
+        }
 
         self.client
             .upsert_points(
