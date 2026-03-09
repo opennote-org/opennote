@@ -7,7 +7,7 @@ use local_vector_database::{Data, LocalVectorDatabase};
 use tokio::sync::Mutex;
 
 use crate::{
-    configurations::system::{Config, EmbedderConfig, VectorDatabaseConfig},
+    configurations::system::{Config, VectorDatabaseConfig},
     databases::database::{
         filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
         traits::database::Database,
@@ -23,7 +23,7 @@ use crate::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
-    embedder::{send_vectorization, vectorize},
+    embedder::send_vectorization,
 };
 
 pub struct Local {
@@ -32,18 +32,30 @@ pub struct Local {
 
 #[async_trait]
 impl VectorDatabase for Local {
+    async fn validate_data_integrity(
+        &self,
+        vector_database_config: &VectorDatabaseConfig,
+    ) -> Result<bool> {
+        let vector_database = self.vector_database.lock().await;
+
+        // Vector database should never have zero records when they are in normal use
+        if vector_database.len() == 0 {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
     async fn add_document_chunks_to_database(
         &self,
-        embedder_config: &EmbedderConfig,
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
-        let chunks: Vec<DocumentChunk> = vectorize(embedder_config, chunks).await?;
-
         let mut vector_database = self.vector_database.lock().await;
 
         let _ = vector_database.upsert(chunks.into_iter().map(|item| item.into()).collect());
 
+        vector_database.save()?;
         Ok(())
     }
 
@@ -56,13 +68,10 @@ impl VectorDatabase for Local {
             .map(|item| item.into())
             .collect();
 
-        self.add_document_chunks_to_database(
-            &configuration.embedder,
-            &configuration.vector_database,
-            document_chunks,
-        )
-        .await?;
+        self.add_document_chunks_to_database(&configuration.vector_database, document_chunks)
+            .await?;
 
+        vector_database.save()?;
         Ok(())
     }
 
@@ -92,6 +101,7 @@ impl VectorDatabase for Local {
 
         vector_database.delete(&chunk_ids);
 
+        vector_database.save()?;
         Ok(())
     }
 
