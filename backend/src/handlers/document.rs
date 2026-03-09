@@ -15,7 +15,7 @@ use crate::{
         },
     },
     app_state::AppState,
-    configurations::user::UserConfigurations,
+    configurations::{system::EmbedderConfig, user::UserConfigurations},
     connectors::{
         models::ImportTaskIntermediate,
         relationship_database::RelationshipDatabaseConnector,
@@ -103,11 +103,7 @@ pub async fn add_document(
 
         match data
             .databases_layer_entry
-            .add_documents(
-                &data.config.embedder,
-                &data.config.vector_database,
-                vec![metadata],
-            )
+            .add_documents(&data.config.vector_database, vec![metadata])
             .await
         {
             Ok(_) => {}
@@ -214,13 +210,18 @@ pub async fn import_documents(
                 }
             };
             let request: ImportDocumentsRequest = request.clone();
+            let embedder_config: EmbedderConfig = data.config.embedder.clone();
             preprocess_tasks.push(tokio::spawn(async move {
-                preprocess_document(
+                let (mut document_metadata, chunks, _) = preprocess_document(
                     &result.title,
                     &result.content,
                     &request.collection_metadata_id,
                     user_configurations.search.document_chunk_size,
-                )
+                );
+
+                document_metadata.chunks = vectorize(&embedder_config, chunks).await?;
+
+                Ok::<_, anyhow::Error>(document_metadata)
             }));
         }
 
@@ -229,11 +230,16 @@ pub async fn import_documents(
         let mut document_metadata_ids = Vec::new();
         for (index, task) in preprocess_tasks.into_iter().enumerate() {
             match task.await {
-                Ok((mut metadata, chunks, document_metadata_id)) => {
-                    metadata.chunks = chunks;
-                    document_metadatas.push(metadata);
-                    document_metadata_ids.push(document_metadata_id);
-                }
+                Ok(result) => match result {
+                    Ok(metadata) => {
+                        document_metadata_ids.push(metadata.id.clone());
+                        document_metadatas.push(metadata);
+                    }
+                    Err(err) => {
+                        error!("Failed to vectorize document: {}", err);
+                        failures.insert(request.0.imports[index].clone());
+                    }
+                },
                 Err(err) => {
                     error!("Failed to preprocess: {}", err);
                     failures.insert(request.0.imports[index].clone());
@@ -244,11 +250,7 @@ pub async fn import_documents(
 
         match data
             .databases_layer_entry
-            .add_documents(
-                &data.config.embedder,
-                &data.config.vector_database,
-                document_metadatas,
-            )
+            .add_documents(&data.config.vector_database, document_metadatas)
             .await
         {
             Ok(_) => {}
@@ -468,11 +470,7 @@ pub async fn update_document_content(
 
         match data
             .databases_layer_entry
-            .update_documents(
-                &data.config.embedder,
-                &data.config.vector_database,
-                vec![metadata],
-            )
+            .update_documents(&data.config.vector_database, vec![metadata])
             .await
         {
             Ok(_) => {}
@@ -807,11 +805,7 @@ pub async fn reindex(
 
         match data
             .databases_layer_entry
-            .update_documents(
-                &data.config.embedder,
-                &data.config.vector_database,
-                metadatas_to_update,
-            )
+            .update_documents(&data.config.vector_database, metadatas_to_update)
             .await
         {
             Ok(_) => {}

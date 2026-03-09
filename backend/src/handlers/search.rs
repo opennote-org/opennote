@@ -12,6 +12,40 @@ pub async fn intelligent_search(
     data: web::Data<AppState>,
     request: web::Json<SearchDocumentRequest>,
 ) -> Result<HttpResponse> {
+    let is_vector_database_valid = match data
+        .databases_layer_entry
+        .vector_database
+        .validate_data_integrity(&data.config.vector_database)
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            error!("Failed to validate data integrity: {}", error);
+            return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                "".to_string(),
+                "Failed to validate data integrity. Please try again.".to_string(),
+            )));
+        }
+    };
+
+    if !is_vector_database_valid {
+        log::warn!("Vector database data is not integral! Trying to recover...");
+        match data
+            .databases_layer_entry
+            .recover(&data.config.vector_database)
+            .await
+        {
+            Ok(_) => (),
+            Err(error) => {
+                error!("Failed to recover vector database: {}", error);
+                return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                    "".to_string(),
+                    "Failed to recover vector database. Please try again.".to_string(),
+                )));
+            }
+        }
+    }
+
     let document_metadata_ids: Vec<String> = match retrieve_document_ids_by_scope(
         &data.databases_layer_entry.database,
         request.0.scope.search_scope,
@@ -69,6 +103,39 @@ pub async fn search(
     data: web::Data<AppState>,
     request: web::Json<SearchDocumentRequest>,
 ) -> Result<HttpResponse> {
+    let is_vector_database_valid = match data
+        .databases_layer_entry
+        .vector_database
+        .validate_data_integrity(&data.config.vector_database)
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            error!("Failed to validate data integrity: {}", error);
+            return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                "".to_string(),
+                "Failed to validate data integrity. Please try again.".to_string(),
+            )));
+        }
+    };
+
+    if !is_vector_database_valid {
+        match data
+            .databases_layer_entry
+            .recover(&data.config.vector_database)
+            .await
+        {
+            Ok(_) => (),
+            Err(error) => {
+                error!("Failed to recover vector database: {}", error);
+                return Ok(HttpResponse::Ok().json(GenericResponse::fail(
+                    "".to_string(),
+                    "Failed to recover vector database. Please try again.".to_string(),
+                )));
+            }
+        }
+    }
+
     let document_metadata_ids: Vec<String> = match retrieve_document_ids_by_scope(
         &data.databases_layer_entry.database,
         request.0.scope.search_scope,

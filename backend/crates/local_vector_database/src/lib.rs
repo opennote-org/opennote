@@ -44,8 +44,6 @@ struct DataBase {
 
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     additional_data: HashMap<String, serde_json::Value>,
-
-    keywords_index: HashMap<String, Vec<String>>,
 }
 
 mod base64_bytes {
@@ -136,7 +134,6 @@ impl LocalVectorDatabase {
                 data: Vec::new(),
                 matrix: Vec::new(),
                 additional_data: HashMap::new(),
-                keywords_index: HashMap::new(),
             }
         };
 
@@ -222,15 +219,6 @@ impl LocalVectorDatabase {
         }
 
         Ok((updates, inserts))
-    }
-
-    /// Queries the database with keywords
-    pub fn query_keywords(
-        &self,
-        query: &str,
-        filter: Option<DataFilter>,
-    ) -> Vec<HashMap<String, serde_json::Value>> {
-        vec![]
     }
 
     /// Queries the database for similar vectors
