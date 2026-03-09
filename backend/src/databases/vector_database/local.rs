@@ -165,8 +165,6 @@ impl SemanticSearch for Local {
                 )
             })),
         );
-        
-        dbg!(&results);
 
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
             results,
@@ -194,12 +192,10 @@ impl KeywordSearch for Local {}
 impl Local {
     pub async fn new(configuration: &Config) -> Result<Self> {
         Ok(Self {
-            vector_database: Mutex::new(
-                LocalVectorDatabase::new(
-                    configuration.embedder.dimensions,
-                    &configuration.vector_database.base_url,
-                )?,
-            ),
+            vector_database: Mutex::new(LocalVectorDatabase::new(
+                configuration.embedder.dimensions,
+                &configuration.vector_database.base_url,
+            )?),
         })
     }
 }
