@@ -158,7 +158,6 @@ impl Database for SQLiteDatabase {
                 .await?;
         }
 
-        dbg!(&chunks_to_insert);
         if !chunks_to_insert.is_empty() {
             document_chunks::Entity::insert_many(chunks_to_insert)
                 .on_conflict(

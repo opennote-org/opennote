@@ -465,7 +465,7 @@ pub async fn update_document_content(
             &metadata.id,
             &metadata.collection_metadata_id,
         );
-        
+
         metadata.chunks = match vectorize(&data.config.embedder, chunks).await {
             Ok(chunks) => chunks,
             Err(error) => {
