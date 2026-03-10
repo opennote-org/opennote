@@ -64,10 +64,6 @@ pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
                 database_information.number_users
             );
             log::info!(
-                "Backups storage file contains {} entries",
-                state.backups_storage.lock().await.backups.len()
-            );
-            log::info!(
                 "Task scheduler has {} registered tasks",
                 state.tasks_scheduler.lock().await.registered_tasks.len()
             );
