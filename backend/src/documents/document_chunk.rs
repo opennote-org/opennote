@@ -4,7 +4,6 @@ use std::{collections::HashMap, io::Read};
 
 use chunk::chunk;
 use jieba_rs::Jieba;
-use local_vector_database::Data;
 use qdrant_client::{
     Payload,
     qdrant::{NamedVectors, PointStruct, RetrievedPoint},
@@ -159,16 +158,6 @@ impl DocumentChunk {
 impl GetId for DocumentChunk {
     fn get_id(&self) -> &str {
         &self.id
-    }
-}
-
-impl From<DocumentChunk> for Data {
-    fn from(value: DocumentChunk) -> Self {
-        Self {
-            id: value.id.clone(),
-            vector: value.dense_text_vector.clone(),
-            fields: serde_json::from_str(&serde_json::to_string(&value).unwrap()).unwrap(),
-        }
     }
 }
 
