@@ -1,7 +1,6 @@
 use actix_web::{Scope, web};
 
 use crate::handlers::{
-    backup::{backup, get_backups_list, remove_backups, restore_backup},
     collection::{
         create_collection, delete_collections, get_collections, update_collections_metadata,
     },
@@ -85,12 +84,5 @@ pub fn configure_routes() -> Scope {
                     web::post().to(intelligent_search),
                 )
                 .route("/sync/search", web::post().to(search)),
-        )
-        .service(
-            web::scope("backup")
-                .route("/sync/remove_backups", web::post().to(remove_backups))
-                .route("/sync/get_backups_list", web::post().to(get_backups_list))
-                .route("/async/backup", web::post().to(backup))
-                .route("/async/restore_backup", web::post().to(restore_backup)),
         )
 }
