@@ -466,7 +466,18 @@ pub async fn update_document_content(
             &metadata.collection_metadata_id,
         );
 
-        metadata.chunks = chunks.clone();
+        metadata.chunks = match vectorize(&data.config.embedder, chunks).await {
+            Ok(chunks) => chunks,
+            Err(error) => {
+                error!("Failed to vectorize document chunks: {}", error);
+                data.tasks_scheduler.lock().await.update_status_by_task_id(
+                    &task_id,
+                    TaskStatus::Failed,
+                    Some(error.to_string()),
+                );
+                return;
+            }
+        };
 
         match data
             .databases_layer_entry

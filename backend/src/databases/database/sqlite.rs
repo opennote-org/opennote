@@ -7,12 +7,12 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::ActiveValue::Unchanged;
+use sea_orm::{ActiveModelBehavior, IntoActiveModel, PaginatorTrait};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
     Set,
     sea_query::{Expr, OnConflict},
 };
-use sea_orm::{IntoActiveModel, PaginatorTrait};
 
 use crate::databases::vector_database::traits::VectorDatabase;
 use crate::documents::{
@@ -158,7 +158,6 @@ impl Database for SQLiteDatabase {
                 .await?;
         }
 
-        dbg!(&chunks_to_insert);
         if !chunks_to_insert.is_empty() {
             document_chunks::Entity::insert_many(chunks_to_insert)
                 .on_conflict(
@@ -587,11 +586,16 @@ impl MetadataManagement for SQLiteDatabase {
     async fn update_metadata_settings(&self, settings: MetadataSettings) -> Result<()> {
         use crate::databases::database::entity::metadata_settings;
 
-        let model: metadata_settings::Model = settings.into();
-
-        metadata_settings::Entity::update::<metadata_settings::ActiveModel>(model.into())
-            .exec(&self.pool)
-            .await?;
+        metadata_settings::Entity::update(metadata_settings::ActiveModel {
+            id: Unchanged(1),
+            embedder_model_in_use: Set(settings.embedder_model_in_use),
+            embedder_model_vector_size_in_use: Set(
+                settings.embedder_model_vector_size_in_use as i64
+            ),
+            vector_database_in_use: Set(settings.vector_database_in_use),
+        })
+        .exec(&self.pool)
+        .await?;
 
         Ok(())
     }

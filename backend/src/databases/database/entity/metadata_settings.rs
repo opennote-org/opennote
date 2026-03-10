@@ -6,11 +6,11 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "metadata_settings")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key)]
     pub id: i64,
-    #[sea_orm(column_type = "Text")]
     pub embedder_model_in_use: String,
     pub embedder_model_vector_size_in_use: i64,
+    pub vector_database_in_use: String,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

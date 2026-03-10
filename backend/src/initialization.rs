@@ -6,16 +6,13 @@ use actix_web::{
     middleware::Logger,
     web::{self, Data},
 };
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::transport::StreamableHttpService;
 
 use crate::{
-    app_state::AppState,
-    checkups::{align_embedder_model, handshake_embedding_service},
-    configurations::system::Config,
-    mcp::service::MCPService,
+    app_state::AppState, configurations::system::Config, mcp::service::MCPService,
     routes::configure_routes,
 };
 
@@ -78,24 +75,6 @@ pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
                 "Vector database will connect to {}",
                 config.vector_database.provider
             );
-
-            // Checkups
-            match handshake_embedding_service(&config.embedder).await {
-                Ok(_) => log::info!("Embedding service is ONLINE"),
-                Err(error) => panic!("{}", error),
-            }
-
-            match align_embedder_model(&config, &state).await {
-                Ok(_) => log::info!("Embedder model alignment completed successfully"),
-                Err(e) => {
-                    let error_message = format!("Failed to align embedder model: {}", e);
-                    log::error!("{}", &error_message);
-                    return Err(anyhow!(error_message));
-                }
-            }
-
-            // Create shared application state
-            log::info!("Application state initialized successfully");
 
             Ok(Data::new(state))
         }

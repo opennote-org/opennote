@@ -192,13 +192,10 @@ impl KeywordSearch for Local {}
 impl Local {
     pub async fn new(configuration: &Config) -> Result<Self> {
         Ok(Self {
-            vector_database: Mutex::new(
-                LocalVectorDatabase::new(
-                    configuration.embedder.dimensions,
-                    &configuration.vector_database.base_url,
-                )
-                .unwrap(),
-            ),
+            vector_database: Mutex::new(LocalVectorDatabase::new(
+                configuration.embedder.dimensions,
+                &configuration.vector_database.base_url,
+            )?),
         })
     }
 }
