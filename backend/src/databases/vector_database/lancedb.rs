@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
+use arrow_array::RecordBatch;
 use async_trait::async_trait;
 use lancedb::{
     arrow::arrow_schema::{DataType, Field, Schema},
     connect,
     index::{Index, scalar::FtsIndexBuilder, vector::IvfHnswSqIndexBuilder},
 };
-use tokio::sync::Mutex;
 
 use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
@@ -32,6 +32,7 @@ use crate::{
 
 pub struct LanceDB {
     vector_database: lancedb::Connection,
+    schema: Arc<Schema>,
 }
 
 #[async_trait]
@@ -40,9 +41,14 @@ impl VectorDatabase for LanceDB {
         &self,
         vector_database_config: &VectorDatabaseConfig,
     ) -> Result<bool> {
-        self.vector_database.open_table(name);
+        let table = self
+            .vector_database
+            .open_table(&vector_database_config.index)
+            .execute()
+            .await?;
+        let rows = table.count_rows(None).await?;
         // Vector database should never have zero records when they are in normal use
-        if vector_database.len() == 0 {
+        if rows == 0 {
             return Ok(false);
         }
 
@@ -54,11 +60,14 @@ impl VectorDatabase for LanceDB {
         vector_database_config: &VectorDatabaseConfig,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
-        let mut vector_database = self.vector_database.lock().await;
+        let table = self
+            .vector_database
+            .open_table(&vector_database_config.index)
+            .execute()
+            .await?;
 
-        let _ = vector_database.upsert(chunks.into_iter().map(|item| item.into()).collect());
+        table.add(chunks).execute().await?;
 
-        vector_database.save()?;
         Ok(())
     }
 
@@ -198,21 +207,23 @@ impl LanceDB {
             .execute()
             .await?;
 
+        let schema: Arc<Schema> = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Utf8, false),
+            Field::new("document_metadata_id", DataType::Utf8, false),
+            Field::new("collection_metadata_id", DataType::Utf8, false),
+            Field::new("content", DataType::Utf8, false),
+            Field::new(
+                "dense_text_vector",
+                DataType::FixedSizeList(
+                    Arc::new(Field::new("item", DataType::Float32, true)),
+                    configuration.embedder.dimensions as i32,
+                ),
+                false,
+            ),
+        ]));
+
         match vector_database
-            .create_empty_table(
-                &configuration.vector_database.base_url,
-                Arc::new(Schema::new(vec![
-                    Field::new("id", DataType::Utf8, false),
-                    Field::new("document_metadata_id", DataType::Utf8, false),
-                    Field::new("collection_metadata_id", DataType::Utf8, false),
-                    Field::new("content", DataType::Utf8, false),
-                    Field::new(
-                        "dense_text_vector",
-                        DataType::List(DataType::Float32),
-                        false,
-                    ),
-                ])),
-            )
+            .create_empty_table(&configuration.vector_database.base_url, schema.clone())
             .mode(lancedb::database::CreateTableMode::Create)
             .execute()
             .await
@@ -241,7 +252,33 @@ impl LanceDB {
             .execute()
             .await?;
 
-        Ok(Self { vector_database })
+        Ok(Self {
+            vector_database,
+            schema,
+        })
+    }
+
+    pub fn convert_document_chunks_to_record_batches(
+        &self,
+        chunks: Vec<DocumentChunk>,
+    ) -> Vec<RecordBatch> {
+        chunks
+            .into_iter()
+            .map(|item| RecordBatch::try_new(self.schema.clone(), vec![
+                Arc::new(arrow_array::StringArray::from(item.id)),
+                // Field::new("document_metadata_id", DataType::Utf8, false),
+                // Field::new("collection_metadata_id", DataType::Utf8, false),
+                // Field::new("content", DataType::Utf8, false),
+                // Field::new(
+                //     "dense_text_vector",
+                //     DataType::FixedSizeList(
+                //         Arc::new(Field::new("item", DataType::Float32, true)),
+                //         configuration.embedder.dimensions as i32,
+                //     ),
+                //     false,
+                // ),
+            ]))
+            .collect()
     }
 }
 
