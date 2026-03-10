@@ -41,4 +41,4 @@ const String backupEndpoint = "$baseUrl$apiUrl/backup/async/backup";
 const String restoreBackupEndpoint = "$baseUrl$apiUrl/backup/async/restore_backup";
 
 // Version
-const String frontendVersion = "0.1.0";
+const String frontendVersion = "0.1.3";

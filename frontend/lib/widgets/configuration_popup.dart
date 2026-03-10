@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:notes/state/app_state_scope.dart';
-import 'package:notes/widgets/configuration/backups_panel.dart';
 import 'package:notes/widgets/configuration/configuration_section_renderer.dart';
 import 'package:notes/widgets/configuration/default_json_schema_section_renderer.dart';
 import 'package:notes/widgets/configuration/key_mappings_section_renderer.dart';
@@ -132,7 +131,6 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
   IconData _fetchIcon(String title) {
     IconData icon = Icons.settings;
     if (title == "search") icon = Icons.search;
-    if (title == "Backup") icon = Icons.backup;
     if (title == "System") icon = Icons.system_security_update;
 
     return icon;
@@ -141,8 +139,7 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
   @override
   Widget build(BuildContext context) {
     final schemaProperties = _getSchemaProperties();
-    final predefinedTabs = ["Backup", "System"];
-    // Add Backup as the last item
+    final predefinedTabs = ["System"];
     final tabs = [...schemaProperties, ...predefinedTabs];
 
     return Dialog(
@@ -209,10 +206,6 @@ class _ConfigurationPopupState extends State<ConfigurationPopup> {
     }
 
     final selectedTab = tabs[_selectedIndex];
-
-    if (selectedTab == "Backup") {
-      return const BackupSettings();
-    }
 
     if (selectedTab == "System") {
       return const SystemPanel();
