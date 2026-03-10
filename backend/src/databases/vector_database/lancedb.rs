@@ -3,7 +3,11 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use local_vector_database::{Data, LocalVectorDatabase};
+use lancedb::{
+    arrow::arrow_schema::{DataType, Field, Schema},
+    connect,
+    index::{Index, scalar::FtsIndexBuilder, vector::IvfHnswSqIndexBuilder},
+};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -26,18 +30,17 @@ use crate::{
     embedder::send_vectorization,
 };
 
-pub struct Local {
-    vector_database: Mutex<LocalVectorDatabase>,
+pub struct LanceDB {
+    vector_database: lancedb::Connection,
 }
 
 #[async_trait]
-impl VectorDatabase for Local {
+impl VectorDatabase for LanceDB {
     async fn validate_data_integrity(
         &self,
         vector_database_config: &VectorDatabaseConfig,
     ) -> Result<bool> {
-        let vector_database = self.vector_database.lock().await;
-
+        self.vector_database.open_table(name);
         // Vector database should never have zero records when they are in normal use
         if vector_database.len() == 0 {
             return Ok(false);
@@ -123,7 +126,7 @@ impl VectorDatabase for Local {
 }
 
 #[async_trait]
-impl SemanticSearch for Local {
+impl SemanticSearch for LanceDB {
     async fn search_documents_semantically(
         &self,
         database: &Arc<dyn Database>,
@@ -187,16 +190,58 @@ impl SemanticSearch for Local {
 }
 
 #[async_trait]
-impl KeywordSearch for Local {}
+impl KeywordSearch for LanceDB {}
 
-impl Local {
+impl LanceDB {
     pub async fn new(configuration: &Config) -> Result<Self> {
-        Ok(Self {
-            vector_database: Mutex::new(LocalVectorDatabase::new(
-                configuration.embedder.dimensions,
+        let vector_database: lancedb::Connection = connect(&configuration.vector_database.base_url)
+            .execute()
+            .await?;
+
+        match vector_database
+            .create_empty_table(
                 &configuration.vector_database.base_url,
-            )?),
-        })
+                Arc::new(Schema::new(vec![
+                    Field::new("id", DataType::Utf8, false),
+                    Field::new("document_metadata_id", DataType::Utf8, false),
+                    Field::new("collection_metadata_id", DataType::Utf8, false),
+                    Field::new("content", DataType::Utf8, false),
+                    Field::new(
+                        "dense_text_vector",
+                        DataType::List(DataType::Float32),
+                        false,
+                    ),
+                ])),
+            )
+            .mode(lancedb::database::CreateTableMode::Create)
+            .execute()
+            .await
+        {
+            Ok(_) => {}
+            Err(_) => {
+                log::info!("Table has created. Skip creation")
+            }
+        }
+
+        let table = vector_database
+            .open_table(&configuration.vector_database.base_url)
+            .execute()
+            .await?;
+
+        table
+            .create_index(
+                &["dense_text_vector"],
+                Index::IvfHnswSq(IvfHnswSqIndexBuilder::default()),
+            )
+            .execute()
+            .await?;
+
+        table
+            .create_index(&["content"], Index::FTS(FtsIndexBuilder::default()))
+            .execute()
+            .await?;
+
+        Ok(Self { vector_database })
     }
 }
 
