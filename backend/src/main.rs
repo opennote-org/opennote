@@ -1,6 +1,5 @@
 mod api_models;
 mod app_state;
-mod backup;
 mod checkups;
 mod configurations;
 mod connectors;
@@ -18,7 +17,7 @@ mod tasks_scheduler;
 mod traits;
 
 use actix_web::web::Data;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use app_state::AppState;
 use log::info;
 

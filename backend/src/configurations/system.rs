@@ -4,7 +4,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, fs};
+use std::fs;
 
 use crate::databases::{
     database::shared::DatabaseProvider, vector_database::traits::VectorDatabaseProvider,

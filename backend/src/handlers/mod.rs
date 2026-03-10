@@ -1,4 +1,3 @@
-pub mod backup;
 pub mod collection;
 pub mod document;
 pub mod general;

@@ -1,4 +1,3 @@
-pub mod backup;
 pub mod callbacks;
 pub mod collection;
 pub mod document;
