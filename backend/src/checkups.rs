@@ -77,3 +77,32 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
 
     Ok(())
 }
+
+pub async fn align_vector_database(config: &Config, app_state: &AppState) -> Result<()> {
+    let mut metadata_settings = app_state
+        .databases_layer_entry
+        .database
+        .get_metadata_settings()
+        .await?;
+
+    // This means the embedder model has changed
+    if !metadata_settings.vector_database_in_use.is_empty()
+        && (metadata_settings.vector_database_in_use != config.vector_database.provider.to_string())
+    {
+        log::info!("Vector database has changed. Perform re-indexing. please wait...");
+        app_state
+            .databases_layer_entry
+            .recover(&config.vector_database)
+            .await?;
+        log::info!("Re-indexing finished.");
+    }
+
+    metadata_settings.vector_database_in_use = config.vector_database.provider.to_string();
+    app_state
+        .databases_layer_entry
+        .database
+        .update_metadata_settings(metadata_settings)
+        .await?;
+
+    Ok(())
+}

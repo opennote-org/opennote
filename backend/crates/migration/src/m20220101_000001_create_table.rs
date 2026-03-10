@@ -128,15 +128,16 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum MetadataSettings {
+pub enum MetadataSettings {
     Table,
     Id,
     EmbedderModelInUse,
     EmbedderModelVectorSizeInUse,
+    VectorDatabaseInUse,
 }
 
 #[derive(Iden)]
-enum Collections {
+pub enum Collections {
     Table,
     Id,
     Title,
@@ -145,7 +146,7 @@ enum Collections {
 }
 
 #[derive(Iden)]
-enum Documents {
+pub enum Documents {
     Table,
     Id,
     CollectionMetadataId,
@@ -155,7 +156,7 @@ enum Documents {
 }
 
 #[derive(Iden)]
-enum DocumentChunks {
+pub enum DocumentChunks {
     Table,
     Id,
     DocumentMetadataId,
@@ -166,7 +167,7 @@ enum DocumentChunks {
 }
 
 #[derive(Iden)]
-enum Users {
+pub enum Users {
     Table,
     Id,
     Username,
