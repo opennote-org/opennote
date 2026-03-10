@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:notes/services/collection.dart';
 import 'package:notes/services/document.dart';
-import 'package:notes/services/backup.dart';
 import 'package:notes/state/collections.dart';
 import 'package:notes/state/documents.dart';
 import 'package:notes/state/services.dart';
@@ -21,8 +20,6 @@ class SearchHighlight {
 
 class AppState extends ChangeNotifier
     with Services, Users, Activities, Tasks, Documents, Collections {
-  List<BackupListItem> backups = [];
-
   // Search Highlights
   final Map<String, SearchHighlight> searchHighlights = {};
 
@@ -195,7 +192,6 @@ class AppState extends ChangeNotifier
     await Future.wait([
       refreshDocuments(),
       refreshCollections(), // Also refresh collections as some tasks might affect them
-      fetchBackups(),
       if (username != null)
         keyBindings.fetchAndApplyConfigurations(dio, users, username!),
     ]);
@@ -262,44 +258,6 @@ class AppState extends ChangeNotifier
       imports,
     );
     addTask(taskId, "Importing ${imports.length} documents", pollTasks);
-  }
-
-  Future<void> fetchBackups() async {
-    if (username == null) return;
-    try {
-      backups = await backupService.getBackupsList(dio, username!);
-      notifyListeners();
-    } catch (e) {
-      print("Failed to fetch backups: $e");
-    }
-  }
-
-  Future<void> createBackup() async {
-    if (username == null) return;
-    try {
-      final taskId = await backupService.backup(dio, username!);
-      addTask(taskId, "Creating backup", pollTasks);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> restoreBackup(String backupId) async {
-    try {
-      final taskId = await backupService.restoreBackup(dio, backupId);
-      addTask(taskId, "Restoring backup", pollTasks);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> deleteBackup(String backupId) async {
-    try {
-      await backupService.removeBackups(dio, [backupId]);
-      await fetchBackups();
-    } catch (e) {
-      rethrow;
-    }
   }
 
   void swapDocumentId(String oldId, String newId) {
