@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
-use arrow_array::RecordBatch;
+use arrow_array::{ArrayRef, FixedSizeListArray, Float32Array, RecordBatch, StringArray};
 use async_trait::async_trait;
 use lancedb::{
     arrow::arrow_schema::{DataType, Field, Schema},
@@ -261,24 +261,55 @@ impl LanceDB {
     pub fn convert_document_chunks_to_record_batches(
         &self,
         chunks: Vec<DocumentChunk>,
-    ) -> Vec<RecordBatch> {
-        chunks
+    ) -> Result<Vec<RecordBatch>> {
+        let mut ids = Vec::new();
+        let mut document_metadata_ids = Vec::new();
+        let mut collection_metadata_ids = Vec::new();
+        let mut contents = Vec::new();
+        let mut dense_text_vectors = Vec::new();
+
+        for chunk in chunks {
+            ids.push(chunk.id);
+            document_metadata_ids.push(chunk.document_metadata_id);
+            collection_metadata_ids.push(chunk.collection_metadata_id);
+            contents.push(chunk.content);
+            dense_text_vectors.push(chunk.dense_text_vector);
+        }
+
+        let id_array = Arc::new(StringArray::from(ids)) as ArrayRef;
+        let document_metadata_id_array =
+            Arc::new(StringArray::from(document_metadata_ids)) as ArrayRef;
+        let collection_metadata_id_array =
+            Arc::new(StringArray::from(collection_metadata_ids)) as ArrayRef;
+        let content_array = Arc::new(StringArray::from(contents)) as ArrayRef;
+
+        let vector_arrays: Vec<ArrayRef> = dense_text_vectors
             .into_iter()
-            .map(|item| RecordBatch::try_new(self.schema.clone(), vec![
-                Arc::new(arrow_array::StringArray::from(item.id)),
-                // Field::new("document_metadata_id", DataType::Utf8, false),
-                // Field::new("collection_metadata_id", DataType::Utf8, false),
-                // Field::new("content", DataType::Utf8, false),
-                // Field::new(
-                //     "dense_text_vector",
-                //     DataType::FixedSizeList(
-                //         Arc::new(Field::new("item", DataType::Float32, true)),
-                //         configuration.embedder.dimensions as i32,
-                //     ),
-                //     false,
-                // ),
-            ]))
-            .collect()
+            .map(|vec| Arc::new(Float32Array::from(vec)) as ArrayRef)
+            .collect();
+
+        let dense_text_vector_array = Arc::new(FixedSizeListArray::try_new_from_values(
+            FixedSizeListArray::try_new_from_values(
+                arrow_array::builder::ArrayBuilder::finish(
+                    &mut arrow_array::builder::Float32Builder::new(),
+                ),
+                vector_arrays.len() as i32,
+            )?,
+            vector_arrays.len() as i32,
+        )?) as ArrayRef;
+
+        let record_batch = RecordBatch::try_new(
+            self.schema.clone(),
+            vec![
+                id_array,
+                document_metadata_id_array,
+                collection_metadata_id_array,
+                content_array,
+                dense_text_vector_array,
+            ],
+        )?;
+
+        Ok(vec![record_batch])
     }
 }
 
