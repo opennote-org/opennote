@@ -62,7 +62,7 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
         app_state
             .databases_layer_entry
             .vector_database
-            .reindex_documents(config)
+            .reindex_documents(config, &app_state.databases_layer_entry.database)
             .await?;
         log::info!("Re-indexing finished.");
     }

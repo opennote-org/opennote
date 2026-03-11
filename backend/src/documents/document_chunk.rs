@@ -161,36 +161,6 @@ impl GetId for DocumentChunk {
     }
 }
 
-impl From<Data> for DocumentChunk {
-    fn from(value: Data) -> Self {
-        Self {
-            id: value.id,
-            document_metadata_id: value
-                .fields
-                .get("document_metadata_id")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            collection_metadata_id: value
-                .fields
-                .get("collection_metadata_id")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            content: value
-                .fields
-                .get("content")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            dense_text_vector: Vec::new(),
-        }
-    }
-}
-
 impl From<DocumentChunk> for PointStruct {
     fn from(value: DocumentChunk) -> Self {
         Self::new(

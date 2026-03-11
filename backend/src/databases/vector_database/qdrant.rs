@@ -9,10 +9,10 @@ use qdrant_client::{
     config::QdrantConfig,
     qdrant::{
         CollectionExistsRequest, Condition, CreateCollectionBuilder,
-        CreateFieldIndexCollectionBuilder, DeleteCollection, DeleteCollectionBuilder,
-        DeletePointsBuilder, FieldType, Filter, GetCollectionInfoRequest, GetPointsBuilder,
-        PointId, PointStruct, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder,
-        ScrollResponse, SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
+        CreateFieldIndexCollectionBuilder, DeleteCollectionBuilder, DeletePointsBuilder, FieldType,
+        Filter, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct,
+        QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse,
+        SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
         TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder,
         VectorsConfigBuilder,
     },
@@ -25,7 +25,10 @@ use crate::{
     },
     databases::{
         database::{
-            filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
+            filters::{
+                get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
+                get_documents::GetDocumentFilter,
+            },
             traits::database::Database,
         },
         search::{
@@ -40,7 +43,7 @@ use crate::{
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
     },
-    embedder::send_vectorization,
+    embedder::{send_vectorization, vectorize},
 };
 
 #[derive(Clone)]
@@ -51,6 +54,75 @@ pub struct QdrantDatabase {
 
 #[async_trait]
 impl VectorDatabase for QdrantDatabase {
+    async fn create_vector_database(&self, configuration: &Config) -> Result<()> {
+        let mut dense_text_vector_config = VectorsConfigBuilder::default();
+        dense_text_vector_config.add_named_vector_params(
+            QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+            VectorParamsBuilder::new(
+                configuration.embedder.dimensions as u64,
+                qdrant_client::qdrant::Distance::Cosine,
+            ),
+        );
+
+        let mut sparse_vector_config = SparseVectorsConfigBuilder::default();
+        sparse_vector_config.add_named_vector_params(
+            QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
+            SparseVectorParamsBuilder::default(),
+        );
+
+        match self
+            .client
+            .create_collection(
+                CreateCollectionBuilder::new(&configuration.vector_database.index)
+                    .vectors_config(dense_text_vector_config)
+                    .sparse_vectors_config(sparse_vector_config)
+                    .build(),
+            )
+            .await
+        {
+            Ok(_) => info!("Created a new collection `note` to record document chunks"),
+            Err(error) => {
+                // we can't use the notebook without having a collection
+                panic!("Failed to initialize collection due to: {}", error);
+            }
+        }
+
+        // Create index for these fields that are potentially be filters.
+        // This is to optimize the search performance when the user stores large datasets.
+        for field in DocumentChunk::get_indexable_fields() {
+            match field {
+                IndexableField::Keyword(field) => {
+                    self.client
+                        .create_field_index(CreateFieldIndexCollectionBuilder::new(
+                            &configuration.vector_database.index,
+                            field,
+                            FieldType::Keyword,
+                        ))
+                        .await?;
+                }
+                IndexableField::FullText(field) => {
+                    let text_index_params =
+                        TextIndexParamsBuilder::new(TokenizerType::Multilingual)
+                            .phrase_matching(true)
+                            .build();
+
+                    self.client
+                        .create_field_index(
+                            CreateFieldIndexCollectionBuilder::new(
+                                &configuration.vector_database.index,
+                                field,
+                                FieldType::Text,
+                            )
+                            .field_index_params(text_index_params),
+                        )
+                        .await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     async fn validate_data_integrity(
         &self,
         vector_database_config: &VectorDatabaseConfig,
@@ -105,38 +177,16 @@ impl VectorDatabase for QdrantDatabase {
     }
 
     /// TODO: use the sqlite database as the source of truth when reindexing
-    async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
-        let counts: u64 = match self
-            .client
-            .collection_info(GetCollectionInfoRequest {
-                collection_name: configuration.vector_database.index.to_string(),
+    async fn reindex_documents(
+        &self,
+        configuration: &Config,
+        database: &Arc<dyn Database>,
+    ) -> Result<()> {
+        let chunks = database
+            .get_document_chunks(&GetDocumentChunkFilter {
+                ..Default::default()
             })
-            .await?
-            .result
-        {
-            Some(result) => result.points_count(),
-            None => return Err(anyhow!("Cannot get points count. Re-indexation failed")),
-        };
-
-        // For now, this is only a simple implementation.
-        // TODO: Should consider dealing with larger collection.
-        if counts > u32::MAX as u64 {
-            return Err(anyhow!(
-                "Number of document chunks had exceeded the re-indexation limit {}",
-                u32::MAX
-            ));
-        }
-
-        let retrieved_points = self
-            .client
-            .scroll(
-                ScrollPointsBuilder::new(configuration.vector_database.index.clone())
-                    .with_payload(true)
-                    .limit(counts as u32)
-                    .build(),
-            )
-            .await?
-            .result;
+            .await?;
 
         self.client
             .delete_collection(DeleteCollectionBuilder::new(
@@ -144,14 +194,11 @@ impl VectorDatabase for QdrantDatabase {
             ))
             .await?;
 
-        create_collection(&self.client, configuration).await?;
+        self.create_vector_database(configuration).await?;
 
-        let document_chunks: Vec<DocumentChunk> = retrieved_points
-            .into_iter()
-            .map(|item| item.into())
-            .collect();
+        let chunks = vectorize(&configuration.embedder, chunks).await?;
 
-        self.add_document_chunks_to_database(&configuration.vector_database, document_chunks)
+        self.add_document_chunks_to_database(&configuration.vector_database, chunks)
             .await?;
 
         Ok(())
@@ -348,7 +395,14 @@ impl QdrantDatabase {
             });
         }
 
-        create_collection(&client, configuration).await?;
+        let vector_database = Self {
+            index: configuration.vector_database.index.clone(),
+            client: client.clone(),
+        };
+
+        vector_database
+            .create_vector_database(&configuration)
+            .await?;
 
         match validate_configuration(&client, configuration).await {
             Ok(_) => {}
@@ -362,10 +416,7 @@ impl QdrantDatabase {
             }
         }
 
-        Ok(Self {
-            index: configuration.vector_database.index.clone(),
-            client,
-        })
+        Ok(vector_database)
     }
 }
 
@@ -405,73 +456,6 @@ async fn validate_configuration(qdrant_client: &Qdrant, configuration: &Config) 
             }
         }
         Err(error) => return Err(error.into()),
-    }
-
-    Ok(())
-}
-
-async fn create_collection(client: &Qdrant, configuration: &Config) -> Result<()> {
-    let mut dense_text_vector_config = VectorsConfigBuilder::default();
-    dense_text_vector_config.add_named_vector_params(
-        QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-        VectorParamsBuilder::new(
-            configuration.embedder.dimensions as u64,
-            qdrant_client::qdrant::Distance::Cosine,
-        ),
-    );
-
-    let mut sparse_vector_config = SparseVectorsConfigBuilder::default();
-    sparse_vector_config.add_named_vector_params(
-        QDRANT_SPARSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-        SparseVectorParamsBuilder::default(),
-    );
-
-    match client
-        .create_collection(
-            CreateCollectionBuilder::new(&configuration.vector_database.index)
-                .vectors_config(dense_text_vector_config)
-                .sparse_vectors_config(sparse_vector_config)
-                .build(),
-        )
-        .await
-    {
-        Ok(_) => info!("Created a new collection `note` to record document chunks"),
-        Err(error) => {
-            // we can't use the notebook without having a collection
-            panic!("Failed to initialize collection due to: {}", error);
-        }
-    }
-
-    // Create index for these fields that are potentially be filters.
-    // This is to optimize the search performance when the user stores large datasets.
-    for field in DocumentChunk::get_indexable_fields() {
-        match field {
-            IndexableField::Keyword(field) => {
-                client
-                    .create_field_index(CreateFieldIndexCollectionBuilder::new(
-                        &configuration.vector_database.index,
-                        field,
-                        FieldType::Keyword,
-                    ))
-                    .await?;
-            }
-            IndexableField::FullText(field) => {
-                let text_index_params = TextIndexParamsBuilder::new(TokenizerType::Multilingual)
-                    .phrase_matching(true)
-                    .build();
-
-                client
-                    .create_field_index(
-                        CreateFieldIndexCollectionBuilder::new(
-                            &configuration.vector_database.index,
-                            field,
-                            FieldType::Text,
-                        )
-                        .field_index_params(text_index_params),
-                    )
-                    .await?;
-            }
-        }
     }
 
     Ok(())
