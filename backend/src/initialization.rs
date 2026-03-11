@@ -13,7 +13,7 @@ use rmcp_actix_web::transport::StreamableHttpService;
 
 use crate::{
     app_state::AppState, configurations::system::Config, mcp::service::MCPService,
-    routes::configure_routes,
+    model_loader::downloader, routes::configure_routes,
 };
 
 pub fn load_configurations() -> Result<Config> {
@@ -126,6 +126,25 @@ pub async fn initialize_backend_api_service(
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
         .run()
         .await?;
+
+    Ok(())
+}
+
+pub async fn initialize_local_model(config: &mut Config) -> Result<()> {
+    if config.embedder.provider.trim() == "local" {
+        let model_local_paths: downloader::ModelLocalPaths =
+            downloader::download_model_with_config(&config.embedder.model, false).await?;
+        log::debug!("{}", model_local_paths);
+
+        config.embedder.base_url = model_local_paths
+            .model_root_path
+            .to_string_lossy()
+            .into_owned();
+        log::info!(
+            "Embedder base_url remapped to local cache at {}",
+            config.embedder.base_url
+        );
+    }
 
     Ok(())
 }
