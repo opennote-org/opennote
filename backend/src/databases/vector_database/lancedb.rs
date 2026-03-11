@@ -81,6 +81,14 @@ impl VectorDatabase for LanceDB {
     }
 
     async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
+        let table = self
+            .vector_database
+            .open_table(&vector_database_config.index)
+            .execute()
+            .await?;
+        
+        table.query().
+        
         Ok(())
     }
 

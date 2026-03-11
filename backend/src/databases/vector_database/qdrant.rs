@@ -104,6 +104,7 @@ impl VectorDatabase for QdrantDatabase {
         Ok(())
     }
 
+    /// TODO: use the sqlite database as the source of truth when reindexing
     async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
         let counts: u64 = match self
             .client
