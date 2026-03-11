@@ -2,13 +2,17 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
-use arrow_array::{ArrayRef, FixedSizeListArray, Float32Array, RecordBatch, StringArray};
+use arrow_array::{RecordBatch, RecordBatchIterator};
 use async_trait::async_trait;
 use lancedb::{
-    arrow::arrow_schema::{DataType, Field, Schema},
+    arrow::{
+        RecordBatchReader,
+        arrow_schema::{FieldRef, Schema},
+    },
     connect,
     index::{Index, scalar::FtsIndexBuilder, vector::IvfHnswSqIndexBuilder},
 };
+use serde_arrow::schema::{SchemaLike, TracingOptions};
 
 use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
@@ -33,6 +37,7 @@ use crate::{
 pub struct LanceDB {
     vector_database: lancedb::Connection,
     schema: Arc<Schema>,
+    fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>>,
 }
 
 #[async_trait]
@@ -65,25 +70,17 @@ impl VectorDatabase for LanceDB {
             .open_table(&vector_database_config.index)
             .execute()
             .await?;
+        
+        let batch = self.convert_document_chunks_to_record_batch(&chunks)?;
+        let iter = vec![batch].into_iter().map(Ok);
+        let iterator = RecordBatchIterator::new(iter, self.schema.clone());
 
-        table.add(chunks).execute().await?;
+        table.add(iterator).execute().await?;
 
         Ok(())
     }
 
     async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
-        let vector_database = self.vector_database.lock().await;
-
-        let retrieved_points = vector_database.get_all_owned();
-        let document_chunks: Vec<DocumentChunk> = retrieved_points
-            .into_iter()
-            .map(|item| item.into())
-            .collect();
-
-        self.add_document_chunks_to_database(&configuration.vector_database, document_chunks)
-            .await?;
-
-        vector_database.save()?;
         Ok(())
     }
 
@@ -207,20 +204,9 @@ impl LanceDB {
             .execute()
             .await?;
 
-        let schema: Arc<Schema> = Arc::new(Schema::new(vec![
-            Field::new("id", DataType::Utf8, false),
-            Field::new("document_metadata_id", DataType::Utf8, false),
-            Field::new("collection_metadata_id", DataType::Utf8, false),
-            Field::new("content", DataType::Utf8, false),
-            Field::new(
-                "dense_text_vector",
-                DataType::FixedSizeList(
-                    Arc::new(Field::new("item", DataType::Float32, true)),
-                    configuration.embedder.dimensions as i32,
-                ),
-                false,
-            ),
-        ]));
+        let fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>> =
+            Vec::<FieldRef>::from_type::<DocumentChunk>(TracingOptions::default())?;
+        let schema: Arc<Schema> = Arc::new(Schema::new(fields.clone()));
 
         match vector_database
             .create_empty_table(&configuration.vector_database.base_url, schema.clone())
@@ -255,61 +241,15 @@ impl LanceDB {
         Ok(Self {
             vector_database,
             schema,
+            fields,
         })
     }
 
-    pub fn convert_document_chunks_to_record_batches(
+    pub fn convert_document_chunks_to_record_batch(
         &self,
-        chunks: Vec<DocumentChunk>,
-    ) -> Result<Vec<RecordBatch>> {
-        let mut ids = Vec::new();
-        let mut document_metadata_ids = Vec::new();
-        let mut collection_metadata_ids = Vec::new();
-        let mut contents = Vec::new();
-        let mut dense_text_vectors = Vec::new();
-
-        for chunk in chunks {
-            ids.push(chunk.id);
-            document_metadata_ids.push(chunk.document_metadata_id);
-            collection_metadata_ids.push(chunk.collection_metadata_id);
-            contents.push(chunk.content);
-            dense_text_vectors.push(chunk.dense_text_vector);
-        }
-
-        let id_array = Arc::new(StringArray::from(ids)) as ArrayRef;
-        let document_metadata_id_array =
-            Arc::new(StringArray::from(document_metadata_ids)) as ArrayRef;
-        let collection_metadata_id_array =
-            Arc::new(StringArray::from(collection_metadata_ids)) as ArrayRef;
-        let content_array = Arc::new(StringArray::from(contents)) as ArrayRef;
-
-        let vector_arrays: Vec<ArrayRef> = dense_text_vectors
-            .into_iter()
-            .map(|vec| Arc::new(Float32Array::from(vec)) as ArrayRef)
-            .collect();
-
-        let dense_text_vector_array = Arc::new(FixedSizeListArray::try_new_from_values(
-            FixedSizeListArray::try_new_from_values(
-                arrow_array::builder::ArrayBuilder::finish(
-                    &mut arrow_array::builder::Float32Builder::new(),
-                ),
-                vector_arrays.len() as i32,
-            )?,
-            vector_arrays.len() as i32,
-        )?) as ArrayRef;
-
-        let record_batch = RecordBatch::try_new(
-            self.schema.clone(),
-            vec![
-                id_array,
-                document_metadata_id_array,
-                collection_metadata_id_array,
-                content_array,
-                dense_text_vector_array,
-            ],
-        )?;
-
-        Ok(vec![record_batch])
+        chunks: &Vec<DocumentChunk>,
+    ) -> Result<RecordBatch> {
+        Ok(serde_arrow::to_record_batch(&self.fields, chunks)?)
     }
 }
 

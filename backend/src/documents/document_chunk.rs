@@ -2,10 +2,8 @@
 
 use std::{collections::HashMap, io::Read};
 
-use arrow_array::RecordBatch;
 use chunk::chunk;
 use jieba_rs::Jieba;
-use lancedb::arrow::IntoArrow;
 use qdrant_client::{
     Payload,
     qdrant::{NamedVectors, PointStruct, RetrievedPoint},
