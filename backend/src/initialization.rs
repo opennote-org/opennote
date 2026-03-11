@@ -7,13 +7,15 @@ use actix_web::{
     web::{self, Data},
 };
 use anyhow::{Context, Result};
+use model_downloader::LocalModel;
+use model_downloader::{Downloader, HFDownloader};
 
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::transport::StreamableHttpService;
 
 use crate::{
     app_state::AppState, configurations::system::Config, mcp::service::MCPService,
-    model_loader::downloader, routes::configure_routes,
+    routes::configure_routes,
 };
 
 pub fn load_configurations() -> Result<Config> {
@@ -132,17 +134,16 @@ pub async fn initialize_backend_api_service(
 
 pub async fn initialize_local_model(config: &mut Config) -> Result<()> {
     if config.embedder.provider.trim() == "local" {
-        let model_local_paths: downloader::ModelLocalPaths =
-            downloader::download_model_with_config(&config.embedder.model, false).await?;
-        log::debug!("{}", model_local_paths);
+        let local_model: LocalModel =
+            HFDownloader::download_model(&config.embedder.model, false).await?;
+        log::debug!("{}", local_model);
 
-        config.embedder.base_url = model_local_paths
-            .model_root_path
-            .to_string_lossy()
-            .into_owned();
+        config.embedder.base_url = local_model.model_path.to_string_lossy().into_owned();
+        config.embedder.dimensions = local_model.model_dim;
         log::info!(
-            "Embedder base_url remapped to local cache at {}",
-            config.embedder.base_url
+            "Embedder base_url remapped to {} with dim {}",
+            config.embedder.base_url,
+            config.embedder.dimensions
         );
     }
 

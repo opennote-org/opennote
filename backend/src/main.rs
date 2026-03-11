@@ -12,7 +12,6 @@ mod identities;
 mod initialization;
 mod mcp;
 mod metadata_storage;
-mod model_loader;
 mod routes;
 mod tasks_scheduler;
 mod traits;

@@ -1,6 +1,6 @@
 use std::{path::Path, time::Duration};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use futures::future::join_all;
 use local_embedded::{Embedder, LocalEmbedder};
 use serde_json::{Value, json};
@@ -58,8 +58,10 @@ pub async fn send_vectorization(
     encoding_format: &str,
     mut queries: Vec<DocumentChunk>,
 ) -> Result<Vec<DocumentChunk>> {
-    let vectors: Vec<Vec<f32>> = if !provider.is_empty() {
-        if provider.trim() == "local" {
+    let trimmed_provider = provider.trim();
+
+    let vectors: Vec<Vec<f32>> = match trimmed_provider {
+        "local" => {
             if base_url.trim().is_empty() {
                 return Err(anyhow!(
                     "embedder.base_url must point to the downloaded model directory when provider=local"
@@ -71,45 +73,34 @@ pub async fn send_vectorization(
             let config_path = base_path.join("config.json");
             let tokenizer_path = base_path.join("tokenizer.json");
 
-            let local_embedder: LocalEmbedder = LocalEmbedder::new(
-                model_path,
-                config_path,
-                tokenizer_path,
-                // TODO support multiple devices: CUDA, Nvidia
-                None, // default: CPU
-            )?;
+            let local_embedder: LocalEmbedder =
+                LocalEmbedder::new(model_path, config_path, tokenizer_path, None)?;
 
             let inputs: Vec<&str> = queries.iter().map(|item| item.content.as_str()).collect();
 
-            match local_embedder.embed(&inputs).await {
-                Ok(results) => results,
-                Err(error) => {
-                    log::error!("Vectorization failed due to {}", error);
-                    return Err(anyhow!("{}", error));
-                }
-            }
-        } else {
-            match send_vectorization_queries_to_multiple_providers(
-                api_key, model, provider, None, &queries,
-            )
+            local_embedder
+                .embed(&inputs)
+                .await
+                .context("Vectorization failed")?
+        }
+        "" => send_vectorization_queries(base_url, api_key, model, encoding_format, &queries)
             .await
-            {
-                Ok(results) => results,
-                Err(error) => {
-                    log::error!("Vectorization failed due to {}", error);
-                    return Err(anyhow!("{}", error));
-                }
-            }
-        }
-    } else {
-        match send_vectorization_queries(base_url, api_key, model, encoding_format, &queries).await
-        {
-            Ok(result) => result,
-            Err(error) => {
+            .map_err(|error| {
                 log::error!("Vectorization failed due to {}", error);
-                return Err(anyhow!("{}", error));
-            }
-        }
+                anyhow!("{}", error)
+            })?,
+        _ => send_vectorization_queries_to_multiple_providers(
+            api_key,
+            model,
+            trimmed_provider,
+            None,
+            &queries,
+        )
+        .await
+        .map_err(|error| {
+            log::error!("Vectorization failed due to {}", error);
+            anyhow!("{}", error)
+        })?,
     };
 
     for (vector, chunk) in vectors.into_iter().zip(&mut queries) {
