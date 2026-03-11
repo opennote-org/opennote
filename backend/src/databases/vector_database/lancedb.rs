@@ -16,11 +16,14 @@ use serde_arrow::schema::{SchemaLike, TracingOptions};
 
 use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
-    databases::database::{
-        filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
-        traits::database::Database,
-    },
     databases::{
+        database::{
+            filters::{
+                get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
+                get_documents::GetDocumentFilter,
+            },
+            traits::database::Database,
+        },
         search::{
             document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
             semantic::SemanticSearch,
@@ -31,7 +34,7 @@ use crate::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
-    embedder::send_vectorization,
+    embedder::{send_vectorization, vectorize},
 };
 
 pub struct LanceDB {
@@ -42,6 +45,42 @@ pub struct LanceDB {
 
 #[async_trait]
 impl VectorDatabase for LanceDB {
+    async fn create_vector_database(&self, configuration: &Config) -> Result<()> {
+        match self
+            .vector_database
+            .create_empty_table(&configuration.vector_database.base_url, self.schema.clone())
+            .mode(lancedb::database::CreateTableMode::Create)
+            .execute()
+            .await
+        {
+            Ok(_) => {}
+            Err(_) => {
+                log::info!("Table has created. Skip creation")
+            }
+        }
+
+        let table = self
+            .vector_database
+            .open_table(&configuration.vector_database.base_url)
+            .execute()
+            .await?;
+
+        table
+            .create_index(
+                &["dense_text_vector"],
+                Index::IvfHnswSq(IvfHnswSqIndexBuilder::default()),
+            )
+            .execute()
+            .await?;
+
+        table
+            .create_index(&["content"], Index::FTS(FtsIndexBuilder::default()))
+            .execute()
+            .await?;
+
+        Ok(())
+    }
+
     async fn validate_data_integrity(
         &self,
         vector_database_config: &VectorDatabaseConfig,
@@ -51,7 +90,7 @@ impl VectorDatabase for LanceDB {
             .open_table(&vector_database_config.index)
             .execute()
             .await?;
-        let rows = table.count_rows(None).await?;
+        let rows: usize = table.count_rows(None).await?;
         // Vector database should never have zero records when they are in normal use
         if rows == 0 {
             return Ok(false);
@@ -70,7 +109,7 @@ impl VectorDatabase for LanceDB {
             .open_table(&vector_database_config.index)
             .execute()
             .await?;
-        
+
         let batch = self.convert_document_chunks_to_record_batch(&chunks)?;
         let iter = vec![batch].into_iter().map(Ok);
         let iterator = RecordBatchIterator::new(iter, self.schema.clone());
@@ -80,15 +119,30 @@ impl VectorDatabase for LanceDB {
         Ok(())
     }
 
-    async fn reindex_documents(&self, configuration: &Config) -> Result<()> {
-        let table = self
-            .vector_database
-            .open_table(&vector_database_config.index)
-            .execute()
+    async fn reindex_documents(
+        &self,
+        configuration: &Config,
+        database: &Arc<dyn Database>,
+    ) -> Result<()> {
+        self.vector_database
+            .drop_table(&configuration.vector_database.index, &[])
             .await?;
-        
-        table.query().
-        
+
+        let chunks = database
+            .get_document_chunks(&GetDocumentChunkFilter {
+                ..Default::default()
+            })
+            .await?;
+
+        self.create_vector_database(configuration).await?;
+
+        let chunks = vectorize(&configuration.embedder, chunks).await?;
+
+        // TODO: need to update the chunks in sqlite too
+        // TODO: can make a default impl
+        self.add_document_chunks_to_database(&configuration.vector_database, chunks)
+            .await?;
+
         Ok(())
     }
 
@@ -216,41 +270,15 @@ impl LanceDB {
             Vec::<FieldRef>::from_type::<DocumentChunk>(TracingOptions::default())?;
         let schema: Arc<Schema> = Arc::new(Schema::new(fields.clone()));
 
-        match vector_database
-            .create_empty_table(&configuration.vector_database.base_url, schema.clone())
-            .mode(lancedb::database::CreateTableMode::Create)
-            .execute()
-            .await
-        {
-            Ok(_) => {}
-            Err(_) => {
-                log::info!("Table has created. Skip creation")
-            }
-        }
-
-        let table = vector_database
-            .open_table(&configuration.vector_database.base_url)
-            .execute()
-            .await?;
-
-        table
-            .create_index(
-                &["dense_text_vector"],
-                Index::IvfHnswSq(IvfHnswSqIndexBuilder::default()),
-            )
-            .execute()
-            .await?;
-
-        table
-            .create_index(&["content"], Index::FTS(FtsIndexBuilder::default()))
-            .execute()
-            .await?;
-
-        Ok(Self {
+        let vector_database = Self {
             vector_database,
             schema,
             fields,
-        })
+        };
+
+        vector_database.create_vector_database(&configuration);
+
+        Ok(vector_database)
     }
 
     pub fn convert_document_chunks_to_record_batch(

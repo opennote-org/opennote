@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -6,6 +7,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::configurations::system::{Config, VectorDatabaseConfig};
+use crate::databases::database::traits::database::Database;
 use crate::databases::search::{keyword::KeywordSearch, semantic::SemanticSearch};
 use crate::documents::document_chunk::DocumentChunk;
 
@@ -27,6 +29,11 @@ impl Display for VectorDatabaseProvider {
 
 #[async_trait]
 pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
+    /// Actions of creating an index or a collection for a vector database
+    /// In Qdrant, this is called creating a collection. 
+    /// In LanceDB, this is called creating a table. 
+    async fn create_vector_database(&self, configuration: &Config) -> Result<()>;
+
     /// Required for adding chunk data to the database
     async fn add_document_chunks_to_database(
         &self,
@@ -46,7 +53,11 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     ) -> Result<Vec<DocumentChunk>>;
 
     /// Required for reindex features
-    async fn reindex_documents(&self, configuration: &Config) -> Result<()>;
+    async fn reindex_documents(
+        &self,
+        configuration: &Config,
+        database: &Arc<dyn Database>,
+    ) -> Result<()>;
 
     /// Whether the vector database properly hosts the data
     async fn validate_data_integrity(
