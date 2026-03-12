@@ -1,8 +1,9 @@
-use std::{path::Path, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{Result, anyhow};
+use chrono::Local;
 use futures::future::join_all;
-use local_embedded::{Embedder, LocalEmbedder};
+use local_embedded::{EmbedderTrait, LocalEmbedder};
 use serde_json::{Value, json};
 
 use crate::{configurations::system::EmbedderConfig, documents::document_chunk::DocumentChunk};
@@ -10,6 +11,7 @@ use crate::{configurations::system::EmbedderConfig, documents::document_chunk::D
 pub async fn vectorize(
     embedder_config: &EmbedderConfig,
     chunks: Vec<DocumentChunk>,
+    global_embedder: &Option<Arc<LocalEmbedder>>,
 ) -> Result<Vec<DocumentChunk>> {
     let mut batches: Vec<Vec<DocumentChunk>> = Vec::new();
     let mut batch: Vec<DocumentChunk> = Vec::new();
@@ -36,6 +38,7 @@ pub async fn vectorize(
             &embedder_config.model,
             &embedder_config.encoding_format,
             batch,
+            global_embedder,
         ));
     }
 
@@ -57,24 +60,20 @@ pub async fn send_vectorization(
     model: &str,
     encoding_format: &str,
     mut queries: Vec<DocumentChunk>,
+    global_embedder: &Option<Arc<LocalEmbedder>>,
 ) -> Result<Vec<DocumentChunk>> {
     let trimmed_provider = provider.trim();
 
     let vectors: Vec<Vec<f32>> = match trimmed_provider {
         "local" => {
-            if base_url.trim().is_empty() {
-                return Err(anyhow!(
-                    "embedder.base_url must point to the downloaded model directory when provider=local"
-                ));
-            }
-
-            let base_path = Path::new(base_url);
-            let model_path = base_path.join("model.safetensors");
-            let config_path = base_path.join("config.json");
-            let tokenizer_path = base_path.join("tokenizer.json");
-
-            let local_embedder: LocalEmbedder =
-                LocalEmbedder::new(model_path, config_path, tokenizer_path, None)?;
+            let local_embedder: &Arc<LocalEmbedder> = match global_embedder {
+                Some(e) => e,
+                None => {
+                    return Err(anyhow!(
+                        "Local embedder required for provider 'local', but none was provided"
+                    ));
+                }
+            };
 
             let inputs: Vec<&str> = queries.iter().map(|item| item.content.as_str()).collect();
 

@@ -24,5 +24,5 @@ pub mod embedder;
 pub mod local_embedder;
 
 // Re-export public API for convenience
-pub use embedder::Embedder;
+pub use embedder::EmbedderTrait;
 pub use local_embedder::LocalEmbedder;

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use local_embedded::LocalEmbedder;
 
 use crate::databases::{
     database::traits::database::Database,
@@ -21,5 +22,6 @@ pub trait SemanticSearch {
         api_key: &str,
         model: &str,
         encoding_format: &str,
+        global_embedder: &Option<Arc<LocalEmbedder>>,
     ) -> Result<Vec<DocumentChunkSearchResult>>;
 }
