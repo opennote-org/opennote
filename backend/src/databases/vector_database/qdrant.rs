@@ -25,10 +25,7 @@ use crate::{
     },
     databases::{
         database::{
-            filters::{
-                get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
-                get_documents::GetDocumentFilter,
-            },
+            filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
             traits::database::Database,
         },
         search::{
@@ -43,7 +40,7 @@ use crate::{
         document_metadata::DocumentMetadata,
         traits::{GetIndexableFields, IndexableField},
     },
-    embedder::{send_vectorization, vectorize},
+    embedder::send_vectorization,
 };
 
 #[derive(Clone)]
@@ -176,29 +173,14 @@ impl VectorDatabase for QdrantDatabase {
         Ok(())
     }
 
-    /// TODO: use the sqlite database as the source of truth when reindexing
-    async fn reindex_documents(
+    async fn delete_index(
         &self,
-        configuration: &Config,
-        database: &Arc<dyn Database>,
+        vector_database_configurations: &VectorDatabaseConfig,
     ) -> Result<()> {
-        let chunks = database
-            .get_document_chunks(&GetDocumentChunkFilter {
-                ..Default::default()
-            })
-            .await?;
-
         self.client
             .delete_collection(DeleteCollectionBuilder::new(
-                configuration.vector_database.index.clone(),
+                vector_database_configurations.index.clone(),
             ))
-            .await?;
-
-        self.create_vector_database(configuration).await?;
-
-        let chunks = vectorize(&configuration.embedder, chunks).await?;
-
-        self.add_document_chunks_to_database(&configuration.vector_database, chunks)
             .await?;
 
         Ok(())
