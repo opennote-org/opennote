@@ -11,7 +11,10 @@ use qdrant_client::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{databases::database, documents::traits::GetId};
+use crate::{
+    databases::{database, search::document_search_results::DocumentChunkSearchResult},
+    documents::traits::GetId,
+};
 
 use super::traits::{GetIndexableFields, IndexableField};
 
@@ -21,7 +24,6 @@ pub struct DocumentChunk {
     pub document_metadata_id: String,
     pub collection_metadata_id: String,
     pub content: String,
-    #[serde(skip)]
     pub dense_text_vector: Vec<f32>,
 }
 
@@ -262,6 +264,17 @@ impl From<DocumentChunk> for database::entity::document_chunks::Model {
             content: value.content,
             dense_text_vector: serde_json::to_value(value.dense_text_vector).unwrap(),
             chunk_order: 0,
+        }
+    }
+}
+
+impl From<DocumentChunk> for DocumentChunkSearchResult {
+    fn from(value: DocumentChunk) -> Self {
+        Self {
+            document_title: None,
+            collection_title: None,
+            document_chunk: value,
+            score: 0.0,
         }
     }
 }

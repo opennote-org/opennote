@@ -1,16 +1,19 @@
-use std::collections::HashMap;
 use std::sync::Arc;
+use std::{collections::HashMap, pin::Pin};
 
 use anyhow::Result;
 use arrow_array::{RecordBatch, RecordBatchIterator};
+use arrow_schema::{DataType, Field};
 use async_trait::async_trait;
+use futures::StreamExt;
+use lancedb::arrow::RecordBatchStream;
+use lancedb::index::scalar::{FtsIndexBuilder, FullTextSearchQuery};
+use lancedb::index::vector::IvfRqIndexBuilder;
 use lancedb::{
-    arrow::{
-        RecordBatchReader,
-        arrow_schema::{FieldRef, Schema},
-    },
+    arrow::arrow_schema::{FieldRef, Schema},
     connect,
-    index::{Index, scalar::FtsIndexBuilder, vector::IvfHnswSqIndexBuilder},
+    index::{Index, vector::IvfHnswSqIndexBuilder},
+    query::{ExecutableQuery, QueryBase},
 };
 use serde_arrow::schema::{SchemaLike, TracingOptions};
 
@@ -18,10 +21,7 @@ use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
     databases::{
         database::{
-            filters::{
-                get_collections::GetCollectionFilter, get_document_chunks::GetDocumentChunkFilter,
-                get_documents::GetDocumentFilter,
-            },
+            filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
             traits::database::Database,
         },
         search::{
@@ -34,11 +34,12 @@ use crate::{
         collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
         document_metadata::DocumentMetadata,
     },
-    embedder::{send_vectorization, vectorize},
+    embedder::send_vectorization,
 };
 
 pub struct LanceDB {
     vector_database: lancedb::Connection,
+    table_name: String,
     schema: Arc<Schema>,
     fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>>,
 }
@@ -48,7 +49,7 @@ impl VectorDatabase for LanceDB {
     async fn create_vector_database(&self, configuration: &Config) -> Result<()> {
         match self
             .vector_database
-            .create_empty_table(&configuration.vector_database.base_url, self.schema.clone())
+            .create_empty_table(&configuration.vector_database.index, self.schema.clone())
             .mode(lancedb::database::CreateTableMode::Create)
             .execute()
             .await
@@ -61,7 +62,7 @@ impl VectorDatabase for LanceDB {
 
         let table = self
             .vector_database
-            .open_table(&configuration.vector_database.base_url)
+            .open_table(&configuration.vector_database.index)
             .execute()
             .await?;
 
@@ -119,28 +120,12 @@ impl VectorDatabase for LanceDB {
         Ok(())
     }
 
-    async fn reindex_documents(
+    async fn delete_index(
         &self,
-        configuration: &Config,
-        database: &Arc<dyn Database>,
+        vector_database_configurations: &VectorDatabaseConfig,
     ) -> Result<()> {
         self.vector_database
-            .drop_table(&configuration.vector_database.index, &[])
-            .await?;
-
-        let chunks = database
-            .get_document_chunks(&GetDocumentChunkFilter {
-                ..Default::default()
-            })
-            .await?;
-
-        self.create_vector_database(configuration).await?;
-
-        let chunks = vectorize(&configuration.embedder, chunks).await?;
-
-        // TODO: need to update the chunks in sqlite too
-        // TODO: can make a default impl
-        self.add_document_chunks_to_database(&configuration.vector_database, chunks)
+            .drop_table(&vector_database_configurations.index, &[])
             .await?;
 
         Ok(())
@@ -151,28 +136,16 @@ impl VectorDatabase for LanceDB {
         vector_database_config: &VectorDatabaseConfig,
         document_ids: &Vec<String>,
     ) -> Result<()> {
-        let mut vector_database = self.vector_database.lock().await;
+        let table = self
+            .vector_database
+            .open_table(&vector_database_config.index)
+            .execute()
+            .await?;
 
-        let chunk_ids: Vec<String> = vector_database
-            .get_all()
-            .iter()
-            .filter(|item| {
-                document_ids.contains(
-                    &item
-                        .fields
-                        .get("document_metadata_id")
-                        .unwrap()
-                        .as_str()
-                        .unwrap()
-                        .to_string(),
-                )
-            })
-            .map(|item| item.id.clone())
-            .collect();
+        let predicate: String = format!("document_metadata_id IN ({})", document_ids.join(", "));
 
-        vector_database.delete(&chunk_ids);
+        table.delete(&predicate).await?;
 
-        vector_database.save()?;
         Ok(())
     }
 
@@ -180,14 +153,20 @@ impl VectorDatabase for LanceDB {
         &self,
         document_chunks_ids: Vec<String>,
     ) -> Result<Vec<DocumentChunk>> {
-        let vector_database = self.vector_database.lock().await;
+        let table = self
+            .vector_database
+            .open_table(&self.table_name)
+            .execute()
+            .await?;
 
-        // Acquire chunk ids
-        let acquired_chunks: Vec<DocumentChunk> = vector_database
-            .get(&document_chunks_ids)
-            .into_iter()
-            .map(|item| item.clone().into())
-            .collect();
+        let predicate: String = format!(
+            "document_metadata_id IN ({})",
+            document_chunks_ids.join(", ")
+        );
+
+        let stream = table.query().only_if(&predicate).execute().await?;
+
+        let acquired_chunks = self.convert_record_batch_to_document_chunks(stream).await?;
 
         Ok(acquired_chunks)
     }
@@ -218,27 +197,26 @@ impl SemanticSearch for LanceDB {
         )
         .await?;
 
-        let vector_database = self.vector_database.lock().await;
+        let table = self
+            .vector_database
+            .open_table(&self.table_name)
+            .execute()
+            .await?;
 
-        let results: Vec<HashMap<String, serde_json::Value>> = vector_database.query(
-            &chunks[0].dense_text_vector,
-            top_n,
-            None,
-            Some(Box::new(move |item: &Data| {
-                document_metadata_ids.contains(
-                    &item
-                        .fields
-                        .get("document_metadata_id")
-                        .unwrap()
-                        .as_str()
-                        .unwrap()
-                        .to_string(),
-                )
-            })),
-        );
+        let stream = table
+            .vector_search(chunks[0].dense_text_vector.clone())?
+            .execute()
+            .await?;
+
+        let document_chunks: Vec<DocumentChunk> = self
+            .convert_record_batch_to_document_chunks(stream)
+            .await?
+            .into_iter()
+            .filter(|item| document_metadata_ids.contains(&item.document_metadata_id))
+            .collect();
 
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
-            results,
+            document_chunks[..top_n].to_vec(),
             &database
                 .get_collections(&GetCollectionFilter::default(), false)
                 .await?
@@ -258,7 +236,52 @@ impl SemanticSearch for LanceDB {
 }
 
 #[async_trait]
-impl KeywordSearch for LanceDB {}
+impl KeywordSearch for LanceDB {
+    async fn search_documents(
+        &self,
+        database: &Arc<dyn Database>,
+        document_metadata_ids: &Vec<String>,
+        query: &str,
+        top_n: usize,
+    ) -> Result<Vec<DocumentChunkSearchResult>> {
+        let table = self
+            .vector_database
+            .open_table(&self.table_name)
+            .execute()
+            .await?;
+
+        let stream = table
+            .query()
+            .full_text_search(FullTextSearchQuery::new(query.to_string()).limit(Some(top_n as i64)))
+            .execute()
+            .await?;
+
+        let document_chunks: Vec<DocumentChunk> = self
+            .convert_record_batch_to_document_chunks(stream)
+            .await?
+            .into_iter()
+            .filter(|item| document_metadata_ids.contains(&item.document_metadata_id))
+            .collect();
+
+        let results: Vec<DocumentChunkSearchResult> = build_search_results(
+            document_chunks[..top_n].to_vec(),
+            &database
+                .get_collections(&GetCollectionFilter::default(), false)
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+            &database
+                .get_documents(&GetDocumentFilter::default())
+                .await?
+                .into_iter()
+                .map(|item| (item.id.clone(), item))
+                .collect(),
+        );
+
+        Ok(results)
+    }
+}
 
 impl LanceDB {
     pub async fn new(configuration: &Config) -> Result<Self> {
@@ -266,17 +289,37 @@ impl LanceDB {
             .execute()
             .await?;
 
+        let options = TracingOptions::default().overwrite(
+            "dense_text_vector",
+            serde_arrow::marrow::datatypes::Field {
+                name: "dense_text_vector".into(),
+                data_type: serde_arrow::marrow::datatypes::DataType::FixedSizeList(
+                    Box::new(serde_arrow::marrow::datatypes::Field {
+                        name: "item".into(),
+                        data_type: serde_arrow::marrow::datatypes::DataType::Float32,
+                        nullable: false,
+                        metadata: HashMap::new(),
+                    }),
+                    32,
+                ),
+                nullable: false,
+                metadata: HashMap::new(),
+            },
+        )?;
         let fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>> =
-            Vec::<FieldRef>::from_type::<DocumentChunk>(TracingOptions::default())?;
+            Vec::<FieldRef>::from_type::<DocumentChunk>(options)?;
         let schema: Arc<Schema> = Arc::new(Schema::new(fields.clone()));
 
         let vector_database = Self {
             vector_database,
+            table_name: configuration.vector_database.index.clone(),
             schema,
             fields,
         };
 
-        vector_database.create_vector_database(&configuration);
+        vector_database
+            .create_vector_database(&configuration)
+            .await?;
 
         Ok(vector_database)
     }
@@ -287,17 +330,32 @@ impl LanceDB {
     ) -> Result<RecordBatch> {
         Ok(serde_arrow::to_record_batch(&self.fields, chunks)?)
     }
+
+    pub async fn convert_record_batch_to_document_chunks(
+        &self,
+        mut stream: Pin<
+            Box<dyn RecordBatchStream<Item = Result<RecordBatch, lancedb::Error>> + Send>,
+        >,
+    ) -> Result<Vec<DocumentChunk>> {
+        let mut acquired_chunks = Vec::new();
+        while let Some(next) = stream.next().await {
+            let next = next?;
+            acquired_chunks.push(serde_arrow::from_record_batch(&next)?);
+        }
+
+        Ok(acquired_chunks)
+    }
 }
 
 /// To fill in the document and collection title
 pub fn build_search_results(
-    query_results: Vec<HashMap<String, serde_json::Value>>,
+    document_chunks: Vec<DocumentChunk>,
     collection_metadatas_from_storage: &HashMap<String, CollectionMetadata>,
     document_metadatas_from_storage: &HashMap<String, DocumentMetadata>,
 ) -> Vec<DocumentChunkSearchResult> {
     let mut results = Vec::new();
 
-    for point in query_results {
+    for point in document_chunks {
         let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
 
         if let Some(document_metadata) =

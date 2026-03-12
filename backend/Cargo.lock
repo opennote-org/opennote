@@ -563,6 +563,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c872d36b7bf2a6a6a2b40de9156265f0242910791db366a2c17476ba8330d68"
 dependencies = [
  "bitflags",
+ "serde",
  "serde_core",
  "serde_json",
 ]
@@ -4835,6 +4836,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "arrow-array",
+ "arrow-schema",
  "async-trait",
  "catsu",
  "chrono",

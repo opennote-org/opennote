@@ -32,3 +32,4 @@ sqlx = { version = "0.8.6", features = ["tls-rustls", "mysql", "postgres", "sqli
 lancedb = "0.26.2"
 serde_arrow = { version = "0.14.0", features = ["arrow-57"] }
 arrow-array = "57.3.0"
+arrow-schema = { version = "57.3.0", features = ["serde"] }
