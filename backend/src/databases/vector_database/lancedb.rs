@@ -67,14 +67,6 @@ impl VectorDatabase for LanceDB {
             .await?;
 
         table
-            .create_index(
-                &["dense_text_vector"],
-                Index::IvfHnswSq(IvfHnswSqIndexBuilder::default()),
-            )
-            .execute()
-            .await?;
-
-        table
             .create_index(&["content"], Index::FTS(FtsIndexBuilder::default()))
             .execute()
             .await?;
@@ -300,7 +292,7 @@ impl LanceDB {
                         nullable: false,
                         metadata: HashMap::new(),
                     }),
-                    32,
+                    configuration.embedder.dimensions as i32,
                 ),
                 nullable: false,
                 metadata: HashMap::new(),
