@@ -78,10 +78,10 @@ pub async fn send_vectorization(
 
             let inputs: Vec<&str> = queries.iter().map(|item| item.content.as_str()).collect();
 
-            local_embedder
-                .embed(&inputs)
-                .await
-                .context("Vectorization failed")?
+            local_embedder.embed(&inputs).await.map_err(|error| {
+                log::error!("Vectorization failed due to {}", error);
+                anyhow!("{}", error)
+            })?
         }
         "" => send_vectorization_queries(base_url, api_key, model, encoding_format, &queries)
             .await
