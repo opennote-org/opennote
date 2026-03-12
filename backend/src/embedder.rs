@@ -1,6 +1,6 @@
 use std::{path::Path, time::Duration};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Result, anyhow};
 use futures::future::join_all;
 use local_embedded::{Embedder, LocalEmbedder};
 use serde_json::{Value, json};
