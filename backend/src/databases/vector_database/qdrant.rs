@@ -51,7 +51,7 @@ pub struct QdrantDatabase {
 
 #[async_trait]
 impl VectorDatabase for QdrantDatabase {
-    async fn create_vector_database(&self, configuration: &Config) -> Result<()> {
+    async fn create_index(&self, configuration: &Config) -> Result<()> {
         let mut dense_text_vector_config = VectorsConfigBuilder::default();
         dense_text_vector_config.add_named_vector_params(
             QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
@@ -383,7 +383,7 @@ impl QdrantDatabase {
         };
 
         vector_database
-            .create_vector_database(&configuration)
+            .create_index(&configuration)
             .await?;
 
         match validate_configuration(&client, configuration).await {

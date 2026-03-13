@@ -103,10 +103,6 @@ impl DatabasesLayerEntry {
 
     /// Reover all document chunks from the relational database to the vector database
     pub async fn recover(&self, vector_database_config: &VectorDatabaseConfig) -> Result<()> {
-        // recover:
-        // get data from the database
-        // store them to the vector database
-
         let chunks: Vec<DocumentChunk> = self
             .database
             .get_document_chunks(&GetDocumentChunkFilter {

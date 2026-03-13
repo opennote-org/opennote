@@ -35,7 +35,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// Actions of creating an index or a collection for a vector database
     /// In Qdrant, this is called creating a collection.
     /// In LanceDB, this is called creating a table.
-    async fn create_vector_database(&self, configuration: &Config) -> Result<()>;
+    async fn create_index(&self, configuration: &Config) -> Result<()>;
 
     /// Required for adding chunk data to the database
     async fn add_document_chunks_to_database(
@@ -79,7 +79,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
             .await?;
 
         let results = join(
-            self.create_vector_database(configuration),
+            self.create_index(configuration),
             vectorize(&configuration.embedder, chunks),
         )
         .await;
