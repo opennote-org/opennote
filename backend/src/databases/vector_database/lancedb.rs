@@ -1,8 +1,11 @@
 use std::sync::Arc;
+use std::usize;
 use std::{collections::HashMap, pin::Pin};
 
 use anyhow::Result;
-use arrow_array::{RecordBatch, RecordBatchIterator};
+use arrow_array::{
+    FixedSizeListArray, Float32Array, LargeStringArray, RecordBatch, RecordBatchIterator,
+};
 use arrow_schema::{DataType, Field};
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -197,6 +200,8 @@ impl SemanticSearch for LanceDB {
 
         let stream = table
             .vector_search(chunks[0].dense_text_vector.clone())?
+            .distance_type(lancedb::DistanceType::Cosine)
+            .limit(i64::MAX as usize) // LanceDB won't return exhaustive list like Qdrant
             .execute()
             .await?;
 
@@ -208,7 +213,7 @@ impl SemanticSearch for LanceDB {
             .collect();
 
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
-            document_chunks[..top_n].to_vec(),
+            document_chunks[..top_n.min(document_chunks.len())].to_vec(),
             &database
                 .get_collections(&GetCollectionFilter::default(), false)
                 .await?
@@ -245,6 +250,7 @@ impl KeywordSearch for LanceDB {
         let stream = table
             .query()
             .full_text_search(FullTextSearchQuery::new(query.to_string()).limit(Some(top_n as i64)))
+            .limit(i64::MAX as usize) // LanceDB won't return exhaustive lists like Qdrant
             .execute()
             .await?;
 
@@ -256,7 +262,7 @@ impl KeywordSearch for LanceDB {
             .collect();
 
         let results: Vec<DocumentChunkSearchResult> = build_search_results(
-            document_chunks[..top_n].to_vec(),
+            document_chunks[..top_n.min(document_chunks.len())].to_vec(),
             &database
                 .get_collections(&GetCollectionFilter::default(), false)
                 .await?
@@ -332,7 +338,52 @@ impl LanceDB {
         let mut acquired_chunks = Vec::new();
         while let Some(next) = stream.next().await {
             let next = next?;
-            acquired_chunks.push(serde_arrow::from_record_batch(&next)?);
+
+            // how many rows do we have
+            // iterate rows to convert them into chunks
+
+            let columns = next.columns();
+            let num_rows = columns[0].len();
+
+            for i in 0..num_rows {
+                acquired_chunks.push(DocumentChunk {
+                    id: columns[0]
+                        .as_any()
+                        .downcast_ref::<LargeStringArray>()
+                        .unwrap()
+                        .value(i)
+                        .to_string(),
+                    document_metadata_id: columns[1]
+                        .as_any()
+                        .downcast_ref::<LargeStringArray>()
+                        .unwrap()
+                        .value(i)
+                        .to_string(),
+                    collection_metadata_id: columns[2]
+                        .as_any()
+                        .downcast_ref::<LargeStringArray>()
+                        .unwrap()
+                        .value(i)
+                        .to_string(),
+                    content: columns[3]
+                        .as_any()
+                        .downcast_ref::<LargeStringArray>()
+                        .unwrap()
+                        .value(i)
+                        .to_string(),
+                    dense_text_vector: columns[4]
+                        .as_any()
+                        .downcast_ref::<FixedSizeListArray>()
+                        .unwrap()
+                        .value(i)
+                        .as_any()
+                        .downcast_ref::<Float32Array>()
+                        .expect("Expect Float32Array")
+                        .iter()
+                        .map(|item| item.unwrap())
+                        .collect(),
+                });
+            }
         }
 
         Ok(acquired_chunks)
