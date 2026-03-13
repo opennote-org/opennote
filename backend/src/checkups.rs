@@ -1,6 +1,9 @@
 //! A list of checkups to run before booting up the program
 
+use std::sync::Arc;
+
 use anyhow::{Result, anyhow};
+use local_embedded::LocalEmbedder;
 
 use crate::{
     app_state::AppState,
@@ -9,7 +12,10 @@ use crate::{
     embedder::send_vectorization,
 };
 
-pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> {
+pub async fn handshake_embedding_service(
+    config: &EmbedderConfig,
+    global_embedder: &Option<Arc<LocalEmbedder>>,
+) -> Result<()> {
     match send_vectorization(
         &config.provider,
         &config.base_url,
@@ -17,6 +23,7 @@ pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> 
         &config.model,
         &config.encoding_format,
         vec![DocumentChunk::default()],
+        global_embedder,
     )
     .await
     {

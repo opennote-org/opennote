@@ -7,6 +7,7 @@ use actix_web::{
     web::{self, Data},
 };
 use anyhow::{Context, Result};
+use local_embedded::LocalEmbedder;
 use model_downloader::LocalModel;
 use model_downloader::{Downloader, HFDownloader};
 
@@ -132,20 +133,23 @@ pub async fn initialize_backend_api_service(
     Ok(())
 }
 
-pub async fn initialize_local_model(config: &mut Config) -> Result<()> {
+#[deprecated(note = "Just for backup purpose")]
+pub async fn initialize_local_model(config: &Config) -> Result<()> {
     if config.embedder.provider.trim() == "local" {
         let local_model: LocalModel =
             HFDownloader::download_model(&config.embedder.model, false).await?;
         log::debug!("{}", local_model);
-
-        config.embedder.base_url = local_model.model_path.to_string_lossy().into_owned();
-        config.embedder.dimensions = local_model.model_dim;
-        log::info!(
-            "Embedder base_url remapped to {} with dim {}",
-            config.embedder.base_url,
-            config.embedder.dimensions
-        );
     }
 
     Ok(())
+}
+
+#[deprecated(note = "Just for backup purpose")]
+pub fn initialize_local_embedder(config: &Config) -> Result<Option<LocalEmbedder>> {
+    let embedder_config = &config.embedder;
+
+    match embedder_config.provider.trim() {
+        "local" => Ok(Some(LocalEmbedder::new(&embedder_config.model)?)),
+        _ => Ok(None),
+    }
 }
