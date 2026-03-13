@@ -48,7 +48,7 @@ impl DatabasesLayerEntry {
         let results = join(
             self.database.add_documents(documents),
             self.vector_database
-                .add_document_chunks_to_database(vector_database_config, chunks),
+                .add_document_chunks_to_database(&vector_database_config.index, chunks),
         )
         .await;
 
@@ -89,7 +89,7 @@ impl DatabasesLayerEntry {
         let results = join(
             self.database.update_documents(documents.clone()),
             self.vector_database.add_document_chunks_to_database(
-                vector_database_config,
+                &vector_database_config.index,
                 documents.into_iter().flat_map(|item| item.chunks).collect(),
             ),
         )
@@ -102,7 +102,7 @@ impl DatabasesLayerEntry {
     }
 
     /// Reover all document chunks from the relational database to the vector database
-    pub async fn recover(&self, vector_database_config: &VectorDatabaseConfig) -> Result<()> {
+    pub async fn recover(&self, index: &str, dimensions: usize) -> Result<()> {
         let chunks: Vec<DocumentChunk> = self
             .database
             .get_document_chunks(&GetDocumentChunkFilter {
@@ -110,22 +110,10 @@ impl DatabasesLayerEntry {
             })
             .await?;
 
-        // Only delete all documents when the vector database is not integral
-        if self
-            .vector_database
-            .validate_data_integrity(vector_database_config)
-            .await?
-        {
-            self.vector_database
-                .delete_documents_from_database(
-                    vector_database_config,
-                    &chunks.iter().map(|item| item.id.clone()).collect(),
-                )
-                .await?;
-        }
+        self.vector_database.reset_index(index, dimensions).await?;
 
         self.vector_database
-            .add_document_chunks_to_database(vector_database_config, chunks)
+            .add_document_chunks_to_database(index, chunks)
             .await?;
 
         Ok(())

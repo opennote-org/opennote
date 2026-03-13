@@ -92,7 +92,7 @@ pub async fn align_vector_database(config: &Config, app_state: &AppState) -> Res
         log::info!("Vector database has changed. Perform re-indexing. please wait...");
         app_state
             .databases_layer_entry
-            .recover(&config.vector_database)
+            .recover(&config.vector_database.index, config.embedder.dimensions)
             .await?;
         log::info!("Re-indexing finished.");
     }
