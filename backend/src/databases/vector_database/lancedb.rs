@@ -398,7 +398,7 @@ pub fn build_search_results(
 ) -> Vec<DocumentChunkSearchResult> {
     let mut results = Vec::new();
 
-    for point in document_chunks {
+    for (index, point) in document_chunks.into_iter().enumerate() {
         let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
 
         if let Some(document_metadata) =
@@ -412,7 +412,10 @@ pub fn build_search_results(
         {
             result.collection_title = Some(collection_metadata.title.clone());
         }
-
+        
+        // Manually compute the score by using `x = 1 - (n * 0.1)`
+        result.score = 1.0 - (index as f32 * 0.1);
+        
         results.push(result);
     }
 
