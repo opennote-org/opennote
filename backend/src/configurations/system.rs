@@ -50,7 +50,6 @@ pub struct MetadataStorageConfig {
 pub struct EmbedderConfig {
     /// Provider of the embedding model
     /// Leave it empty if you are using a locally hosted, OpenAI compatible API
-    // #[serde(skip)]
     pub provider: String,
 
     /// base url of your local embedder service.

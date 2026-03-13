@@ -7,6 +7,7 @@ mod constants;
 mod databases;
 mod documents;
 mod embedder;
+mod embedders;
 mod handlers;
 mod identities;
 mod initialization;
@@ -57,7 +58,7 @@ async fn main() -> Result<()> {
     log::info!("Application state initialized successfully");
 
     // Checkups
-    handshake_embedding_service(&config.embedder, &app_state.local_embedder)
+    handshake_embedding_service(&config.embedder, &app_state.embedder_entry)
         .await
         .context("Embedding service is OFFLINE")?;
     log::info!("Embedding service is ONLINE");

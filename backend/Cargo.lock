@@ -1825,24 +1825,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cookie_store"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fc4bff745c9b4c7fb1e97b25d13153da2bc7796260141df62378998d070207f"
-dependencies = [
- "cookie 0.18.1",
- "document-features",
- "idna",
- "indexmap 2.12.1",
- "log",
- "serde",
- "serde_derive",
- "serde_json",
- "time",
- "url",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2404,7 +2386,7 @@ dependencies = [
  "candle-transformers",
  "chrono",
  "half",
- "hf-hub 0.4.3",
+ "hf-hub",
  "image",
  "indicatif 0.18.4",
  "itertools",
@@ -3298,32 +3280,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.17",
- "ureq 2.12.1",
+ "ureq",
  "windows-sys 0.60.2",
-]
-
-[[package]]
-name = "hf-hub"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aef3982638978efa195ff11b305f51f1f22f4f0a6cabee7af79b383ebee6a213"
-dependencies = [
- "dirs",
- "futures",
- "http 1.3.1",
- "indicatif 0.18.4",
- "libc",
- "log",
- "native-tls",
- "num_cpus",
- "rand 0.9.2",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.17",
- "tokio",
- "ureq 3.2.0",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4592,23 +4550,11 @@ dependencies = [
  "anyhow",
  "clap",
  "half",
- "hf-hub 0.4.3",
+ "hf-hub",
  "ndarray 0.15.6",
  "safetensors 0.5.3",
  "serde_json",
  "tokenizers 0.21.4",
-]
-
-[[package]]
-name = "model_downloader"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "hf-hub 0.5.0",
- "log",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -4750,7 +4696,6 @@ dependencies = [
  "local_vector_database",
  "log",
  "migration",
- "model_downloader",
  "qdrant-client",
  "reqwest",
  "rmcp",
@@ -6223,7 +6168,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "cookie 0.18.1",
- "cookie_store 0.21.1",
+ "cookie_store",
  "encoding_rs",
  "futures-channel",
  "futures-core",
@@ -7816,7 +7761,7 @@ dependencies = [
  "derive_builder",
  "esaxx-rs",
  "getrandom 0.3.4",
- "hf-hub 0.4.3",
+ "hf-hub",
  "indicatif 0.17.11",
  "itertools",
  "log",
@@ -7851,7 +7796,7 @@ dependencies = [
  "derive_builder",
  "esaxx-rs",
  "getrandom 0.3.4",
- "hf-hub 0.4.3",
+ "hf-hub",
  "itertools",
  "log",
  "macro_rules_attribute",
@@ -8296,42 +8241,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ureq"
-version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdc97a28575b85cfedf2a7e7d3cc64b3e11bd8ac766666318003abbacc7a21fc"
-dependencies = [
- "base64 0.22.1",
- "cookie_store 0.22.0",
- "der 0.7.10",
- "flate2",
- "log",
- "native-tls",
- "percent-encoding",
- "rustls 0.23.35",
- "rustls-pki-types",
- "serde",
- "serde_json",
- "socks",
- "ureq-proto",
- "utf-8",
- "webpki-root-certs",
- "webpki-roots 1.0.4",
-]
-
-[[package]]
-name = "ureq-proto"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d81f9efa9df032be5934a46a068815a10a042b494b6a58cb0a1a97bb5467ed6f"
-dependencies = [
- "base64 0.22.1",
- "http 1.3.1",
- "httparse",
- "log",
-]
-
-[[package]]
 name = "url"
 version = "2.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8555,15 +8464,6 @@ dependencies = [
  "phf_codegen 0.13.1",
  "string_cache 0.9.0",
  "string_cache_codegen 0.6.1",
-]
-
-[[package]]
-name = "webpki-root-certs"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "804f18a4ac2676ffb4e8b5b5fa9ae38af06df08162314f96a68d2a363e21a8ca"
-dependencies = [
- "rustls-pki-types",
 ]
 
 [[package]]

@@ -1,17 +1,15 @@
-use std::{sync::Arc, time::Duration};
-
-use anyhow::{Result, anyhow};
-use chrono::Local;
+use anyhow::Result;
 use futures::future::join_all;
-use local_embedded::{EmbedderTrait, LocalEmbedder};
-use serde_json::{Value, json};
 
-use crate::{configurations::system::EmbedderConfig, documents::document_chunk::DocumentChunk};
+use crate::{
+    configurations::system::EmbedderConfig, documents::document_chunk::DocumentChunk,
+    embedders::entry::EmbedderEntry,
+};
 
 pub async fn vectorize(
     embedder_config: &EmbedderConfig,
     chunks: Vec<DocumentChunk>,
-    global_embedder: &Option<Arc<LocalEmbedder>>,
+    embedder_entry: &EmbedderEntry,
 ) -> Result<Vec<DocumentChunk>> {
     let mut batches: Vec<Vec<DocumentChunk>> = Vec::new();
     let mut batch: Vec<DocumentChunk> = Vec::new();
@@ -31,15 +29,7 @@ pub async fn vectorize(
     // Record the data entries
     let mut tasks = Vec::new();
     for batch in batches.into_iter() {
-        tasks.push(send_vectorization(
-            &embedder_config.provider,
-            &embedder_config.base_url,
-            &embedder_config.api_key,
-            &embedder_config.model,
-            &embedder_config.encoding_format,
-            batch,
-            global_embedder,
-        ));
+        tasks.push(send_vectorization(batch, embedder_entry));
     }
 
     let results: Vec<std::result::Result<Vec<DocumentChunk>, anyhow::Error>> =
@@ -54,145 +44,14 @@ pub async fn vectorize(
 }
 
 pub async fn send_vectorization(
-    provider: &str,
-    base_url: &str,
-    api_key: &str,
-    model: &str,
-    encoding_format: &str,
     mut queries: Vec<DocumentChunk>,
-    global_embedder: &Option<Arc<LocalEmbedder>>,
+    embedder_entry: &EmbedderEntry,
 ) -> Result<Vec<DocumentChunk>> {
-    let trimmed_provider = provider.trim();
-
-    let vectors: Vec<Vec<f32>> = match trimmed_provider {
-        "local" => {
-            let local_embedder: &Arc<LocalEmbedder> = match global_embedder {
-                Some(e) => e,
-                None => {
-                    return Err(anyhow!(
-                        "Local embedder required for provider 'local', but none was provided"
-                    ));
-                }
-            };
-
-            let inputs: Vec<&str> = queries.iter().map(|item| item.content.as_str()).collect();
-
-            local_embedder.embed(&inputs).await.map_err(|error| {
-                log::error!("Vectorization failed due to {}", error);
-                anyhow!("{}", error)
-            })?
-        }
-        "" => send_vectorization_queries(base_url, api_key, model, encoding_format, &queries)
-            .await
-            .map_err(|error| {
-                log::error!("Vectorization failed due to {}", error);
-                anyhow!("{}", error)
-            })?,
-        _ => send_vectorization_queries_to_multiple_providers(
-            api_key,
-            model,
-            trimmed_provider,
-            None,
-            &queries,
-        )
-        .await
-        .map_err(|error| {
-            log::error!("Vectorization failed due to {}", error);
-            anyhow!("{}", error)
-        })?,
-    };
+    let vectors = embedder_entry.embedder.vectorize(&queries).await?;
 
     for (vector, chunk) in vectors.into_iter().zip(&mut queries) {
         chunk.dense_text_vector = vector;
     }
 
     Ok(queries)
-}
-
-pub async fn send_vectorization_queries_to_multiple_providers(
-    api_key: &str,
-    model: &str,
-    provider: &str,
-    dimensions: Option<usize>,
-    queries: &Vec<DocumentChunk>,
-) -> Result<Vec<Vec<f32>>, anyhow::Error> {
-    let client: catsu::Client = catsu::Client::new()?;
-
-    let response: catsu::EmbedResponse = client
-        .embed_with_api_key(
-            model,
-            queries.iter().map(|item| item.content.clone()).collect(),
-            None,
-            dimensions.map(|num| num as u32),
-            Some(provider),
-            Some(api_key.to_owned()),
-        )
-        .await?;
-
-    Ok(response.embeddings)
-}
-
-/// TODO:
-/// need to create a keep-live mechanism, instead of using a super long timeout
-pub async fn send_vectorization_queries(
-    base_url: &str,
-    api_key: &str,
-    model: &str,
-    encoding_format: &str,
-    queries: &Vec<DocumentChunk>,
-) -> Result<Vec<Vec<f32>>, anyhow::Error> {
-    let client = reqwest::Client::new();
-
-    let response = client
-        .post(base_url)
-        .bearer_auth(api_key)
-        .json(&json!(
-            {
-                "input": queries.iter().map(|item| item.content.clone()).collect::<Vec<String>>(),
-                "model": model,
-                "encoding_format": encoding_format,
-                // "dimensions": config.dimensions,
-            }
-        ))
-        .timeout(Duration::from_secs(1000))
-        .send()
-        .await?;
-
-    match response.error_for_status_ref() {
-        Ok(_) => {}
-        Err(error) => {
-            let error_response_body: String = response.text().await?;
-            if error_response_body.contains("Please reduce the length of the input.") {
-                log::error!(
-                    "User had requested a larger chunk than the embedding model can handle. Please set the chunk size smaller"
-                );
-            } else {
-                log::error!("Error response body: {}", error_response_body);
-            }
-
-            return Err(anyhow!(
-                "Vectorization request has failed. Error: {}. Message: {}",
-                error,
-                error_response_body
-            ));
-        }
-    }
-
-    let json_response: Value = response.json::<Value>().await?;
-
-    let vectors: Vec<Vec<f32>> = json_response["data"]
-        .as_array()
-        .unwrap()
-        .into_iter()
-        .map(|item| {
-            item.as_object().unwrap()["embedding"]
-                .as_array()
-                .unwrap()
-                .into_iter()
-                .map(|item| item.as_f64().unwrap() as f32)
-                .collect()
-        })
-        .collect();
-
-    Ok(vectors)
 }

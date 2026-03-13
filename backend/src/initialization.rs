@@ -7,9 +7,6 @@ use actix_web::{
     web::{self, Data},
 };
 use anyhow::{Context, Result};
-use local_embedded::LocalEmbedder;
-use model_downloader::LocalModel;
-use model_downloader::{Downloader, HFDownloader};
 
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::transport::StreamableHttpService;
@@ -131,25 +128,4 @@ pub async fn initialize_backend_api_service(
         .await?;
 
     Ok(())
-}
-
-#[deprecated(note = "Just for backup purpose")]
-pub async fn initialize_local_model(config: &Config) -> Result<()> {
-    if config.embedder.provider.trim() == "local" {
-        let local_model: LocalModel =
-            HFDownloader::download_model(&config.embedder.model, false).await?;
-        log::debug!("{}", local_model);
-    }
-
-    Ok(())
-}
-
-#[deprecated(note = "Just for backup purpose")]
-pub fn initialize_local_embedder(config: &Config) -> Result<Option<LocalEmbedder>> {
-    let embedder_config = &config.embedder;
-
-    match embedder_config.provider.trim() {
-        "local" => Ok(Some(LocalEmbedder::new(&embedder_config.model)?)),
-        _ => Ok(None),
-    }
 }

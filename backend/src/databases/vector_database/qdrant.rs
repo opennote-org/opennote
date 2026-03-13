@@ -3,17 +3,16 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use local_embedded::LocalEmbedder;
 use log::info;
 use qdrant_client::{
     Qdrant,
     config::QdrantConfig,
     qdrant::{
         CollectionExistsRequest, Condition, CreateCollectionBuilder,
-        CreateFieldIndexCollectionBuilder, DeleteCollection, DeleteCollectionBuilder,
-        DeletePointsBuilder, FieldType, Filter, GetCollectionInfoRequest, GetPointsBuilder,
-        PointId, PointStruct, QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder,
-        ScrollResponse, SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
+        CreateFieldIndexCollectionBuilder, DeleteCollectionBuilder, DeletePointsBuilder, FieldType,
+        Filter, GetCollectionInfoRequest, GetPointsBuilder, PointId, PointStruct,
+        QueryPointsBuilder, RetrievedPoint, ScoredPoint, ScrollPointsBuilder, ScrollResponse,
+        SearchParamsBuilder, SparseVectorParamsBuilder, SparseVectorsConfigBuilder,
         TextIndexParamsBuilder, TokenizerType, UpsertPointsBuilder, VectorParamsBuilder,
         VectorsConfigBuilder,
     },
@@ -42,6 +41,7 @@ use crate::{
         traits::{GetIndexableFields, IndexableField},
     },
     embedder::send_vectorization,
+    embedders::entry::EmbedderEntry,
 };
 
 #[derive(Clone)]
@@ -228,22 +228,12 @@ impl SemanticSearch for QdrantDatabase {
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
-        provider: &str,
-        base_url: &str,
-        api_key: &str,
-        model: &str,
-        encoding_format: &str,
-        global_embedder: &Option<Arc<LocalEmbedder>>,
+        embedder_entry: &EmbedderEntry,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
         // Convert to vec
         let chunks: Vec<DocumentChunk> = send_vectorization(
-            provider,
-            base_url,
-            api_key,
-            model,
-            encoding_format,
             vec![DocumentChunk::new(query.to_owned(), "", "")],
-            global_embedder,
+            embedder_entry,
         )
         .await?;
 
