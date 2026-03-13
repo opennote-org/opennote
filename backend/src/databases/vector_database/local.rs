@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use local_embedded::LocalEmbedder;
 use local_vector_database::{Data, LocalVectorDatabase};
 use tokio::sync::Mutex;
 
@@ -135,6 +136,7 @@ impl SemanticSearch for Local {
         api_key: &str,
         model: &str,
         encoding_format: &str,
+        global_embedder: &Option<Arc<LocalEmbedder>>,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
         // Convert to vec
         let chunks: Vec<DocumentChunk> = send_vectorization(
@@ -144,6 +146,7 @@ impl SemanticSearch for Local {
             model,
             encoding_format,
             vec![DocumentChunk::new(query.to_owned(), "", "")],
+            global_embedder,
         )
         .await?;
 

@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use local_embedded::LocalEmbedder;
 use log::info;
 use qdrant_client::{
     Qdrant,
@@ -232,6 +233,7 @@ impl SemanticSearch for QdrantDatabase {
         api_key: &str,
         model: &str,
         encoding_format: &str,
+        global_embedder: &Option<Arc<LocalEmbedder>>,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
         // Convert to vec
         let chunks: Vec<DocumentChunk> = send_vectorization(
@@ -241,6 +243,7 @@ impl SemanticSearch for QdrantDatabase {
             model,
             encoding_format,
             vec![DocumentChunk::new(query.to_owned(), "", "")],
+            global_embedder,
         )
         .await?;
 

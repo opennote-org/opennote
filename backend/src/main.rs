@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
     log::info!("Application state initialized successfully");
 
     // Checkups
-    handshake_embedding_service(&config.embedder)
+    handshake_embedding_service(&config.embedder, &app_state.local_embedder)
         .await
         .context("Embedding service is OFFLINE")?;
     log::info!("Embedding service is ONLINE");

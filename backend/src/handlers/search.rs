@@ -82,6 +82,7 @@ pub async fn intelligent_search(
             &data.config.embedder.api_key,
             &data.config.embedder.model,
             &data.config.embedder.encoding_format,
+            &data.local_embedder,
         )
         .await
     {
