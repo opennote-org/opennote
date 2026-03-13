@@ -49,10 +49,10 @@ pub struct LanceDB {
 
 #[async_trait]
 impl VectorDatabase for LanceDB {
-    async fn create_index(&self, configuration: &Config) -> Result<()> {
+    async fn create_index(&self, index: &str, _dimensions: usize) -> Result<()> {
         match self
             .vector_database
-            .create_empty_table(&configuration.vector_database.index, self.schema.clone())
+            .create_empty_table(index, self.schema.clone())
             .mode(lancedb::database::CreateTableMode::Create)
             .execute()
             .await
@@ -63,11 +63,7 @@ impl VectorDatabase for LanceDB {
             }
         }
 
-        let table = self
-            .vector_database
-            .open_table(&configuration.vector_database.index)
-            .execute()
-            .await?;
+        let table = self.vector_database.open_table(index).execute().await?;
 
         table
             .create_index(&["content"], Index::FTS(FtsIndexBuilder::default()))
@@ -97,14 +93,10 @@ impl VectorDatabase for LanceDB {
 
     async fn add_document_chunks_to_database(
         &self,
-        vector_database_config: &VectorDatabaseConfig,
+        index: &str,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
-        let table = self
-            .vector_database
-            .open_table(&vector_database_config.index)
-            .execute()
-            .await?;
+        let table = self.vector_database.open_table(index).execute().await?;
 
         let batch = self.convert_document_chunks_to_record_batch(&chunks)?;
         let iter = vec![batch].into_iter().map(Ok);
@@ -115,13 +107,8 @@ impl VectorDatabase for LanceDB {
         Ok(())
     }
 
-    async fn delete_index(
-        &self,
-        vector_database_configurations: &VectorDatabaseConfig,
-    ) -> Result<()> {
-        self.vector_database
-            .drop_table(&vector_database_configurations.index, &[])
-            .await?;
+    async fn delete_index(&self, index: &str) -> Result<()> {
+        self.vector_database.drop_table(index, &[]).await?;
 
         Ok(())
     }
@@ -327,7 +314,10 @@ impl LanceDB {
         };
 
         vector_database
-            .create_index(&configuration)
+            .create_index(
+                &configuration.vector_database.index,
+                configuration.embedder.dimensions,
+            )
             .await?;
 
         Ok(vector_database)

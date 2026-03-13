@@ -35,12 +35,12 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// Actions of creating an index or a collection for a vector database
     /// In Qdrant, this is called creating a collection.
     /// In LanceDB, this is called creating a table.
-    async fn create_index(&self, configuration: &Config) -> Result<()>;
+    async fn create_index(&self, index: &str, dimensions: usize) -> Result<()>;
 
     /// Required for adding chunk data to the database
     async fn add_document_chunks_to_database(
         &self,
-        vector_database_config: &VectorDatabaseConfig,
+        index: &str,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()>;
 
@@ -59,10 +59,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// The definition of `index` varies by vector databases
     /// In Qdrant, this is called a `collection` while in LanceDB, this is
     /// a `table`
-    async fn delete_index(
-        &self,
-        vector_database_configurations: &VectorDatabaseConfig,
-    ) -> Result<()>;
+    async fn delete_index(&self, index: &str) -> Result<()>;
 
     /// Required for reindex features
     async fn reindex_documents(
@@ -70,8 +67,6 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         configuration: &Config,
         database: &Arc<dyn Database>,
     ) -> Result<()> {
-        self.delete_index(&configuration.vector_database).await?;
-
         let chunks = database
             .get_document_chunks(&GetDocumentChunkFilter {
                 ..Default::default()
@@ -79,7 +74,10 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
             .await?;
 
         let results = join(
-            self.create_index(configuration),
+            self.reset_index(
+                &configuration.vector_database.index,
+                configuration.embedder.dimensions,
+            ),
             vectorize(&configuration.embedder, chunks),
         )
         .await;
@@ -89,12 +87,19 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
 
         let results = join(
             database.update_document_chunks(chunks.clone()),
-            self.add_document_chunks_to_database(&configuration.vector_database, chunks),
+            self.add_document_chunks_to_database(&configuration.vector_database.index, chunks),
         )
         .await;
 
         results.0?;
         results.1?;
+
+        Ok(())
+    }
+
+    async fn reset_index(&self, index: &str, dimensions: usize) -> Result<()> {
+        self.delete_index(index).await?;
+        self.create_index(index, dimensions).await?;
 
         Ok(())
     }

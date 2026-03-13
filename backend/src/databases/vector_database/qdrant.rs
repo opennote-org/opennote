@@ -51,14 +51,11 @@ pub struct QdrantDatabase {
 
 #[async_trait]
 impl VectorDatabase for QdrantDatabase {
-    async fn create_index(&self, configuration: &Config) -> Result<()> {
+    async fn create_index(&self, index: &str, dimensions: usize) -> Result<()> {
         let mut dense_text_vector_config = VectorsConfigBuilder::default();
         dense_text_vector_config.add_named_vector_params(
             QDRANT_DENSE_TEXT_VECTOR_NAMED_PARAMS_NAME,
-            VectorParamsBuilder::new(
-                configuration.embedder.dimensions as u64,
-                qdrant_client::qdrant::Distance::Cosine,
-            ),
+            VectorParamsBuilder::new(dimensions as u64, qdrant_client::qdrant::Distance::Cosine),
         );
 
         let mut sparse_vector_config = SparseVectorsConfigBuilder::default();
@@ -70,7 +67,7 @@ impl VectorDatabase for QdrantDatabase {
         match self
             .client
             .create_collection(
-                CreateCollectionBuilder::new(&configuration.vector_database.index)
+                CreateCollectionBuilder::new(index)
                     .vectors_config(dense_text_vector_config)
                     .sparse_vectors_config(sparse_vector_config)
                     .build(),
@@ -91,7 +88,7 @@ impl VectorDatabase for QdrantDatabase {
                 IndexableField::Keyword(field) => {
                     self.client
                         .create_field_index(CreateFieldIndexCollectionBuilder::new(
-                            &configuration.vector_database.index,
+                            index,
                             field,
                             FieldType::Keyword,
                         ))
@@ -105,12 +102,8 @@ impl VectorDatabase for QdrantDatabase {
 
                     self.client
                         .create_field_index(
-                            CreateFieldIndexCollectionBuilder::new(
-                                &configuration.vector_database.index,
-                                field,
-                                FieldType::Text,
-                            )
-                            .field_index_params(text_index_params),
+                            CreateFieldIndexCollectionBuilder::new(index, field, FieldType::Text)
+                                .field_index_params(text_index_params),
                         )
                         .await?;
                 }
@@ -148,7 +141,7 @@ impl VectorDatabase for QdrantDatabase {
 
     async fn add_document_chunks_to_database(
         &self,
-        vector_database_config: &VectorDatabaseConfig,
+        index: &str,
         chunks: Vec<DocumentChunk>,
     ) -> Result<()> {
         let mut points: Vec<PointStruct> = Vec::new();
@@ -165,22 +158,15 @@ impl VectorDatabase for QdrantDatabase {
         }
 
         self.client
-            .upsert_points(
-                UpsertPointsBuilder::new(&vector_database_config.index, points).wait(true),
-            )
+            .upsert_points(UpsertPointsBuilder::new(index, points).wait(true))
             .await?;
 
         Ok(())
     }
 
-    async fn delete_index(
-        &self,
-        vector_database_configurations: &VectorDatabaseConfig,
-    ) -> Result<()> {
+    async fn delete_index(&self, index: &str) -> Result<()> {
         self.client
-            .delete_collection(DeleteCollectionBuilder::new(
-                vector_database_configurations.index.clone(),
-            ))
+            .delete_collection(DeleteCollectionBuilder::new(index))
             .await?;
 
         Ok(())
@@ -383,7 +369,10 @@ impl QdrantDatabase {
         };
 
         vector_database
-            .create_index(&configuration)
+            .create_index(
+                &configuration.vector_database.index,
+                configuration.embedder.dimensions,
+            )
             .await?;
 
         match validate_configuration(&client, configuration).await {
