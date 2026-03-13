@@ -49,7 +49,7 @@ pub struct LanceDB {
 
 #[async_trait]
 impl VectorDatabase for LanceDB {
-    async fn create_vector_database(&self, configuration: &Config) -> Result<()> {
+    async fn create_index(&self, configuration: &Config) -> Result<()> {
         match self
             .vector_database
             .create_empty_table(&configuration.vector_database.index, self.schema.clone())
@@ -137,7 +137,14 @@ impl VectorDatabase for LanceDB {
             .execute()
             .await?;
 
-        let predicate: String = format!("document_metadata_id IN ({})", document_ids.join(", "));
+        let predicate: String = format!(
+            "document_metadata_id IN ({})",
+            document_ids
+                .iter()
+                .map(|id| format!("'{}'", id))
+                .collect::<Vec<String>>()
+                .join(", ")
+        );
 
         table.delete(&predicate).await?;
 
@@ -156,7 +163,11 @@ impl VectorDatabase for LanceDB {
 
         let predicate: String = format!(
             "document_metadata_id IN ({})",
-            document_chunks_ids.join(", ")
+            document_chunks_ids
+                .iter()
+                .map(|id| format!("'{}'", id))
+                .collect::<Vec<String>>()
+                .join(", ")
         );
 
         let stream = table.query().only_if(&predicate).execute().await?;
@@ -316,7 +327,7 @@ impl LanceDB {
         };
 
         vector_database
-            .create_vector_database(&configuration)
+            .create_index(&configuration)
             .await?;
 
         Ok(vector_database)
@@ -412,10 +423,10 @@ pub fn build_search_results(
         {
             result.collection_title = Some(collection_metadata.title.clone());
         }
-        
+
         // Manually compute the score by using `x = 1 - (n * 0.1)`
         result.score = 1.0 - (index as f32 * 0.1);
-        
+
         results.push(result);
     }
 
