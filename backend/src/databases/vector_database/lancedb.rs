@@ -6,16 +6,14 @@ use anyhow::Result;
 use arrow_array::{
     FixedSizeListArray, Float32Array, LargeStringArray, RecordBatch, RecordBatchIterator,
 };
-use arrow_schema::{DataType, Field};
 use async_trait::async_trait;
 use futures::StreamExt;
 use lancedb::arrow::RecordBatchStream;
 use lancedb::index::scalar::{FtsIndexBuilder, FullTextSearchQuery};
-use lancedb::index::vector::IvfRqIndexBuilder;
 use lancedb::{
     arrow::arrow_schema::{FieldRef, Schema},
     connect,
-    index::{Index, vector::IvfHnswSqIndexBuilder},
+    index::Index,
     query::{ExecutableQuery, QueryBase},
 };
 use serde_arrow::schema::{SchemaLike, TracingOptions};

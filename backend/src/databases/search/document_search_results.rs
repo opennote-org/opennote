@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use qdrant_client::qdrant::{RetrievedPoint, ScoredPoint};
 use serde::{Deserialize, Serialize};
 
