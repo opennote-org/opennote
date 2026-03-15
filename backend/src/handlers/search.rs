@@ -32,7 +32,10 @@ pub async fn intelligent_search(
         log::warn!("Vector database data is not integral! Trying to recover...");
         match data
             .databases_layer_entry
-            .recover(&data.config.vector_database)
+            .recover(
+                &data.config.vector_database.index,
+                data.config.embedder.dimensions,
+            )
             .await
         {
             Ok(_) => (),
@@ -122,7 +125,10 @@ pub async fn search(
     if !is_vector_database_valid {
         match data
             .databases_layer_entry
-            .recover(&data.config.vector_database)
+            .recover(
+                &data.config.vector_database.index,
+                data.config.embedder.dimensions,
+            )
             .await
         {
             Ok(_) => (),
