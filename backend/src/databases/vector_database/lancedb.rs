@@ -337,54 +337,10 @@ impl LanceDB {
         let mut acquired_chunks = Vec::new();
         while let Some(next) = stream.next().await {
             let next = next?;
-
-            // how many rows do we have
-            // iterate rows to convert them into chunks
-
-            let columns = next.columns();
-            let num_rows = columns[0].len();
-
-            for i in 0..num_rows {
-                acquired_chunks.push(DocumentChunk {
-                    id: columns[0]
-                        .as_any()
-                        .downcast_ref::<LargeStringArray>()
-                        .unwrap()
-                        .value(i)
-                        .to_string(),
-                    document_metadata_id: columns[1]
-                        .as_any()
-                        .downcast_ref::<LargeStringArray>()
-                        .unwrap()
-                        .value(i)
-                        .to_string(),
-                    collection_metadata_id: columns[2]
-                        .as_any()
-                        .downcast_ref::<LargeStringArray>()
-                        .unwrap()
-                        .value(i)
-                        .to_string(),
-                    content: columns[3]
-                        .as_any()
-                        .downcast_ref::<LargeStringArray>()
-                        .unwrap()
-                        .value(i)
-                        .to_string(),
-                    dense_text_vector: columns[4]
-                        .as_any()
-                        .downcast_ref::<FixedSizeListArray>()
-                        .unwrap()
-                        .value(i)
-                        .as_any()
-                        .downcast_ref::<Float32Array>()
-                        .expect("Expect Float32Array")
-                        .iter()
-                        .map(|item| item.unwrap())
-                        .collect(),
-                });
-            }
+            let chunks: Vec<DocumentChunk> = serde_arrow::from_record_batch(&next)?; 
+            acquired_chunks.extend(chunks);
         }
-
+        
         Ok(acquired_chunks)
     }
 }
