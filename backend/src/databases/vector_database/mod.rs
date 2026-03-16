@@ -1,4 +1,4 @@
-pub mod local;
+pub mod lancedb;
 pub mod qdrant;
 
 pub mod shared;

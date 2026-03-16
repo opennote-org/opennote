@@ -6,11 +6,11 @@ use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
-use sea_orm::ActiveValue::Unchanged;
-use sea_orm::{ActiveModelBehavior, IntoActiveModel, PaginatorTrait};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
-    Set,
+    ActiveModelTrait,
+    ActiveValue::Unchanged,
+    ColumnTrait, ConnectOptions, DatabaseConnection, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, Set,
     sea_query::{Expr, OnConflict},
 };
 

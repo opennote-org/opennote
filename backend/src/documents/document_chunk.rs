@@ -4,7 +4,6 @@ use std::{collections::HashMap, io::Read};
 
 use chunk::chunk;
 use jieba_rs::Jieba;
-use local_vector_database::Data;
 use qdrant_client::{
     Payload,
     qdrant::{NamedVectors, PointStruct, RetrievedPoint},
@@ -12,7 +11,10 @@ use qdrant_client::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{databases::database, documents::traits::GetId};
+use crate::{
+    databases::{database, search::document_search_results::DocumentChunkSearchResult},
+    documents::traits::GetId,
+};
 
 use super::traits::{GetIndexableFields, IndexableField};
 
@@ -22,7 +24,6 @@ pub struct DocumentChunk {
     pub document_metadata_id: String,
     pub collection_metadata_id: String,
     pub content: String,
-    #[serde(skip)]
     pub dense_text_vector: Vec<f32>,
 }
 
@@ -162,46 +163,6 @@ impl GetId for DocumentChunk {
     }
 }
 
-impl From<DocumentChunk> for Data {
-    fn from(value: DocumentChunk) -> Self {
-        Self {
-            id: value.id.clone(),
-            vector: value.dense_text_vector.clone(),
-            fields: serde_json::from_str(&serde_json::to_string(&value).unwrap()).unwrap(),
-        }
-    }
-}
-
-impl From<Data> for DocumentChunk {
-    fn from(value: Data) -> Self {
-        Self {
-            id: value.id,
-            document_metadata_id: value
-                .fields
-                .get("document_metadata_id")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            collection_metadata_id: value
-                .fields
-                .get("collection_metadata_id")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            content: value
-                .fields
-                .get("content")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            dense_text_vector: Vec::new(),
-        }
-    }
-}
-
 impl From<DocumentChunk> for PointStruct {
     fn from(value: DocumentChunk) -> Self {
         Self::new(
@@ -303,6 +264,17 @@ impl From<DocumentChunk> for database::entity::document_chunks::Model {
             content: value.content,
             dense_text_vector: serde_json::to_value(value.dense_text_vector).unwrap(),
             chunk_order: 0,
+        }
+    }
+}
+
+impl From<DocumentChunk> for DocumentChunkSearchResult {
+    fn from(value: DocumentChunk) -> Self {
+        Self {
+            document_title: None,
+            collection_title: None,
+            document_chunk: value,
+            score: 0.0,
         }
     }
 }
