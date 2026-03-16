@@ -64,7 +64,14 @@ impl VectorDatabase for LanceDB {
         let table = self.vector_database.open_table(index).execute().await?;
 
         table
-            .create_index(&["content"], Index::FTS(FtsIndexBuilder::default()))
+            .create_index(
+                &["content"],
+                Index::FTS(
+                    FtsIndexBuilder::default()
+                        .base_tokenizer("ngram".to_string())
+                        .ngram_min_length(2),
+                ),
+            )
             .execute()
             .await?;
 
@@ -337,10 +344,10 @@ impl LanceDB {
         let mut acquired_chunks = Vec::new();
         while let Some(next) = stream.next().await {
             let next = next?;
-            let chunks: Vec<DocumentChunk> = serde_arrow::from_record_batch(&next)?; 
+            let chunks: Vec<DocumentChunk> = serde_arrow::from_record_batch(&next)?;
             acquired_chunks.extend(chunks);
         }
-        
+
         Ok(acquired_chunks)
     }
 }
