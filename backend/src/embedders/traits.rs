@@ -1,7 +1,6 @@
-use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
 
 use crate::documents::document_chunk::DocumentChunk;
 
@@ -17,18 +16,6 @@ impl Display for EmbedderProvider {
         match self {
             Self::Native => f.write_str("native"),
             Self::Remote => f.write_str("remote"),
-        }
-    }
-}
-
-impl FromStr for EmbedderProvider {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "native" => Ok(EmbedderProvider::Native),
-            "remote" => Ok(EmbedderProvider::Remote),
-            _ => Err(anyhow!("Unknown embedder provider: {}", s)),
         }
     }
 }
