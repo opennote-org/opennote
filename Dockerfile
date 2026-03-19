@@ -12,6 +12,10 @@ RUN flutter build web --release --pwa-strategy=none
 FROM rust:latest AS backend-builder
 WORKDIR /app
 COPY backend/ .
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler \
+    libprotobuf-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN cargo build --release
 
 # Stage 3: Runtime

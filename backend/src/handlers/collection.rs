@@ -16,6 +16,7 @@ use crate::{
     databases::database::filters::{
         get_collections::GetCollectionFilter, get_users::GetUserFilter,
     },
+    documents::collection_metadata::CollectionMetadata,
 };
 
 // Sync Endpoint
@@ -167,6 +168,15 @@ pub async fn get_collections(
             )));
         }
     };
+
+    if user.resources.is_empty() {
+        return Ok(HttpResponse::Ok()
+            .json(GenericResponse::succeed(
+                "".to_string(),
+                &Vec::<CollectionMetadata>::new(),
+            ))
+            .into());
+    }
 
     let collections = match data
         .databases_layer_entry
