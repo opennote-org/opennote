@@ -18,6 +18,7 @@ use lancedb::{
 };
 use serde_arrow::schema::{SchemaLike, TracingOptions};
 
+use crate::embedders::entry::EmbedderEntry;
 use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
     databases::{
@@ -178,20 +179,12 @@ impl SemanticSearch for LanceDB {
         document_metadata_ids: Vec<String>,
         query: &str,
         top_n: usize,
-        provider: &str,
-        base_url: &str,
-        api_key: &str,
-        model: &str,
-        encoding_format: &str,
+        embedder_entry: &EmbedderEntry,
     ) -> Result<Vec<DocumentChunkSearchResult>> {
         // Convert to vec
         let chunks: Vec<DocumentChunk> = send_vectorization(
-            provider,
-            base_url,
-            api_key,
-            model,
-            encoding_format,
             vec![DocumentChunk::new(query.to_owned(), "", "")],
+            embedder_entry,
         )
         .await?;
 

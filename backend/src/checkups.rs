@@ -7,19 +7,14 @@ use crate::{
     configurations::system::{Config, EmbedderConfig},
     documents::document_chunk::DocumentChunk,
     embedder::send_vectorization,
+    embedders::entry::EmbedderEntry,
 };
 
-pub async fn handshake_embedding_service(config: &EmbedderConfig) -> Result<()> {
-    match send_vectorization(
-        &config.provider,
-        &config.base_url,
-        &config.api_key,
-        &config.model,
-        &config.encoding_format,
-        vec![DocumentChunk::default()],
-    )
-    .await
-    {
+pub async fn handshake_embedding_service(
+    config: &EmbedderConfig,
+    embedder_entry: &EmbedderEntry,
+) -> Result<()> {
+    match send_vectorization(vec![DocumentChunk::default()], embedder_entry).await {
         Ok(result) => {
             if let Some(vector) = result.get(0) {
                 if !(vector.dense_text_vector.len() == config.dimensions) {
@@ -62,7 +57,11 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
         app_state
             .databases_layer_entry
             .vector_database
-            .reindex_documents(config, &app_state.databases_layer_entry.database)
+            .reindex_documents(
+                config,
+                &app_state.databases_layer_entry.database,
+                &app_state.embedder_entry,
+            )
             .await?;
         log::info!("Re-indexing finished.");
     }

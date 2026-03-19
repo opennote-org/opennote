@@ -6,8 +6,11 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
-use crate::databases::{
-    database::shared::DatabaseProvider, vector_database::traits::VectorDatabaseProvider,
+use crate::{
+    databases::{
+        database::shared::DatabaseProvider, vector_database::traits::VectorDatabaseProvider,
+    },
+    embedders::traits::EmbedderProvider,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,8 +53,7 @@ pub struct MetadataStorageConfig {
 pub struct EmbedderConfig {
     /// Provider of the embedding model
     /// Leave it empty if you are using a locally hosted, OpenAI compatible API
-    #[serde(skip)]
-    pub provider: String,
+    pub provider: EmbedderProvider,
 
     /// base url of your local embedder service.
     /// Leave it empty if you are using one from a provider.
