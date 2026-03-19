@@ -8,12 +8,10 @@ use crate::{
     },
 };
 use anyhow::Result;
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 pub async fn create_embedder(config: &Config) -> Result<Arc<dyn Embedder>> {
-    let provider: EmbedderProvider = EmbedderProvider::from_str(&config.embedder.provider)?;
-
-    let embedder: Arc<dyn Embedder> = match provider {
+    let embedder: Arc<dyn Embedder> = match &config.embedder.provider {
         EmbedderProvider::Native => Arc::new(Native::new(config).await?),
         EmbedderProvider::Remote => Arc::new(Remote::new(config).await?),
         _ => Arc::new(Other::new(config).await?),

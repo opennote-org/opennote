@@ -30,7 +30,7 @@ impl Embedder for Other {
                 queries.iter().map(|item| item.content.clone()).collect(),
                 None,
                 None,
-                Some(&self.embedder_config.provider),
+                Some(&self.embedder_config.provider.to_string().as_str()),
                 Some(self.embedder_config.api_key.to_owned()),
             )
             .await?;

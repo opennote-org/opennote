@@ -6330,20 +6330,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d873d7c67ce09b42110d801813efbc9364414e356be9935700d368351657487"
 
 [[package]]
-name = "local_embedded"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "embed_anything",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6864,16 +6850,19 @@ dependencies = [
  "arrow-array",
  "arrow-schema",
  "async-trait",
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
  "catsu",
  "chrono",
  "chunk",
  "config",
+ "embed_anything",
  "env_logger",
  "futures",
  "html-to-markdown-rs",
  "jieba-rs",
  "lancedb",
- "local_embedded",
  "log",
  "migration",
  "qdrant-client",
