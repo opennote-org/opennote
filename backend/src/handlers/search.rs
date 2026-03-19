@@ -80,11 +80,7 @@ pub async fn intelligent_search(
             document_metadata_ids,
             &request.0.query,
             request.0.top_n,
-            &data.config.embedder.provider,
-            &data.config.embedder.base_url,
-            &data.config.embedder.api_key,
-            &data.config.embedder.model,
-            &data.config.embedder.encoding_format,
+            &data.embedder_entry,
         )
         .await
     {

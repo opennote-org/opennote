@@ -13,6 +13,7 @@ use crate::databases::database::traits::database::Database;
 use crate::databases::search::{keyword::KeywordSearch, semantic::SemanticSearch};
 use crate::documents::document_chunk::DocumentChunk;
 use crate::embedder::vectorize;
+use crate::embedders::entry::EmbedderEntry;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -66,6 +67,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         &self,
         configuration: &Config,
         database: &Arc<dyn Database>,
+        embedder_entry: &EmbedderEntry,
     ) -> Result<()> {
         let chunks = database
             .get_document_chunks(&GetDocumentChunkFilter {
@@ -78,7 +80,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
                 &configuration.vector_database.index,
                 configuration.embedder.dimensions,
             ),
-            vectorize(&configuration.embedder, chunks),
+            vectorize(&configuration.embedder, chunks, embedder_entry),
         )
         .await;
 

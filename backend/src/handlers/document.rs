@@ -88,7 +88,7 @@ pub async fn add_document(
             user_configurations.search.document_chunk_size,
         );
 
-        match vectorize(&data.config.embedder, chunks).await {
+        match vectorize(&data.config.embedder, chunks, &data.embedder_entry).await {
             Ok(chunks) => metadata.chunks = chunks,
             Err(error) => {
                 error!("Failed to vectorize document chunks: {}", error);
@@ -211,6 +211,7 @@ pub async fn import_documents(
             };
             let request: ImportDocumentsRequest = request.clone();
             let embedder_config: EmbedderConfig = data.config.embedder.clone();
+            let embedder_entry = data.embedder_entry.clone();
             preprocess_tasks.push(tokio::spawn(async move {
                 let (mut document_metadata, chunks, _) = preprocess_document(
                     &result.title,
@@ -219,7 +220,8 @@ pub async fn import_documents(
                     user_configurations.search.document_chunk_size,
                 );
 
-                document_metadata.chunks = vectorize(&embedder_config, chunks).await?;
+                document_metadata.chunks =
+                    vectorize(&embedder_config, chunks, &embedder_entry).await?;
 
                 Ok::<_, anyhow::Error>(document_metadata)
             }));
@@ -466,7 +468,8 @@ pub async fn update_document_content(
             &metadata.collection_metadata_id,
         );
 
-        metadata.chunks = match vectorize(&data.config.embedder, chunks).await {
+        metadata.chunks = match vectorize(&data.config.embedder, chunks, &data.embedder_entry).await
+        {
             Ok(chunks) => chunks,
             Err(error) => {
                 error!("Failed to vectorize document chunks: {}", error);
@@ -754,6 +757,7 @@ pub async fn reindex(
         let mut slicing_tasks = Vec::new();
         for (collection_metadata_id, mut document_metadata, document_content) in results {
             let embedder_config = data.config.embedder.clone();
+            let embedder_entry = data.embedder_entry.clone();
             slicing_tasks.push(tokio::spawn(async move {
                 // Concurrently update the document chunks and their DocumentMetadata
                 let metadata_id: String = document_metadata.id.clone();
@@ -765,7 +769,7 @@ pub async fn reindex(
                     &collection_metadata_id,
                 );
 
-                let chunks = vectorize(&embedder_config, chunks).await?;
+                let chunks = vectorize(&embedder_config, chunks, &embedder_entry).await?;
 
                 document_metadata.chunks = chunks.clone();
 
