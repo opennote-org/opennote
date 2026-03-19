@@ -1,17 +1,18 @@
-use crate::embedder::EmbedderTrait;
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use embed_anything::embeddings::embed::{Embedder as AnythingEmbedder, EmbeddingResult};
 
-pub struct LocalEmbedder {
+use crate::embedders::native_embedder::embedder::EmbedderTrait;
+
+pub struct NativeEmbedder {
     anything_embedder: AnythingEmbedder,
 }
 
-impl LocalEmbedder {
+impl NativeEmbedder {
     pub fn new(model_id: impl AsRef<str>) -> Result<Self> {
         let anything_embedder =
             AnythingEmbedder::from_pretrained_hf(model_id.as_ref(), None, None, None)
-                .context("Local embedder initialization failed")?;
+                .context("Native embedder initialization failed")?;
 
         Ok(Self { anything_embedder })
     }
@@ -39,7 +40,7 @@ impl LocalEmbedder {
 }
 
 #[async_trait]
-impl EmbedderTrait for LocalEmbedder {
+impl EmbedderTrait for NativeEmbedder {
     async fn embed(&self, sentences: &[&str]) -> Result<Vec<Vec<f32>>> {
         self.embed_inner(sentences).await
     }

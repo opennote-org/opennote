@@ -1,4 +1,6 @@
 use crate::configurations::system::EmbedderConfig;
+use crate::embedders::native_embedder::embedder::EmbedderTrait;
+use crate::embedders::native_embedder::native_embedder::NativeEmbedder;
 use crate::{
     configurations::system::Config, documents::document_chunk::DocumentChunk,
     embedders::traits::Embedder,
@@ -6,7 +8,6 @@ use crate::{
 use anyhow::Result;
 use anyhow::anyhow;
 use async_trait::async_trait;
-use local_embedded::{EmbedderTrait, LocalEmbedder};
 
 pub struct Native {
     embedder_config: EmbedderConfig,
@@ -23,7 +24,7 @@ impl Native {
 #[async_trait]
 impl Embedder for Native {
     async fn vectorize(&self, queries: &Vec<DocumentChunk>) -> anyhow::Result<Vec<Vec<f32>>> {
-        let native_embedder = LocalEmbedder::new(&self.embedder_config.model)?;
+        let native_embedder = NativeEmbedder::new(&self.embedder_config.model)?;
 
         let inputs: Vec<&str> = queries.iter().map(|item| item.content.as_str()).collect();
 

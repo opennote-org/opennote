@@ -6,3 +6,5 @@ pub mod shared;
 pub mod traits;
 
 pub mod entry;
+
+pub mod native_embedder;
