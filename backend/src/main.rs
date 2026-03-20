@@ -1,14 +1,11 @@
-mod api_models;
 mod app_state;
 mod checkups;
 mod configurations;
 mod connectors;
 mod constants;
 mod databases;
-mod documents;
 mod embedder;
 mod embedders;
-mod handlers;
 mod identities;
 mod initialization;
 mod mcp;
@@ -16,6 +13,7 @@ mod metadata_storage;
 mod routes;
 mod tasks_scheduler;
 mod traits;
+mod note;
 
 use actix_web::web::Data;
 use anyhow::{Context, Result};
