@@ -1,22 +1,45 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::fmt;
 
 use crate::documents::document_chunk::DocumentChunk;
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(from = "String", into = "String")]
 pub enum EmbedderProvider {
     Native,
     Remote,
+    Other(String),
 }
 
-impl Display for EmbedderProvider {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Native => f.write_str("native"),
-            Self::Remote => f.write_str("remote"),
+impl From<String> for EmbedderProvider {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "native" => Self::Native,
+            "remote" => Self::Remote,
+            _ => Self::Other(s),
         }
+    }
+}
+
+impl From<EmbedderProvider> for String {
+    fn from(value: EmbedderProvider) -> Self {
+        match value {
+            EmbedderProvider::Native => "native".into(),
+            EmbedderProvider::Remote => "remote".into(),
+            EmbedderProvider::Other(s) => s,
+        }
+    }
+}
+
+impl fmt::Display for EmbedderProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EmbedderProvider::Native => "native",
+            EmbedderProvider::Remote => "remote",
+            EmbedderProvider::Other(s) => s,
+        }
+        .fmt(f)
     }
 }
 
