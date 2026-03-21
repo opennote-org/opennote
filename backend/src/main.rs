@@ -13,7 +13,7 @@ mod metadata_storage;
 mod routes;
 mod tasks_scheduler;
 mod traits;
-mod note;
+mod models;
 
 use actix_web::web::Data;
 use anyhow::{Context, Result};
