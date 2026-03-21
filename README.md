@@ -112,6 +112,25 @@ docker run -d --runtime nvidia --gpus all \
 
 You may also refer to their official document for more in-depth setup tutorial: https://docs.vllm.ai/en/latest/deployment/docker/
 
+### Using Native Embeddings (Recommended for Local Deployment)
+
+OpenNote includes a built-in native embedding solution using Hugging Face models. This eliminates the need for external API services.
+
+To use native embeddings, configure `backend/config.prod.json`:
+
+```json
+{
+  "embedder": {
+    "provider": "native",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "vectorization_batch_size": 100,
+    "dimensions": 384
+  }
+}
+```
+
+The native embedder automatically downloads models from Hugging Face Hub on first use.
+
 ### Configure the project
 
 In `backend/config.prod.json` (create one and copy and paste the json below if you don't see it):
