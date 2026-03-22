@@ -13,11 +13,11 @@ pub enum EmbedderProvider {
 }
 
 impl From<String> for EmbedderProvider {
-    fn from(s: String) -> Self {
-        match s.as_str() {
+    fn from(provider: String) -> Self {
+        match provider.as_str() {
             "native" => Self::Native,
             "remote" => Self::Remote,
-            _ => Self::Other(s),
+            _ => Self::Other(provider),
         }
     }
 }
@@ -27,7 +27,7 @@ impl From<EmbedderProvider> for String {
         match value {
             EmbedderProvider::Native => "native".into(),
             EmbedderProvider::Remote => "remote".into(),
-            EmbedderProvider::Other(s) => s,
+            EmbedderProvider::Other(provider) => provider,
         }
     }
 }
@@ -37,7 +37,7 @@ impl fmt::Display for EmbedderProvider {
         match self {
             EmbedderProvider::Native => "native",
             EmbedderProvider::Remote => "remote",
-            EmbedderProvider::Other(s) => s,
+            EmbedderProvider::Other(provider) => provider,
         }
         .fmt(f)
     }
