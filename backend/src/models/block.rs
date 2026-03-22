@@ -16,12 +16,14 @@ pub struct Block {
 pub struct Payload {
     /// For displaying on the UI. It is the title of the block.
     pub title: Option<String>,
-    /// The position (row, column) of the payload on a block.
-    pub order: (usize, usize),
+    /// The position (row) of the payload on a block.
+    pub order_row: usize,
+    /// The position (column) of the payload on a block.
+    pub order_column: usize,
     /// Can be Text, Image bytes. extensible for other modality
     pub content: Content,
-    pub created_at: usize,
-    pub last_modified: usize,
+    pub created_at: i64,
+    pub last_modified: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
