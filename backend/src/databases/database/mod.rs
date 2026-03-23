@@ -1,4 +1,3 @@
-pub mod database_information;
 pub mod filters;
 pub mod metadata;
 pub mod shared;
