@@ -4,24 +4,29 @@ use sea_orm::entity::prelude::*;
 
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "documents")]
+#[sea_orm(table_name = "payloads")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: String,
-    pub collection_metadata_id: String,
-    pub title: String,
+    pub id: Uuid,
+    pub block_id: String,
+    pub order_row: i64,
+    pub order_column: i64,
     pub created_at: i64,
     pub last_modified: i64,
+    #[sea_orm(column_type = "Text")]
+    pub texts: String,
+    #[sea_orm(column_type = "Binary(1)")]
+    pub bytes: Vec<u8>,
+    pub vector: Json,
+    pub content_type: String,
     #[sea_orm(
         belongs_to,
-        from = "collection_metadata_id",
+        from = "block_id",
         to = "id",
-        on_update = "NoAction",
+        on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    pub collections: HasOne<super::collections::Entity>,
-    #[sea_orm(has_many)]
-    pub document_chunks: HasMany<super::document_chunks::Entity>,
+    pub blocks: HasOne<super::blocks::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

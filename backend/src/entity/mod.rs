@@ -2,8 +2,6 @@
 
 pub mod prelude;
 
-pub mod collections;
-pub mod document_chunks;
-pub mod documents;
+pub mod blocks;
 pub mod metadata_settings;
-pub mod users;
+pub mod payloads;

@@ -6,14 +6,13 @@ mod constants;
 mod databases;
 mod embedder;
 mod embedders;
-mod identities;
 mod initialization;
 mod mcp;
-mod metadata_storage;
 mod routes;
 mod tasks_scheduler;
 mod traits;
 mod models;
+mod entity;
 
 use actix_web::web::Data;
 use anyhow::{Context, Result};
