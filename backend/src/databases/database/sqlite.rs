@@ -5,10 +5,10 @@ use async_trait::async_trait;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, DatabaseConnection, EntityTrait};
 
-use crate::databases::database::{
+use crate::{databases::database::{
     metadata::MetadataSettings,
-    traits::{database::Database, metadata::MetadataManagement},
-};
+    traits::{blocks::Blocks, database::Database, metadata::MetadataManagement},
+}, models::block::Block};
 
 #[derive(Debug, Clone)]
 pub struct SQLiteDatabase {
@@ -74,5 +74,20 @@ impl MetadataManagement for SQLiteDatabase {
             Some(result) => Ok(result.into()),
             None => return Err(anyhow!("Metadata settings missed")),
         }
+    }
+}
+
+#[async_trait]
+impl Blocks for SQLiteDatabase {
+    async fn create_blocks() -> Result<Vec<Block>> {
+        use crate::entity::blocks::{Entity as BlockEntity, ActiveModel};
+        use crate::entity::payloads::Entity as PayloadEntity;
+        
+        BlockEntity::insert(
+            ActiveModel {}
+        );
+        
+        // create an empty block
+        // need to insert payloads later
     }
 }
