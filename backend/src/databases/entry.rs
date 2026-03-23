@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use futures::future::join;
 
 use crate::{
-    configurations::system::{Config, VectorDatabaseConfig},
+    configurations::system::Config,
     databases::{
         database::{
             filters::get_document_chunks::GetDocumentChunkFilter, shared::create_database,
@@ -12,7 +11,6 @@ use crate::{
         },
         vector_database::{shared::create_vector_database, traits::VectorDatabase},
     },
-    documents::{document_chunk::DocumentChunk, document_metadata::DocumentMetadata},
 };
 
 /// At the moment, it only abstracts database-related logics of documents and chunks.
@@ -33,72 +31,6 @@ impl DatabasesLayerEntry {
             database,
             vector_database,
         })
-    }
-
-    pub async fn add_documents(
-        &self,
-        vector_database_config: &VectorDatabaseConfig,
-        documents: Vec<DocumentMetadata>,
-    ) -> Result<()> {
-        let chunks: Vec<DocumentChunk> = documents
-            .iter()
-            .flat_map(|item| item.chunks.clone())
-            .collect();
-
-        let results = join(
-            self.database.add_documents(documents),
-            self.vector_database
-                .add_document_chunks_to_database(&vector_database_config.index, chunks),
-        )
-        .await;
-
-        results.0?;
-        results.1?;
-
-        Ok(())
-    }
-
-    pub async fn delete_documents(
-        &self,
-        vector_database_config: &VectorDatabaseConfig,
-        document_metadata_ids: &Vec<String>,
-    ) -> Result<Vec<DocumentMetadata>> {
-        let results = join(
-            self.database.delete_documents(document_metadata_ids),
-            self.vector_database
-                .delete_documents_from_database(vector_database_config, document_metadata_ids),
-        )
-        .await;
-
-        results.1?;
-        Ok(results.0?)
-    }
-
-    pub async fn update_documents(
-        &self,
-        vector_database_config: &VectorDatabaseConfig,
-        documents: Vec<DocumentMetadata>,
-    ) -> Result<()> {
-        self.vector_database
-            .delete_documents_from_database(
-                vector_database_config,
-                &documents.iter().map(|item| item.id.clone()).collect(),
-            )
-            .await?;
-
-        let results = join(
-            self.database.update_documents(documents.clone()),
-            self.vector_database.add_document_chunks_to_database(
-                &vector_database_config.index,
-                documents.into_iter().flat_map(|item| item.chunks).collect(),
-            ),
-        )
-        .await;
-
-        results.0?;
-        results.1?;
-
-        Ok(())
     }
 
     /// Reover all document chunks from the relational database to the vector database

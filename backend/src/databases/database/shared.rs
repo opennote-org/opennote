@@ -9,7 +9,6 @@ use crate::{
         database::{sqlite::SQLiteDatabase, traits::database::Database},
         vector_database::traits::VectorDatabase,
     },
-    metadata_storage::MetadataStorage,
 };
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -30,25 +29,9 @@ pub async fn create_database(
             let is_database_exist =
                 SQLiteDatabase::is_database_exist(&config.database.connection_url).await;
 
-            let is_metadata_storage_exist =
-                MetadataStorage::is_metadata_storage_exist(&config.metadata_storage.path);
-
             let database = Arc::new(SQLiteDatabase::new(&config.database.connection_url).await?);
 
             database.create_tables().await?;
-
-            // Migrate if the database originally didn't exist AND
-            // the metadata storage exists
-            if !is_database_exist && is_metadata_storage_exist {
-                log::info!("Database does not exist! Try migrating...");
-                database
-                    .migrate(
-                        &config.metadata_storage.path,
-                        &config.identities_storage.path,
-                        &vector_database,
-                    )
-                    .await?;
-            }
 
             Ok(database)
         }
