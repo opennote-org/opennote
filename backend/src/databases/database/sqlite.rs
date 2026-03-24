@@ -114,9 +114,20 @@ impl Blocks for SQLiteDatabase {
         let conditions = Condition::any();
 
         let conditions = match filter {
-            BlockQuery::ByIds(ids) => conditions.add(blocks::Column::Id.is_in(ids)),
+            BlockQuery::ByIds(ids) => {
+                if ids.is_empty() {
+                    return Ok(vec![]);
+                }
+                
+                conditions.add(blocks::Column::Id.is_in(ids))
+            },
             // todo: how about the children of the block?
-            BlockQuery::ChildrenOf(ids) => conditions.add(blocks::Column::ParentId.is_in(ids)),
+            BlockQuery::ChildrenOf(ids) => {
+                if ids.is_empty() {
+                    return Ok(vec![]);
+                }
+                conditions.add(blocks::Column::ParentId.is_in(ids))
+            },
             BlockQuery::Root => conditions.add(blocks::Column::ParentId.is_null()),
         };
 
