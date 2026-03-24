@@ -3,7 +3,10 @@ use std::time::Duration;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use migration::{Migrator, MigratorTrait};
-use sea_orm::{ActiveModelBehavior, ConnectOptions, DatabaseConnection, EntityTrait};
+use sea_orm::{
+    ActiveModelBehavior, ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait,
+    QueryFilter,
+};
 
 use crate::{
     databases::database::{
@@ -98,10 +101,34 @@ impl Blocks for SQLiteDatabase {
             .exec_with_returning(&self.pool)
             .await?;
 
-        Ok(block.into_iter().map(|item| item.into()).collect())
+        Ok(block
+            .into_iter()
+            .map(|item| Block::from_model(item, vec![]))
+            .collect())
     }
 
-    async fn read_blocks(filter: &BlockQuery) -> Result<Vec<Block>> {
-        Ok(())
+    async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {
+        use crate::entity::blocks;
+        use crate::entity::payloads;
+
+        let conditions = Condition::any();
+
+        let conditions = match filter {
+            BlockQuery::ByIds(ids) => conditions.add(blocks::Column::Id.is_in(ids)),
+            // todo: how about the children of the block?
+            BlockQuery::ChildrenOf(ids) => conditions.add(blocks::Column::ParentId.is_in(ids)),
+            BlockQuery::Root => conditions.add(blocks::Column::ParentId.is_null()),
+        };
+
+        let all_blocks = blocks::Entity::find()
+            .find_with_related(payloads::Entity)
+            .filter(conditions)
+            .all(&self.pool)
+            .await?;
+
+        Ok(all_blocks
+            .into_iter()
+            .map(|(model, payloads)| Block::from_model(model, payloads))
+            .collect())
     }
 }
