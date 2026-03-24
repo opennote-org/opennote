@@ -7,6 +7,7 @@ use sea_orm::{
     ActiveModelBehavior, ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait,
     QueryFilter,
 };
+use uuid::Uuid;
 
 use crate::{
     databases::database::{
@@ -111,35 +112,66 @@ impl Blocks for SQLiteDatabase {
         use crate::entity::blocks;
         use crate::entity::payloads;
 
-        let conditions = Condition::any();
-
         let conditions = match filter {
+            BlockQuery::Root => Condition::any().add(blocks::Column::ParentId.is_null()),
             BlockQuery::ByIds(ids) => {
                 if ids.is_empty() {
                     return Ok(vec![]);
                 }
-                
-                conditions.add(blocks::Column::Id.is_in(ids))
-            },
-            // todo: how about the children of the block?
+
+                Condition::any().add(blocks::Column::Id.is_in(ids))
+            }
             BlockQuery::ChildrenOf(ids) => {
                 if ids.is_empty() {
                     return Ok(vec![]);
                 }
-                conditions.add(blocks::Column::ParentId.is_in(ids))
-            },
-            BlockQuery::Root => conditions.add(blocks::Column::ParentId.is_null()),
+
+                Condition::any().add(blocks::Column::ParentId.is_in(ids))
+            }
         };
 
-        let all_blocks = blocks::Entity::find()
+        let all_blocks_payloads_pairs = blocks::Entity::find()
             .find_with_related(payloads::Entity)
             .filter(conditions)
             .all(&self.pool)
             .await?;
 
-        Ok(all_blocks
-            .into_iter()
-            .map(|(model, payloads)| Block::from_model(model, payloads))
-            .collect())
+        let blocks: Vec<Block> = Block::from_models(all_blocks_payloads_pairs);
+
+        match filter {
+            BlockQuery::ChildrenOf(_) => {
+                let mut children: Vec<Block> = blocks;
+                let mut current_level_ids: Vec<Uuid> =
+                    children.iter().map(|item| item.id).collect();
+
+                // We keep getting the children blocks until we no longer get one
+                while !current_level_ids.is_empty() {
+                    let conditions =
+                        Condition::any().add(blocks::Column::ParentId.is_in(current_level_ids));
+
+                    let all_blocks_payloads_pairs = blocks::Entity::find()
+                        .find_with_related(payloads::Entity)
+                        .filter(conditions)
+                        .all(&self.pool)
+                        .await?;
+
+                    if all_blocks_payloads_pairs.is_empty() {
+                        break;
+                    }
+
+                    let converted_blocks: Vec<Block> =
+                        Block::from_models(all_blocks_payloads_pairs);
+                    current_level_ids = converted_blocks.iter().map(|item| item.id).collect();
+                    children.extend(converted_blocks);
+                }
+
+                Ok(children)
+            }
+            _ => Ok(blocks),
+        }
+    }
+
+    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>> {
+        Ok(())
     }
 }

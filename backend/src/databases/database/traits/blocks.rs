@@ -19,6 +19,7 @@ pub trait Blocks {
     async fn delete_blocks(&self, block_ids: Vec<String>) -> Result<Vec<Block>>;
 }
 
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum BlockQuery {
     Root,                    // blocks without parent
     ByIds(Vec<String>),      // specific blocks

@@ -27,4 +27,17 @@ impl Block {
             payloads: payloads.into_iter().map(|item| item.into()).collect(),
         }
     }
+
+    /// Convert multiple database blocks and payloads pairs into blocks
+    pub fn from_models(
+        models: Vec<(
+            crate::entity::blocks::Model,
+            Vec<crate::entity::payloads::Model>,
+        )>,
+    ) -> Vec<Block> {
+        models
+            .into_iter()
+            .map(|(model, payloads)| Block::from_model(model, payloads))
+            .collect()
+    }
 }
