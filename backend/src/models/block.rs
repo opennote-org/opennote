@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
-    pub id: String,
+    pub id: Uuid,
     /// Parent ID of this block. Root blocks don't have parent ids.
     pub parent_id: Option<String>,
     /// Reserved for soft deletion
@@ -14,7 +15,7 @@ pub struct Block {
 /// Next: do we store dynamic data? like hashmap?
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payload {
-    pub id: String,
+    pub id: Uuid,
     /// The position (row) of the payload on a block.
     pub order_row: i64,
     /// The position (column) of the payload on a block.
