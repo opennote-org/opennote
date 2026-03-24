@@ -5,8 +5,8 @@ use crate::models::block::Block;
 
 #[async_trait]
 pub trait Blocks {
-    /// Create
-    async fn create_blocks() -> Result<Vec<Block>>;
+    /// Create num_blocks of empty blocks
+    async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>>;
 
     /// This is to get the blocks without a parent
     async fn read_blocks(filter: &BlockQuery) -> Result<Vec<Block>>;
@@ -23,4 +23,15 @@ pub enum BlockQuery {
     Root,                    // blocks without parent
     ByIds(Vec<String>),      // specific blocks
     ChildrenOf(Vec<String>), // by parent ids
+}
+
+impl From<crate::entity::blocks::Model> for Block {
+    fn from(value: crate::entity::blocks::Model) -> Self {
+        Self {
+            id: value.id,
+            parent_id: value.parent_id,
+            is_deleted: value.is_deleted,
+            payloads: vec![],
+        }
+    }
 }
