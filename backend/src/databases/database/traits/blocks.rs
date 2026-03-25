@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use uuid::Uuid;
 
 use crate::models::block::Block;
 
@@ -12,11 +13,11 @@ pub trait Blocks {
     async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>>;
 
     /// Update a block by passing the blocks to update
-    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>>;
+    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()>;
 
     /// Delete blocks by their ids
     /// Children blocks will be removed as well
-    async fn delete_blocks(&self, block_ids: Vec<String>) -> Result<Vec<Block>>;
+    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<Vec<Block>>;
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
