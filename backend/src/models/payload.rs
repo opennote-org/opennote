@@ -68,11 +68,15 @@ impl Into<Model> for Payload {
 
 impl From<Model> for ActiveModel {
     fn from(model: Model) -> Self {
-        let mut active_model = model.into_active_model();
+        let mut active_model = model.clone().into_active_model();
 
-        // Set values for fields that need explicit conversion
-        active_model.vector = Set(serde_json::to_value(model.vector).unwrap());
-        active_model.content_type = Set(serde_json::to_string(&model.content_type.clone()).unwrap());
+        active_model.order_row = Set(model.order_row);
+        active_model.order_column = Set(model.order_column);
+        active_model.last_modified = Set(model.last_modified);
+        active_model.texts = Set(model.texts);
+        active_model.bytes = Set(model.bytes);
+        active_model.vector = Set(model.vector);
+        active_model.content_type = Set(model.content_type);
 
         active_model
     }

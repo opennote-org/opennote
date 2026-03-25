@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
+use futures::future::join_all;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     ActiveModelBehavior, ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait,
@@ -171,21 +172,61 @@ impl Blocks for SQLiteDatabase {
         }
     }
 
-    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>> {
+    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {
         use crate::entity::blocks;
         use crate::entity::payloads;
 
-        let mut ids: Vec<Uuid> = blocks.iter().map(|item| item.id).collect();
-        let blocks_payloads_model_pairs: Vec<(blocks::Model, Vec<payloads::Model>)> =
-            Block::to_models(blocks);
+        let block_ids: Vec<Uuid> = blocks.iter().map(|item| item.id).collect();
+        let active_blocks_payloads_pairs = Block::to_active_models(blocks);
+        let mut update_blocks_tasks = Vec::new();
+        let mut update_payloads_tasks = Vec::new();
 
-        for block in blocks {
-            blocks::Entity::update_many()
-                .set(block.to_model())
-                .filter(blocks::Column::Id.is_in(ids))
-                .exec(&self.pool);
+        for (active_block_model, active_payload_models) in active_blocks_payloads_pairs {
+            let payloads_ids: Vec<Uuid> = active_payload_models
+                .iter()
+                .map(|item| item.id.clone().unwrap())
+                .collect();
+
+            for payload_model in active_payload_models {
+                update_payloads_tasks.push(
+                    payloads::Entity::update_many()
+                        .set(payload_model)
+                        .filter(payloads::Column::Id.is_in(payloads_ids.clone()))
+                        .exec(&self.pool),
+                );
+            }
+
+            update_blocks_tasks.push(
+                blocks::Entity::update_many()
+                    .set(active_block_model)
+                    .filter(blocks::Column::Id.is_in(block_ids.clone()))
+                    .exec(&self.pool),
+            );
+        }
+
+        let payloads_results = join_all(update_payloads_tasks).await;
+        let blocks_results = join_all(update_blocks_tasks).await;
+
+        for result in payloads_results {
+            result?;
+        }
+
+        for result in blocks_results {
+            result?;
         }
 
         Ok(())
+    }
+
+    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<Vec<Block>> {
+        use crate::entity::blocks;
+
+        Ok(blocks::Entity::delete_many()
+            .filter_by_ids(block_ids)
+            .exec_with_returning(&self.pool)
+            .await?
+            .into_iter()
+            .map(|item| item.into())
+            .collect())
     }
 }

@@ -1,3 +1,4 @@
+use sea_orm::ActiveValue::{Set, Unchanged};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -54,14 +55,23 @@ impl Block {
     }
 
     pub fn to_active_model(self) -> (ActiveModel, Vec<crate::entity::payloads::ActiveModel>) {
-        let (block_models, payload_models) = self.to_model();
+        let (block_model, payload_models) = self.to_model();
         (
             ActiveModel {
-                id: (),
-                parent_id: (),
-                is_deleted: (),
+                id: Unchanged(block_model.id),
+                parent_id: Set(block_model.parent_id),
+                is_deleted: Set(block_model.is_deleted),
             },
-            
+            payload_models.into_iter().map(|item| item.into()).collect(),
         )
+    }
+
+    pub fn to_active_models(
+        blocks: Vec<Block>,
+    ) -> Vec<(ActiveModel, Vec<crate::entity::payloads::ActiveModel>)> {
+        blocks
+            .into_iter()
+            .map(|item| item.to_active_model())
+            .collect()
     }
 }
