@@ -172,6 +172,20 @@ impl Blocks for SQLiteDatabase {
     }
 
     async fn update_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>> {
+        use crate::entity::blocks;
+        use crate::entity::payloads;
+
+        let mut ids: Vec<Uuid> = blocks.iter().map(|item| item.id).collect();
+        let blocks_payloads_model_pairs: Vec<(blocks::Model, Vec<payloads::Model>)> =
+            Block::to_models(blocks);
+
+        for block in blocks {
+            blocks::Entity::update_many()
+                .set(block.to_model())
+                .filter(blocks::Column::Id.is_in(ids))
+                .exec(&self.pool);
+        }
+
         Ok(())
     }
 }

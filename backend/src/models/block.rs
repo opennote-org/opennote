@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::payload::Payload;
+use crate::{
+    entity::blocks::{ActiveModel, Model},
+    models::payload::Payload,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
@@ -16,10 +19,7 @@ pub struct Block {
 
 impl Block {
     /// Convert from a database model
-    pub fn from_model(
-        model: crate::entity::blocks::Model,
-        payloads: Vec<crate::entity::payloads::Model>,
-    ) -> Self {
+    pub fn from_model(model: Model, payloads: Vec<crate::entity::payloads::Model>) -> Self {
         Self {
             id: model.id,
             parent_id: model.parent_id,
@@ -29,15 +29,39 @@ impl Block {
     }
 
     /// Convert multiple database blocks and payloads pairs into blocks
-    pub fn from_models(
-        models: Vec<(
-            crate::entity::blocks::Model,
-            Vec<crate::entity::payloads::Model>,
-        )>,
-    ) -> Vec<Block> {
+    pub fn from_models(models: Vec<(Model, Vec<crate::entity::payloads::Model>)>) -> Vec<Block> {
         models
             .into_iter()
             .map(|(model, payloads)| Block::from_model(model, payloads))
             .collect()
+    }
+
+    /// Convert the block into a database model and a database model of its payloads
+    pub fn to_model(self) -> (Model, Vec<crate::entity::payloads::Model>) {
+        (
+            Model {
+                id: self.id,
+                parent_id: self.parent_id,
+                is_deleted: self.is_deleted,
+            },
+            self.payloads.into_iter().map(|item| item.into()).collect(),
+        )
+    }
+
+    /// Convert the multiple blocks into database models
+    pub fn to_models(blocks: Vec<Block>) -> Vec<(Model, Vec<crate::entity::payloads::Model>)> {
+        blocks.into_iter().map(|item| item.to_model()).collect()
+    }
+
+    pub fn to_active_model(self) -> (ActiveModel, Vec<crate::entity::payloads::ActiveModel>) {
+        let (block_models, payload_models) = self.to_model();
+        (
+            ActiveModel {
+                id: (),
+                parent_id: (),
+                is_deleted: (),
+            },
+            
+        )
     }
 }
