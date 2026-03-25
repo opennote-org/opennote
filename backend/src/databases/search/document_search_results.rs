@@ -1,8 +1,6 @@
 use qdrant_client::qdrant::{RetrievedPoint, ScoredPoint};
 use serde::{Deserialize, Serialize};
 
-use crate::documents::document_chunk::DocumentChunk;
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DocumentChunkSearchResult {
     pub document_title: Option<String>,

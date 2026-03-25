@@ -17,7 +17,7 @@ pub trait Blocks {
 
     /// Delete blocks by their ids
     /// Children blocks will be removed as well
-    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<Vec<Block>>;
+    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<()>;
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
