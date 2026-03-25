@@ -1,11 +1,18 @@
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::content_type::ContentType;
+use crate::{
+    entity::payloads::{ActiveModel, Model},
+    models::content_type::ContentType,
+};
 
 /// Next: do we store dynamic data? like hashmap?
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payload {
+    /// Reserved for storing database id
+    block_id: String,
+    /// A unique identification of this payload
     pub id: Uuid,
     /// The position (row) of the payload on a block.
     pub order_row: i64,
@@ -25,9 +32,10 @@ pub struct Payload {
     pub vector: Vec<f32>,
 }
 
-impl From<crate::entity::payloads::Model> for Payload {
-    fn from(value: crate::entity::payloads::Model) -> Self {
+impl From<Model> for Payload {
+    fn from(value: Model) -> Self {
         Self {
+            block_id: value.block_id,
             id: value.id,
             order_row: value.order_row,
             order_column: value.order_column,
@@ -38,5 +46,34 @@ impl From<crate::entity::payloads::Model> for Payload {
             bytes: value.bytes,
             vector: serde_json::from_value(value.vector).unwrap(),
         }
+    }
+}
+
+impl Into<Model> for Payload {
+    fn into(self) -> Model {
+        Model {
+            id: self.id,
+            block_id: self.block_id,
+            order_row: self.order_row,
+            order_column: self.order_column,
+            created_at: self.created_at,
+            last_modified: self.last_modified,
+            texts: self.texts,
+            bytes: self.bytes,
+            vector: serde_json::to_value(self.vector).unwrap(),
+            content_type: serde_json::to_string(&self.content_type).unwrap(),
+        }
+    }
+}
+
+impl From<Model> for ActiveModel {
+    fn from(model: Model) -> Self {
+        let mut active_model = model.into_active_model();
+
+        // Set values for fields that need explicit conversion
+        active_model.vector = Set(serde_json::to_value(model.vector).unwrap());
+        active_model.content_type = Set(serde_json::to_string(&model.content_type.clone()).unwrap());
+
+        active_model
     }
 }
