@@ -218,15 +218,14 @@ impl Blocks for SQLiteDatabase {
         Ok(())
     }
 
-    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<Vec<Block>> {
+    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<()> {
         use crate::entity::blocks;
 
-        Ok(blocks::Entity::delete_many()
+        blocks::Entity::delete_many()
             .filter_by_ids(block_ids)
             .exec_with_returning(&self.pool)
-            .await?
-            .into_iter()
-            .map(|item| item.into())
-            .collect())
+            .await?;
+
+        Ok(())
     }
 }
