@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use futures::future::join;
 use serde::Deserialize;
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::configurations::system::{Config, VectorDatabaseConfig};
 use crate::databases::database::traits::blocks::BlockQuery;
@@ -64,13 +65,13 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// Required for adding new payloads to the database
     async fn create_entries(&self, index: &str, payloads: Vec<Payload>) -> Result<()>;
 
-    async fn delete_documents_from_database(
+    async fn delete_entries(
         &self,
         vector_database_config: &VectorDatabaseConfig,
-        document_ids: &Vec<String>,
+        correspondent_ids: &Vec<Uuid>,
     ) -> Result<()>;
 
-    async fn get_document_chunks(&self, document_chunks_ids: Vec<String>) -> Result<Vec<T>>;
+    async fn get_entries(&self, correspondent_ids: &Vec<Uuid>) -> Result<Vec<Payload>>;
 
     /// Implement this to get `reindex_documents` automatically implemented
     /// The definition of `index` varies by vector databases
