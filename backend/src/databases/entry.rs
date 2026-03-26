@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use uuid::Uuid;
 
 use crate::{
     configurations::system::Config,
     databases::{
-        database::{
-            filters::get_document_chunks::GetDocumentChunkFilter, shared::create_database,
-            traits::database::Database,
-        },
+        database::{shared::create_database, traits::{blocks::BlockQuery, database::Database}},
         vector_database::{shared::create_vector_database, traits::VectorDatabase},
-    },
+    }, models::block::Block,
 };
 
 /// At the moment, it only abstracts database-related logics of documents and chunks.
@@ -32,6 +30,14 @@ impl DatabasesLayerEntry {
             vector_database,
         })
     }
+    
+    async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {}
+
+    async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {}
+
+    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {}
+
+    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<()> {}
 
     /// Reover all document chunks from the relational database to the vector database
     pub async fn recover(&self, index: &str, dimensions: usize) -> Result<()> {

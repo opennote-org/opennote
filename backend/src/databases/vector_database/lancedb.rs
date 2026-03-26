@@ -3,9 +3,7 @@ use std::usize;
 use std::{collections::HashMap, pin::Pin};
 
 use anyhow::Result;
-use arrow_array::{
-    FixedSizeListArray, Float32Array, LargeStringArray, RecordBatch, RecordBatchIterator,
-};
+use arrow_array::{RecordBatch, RecordBatchIterator};
 use async_trait::async_trait;
 use futures::StreamExt;
 use lancedb::arrow::RecordBatchStream;
@@ -18,23 +16,19 @@ use lancedb::{
 };
 use serde_arrow::schema::{SchemaLike, TracingOptions};
 
+use crate::databases::vector_database::traits::VectorDatabaseCompatible;
 use crate::embedders::entry::EmbedderEntry;
+use crate::models::block::Block;
+use crate::models::payload::Payload;
 use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
     databases::{
-        database::{
-            filters::{get_collections::GetCollectionFilter, get_documents::GetDocumentFilter},
-            traits::database::Database,
-        },
+        database::traits::database::Database,
         search::{
             document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
             semantic::SemanticSearch,
         },
         vector_database::traits::VectorDatabase,
-    },
-    documents::{
-        collection_metadata::CollectionMetadata, document_chunk::DocumentChunk,
-        document_metadata::DocumentMetadata,
     },
     embedder::send_vectorization,
 };
@@ -66,7 +60,7 @@ impl VectorDatabase for LanceDB {
 
         table
             .create_index(
-                &["content"],
+                &["texts"],
                 Index::FTS(
                     FtsIndexBuilder::default()
                         .base_tokenizer("ngram".to_string())
@@ -97,14 +91,10 @@ impl VectorDatabase for LanceDB {
         Ok(true)
     }
 
-    async fn add_document_chunks_to_database(
-        &self,
-        index: &str,
-        chunks: Vec<DocumentChunk>,
-    ) -> Result<()> {
+    async fn create_entries(&self, index: &str, payloads: Vec<Payload>) -> Result<()> {
         let table = self.vector_database.open_table(index).execute().await?;
 
-        let batch = self.convert_document_chunks_to_record_batch(&chunks)?;
+        let batch = self.convert_payloads_to_record_batch(&chunks)?;
         let iter = vec![batch].into_iter().map(Ok);
         let iterator = RecordBatchIterator::new(iter, self.schema.clone());
 
@@ -284,9 +274,9 @@ impl LanceDB {
             .await?;
 
         let options = TracingOptions::default().overwrite(
-            "dense_text_vector",
+            "vector",
             serde_arrow::marrow::datatypes::Field {
-                name: "dense_text_vector".into(),
+                name: "vector".into(),
                 data_type: serde_arrow::marrow::datatypes::DataType::FixedSizeList(
                     Box::new(serde_arrow::marrow::datatypes::Field {
                         name: "item".into(),
@@ -301,7 +291,7 @@ impl LanceDB {
             },
         )?;
         let fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>> =
-            Vec::<FieldRef>::from_type::<DocumentChunk>(options)?;
+            Vec::<FieldRef>::from_type::<Payload>(options)?;
         let schema: Arc<Schema> = Arc::new(Schema::new(fields.clone()));
 
         let vector_database = Self {
@@ -321,23 +311,20 @@ impl LanceDB {
         Ok(vector_database)
     }
 
-    pub fn convert_document_chunks_to_record_batch(
-        &self,
-        chunks: &Vec<DocumentChunk>,
-    ) -> Result<RecordBatch> {
+    pub fn convert_payloads_to_record_batch(&self, chunks: &Vec<Payload>) -> Result<RecordBatch> {
         Ok(serde_arrow::to_record_batch(&self.fields, chunks)?)
     }
 
-    pub async fn convert_record_batch_to_document_chunks(
+    pub async fn convert_record_batch_to_payloads(
         &self,
         mut stream: Pin<
             Box<dyn RecordBatchStream<Item = Result<RecordBatch, lancedb::Error>> + Send>,
         >,
-    ) -> Result<Vec<DocumentChunk>> {
+    ) -> Result<Vec<Payload>> {
         let mut acquired_chunks = Vec::new();
         while let Some(next) = stream.next().await {
             let next = next?;
-            let chunks: Vec<DocumentChunk> = serde_arrow::from_record_batch(&next)?;
+            let chunks: Vec<Payload> = serde_arrow::from_record_batch(&next)?;
             acquired_chunks.extend(chunks);
         }
 

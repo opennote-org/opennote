@@ -1,4 +1,3 @@
-pub mod filters;
 pub mod metadata;
 pub mod shared;
 pub mod sqlite;
