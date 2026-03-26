@@ -23,6 +23,6 @@ pub trait Blocks {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum BlockQuery {
     Root,                    // blocks without parent
-    ByIds(Vec<String>),      // specific blocks
-    ChildrenOf(Vec<String>), // by parent ids
+    ByIds(Vec<Uuid>),      // specific blocks
+    ChildrenOf(Vec<Uuid>), // by parent ids
 }

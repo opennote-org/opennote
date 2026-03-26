@@ -1,10 +1,19 @@
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
+use std::sync::Arc;
+
+use anyhow::Result;
+use sea_orm::{ActiveValue::Set, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
+    databases::{
+        database::traits::{
+            blocks::BlockQuery, database::Database
+        },
+        vector_database::{models::VectorDatabasePayload, traits::VectorDatabaseCompatible},
+    },
     entity::payloads::{ActiveModel, Model},
-    models::content_type::ContentType,
+    models::{content_type::ContentType, payload},
 };
 
 /// Next: do we store dynamic data? like hashmap?
@@ -30,6 +39,16 @@ pub struct Payload {
     pub bytes: Vec<u8>,
     /// Vector representation of the stored texts or bytes
     pub vector: Vec<f32>,
+}
+
+impl VectorDatabaseCompatible for Payload {
+    fn create_vector_database_payload(&self) -> VectorDatabasePayload {
+        VectorDatabasePayload {
+            correspondent_id: self.id,
+            vector: self.vector,
+            texts: self.texts,
+        }
+    }
 }
 
 impl From<Model> for Payload {

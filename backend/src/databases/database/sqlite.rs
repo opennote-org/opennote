@@ -120,14 +120,16 @@ impl Blocks for SQLiteDatabase {
                     return Ok(vec![]);
                 }
 
-                Condition::any().add(blocks::Column::Id.is_in(ids))
+                Condition::any()
+                    .add(blocks::Column::Id.is_in(ids.iter().map(|item| item.to_string())))
             }
             BlockQuery::ChildrenOf(ids) => {
                 if ids.is_empty() {
                     return Ok(vec![]);
                 }
 
-                Condition::any().add(blocks::Column::ParentId.is_in(ids))
+                Condition::any()
+                    .add(blocks::Column::ParentId.is_in(ids.iter().map(|item| item.to_string())))
             }
         };
 

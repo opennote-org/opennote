@@ -8,12 +8,13 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::configurations::system::{Config, VectorDatabaseConfig};
-use crate::databases::database::filters::get_document_chunks::GetDocumentChunkFilter;
+use crate::databases::database::traits::blocks::BlockQuery;
 use crate::databases::database::traits::database::Database;
 use crate::databases::search::{keyword::KeywordSearch, semantic::SemanticSearch};
-use crate::documents::document_chunk::DocumentChunk;
+use crate::databases::vector_database::models::VectorDatabasePayload;
 use crate::embedder::vectorize;
 use crate::embedders::entry::EmbedderEntry;
+use crate::models::payload::Payload;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -31,6 +32,28 @@ impl Display for VectorDatabaseProvider {
     }
 }
 
+/// Implement this to allow vector database to store the data struct
+#[async_trait]
+pub trait VectorDatabaseCompatible {
+    fn create_vector_database_payload(&self) -> VectorDatabasePayload;
+
+    async fn from_vector_database_payloads(
+        relational_database: &Arc<dyn Database>,
+        vector_database_payloads: Vec<VectorDatabasePayload>,
+    ) -> Result<Vec<Payload>> {
+        let payloads = relational_database
+            .read_blocks(&BlockQuery::ByIds(
+                vector_database_payloads
+                    .into_iter()
+                    .map(|item| item.correspondent_id)
+                    .collect(),
+            ))
+            .await?;
+
+        payloads
+    }
+}
+
 #[async_trait]
 pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// Actions of creating an index or a collection for a vector database
@@ -38,12 +61,8 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// In LanceDB, this is called creating a table.
     async fn create_index(&self, index: &str, dimensions: usize) -> Result<()>;
 
-    /// Required for adding chunk data to the database
-    async fn add_document_chunks_to_database(
-        &self,
-        index: &str,
-        chunks: Vec<DocumentChunk>,
-    ) -> Result<()>;
+    /// Required for adding new payloads to the database
+    async fn create_entries(&self, index: &str, payloads: Vec<Payload>) -> Result<()>;
 
     async fn delete_documents_from_database(
         &self,
@@ -51,10 +70,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         document_ids: &Vec<String>,
     ) -> Result<()>;
 
-    async fn get_document_chunks(
-        &self,
-        document_chunks_ids: Vec<String>,
-    ) -> Result<Vec<DocumentChunk>>;
+    async fn get_document_chunks(&self, document_chunks_ids: Vec<String>) -> Result<Vec<T>>;
 
     /// Implement this to get `reindex_documents` automatically implemented
     /// The definition of `index` varies by vector databases
