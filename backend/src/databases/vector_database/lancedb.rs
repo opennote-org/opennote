@@ -15,10 +15,9 @@ use lancedb::{
     query::{ExecutableQuery, QueryBase},
 };
 use serde_arrow::schema::{SchemaLike, TracingOptions};
+use uuid::Uuid;
 
-use crate::databases::vector_database::traits::VectorDatabaseCompatible;
 use crate::embedders::entry::EmbedderEntry;
-use crate::models::block::Block;
 use crate::models::payload::Payload;
 use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
@@ -94,7 +93,7 @@ impl VectorDatabase for LanceDB {
     async fn create_entries(&self, index: &str, payloads: Vec<Payload>) -> Result<()> {
         let table = self.vector_database.open_table(index).execute().await?;
 
-        let batch = self.convert_payloads_to_record_batch(&chunks)?;
+        let batch = self.convert_payloads_to_record_batch(&payloads)?;
         let iter = vec![batch].into_iter().map(Ok);
         let iterator = RecordBatchIterator::new(iter, self.schema.clone());
 
@@ -109,10 +108,10 @@ impl VectorDatabase for LanceDB {
         Ok(())
     }
 
-    async fn delete_documents_from_database(
+    async fn delete_entries(
         &self,
         vector_database_config: &VectorDatabaseConfig,
-        document_ids: &Vec<String>,
+        correspondent_ids: &Vec<Uuid>,
     ) -> Result<()> {
         let table = self
             .vector_database
@@ -121,8 +120,8 @@ impl VectorDatabase for LanceDB {
             .await?;
 
         let predicate: String = format!(
-            "document_metadata_id IN ({})",
-            document_ids
+            "correspondent_id IN ({})",
+            correspondent_ids
                 .iter()
                 .map(|id| format!("'{}'", id))
                 .collect::<Vec<String>>()
@@ -134,10 +133,7 @@ impl VectorDatabase for LanceDB {
         Ok(())
     }
 
-    async fn get_document_chunks(
-        &self,
-        document_chunks_ids: Vec<String>,
-    ) -> Result<Vec<DocumentChunk>> {
+    async fn get_entries(&self, correspondent_ids: &Vec<Uuid>) -> Result<Vec<Payload>> {
         let table = self
             .vector_database
             .open_table(&self.table_name)
@@ -145,8 +141,8 @@ impl VectorDatabase for LanceDB {
             .await?;
 
         let predicate: String = format!(
-            "document_metadata_id IN ({})",
-            document_chunks_ids
+            "correspondent_id IN ({})",
+            correspondent_ids
                 .iter()
                 .map(|id| format!("'{}'", id))
                 .collect::<Vec<String>>()
@@ -155,7 +151,7 @@ impl VectorDatabase for LanceDB {
 
         let stream = table.query().only_if(&predicate).execute().await?;
 
-        let acquired_chunks = self.convert_record_batch_to_document_chunks(stream).await?;
+        let acquired_chunks = self.convert_record_batch_to_payloads(stream).await?;
 
         Ok(acquired_chunks)
     }
