@@ -12,7 +12,6 @@ use crate::configurations::system::{Config, VectorDatabaseConfig};
 use crate::databases::database::traits::blocks::BlockQuery;
 use crate::databases::database::traits::database::Database;
 use crate::databases::search::{keyword::KeywordSearch, semantic::SemanticSearch};
-use crate::databases::vector_database::models::VectorDatabasePayload;
 use crate::embedder::vectorize;
 use crate::embedders::entry::EmbedderEntry;
 use crate::models::payload::Payload;
@@ -30,28 +29,6 @@ impl Display for VectorDatabaseProvider {
             Self::Local => f.write_str("local"),
             Self::Qdrant => f.write_str("qdrant"),
         }
-    }
-}
-
-/// Implement this to allow vector database to store the data struct
-#[async_trait]
-pub trait VectorDatabaseCompatible {
-    fn create_vector_database_payload(&self) -> VectorDatabasePayload;
-
-    async fn from_vector_database_payloads(
-        relational_database: &Arc<dyn Database>,
-        vector_database_payloads: Vec<VectorDatabasePayload>,
-    ) -> Result<Vec<Payload>> {
-        let payloads = relational_database
-            .read_blocks(&BlockQuery::ByIds(
-                vector_database_payloads
-                    .into_iter()
-                    .map(|item| item.correspondent_id)
-                    .collect(),
-            ))
-            .await?;
-
-        payloads
     }
 }
 
@@ -86,11 +63,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         database: &Arc<dyn Database>,
         embedder_entry: &EmbedderEntry,
     ) -> Result<()> {
-        let chunks = database
-            .get_document_chunks(&GetDocumentChunkFilter {
-                ..Default::default()
-            })
-            .await?;
+        let chunks = database.read_blocks(&BlockQuery::All).await?;
 
         let results = join(
             self.reset_index(
@@ -105,8 +78,8 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         let chunks = results.1?;
 
         let results = join(
-            database.update_document_chunks(chunks.clone()),
-            self.add_document_chunks_to_database(&configuration.vector_database.index, chunks),
+            database.update_blocks(chunks.clone()),
+            self.create_entries(&configuration.vector_database.index, chunks),
         )
         .await;
 

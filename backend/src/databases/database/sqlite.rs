@@ -114,6 +114,14 @@ impl Blocks for SQLiteDatabase {
         use crate::entity::payloads;
 
         let conditions = match filter {
+            BlockQuery::All => {
+                let all_blocks_payloads_pairs = blocks::Entity::find()
+                    .find_with_related(payloads::Entity)
+                    .all(&self.pool)
+                    .await?;
+
+                return Ok(Block::from_models(all_blocks_payloads_pairs));
+            }
             BlockQuery::Root => Condition::any().add(blocks::Column::ParentId.is_null()),
             BlockQuery::ByIds(ids) => {
                 if ids.is_empty() {
