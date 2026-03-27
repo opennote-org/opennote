@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use uuid::Uuid;
 
 use crate::{
     databases::{
@@ -16,7 +17,7 @@ pub trait SemanticSearch {
     async fn search_documents_semantically(
         &self,
         database: &Arc<dyn Database>,
-        document_metadata_ids: Vec<String>,
+        correspondent_ids: &Vec<Uuid>,
         query: &str,
         top_n: usize,
         embedder_entry: &EmbedderEntry,

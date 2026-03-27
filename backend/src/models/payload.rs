@@ -1,19 +1,10 @@
-use std::sync::Arc;
-
-use anyhow::Result;
 use sea_orm::{ActiveValue::Set, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    databases::{
-        database::traits::{
-            blocks::BlockQuery, database::Database
-        },
-        vector_database::{models::VectorDatabasePayload, traits::VectorDatabaseCompatible},
-    },
     entity::payloads::{ActiveModel, Model},
-    models::{content_type::ContentType, payload},
+    models::content_type::ContentType,
 };
 
 /// Next: do we store dynamic data? like hashmap?
@@ -33,21 +24,29 @@ pub struct Payload {
     pub last_modified: i64,
     /// Content type presented in which style. For example, text can be P1 or so.
     pub content_type: ContentType,
-    /// Texts stored in payload
+    /// Texts stored in payload. When saving jsons, it is recommended to also save a string json for indexing for searching
     pub texts: String,
-    /// Bytes stored in payload. Typically, we modalities other than texts, like images
+    /// Bytes stored in payload. Typically, we modalities other than texts, like images and jsons
     pub bytes: Vec<u8>,
     /// Vector representation of the stored texts or bytes
     pub vector: Vec<f32>,
 }
 
-impl VectorDatabaseCompatible for Payload {
-    fn create_vector_database_payload(&self) -> VectorDatabasePayload {
-        VectorDatabasePayload {
-            correspondent_id: self.id,
-            vector: self.vector,
-            texts: self.texts,
-        }
+impl Payload {
+    /// Consume self to create an ActiveModel for updating the database
+    pub fn to_active_model(self) -> ActiveModel {
+        let model: Model = self.into();
+        let mut active_model = model.clone().into_active_model();
+
+        active_model.order_row = Set(model.order_row);
+        active_model.order_column = Set(model.order_column);
+        active_model.last_modified = Set(model.last_modified);
+        active_model.texts = Set(model.texts);
+        active_model.bytes = Set(model.bytes);
+        active_model.vector = Set(model.vector);
+        active_model.content_type = Set(model.content_type);
+
+        active_model
     }
 }
 
@@ -82,21 +81,5 @@ impl Into<Model> for Payload {
             vector: serde_json::to_value(self.vector).unwrap(),
             content_type: serde_json::to_string(&self.content_type).unwrap(),
         }
-    }
-}
-
-impl From<Model> for ActiveModel {
-    fn from(model: Model) -> Self {
-        let mut active_model = model.clone().into_active_model();
-
-        active_model.order_row = Set(model.order_row);
-        active_model.order_column = Set(model.order_column);
-        active_model.last_modified = Set(model.last_modified);
-        active_model.texts = Set(model.texts);
-        active_model.bytes = Set(model.bytes);
-        active_model.vector = Set(model.vector);
-        active_model.content_type = Set(model.content_type);
-
-        active_model
     }
 }

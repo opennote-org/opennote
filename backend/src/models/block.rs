@@ -7,6 +7,10 @@ use crate::{
     models::payload::Payload,
 };
 
+/// Everything in OpenNote is a block. All data operations MUST be performed on `Block`s for simplicity
+/// and efficiency.
+///
+/// TODO: Also make configurations as Block
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub id: Uuid,
@@ -54,15 +58,18 @@ impl Block {
         blocks.into_iter().map(|item| item.to_model()).collect()
     }
 
+    /// Consume self to create an ActiveModel for updating the database
     pub fn to_active_model(self) -> (ActiveModel, Vec<crate::entity::payloads::ActiveModel>) {
-        let (block_model, payload_models) = self.to_model();
         (
             ActiveModel {
-                id: Unchanged(block_model.id),
-                parent_id: Set(block_model.parent_id),
-                is_deleted: Set(block_model.is_deleted),
+                id: Unchanged(self.id),
+                parent_id: Set(self.parent_id),
+                is_deleted: Set(self.is_deleted),
             },
-            payload_models.into_iter().map(|item| item.into()).collect(),
+            self.payloads
+                .into_iter()
+                .map(|item| item.to_active_model())
+                .collect(),
         )
     }
 

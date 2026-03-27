@@ -23,5 +23,6 @@ pub enum ContentType {
     Reference,         // [link text][reference]
     Source,            // [reference]: https://example.com
     Image,             // ![alt text](image_url)
+    JSONValue,         // A non-typed json value
     Body,
 }
