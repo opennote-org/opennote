@@ -63,14 +63,15 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         database: &Arc<dyn Database>,
         embedder_entry: &EmbedderEntry,
     ) -> Result<()> {
-        let chunks = database.read_blocks(&BlockQuery::All).await?;
+        let blocks = database.read_blocks(&BlockQuery::All).await?;
+        let payloads: Vec<Payload> = blocks.into_iter().flat_map(|item| item.payloads).collect();
 
         let results = join(
             self.reset_index(
                 &configuration.vector_database.index,
                 configuration.embedder.dimensions,
             ),
-            vectorize(&configuration.embedder, chunks, embedder_entry),
+            vectorize(&configuration.embedder, payloads, embedder_entry),
         )
         .await;
 

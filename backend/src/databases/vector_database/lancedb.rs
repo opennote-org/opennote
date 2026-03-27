@@ -162,7 +162,7 @@ impl SemanticSearch for LanceDB {
     async fn search_documents_semantically(
         &self,
         database: &Arc<dyn Database>,
-        document_metadata_ids: Vec<String>,
+        correspondent_ids: &Vec<Uuid>,
         query: &str,
         top_n: usize,
         embedder_entry: &EmbedderEntry,

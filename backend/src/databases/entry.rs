@@ -8,7 +8,7 @@ use crate::{
     databases::{
         database::{shared::create_database, traits::{blocks::BlockQuery, database::Database}},
         vector_database::{shared::create_vector_database, traits::VectorDatabase},
-    }, models::block::Block,
+    }, models::{block::Block, payload::Payload},
 };
 
 /// At the moment, it only abstracts database-related logics of documents and chunks.
@@ -41,11 +41,9 @@ impl DatabasesLayerEntry {
 
     /// Reover all document chunks from the relational database to the vector database
     pub async fn recover(&self, index: &str, dimensions: usize) -> Result<()> {
-        let chunks: Vec<DocumentChunk> = self
+        let chunks: Vec<Payload> = self
             .database
-            .get_document_chunks(&GetDocumentChunkFilter {
-                ..Default::default()
-            })
+            .read_blocks(filter)
             .await?;
 
         self.vector_database.reset_index(index, dimensions).await?;
