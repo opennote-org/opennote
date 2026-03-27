@@ -22,7 +22,8 @@ pub trait Blocks {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum BlockQuery {
-    Root,                    // blocks without parent
+    All,                   // All blocks in the database
+    Root,                  // blocks without parent
     ByIds(Vec<Uuid>),      // specific blocks
     ChildrenOf(Vec<Uuid>), // by parent ids
 }
