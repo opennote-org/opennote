@@ -1,0 +1,6 @@
+[package]
+name = "opennote-ui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

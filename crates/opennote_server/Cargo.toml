@@ -1,0 +1,6 @@
+[package]
+name = "opennote-server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
