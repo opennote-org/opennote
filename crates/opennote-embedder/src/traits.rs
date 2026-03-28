@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::models::payload::Payload;
+use opennote_core::models::payload::Payload;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(from = "String", into = "String")]

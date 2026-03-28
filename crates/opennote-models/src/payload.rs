@@ -2,10 +2,9 @@ use sea_orm::{ActiveValue::Set, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    entities::payloads::{ActiveModel, Model},
-    models::content_type::ContentType,
-};
+use opennote_entities::payloads::{ActiveModel, Model};
+
+use crate::content_type::ContentType;
 
 /// Next: do we store dynamic data? like hashmap?
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
