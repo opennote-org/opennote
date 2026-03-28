@@ -4,3 +4,5 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# Internal dependencies
+opennote-core = { workspace = true }

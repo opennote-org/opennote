@@ -1,11 +1,9 @@
 use async_trait::async_trait;
-
-use crate::{
-    configurations::system::{Config, EmbedderConfig},
-    embedders::traits::Embedder,
-    models::payload::Payload,
-};
 use anyhow::Result;
+
+use opennote_core::configurations::system::Config;
+
+use crate::traits::Embedder;
 
 pub struct Other {
     embedder_config: EmbedderConfig,

@@ -1,15 +1,14 @@
 use anyhow::Result;
 use futures::future::join_all;
 
-use crate::{
-    configurations::system::EmbedderConfig, embedders::entry::EmbedderEntry,
-    models::payload::Payload,
-};
+use opennote_models::payload::Payload;
+
+use crate::entry::EmbedderEntry;
 
 pub async fn vectorize(
+    embedder_entry: &EmbedderEntry,
     embedder_config: &EmbedderConfig,
     chunks: Vec<Payload>,
-    embedder_entry: &EmbedderEntry,
 ) -> Result<Vec<Payload>> {
     let mut batches: Vec<Vec<Payload>> = Vec::new();
     let mut batch: Vec<Payload> = Vec::new();

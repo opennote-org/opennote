@@ -1,18 +1,27 @@
 [workspace.package]
-name = "opennote"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
 
 [workspace]
 resolver = "3"
-members = [
-    "crates/opennote_ui",
-    "crates/opennote_core",
-    "crates/opennote_server",
-]
+members = ["crates/*"]
 
 [workspace.dependencies]
-opennote_ui = { path = "crates/opennote_ui" }
-opennote_core = { path = "crates/opennote_core" }
-opennote_server = { path = "crates/opennote_server" }
+# Internal dependencies
+opennote-ui = { path = "crates/opennote-ui" }
+opennote-core = { path = "crates/opennote-core" }
+opennote-server = { path = "crates/opennote-server" }
+opennote-embedder = { path = "crates/opennote-embedder" }
+opennote-models = { path = "crates/opennote-models" }
+opennote-entities = { path = "crates/opennote-entities" }
+
+# External dependencies
+sea-orm = { version = "2.0.0-rc.32", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+tokio = { version = "1.47.1", features = ["full"] }
+uuid = { version = "1.18.1", features = ["v4"] }
+anyhow = "1.0.100"
+async-trait = "0.1.89"
+futures = "0.3.31"
