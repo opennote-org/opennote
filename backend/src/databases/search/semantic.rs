@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     databases::{
         database::traits::database::Database,
-        search::document_search_results::DocumentChunkSearchResult,
+        search::models::SearchResult,
     },
     embedders::entry::EmbedderEntry,
 };
@@ -21,5 +21,5 @@ pub trait SemanticSearch {
         query: &str,
         top_n: usize,
         embedder_entry: &EmbedderEntry,
-    ) -> Result<Vec<DocumentChunkSearchResult>>;
+    ) -> Result<Vec<SearchResult>>;
 }

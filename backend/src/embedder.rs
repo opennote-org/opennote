@@ -2,17 +2,17 @@ use anyhow::Result;
 use futures::future::join_all;
 
 use crate::{
-    configurations::system::EmbedderConfig, documents::document_chunk::DocumentChunk,
-    embedders::entry::EmbedderEntry,
+    configurations::system::EmbedderConfig, embedders::entry::EmbedderEntry,
+    models::payload::Payload,
 };
 
 pub async fn vectorize(
     embedder_config: &EmbedderConfig,
-    chunks: Vec<DocumentChunk>,
+    chunks: Vec<Payload>,
     embedder_entry: &EmbedderEntry,
-) -> Result<Vec<DocumentChunk>> {
-    let mut batches: Vec<Vec<DocumentChunk>> = Vec::new();
-    let mut batch: Vec<DocumentChunk> = Vec::new();
+) -> Result<Vec<Payload>> {
+    let mut batches: Vec<Vec<Payload>> = Vec::new();
+    let mut batch: Vec<Payload> = Vec::new();
     for chunk in chunks {
         if batch.len() == embedder_config.vectorization_batch_size {
             batches.push(batch);
@@ -32,9 +32,8 @@ pub async fn vectorize(
         tasks.push(send_vectorization(batch, embedder_entry));
     }
 
-    let results: Vec<std::result::Result<Vec<DocumentChunk>, anyhow::Error>> =
-        join_all(tasks).await;
-    let mut chunks: Vec<DocumentChunk> = Vec::new();
+    let results = join_all(tasks).await;
+    let mut chunks: Vec<Payload> = Vec::new();
     for result in results {
         let result = result?;
         chunks.extend(result);
@@ -44,13 +43,13 @@ pub async fn vectorize(
 }
 
 pub async fn send_vectorization(
-    mut queries: Vec<DocumentChunk>,
+    mut queries: Vec<Payload>,
     embedder_entry: &EmbedderEntry,
-) -> Result<Vec<DocumentChunk>> {
+) -> Result<Vec<Payload>> {
     let vectors = embedder_entry.embedder.vectorize(&queries).await?;
 
     for (vector, chunk) in vectors.into_iter().zip(&mut queries) {
-        chunk.dense_text_vector = vector;
+        chunk.vector = vector;
     }
 
     Ok(queries)

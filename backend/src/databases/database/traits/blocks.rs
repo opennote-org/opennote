@@ -18,12 +18,18 @@ pub trait Blocks {
     /// Delete blocks by their ids
     /// Children blocks will be removed as well
     async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<()>;
+    
+    /// Get paths to the block
+    /// 
+    /// In the returned list, the first block is the root, and the last block is 
+    /// the block_id passed in
+    async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>>;
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum BlockQuery {
     All,                   // All blocks in the database
-    Root,                  // blocks without parent
-    ByIds(Vec<Uuid>),      // specific blocks
-    ChildrenOf(Vec<Uuid>), // by parent ids
+    Root,                  // Blocks without parent
+    ByIds(Vec<Uuid>),      // Specific blocks
+    ChildrenOf(Vec<Uuid>), // By parent ids
 }

@@ -75,6 +75,18 @@ impl SQLiteDatabase {
             Err(_) => false,
         }
     }
+
+    async fn read_all_blocks(&self) -> Result<Vec<Block>> {
+        use crate::entity::blocks;
+        use crate::entity::payloads;
+
+        let all_blocks_payloads_pairs = blocks::Entity::find()
+            .find_with_related(payloads::Entity)
+            .all(&self.pool)
+            .await?;
+
+        Ok(Block::from_models(all_blocks_payloads_pairs))
+    }
 }
 
 #[async_trait]
@@ -94,10 +106,8 @@ impl Blocks for SQLiteDatabase {
     async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {
         use crate::entity::blocks::{ActiveModel, Entity as BlockEntity};
 
-        let blocks_active_models: Vec<ActiveModel> = (0..num_blocks)
-            .into_iter()
-            .map(|_| ActiveModel::new())
-            .collect();
+        let blocks_active_models: Vec<ActiveModel> =
+            (0..num_blocks).map(|_| ActiveModel::new()).collect();
 
         let block = BlockEntity::insert_many(blocks_active_models)
             .exec_with_returning(&self.pool)
@@ -109,18 +119,35 @@ impl Blocks for SQLiteDatabase {
             .collect())
     }
 
+    async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>> {
+        let mut path = Vec::new();
+        let mut block_id = Some(block_id);
+
+        loop {
+            match block_id {
+                Some(id) => {
+                    let model = self.read_blocks(&BlockQuery::ByIds(vec![id])).await?;
+
+                    if !model.is_empty() {
+                        block_id = model[0].parent_id;
+                        path.extend(model);
+                    }
+                }
+                None => break,
+            }
+        }
+
+        path.reverse();
+        Ok(path)
+    }
+
     async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {
         use crate::entity::blocks;
         use crate::entity::payloads;
 
         let conditions = match filter {
             BlockQuery::All => {
-                let all_blocks_payloads_pairs = blocks::Entity::find()
-                    .find_with_related(payloads::Entity)
-                    .all(&self.pool)
-                    .await?;
-
-                return Ok(Block::from_models(all_blocks_payloads_pairs));
+                return Ok(self.read_all_blocks().await?);
             }
             BlockQuery::Root => Condition::any().add(blocks::Column::ParentId.is_null()),
             BlockQuery::ByIds(ids) => {
@@ -192,18 +219,9 @@ impl Blocks for SQLiteDatabase {
         let mut update_payloads_tasks = Vec::new();
 
         for (active_block_model, active_payload_models) in active_blocks_payloads_pairs {
-            let payloads_ids: Vec<Uuid> = active_payload_models
-                .iter()
-                .map(|item| item.id.clone().unwrap())
-                .collect();
-
             for payload_model in active_payload_models {
-                update_payloads_tasks.push(
-                    payloads::Entity::update_many()
-                        .set(payload_model)
-                        .filter(payloads::Column::Id.is_in(payloads_ids.clone()))
-                        .exec(&self.pool),
-                );
+                update_payloads_tasks
+                    .push(payloads::Entity::update(payload_model).exec(&self.pool));
             }
 
             update_blocks_tasks.push(

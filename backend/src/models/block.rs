@@ -11,11 +11,11 @@ use crate::{
 /// and efficiency.
 ///
 /// TODO: Also make configurations as Block
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct Block {
     pub id: Uuid,
     /// Parent ID of this block. Root blocks don't have parent ids.
-    pub parent_id: Option<String>,
+    pub parent_id: Option<Uuid>,
     /// Reserved for soft deletion
     pub is_deleted: bool,
     /// Actual data contained in this block
