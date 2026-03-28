@@ -10,7 +10,7 @@ use crate::{
 /// Next: do we store dynamic data? like hashmap?
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct Payload {
-    /// Reserved for storing database id
+    /// A unique identification of its owner block
     pub block_id: Uuid,
     /// A unique identification of this payload
     pub id: Uuid,

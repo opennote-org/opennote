@@ -108,7 +108,7 @@ impl VectorDatabase for LanceDB {
     async fn delete_entries(
         &self,
         vector_database_config: &VectorDatabaseConfig,
-        correspondent_ids: &Vec<Uuid>,
+        payload_ids: &Vec<Uuid>,
     ) -> Result<()> {
         let table = self
             .vector_database
@@ -117,8 +117,8 @@ impl VectorDatabase for LanceDB {
             .await?;
 
         let predicate: String = format!(
-            "correspondent_id IN ({})",
-            correspondent_ids
+            "id IN ({})",
+            payload_ids
                 .iter()
                 .map(|id| format!("'{}'", id))
                 .collect::<Vec<String>>()
@@ -130,7 +130,7 @@ impl VectorDatabase for LanceDB {
         Ok(())
     }
 
-    async fn get_entries(&self, correspondent_ids: &Vec<Uuid>) -> Result<Vec<Payload>> {
+    async fn get_entries(&self, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>> {
         let table = self
             .vector_database
             .open_table(&self.table_name)
@@ -138,8 +138,8 @@ impl VectorDatabase for LanceDB {
             .await?;
 
         let predicate: String = format!(
-            "correspondent_id IN ({})",
-            correspondent_ids
+            "payload_id IN ({})",
+            payload_ids
                 .iter()
                 .map(|id| format!("'{}'", id))
                 .collect::<Vec<String>>()
@@ -159,7 +159,7 @@ impl SemanticSearch for LanceDB {
     async fn search_documents_semantically(
         &self,
         database: &Arc<dyn Database>,
-        correspondent_ids: &Vec<Uuid>,
+        payload_ids: &Vec<Uuid>,
         query: &str,
         _top_n: usize,
         embedder_entry: &EmbedderEntry,
@@ -184,7 +184,7 @@ impl SemanticSearch for LanceDB {
             .convert_record_batch_to_payloads(stream)
             .await?
             .into_iter()
-            .filter(|item| correspondent_ids.contains(&item.id))
+            .filter(|item| payload_ids.contains(&item.id))
             .collect();
 
         Ok(build_search_results(database, payloads).await?)
@@ -196,7 +196,7 @@ impl KeywordSearch for LanceDB {
     async fn search_documents(
         &self,
         database: &Arc<dyn Database>,
-        correspondent_ids: &Vec<Uuid>,
+        payload_ids: &Vec<Uuid>,
         query: &str,
         top_n: usize,
     ) -> Result<Vec<SearchResult>> {
@@ -217,7 +217,7 @@ impl KeywordSearch for LanceDB {
             .convert_record_batch_to_payloads(stream)
             .await?
             .into_iter()
-            .filter(|item| correspondent_ids.contains(&item.id))
+            .filter(|item| payload_ids.contains(&item.id))
             .collect();
 
         Ok(build_search_results(database, payloads).await?)

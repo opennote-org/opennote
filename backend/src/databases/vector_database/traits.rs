@@ -8,13 +8,16 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::configurations::system::{Config, VectorDatabaseConfig};
-use crate::databases::database::traits::blocks::BlockQuery;
-use crate::databases::database::traits::database::Database;
-use crate::databases::search::{keyword::KeywordSearch, semantic::SemanticSearch};
-use crate::embedder::vectorize;
-use crate::embedders::entry::EmbedderEntry;
-use crate::models::payload::Payload;
+use crate::{
+    configurations::system::{Config, VectorDatabaseConfig},
+    databases::{
+        database::{enums::BlockQuery, traits::database::Database},
+        search::{keyword::KeywordSearch, semantic::SemanticSearch},
+    },
+    embedder::vectorize,
+    embedders::entry::EmbedderEntry,
+    models::payload::Payload,
+};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,10 +46,10 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     async fn delete_entries(
         &self,
         vector_database_config: &VectorDatabaseConfig,
-        correspondent_ids: &Vec<Uuid>,
+        payload_ids: &Vec<Uuid>,
     ) -> Result<()>;
 
-    async fn get_entries(&self, correspondent_ids: &Vec<Uuid>) -> Result<Vec<Payload>>;
+    async fn get_entries(&self, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>>;
 
     /// Implement this to get `reindex_documents` automatically implemented
     /// The definition of `index` varies by vector databases
@@ -74,11 +77,11 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         .await;
 
         results.0?;
-        let chunks = results.1?;
+        let payloads_with_vectors = results.1?;
 
         let results = join(
-            database.update_blocks(chunks.clone()),
-            self.create_entries(&configuration.vector_database.index, chunks),
+            database.update_payloads(payloads_with_vectors.clone()),
+            self.create_entries(&configuration.vector_database.index, payloads_with_vectors),
         )
         .await;
 
