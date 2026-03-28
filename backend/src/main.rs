@@ -12,7 +12,7 @@ mod routes;
 mod tasks_scheduler;
 mod traits;
 mod models;
-mod entity;
+mod entities;
 
 use actix_web::web::Data;
 use anyhow::{Context, Result};

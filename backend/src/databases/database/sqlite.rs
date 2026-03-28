@@ -83,7 +83,7 @@ impl SQLiteDatabase {
 #[async_trait]
 impl MetadataManagement for SQLiteDatabase {
     async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
-        use crate::entity::metadata_settings;
+        use crate::entities::metadata_settings;
 
         match metadata_settings::Entity::find().one(&self.pool).await? {
             Some(result) => Ok(result.into()),
@@ -95,7 +95,7 @@ impl MetadataManagement for SQLiteDatabase {
 #[async_trait]
 impl Payloads for SQLiteDatabase {
     async fn read_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>> {
-        use crate::entity::payloads;
+        use crate::entities::payloads;
 
         let conditions = match filter.get_database_filter() {
             None => return Ok(Vec::new()),
@@ -128,9 +128,9 @@ impl Payloads for SQLiteDatabase {
 
     async fn update_payloads_with_active_models(
         &self,
-        active_models: Vec<crate::entity::payloads::ActiveModel>,
+        active_models: Vec<crate::entities::payloads::ActiveModel>,
     ) -> Result<()> {
-        use crate::entity::payloads;
+        use crate::entities::payloads;
 
         let mut update_tasks = Vec::new();
 
@@ -148,7 +148,7 @@ impl Payloads for SQLiteDatabase {
     }
 
     async fn delete_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>> {
-        use crate::entity::payloads;
+        use crate::entities::payloads;
 
         let conditions = match filter.get_database_filter() {
             None => return Ok(Vec::new()),
@@ -170,7 +170,7 @@ impl Payloads for SQLiteDatabase {
 #[async_trait]
 impl Blocks for SQLiteDatabase {
     async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {
-        use crate::entity::blocks::{ActiveModel, Entity as BlockEntity};
+        use crate::entities::blocks::{ActiveModel, Entity as BlockEntity};
 
         if num_blocks == 0 {
             return Ok(Vec::new());
@@ -212,8 +212,8 @@ impl Blocks for SQLiteDatabase {
     }
 
     async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {
-        use crate::entity::blocks;
-        use crate::entity::payloads;
+        use crate::entities::blocks;
+        use crate::entities::payloads;
 
         let conditions = match filter {
             BlockQuery::All => Condition::all(),
@@ -278,7 +278,7 @@ impl Blocks for SQLiteDatabase {
     }
 
     async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {
-        use crate::entity::blocks;
+        use crate::entities::blocks;
 
         if blocks.is_empty() {
             return Ok(());
@@ -314,7 +314,7 @@ impl Blocks for SQLiteDatabase {
     }
 
     async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<()> {
-        use crate::entity::blocks;
+        use crate::entities::blocks;
 
         if block_ids.is_empty() {
             return Ok(());

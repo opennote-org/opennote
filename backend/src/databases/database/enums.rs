@@ -12,7 +12,7 @@ pub enum PayloadQuery {
 
 impl DataQueryFilter for PayloadQuery {
     fn get_database_filter(&self) -> Option<Condition> {
-        use crate::entity::payloads;
+        use crate::entities::payloads;
 
         match &self {
             PayloadQuery::All => Some(Condition::all()),

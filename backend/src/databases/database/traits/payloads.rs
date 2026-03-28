@@ -14,7 +14,7 @@ pub trait Payloads {
     /// Update payloads by passing the payload active models
     async fn update_payloads_with_active_models(
         &self,
-        active_models: Vec<crate::entity::payloads::ActiveModel>,
+        active_models: Vec<crate::entities::payloads::ActiveModel>,
     ) -> Result<()>;
 
     async fn delete_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>>;
