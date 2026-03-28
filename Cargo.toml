@@ -1,0 +1,18 @@
+[workspace.package]
+name = "opennote"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/opennote_ui",
+    "crates/opennote_core",
+    "crates/opennote_server",
+]
+
+[workspace.dependencies]
+opennote_ui = { path = "crates/opennote_ui" }
+opennote_core = { path = "crates/opennote_core" }
+opennote_server = { path = "crates/opennote_server" }
