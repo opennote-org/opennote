@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    entity::payloads::{ActiveModel, Model},
+    entities::payloads::{ActiveModel, Model},
     models::content_type::ContentType,
 };
 

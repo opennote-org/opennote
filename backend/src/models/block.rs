@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    entity::blocks::{ActiveModel, Model},
+    entities::blocks::{ActiveModel, Model},
     models::payload::Payload,
 };
 
@@ -24,7 +24,7 @@ pub struct Block {
 
 impl Block {
     /// Convert from a database model
-    pub fn from_model(model: Model, payloads: Vec<crate::entity::payloads::Model>) -> Self {
+    pub fn from_model(model: Model, payloads: Vec<crate::entities::payloads::Model>) -> Self {
         Self {
             id: model.id,
             parent_id: model.parent_id,
@@ -34,7 +34,7 @@ impl Block {
     }
 
     /// Convert multiple database blocks and payloads pairs into blocks
-    pub fn from_models(models: Vec<(Model, Vec<crate::entity::payloads::Model>)>) -> Vec<Block> {
+    pub fn from_models(models: Vec<(Model, Vec<crate::entities::payloads::Model>)>) -> Vec<Block> {
         models
             .into_iter()
             .map(|(model, payloads)| Block::from_model(model, payloads))
@@ -42,7 +42,7 @@ impl Block {
     }
 
     /// Convert the block into a database model and a database model of its payloads
-    pub fn to_model(self) -> (Model, Vec<crate::entity::payloads::Model>) {
+    pub fn to_model(self) -> (Model, Vec<crate::entities::payloads::Model>) {
         (
             Model {
                 id: self.id,
@@ -54,12 +54,12 @@ impl Block {
     }
 
     /// Convert the multiple blocks into database models
-    pub fn to_models(blocks: Vec<Block>) -> Vec<(Model, Vec<crate::entity::payloads::Model>)> {
+    pub fn to_models(blocks: Vec<Block>) -> Vec<(Model, Vec<crate::entities::payloads::Model>)> {
         blocks.into_iter().map(|item| item.to_model()).collect()
     }
 
     /// Consume self to create an ActiveModel for updating the database
-    pub fn to_active_model(self) -> (ActiveModel, Vec<crate::entity::payloads::ActiveModel>) {
+    pub fn to_active_model(self) -> (ActiveModel, Vec<crate::entities::payloads::ActiveModel>) {
         (
             ActiveModel {
                 id: Unchanged(self.id),
@@ -75,7 +75,7 @@ impl Block {
 
     pub fn to_active_models(
         blocks: Vec<Block>,
-    ) -> Vec<(ActiveModel, Vec<crate::entity::payloads::ActiveModel>)> {
+    ) -> Vec<(ActiveModel, Vec<crate::entities::payloads::ActiveModel>)> {
         blocks
             .into_iter()
             .map(|item| item.to_active_model())
