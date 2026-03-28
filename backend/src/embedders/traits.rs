@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-use crate::documents::document_chunk::DocumentChunk;
+use crate::models::payload::Payload;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -22,5 +22,5 @@ impl Display for EmbedderProvider {
 
 #[async_trait]
 pub trait Embedder: Send + Sync {
-    async fn vectorize(&self, queries: &Vec<DocumentChunk>) -> anyhow::Result<Vec<Vec<f32>>>;
+    async fn vectorize(&self, queries: &Vec<Payload>) -> anyhow::Result<Vec<Vec<f32>>>;
 }

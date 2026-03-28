@@ -1,7 +1,7 @@
 use crate::{
     configurations::system::{Config, EmbedderConfig},
-    documents::document_chunk::DocumentChunk,
     embedders::traits::Embedder,
+    models::payload::Payload,
 };
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -22,7 +22,7 @@ impl Remote {
 
 #[async_trait]
 impl Embedder for Remote {
-    async fn vectorize(&self, queries: &Vec<DocumentChunk>) -> Result<Vec<Vec<f32>>> {
+    async fn vectorize(&self, queries: &Vec<Payload>) -> Result<Vec<Vec<f32>>> {
         let client = reqwest::Client::new();
 
         let response = client
@@ -30,7 +30,7 @@ impl Embedder for Remote {
         .bearer_auth(&self.embedder_config.api_key)
         .json(&json!(
             {
-                "input": queries.iter().map(|item| item.content.clone()).collect::<Vec<String>>(),
+                "input": queries.iter().map(|item| item.texts.clone()).collect::<Vec<String>>(),
                 "model": &self.embedder_config.model,
                 "encoding_format": &self.embedder_config.encoding_format,
                 // "dimensions": config.dimensions,
