@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::usize;
 use std::{collections::HashMap, pin::Pin};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -18,15 +18,12 @@ use serde_arrow::schema::{SchemaLike, TracingOptions};
 use uuid::Uuid;
 
 use crate::embedders::entry::EmbedderEntry;
-use crate::models::payload::Payload;
+use crate::models::payload::{Payload, create_query};
 use crate::{
     configurations::system::{Config, VectorDatabaseConfig},
     databases::{
         database::traits::database::Database,
-        search::{
-            document_search_results::DocumentChunkSearchResult, keyword::KeywordSearch,
-            semantic::SemanticSearch,
-        },
+        search::{keyword::KeywordSearch, models::SearchResult, semantic::SemanticSearch},
         vector_database::traits::VectorDatabase,
     },
     embedder::send_vectorization,
@@ -164,15 +161,11 @@ impl SemanticSearch for LanceDB {
         database: &Arc<dyn Database>,
         correspondent_ids: &Vec<Uuid>,
         query: &str,
-        top_n: usize,
+        _top_n: usize,
         embedder_entry: &EmbedderEntry,
-    ) -> Result<Vec<DocumentChunkSearchResult>> {
+    ) -> Result<Vec<SearchResult>> {
         // Convert to vec
-        let chunks: Vec<DocumentChunk> = send_vectorization(
-            vec![DocumentChunk::new(query.to_owned(), "", "")],
-            embedder_entry,
-        )
-        .await?;
+        let chunks = send_vectorization(vec![create_query(query)], embedder_entry).await?;
 
         let table = self
             .vector_database
@@ -181,36 +174,20 @@ impl SemanticSearch for LanceDB {
             .await?;
 
         let stream = table
-            .vector_search(chunks[0].dense_text_vector.clone())?
+            .vector_search(chunks[0].vector.clone())?
             .distance_type(lancedb::DistanceType::Cosine)
             .limit(i64::MAX as usize) // LanceDB won't return exhaustive list like Qdrant
             .execute()
             .await?;
 
-        let document_chunks: Vec<DocumentChunk> = self
-            .convert_record_batch_to_document_chunks(stream)
+        let payloads: Vec<Payload> = self
+            .convert_record_batch_to_payloads(stream)
             .await?
             .into_iter()
-            .filter(|item| document_metadata_ids.contains(&item.document_metadata_id))
+            .filter(|item| correspondent_ids.contains(&item.id))
             .collect();
 
-        let results: Vec<DocumentChunkSearchResult> = build_search_results(
-            document_chunks[..top_n.min(document_chunks.len())].to_vec(),
-            &database
-                .get_collections(&GetCollectionFilter::default(), false)
-                .await?
-                .into_iter()
-                .map(|item| (item.id.clone(), item))
-                .collect(),
-            &database
-                .get_documents(&GetDocumentFilter::default())
-                .await?
-                .into_iter()
-                .map(|item| (item.id.clone(), item))
-                .collect(),
-        );
-
-        Ok(results)
+        Ok(build_search_results(database, payloads).await?)
     }
 }
 
@@ -219,10 +196,10 @@ impl KeywordSearch for LanceDB {
     async fn search_documents(
         &self,
         database: &Arc<dyn Database>,
-        document_metadata_ids: &Vec<String>,
+        correspondent_ids: &Vec<Uuid>,
         query: &str,
         top_n: usize,
-    ) -> Result<Vec<DocumentChunkSearchResult>> {
+    ) -> Result<Vec<SearchResult>> {
         let table = self
             .vector_database
             .open_table(&self.table_name)
@@ -236,30 +213,14 @@ impl KeywordSearch for LanceDB {
             .execute()
             .await?;
 
-        let document_chunks: Vec<DocumentChunk> = self
-            .convert_record_batch_to_document_chunks(stream)
+        let payloads: Vec<Payload> = self
+            .convert_record_batch_to_payloads(stream)
             .await?
             .into_iter()
-            .filter(|item| document_metadata_ids.contains(&item.document_metadata_id))
+            .filter(|item| correspondent_ids.contains(&item.id))
             .collect();
 
-        let results: Vec<DocumentChunkSearchResult> = build_search_results(
-            document_chunks[..top_n.min(document_chunks.len())].to_vec(),
-            &database
-                .get_collections(&GetCollectionFilter::default(), false)
-                .await?
-                .into_iter()
-                .map(|item| (item.id.clone(), item))
-                .collect(),
-            &database
-                .get_documents(&GetDocumentFilter::default())
-                .await?
-                .into_iter()
-                .map(|item| (item.id.clone(), item))
-                .collect(),
-        );
-
-        Ok(results)
+        Ok(build_search_results(database, payloads).await?)
     }
 }
 
@@ -328,34 +289,41 @@ impl LanceDB {
     }
 }
 
-/// To fill in the document and collection title
-pub fn build_search_results(
-    document_chunks: Vec<DocumentChunk>,
-    collection_metadatas_from_storage: &HashMap<String, CollectionMetadata>,
-    document_metadatas_from_storage: &HashMap<String, DocumentMetadata>,
-) -> Vec<DocumentChunkSearchResult> {
-    let mut results = Vec::new();
+async fn build_search_results(
+    database: &Arc<dyn Database>,
+    payloads: Vec<Payload>,
+) -> Result<Vec<SearchResult>> {
+    if payloads.is_empty() {
+        return Ok(Vec::new());
+    }
 
-    for (index, point) in document_chunks.into_iter().enumerate() {
-        let mut result: DocumentChunkSearchResult = DocumentChunkSearchResult::from(point);
+    let total_number_results = payloads.len() as f32;
+    let mut results = Vec::with_capacity(payloads.len());
+    let mut paths_map = HashMap::new();
 
-        if let Some(document_metadata) =
-            document_metadatas_from_storage.get(&result.document_chunk.document_metadata_id)
-        {
-            result.document_title = Some(document_metadata.title.clone());
+    // Only fetch the payloads with different block ids
+    for (index, payload) in payloads.into_iter().enumerate() {
+        // Check if the block id's path had already fetched
+        if !paths_map.contains_key(&payload.block_id) {
+            let path = database
+                .read_block_path(payload.block_id)
+                .await
+                .context(format!("Failed reading blocks for {}", payload.block_id))?;
+            // Use hashmap to store `block_id : path`
+            paths_map.insert(payload.block_id, path);
         }
 
-        if let Some(collection_metadata) =
-            collection_metadatas_from_storage.get(&result.document_chunk.collection_metadata_id)
-        {
-            result.collection_title = Some(collection_metadata.title.clone());
-        }
-
-        // Manually compute the score by using `x = 1 - (n * 0.1)`
-        result.score = 1.0 - (index as f32 * 0.1);
-
+        // Manually compute the score by using `x = 1 - (n / m)`
+        let result = SearchResult::new(
+            paths_map
+                .get(&payload.block_id)
+                .expect("block_id was just inserted")
+                .clone(),
+            payload,
+            1.0 - (index as f32 / total_number_results),
+        );
         results.push(result);
     }
 
-    results
+    Ok(results)
 }

@@ -1,4 +1,4 @@
-pub mod document_search_results;
+pub mod models;
 pub mod keyword;
 pub mod semantic;
 

@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                     .table(Blocks::Table)
                     .if_not_exists()
                     .col(pk_uuid(Blocks::Id).primary_key().not_null())
-                    .col(string_null(Blocks::ParentId))
+                    .col(uuid_null(Blocks::ParentId))
                     .col(boolean(Blocks::IsDeleted).not_null().default(false))
                     .foreign_key(
                         ForeignKey::create()
@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                     .table(Payloads::Table)
                     .if_not_exists()
                     .col(pk_uuid(Payloads::Id).primary_key().not_null())
-                    .col(string(Payloads::BlockId).not_null())
+                    .col(uuid(Payloads::BlockId).not_null())
                     .col(big_integer(Payloads::OrderRow).not_null())
                     .col(big_integer(Payloads::OrderColumn).not_null())
                     .col(big_integer(Payloads::CreatedAt).not_null())

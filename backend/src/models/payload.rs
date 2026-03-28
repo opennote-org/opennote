@@ -8,10 +8,10 @@ use crate::{
 };
 
 /// Next: do we store dynamic data? like hashmap?
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct Payload {
     /// Reserved for storing database id
-    block_id: String,
+    pub block_id: Uuid,
     /// A unique identification of this payload
     pub id: Uuid,
     /// The position (row) of the payload on a block.
@@ -81,5 +81,21 @@ impl Into<Model> for Payload {
             vector: serde_json::to_value(self.vector).unwrap(),
             content_type: serde_json::to_string(&self.content_type).unwrap(),
         }
+    }
+}
+
+/// Create a payload only for querying, not for storage
+pub fn create_query(query: &str) -> Payload {
+    Payload {
+        block_id: Uuid::max(),
+        id: Uuid::new_v4(),
+        order_row: 0,
+        order_column: 0,
+        created_at: 0,
+        last_modified: 0,
+        content_type: ContentType::Body,
+        texts: query.to_string(),
+        bytes: Vec::new(),
+        vector: Vec::new(),
     }
 }
