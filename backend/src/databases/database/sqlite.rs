@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use futures::future::join_all;
+use futures::future::{join, join_all};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     ActiveModelBehavior, ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait,
@@ -12,14 +12,17 @@ use uuid::Uuid;
 
 use crate::{
     databases::database::{
+        enums::{BlockQuery, PayloadQuery},
         metadata::MetadataSettings,
         traits::{
-            blocks::{BlockQuery, Blocks},
+            blocks::Blocks,
             database::Database,
             metadata::MetadataManagement,
+            payloads::Payloads,
+            query::{DataQueryFilter},
         },
     },
-    models::block::Block,
+    models::{block::Block, payload::Payload},
 };
 
 #[derive(Debug, Clone)]
@@ -75,18 +78,6 @@ impl SQLiteDatabase {
             Err(_) => false,
         }
     }
-
-    async fn read_all_blocks(&self) -> Result<Vec<Block>> {
-        use crate::entity::blocks;
-        use crate::entity::payloads;
-
-        let all_blocks_payloads_pairs = blocks::Entity::find()
-            .find_with_related(payloads::Entity)
-            .all(&self.pool)
-            .await?;
-
-        Ok(Block::from_models(all_blocks_payloads_pairs))
-    }
 }
 
 #[async_trait]
@@ -102,9 +93,88 @@ impl MetadataManagement for SQLiteDatabase {
 }
 
 #[async_trait]
+impl Payloads for SQLiteDatabase {
+    async fn read_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>> {
+        use crate::entity::payloads;
+
+        let conditions = match filter.get_database_filter() {
+            None => return Ok(Vec::new()),
+            Some(conditions) => conditions,
+        };
+
+        let payload_models = payloads::Entity::find()
+            .filter(conditions)
+            .all(&self.pool)
+            .await?;
+
+        Ok(payload_models
+            .into_iter()
+            .map(|item| Payload::from(item))
+            .collect())
+    }
+
+    async fn update_payloads(&self, payloads: Vec<Payload>) -> Result<()> {
+        let mut active_models = Vec::new();
+
+        for payload in payloads {
+            active_models.push(payload.to_active_model());
+        }
+
+        self.update_payloads_with_active_models(active_models)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn update_payloads_with_active_models(
+        &self,
+        active_models: Vec<crate::entity::payloads::ActiveModel>,
+    ) -> Result<()> {
+        use crate::entity::payloads;
+
+        let mut update_tasks = Vec::new();
+
+        for active_model in active_models {
+            update_tasks.push(payloads::Entity::update(active_model).exec(&self.pool));
+        }
+
+        let results = join_all(update_tasks).await;
+
+        for result in results {
+            result?;
+        }
+
+        Ok(())
+    }
+
+    async fn delete_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>> {
+        use crate::entity::payloads;
+
+        let conditions = match filter.get_database_filter() {
+            None => return Ok(Vec::new()),
+            Some(conditions) => conditions,
+        };
+
+        let payload_models = payloads::Entity::delete_many()
+            .filter(conditions)
+            .exec_with_returning(&self.pool)
+            .await?;
+
+        Ok(payload_models
+            .into_iter()
+            .map(|item| Payload::from(item))
+            .collect())
+    }
+}
+
+#[async_trait]
 impl Blocks for SQLiteDatabase {
     async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {
         use crate::entity::blocks::{ActiveModel, Entity as BlockEntity};
+
+        if num_blocks == 0 {
+            return Ok(Vec::new());
+        }
 
         let blocks_active_models: Vec<ActiveModel> =
             (0..num_blocks).map(|_| ActiveModel::new()).collect();
@@ -146,9 +216,7 @@ impl Blocks for SQLiteDatabase {
         use crate::entity::payloads;
 
         let conditions = match filter {
-            BlockQuery::All => {
-                return Ok(self.read_all_blocks().await?);
-            }
+            BlockQuery::All => Condition::all(),
             BlockQuery::Root => Condition::any().add(blocks::Column::ParentId.is_null()),
             BlockQuery::ByIds(ids) => {
                 if ids.is_empty() {
@@ -211,19 +279,18 @@ impl Blocks for SQLiteDatabase {
 
     async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {
         use crate::entity::blocks;
-        use crate::entity::payloads;
+
+        if blocks.is_empty() {
+            return Ok(());
+        }
 
         let block_ids: Vec<Uuid> = blocks.iter().map(|item| item.id).collect();
         let active_blocks_payloads_pairs = Block::to_active_models(blocks);
         let mut update_blocks_tasks = Vec::new();
-        let mut update_payloads_tasks = Vec::new();
+        let mut payloads_to_update = Vec::new();
 
-        for (active_block_model, active_payload_models) in active_blocks_payloads_pairs {
-            for payload_model in active_payload_models {
-                update_payloads_tasks
-                    .push(payloads::Entity::update(payload_model).exec(&self.pool));
-            }
-
+        for (active_block_model, active_payload_model) in active_blocks_payloads_pairs {
+            payloads_to_update.extend(active_payload_model);
             update_blocks_tasks.push(
                 blocks::Entity::update_many()
                     .set(active_block_model)
@@ -232,14 +299,14 @@ impl Blocks for SQLiteDatabase {
             );
         }
 
-        let payloads_results = join_all(update_payloads_tasks).await;
-        let blocks_results = join_all(update_blocks_tasks).await;
+        let (payload_update_result, block_update_results) = join(
+            self.update_payloads_with_active_models(payloads_to_update),
+            join_all(update_blocks_tasks),
+        )
+        .await;
 
-        for result in payloads_results {
-            result?;
-        }
-
-        for result in blocks_results {
+        payload_update_result?;
+        for result in block_update_results {
             result?;
         }
 
@@ -249,11 +316,15 @@ impl Blocks for SQLiteDatabase {
     async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<()> {
         use crate::entity::blocks;
 
+        if block_ids.is_empty() {
+            return Ok(());
+        }
+
         blocks::Entity::delete_many()
             .filter_by_ids(block_ids)
             .exec_with_returning(&self.pool)
             .await?;
-
+        
         Ok(())
     }
 }

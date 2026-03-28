@@ -5,7 +5,6 @@ use anyhow::Result;
 use crate::{
     configurations::system::Config,
     databases::vector_database::{
-        self,
         lancedb::LanceDB,
         traits::{VectorDatabase, VectorDatabaseProvider},
     },

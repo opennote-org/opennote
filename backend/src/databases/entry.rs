@@ -1,14 +1,20 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use futures::future::join;
 use uuid::Uuid;
 
 use crate::{
-    configurations::system::Config,
+    configurations::system::{Config, VectorDatabaseConfig},
     databases::{
-        database::{shared::create_database, traits::{blocks::BlockQuery, database::Database}},
+        database::{
+            enums::{BlockQuery, PayloadQuery},
+            shared::create_database,
+            traits::database::Database,
+        },
         vector_database::{shared::create_vector_database, traits::VectorDatabase},
-    }, models::{block::Block, payload::Payload},
+    },
+    models::block::Block,
 };
 
 /// At the moment, it only abstracts database-related logics of documents and chunks.
@@ -30,27 +36,51 @@ impl DatabasesLayerEntry {
             vector_database,
         })
     }
-    
-    async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {}
 
-    async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {}
+    async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {
+        self.database.create_blocks(num_blocks).await
+    }
 
-    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {}
+    async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {
+        self.database.read_blocks(filter).await
+    }
 
-    async fn delete_blocks(&self, block_ids: Vec<Uuid>) -> Result<()> {}
+    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {
+        self.database.update_blocks(blocks).await
+    }
+
+    async fn delete_blocks(
+        &self,
+        vector_database_config: &VectorDatabaseConfig,
+        block_ids: Vec<Uuid>,
+    ) -> Result<()> {
+        let payloads = self
+            .database
+            .delete_payloads(&PayloadQuery::ByBlockIds(block_ids.clone()))
+            .await?;
+
+        let (delete_blocks_result, delete_entries_results) = join(
+            self.database.delete_blocks(block_ids),
+            self.vector_database.delete_entries(
+                vector_database_config,
+                &payloads.into_iter().map(|item| item.id).collect(),
+            ),
+        )
+        .await;
+
+        delete_blocks_result?;
+        delete_entries_results?;
+
+        Ok(())
+    }
 
     /// Reover all document chunks from the relational database to the vector database
     pub async fn recover(&self, index: &str, dimensions: usize) -> Result<()> {
-        let chunks: Vec<Payload> = self
-            .database
-            .read_blocks(filter)
-            .await?;
+        let payloads = self.database.read_payloads(&PayloadQuery::All).await?;
 
         self.vector_database.reset_index(index, dimensions).await?;
 
-        self.vector_database
-            .add_document_chunks_to_database(index, chunks)
-            .await?;
+        self.vector_database.create_entries(index, payloads).await?;
 
         Ok(())
     }
