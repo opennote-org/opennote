@@ -1,50 +1,17 @@
 use gpui::*;
-use gpui_component::{button::*, sidebar::Sidebar, *};
+use gpui_component::{
+    button::*,
+    sidebar::{Sidebar, SidebarMenu},
+    *,
+};
 
 pub struct Main;
 
 impl Render for Main {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .v_flex()
-            .gap_2()
-            .size_full()
-            .items_center()
-            .justify_center()
-            .child(Sidebar::new(Side::Left).child(Tree::new()))
-    }
-}
+        let sidebar = Sidebar::new(Side::Left).child(SidebarMenu::new());
 
-pub struct Tree {
-    is_collapsed: bool,
-}
-
-impl Tree {
-    pub fn new() -> Self {
-        Self {
-            is_collapsed: false,
-        }
-    }
-}
-
-impl Element for Tree {
-    
-}
-
-impl IntoElement for Tree {
-    fn into_element(self) -> Self::Element {
-    }
-}
-
-impl Collapsible for Tree {
-    fn collapsed(self, collapsed: bool) -> Self {
-        Self {
-            is_collapsed: collapsed,
-        }
-    }
-
-    fn is_collapsed(&self) -> bool {
-        self.is_collapsed
+        v_flex().id("workspace-sidebar").h_full().child(sidebar)
     }
 }
 
