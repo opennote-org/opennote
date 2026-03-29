@@ -1,12 +1,12 @@
-use crate::{
-    configurations::system::{Config, EmbedderConfig},
-    embedders::traits::Embedder,
-    models::payload::Payload,
-};
+use std::time::Duration;
+
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde_json::{Value, json};
-use std::time::Duration;
+
+use opennote_models::{configurations::system::{Config, EmbedderConfig}, payload::Payload};
+
+use crate::traits::Embedder;
 
 pub struct Remote {
     embedder_config: EmbedderConfig,
@@ -26,32 +26,24 @@ impl Embedder for Remote {
         let client = reqwest::Client::new();
 
         let response = client
-        .post(&self.embedder_config.base_url)
-        .bearer_auth(&self.embedder_config.api_key)
-        .json(&json!(
-            {
-                "input": queries.iter().map(|item| item.texts.clone()).collect::<Vec<String>>(),
-                "model": &self.embedder_config.model,
-                "encoding_format": &self.embedder_config.encoding_format,
-                // "dimensions": config.dimensions,
-            }
-        ))
-        .timeout(Duration::from_secs(1000))
-        .send()
-        .await?;
+            .post(&self.embedder_config.base_url)
+            .bearer_auth(&self.embedder_config.api_key)
+            .json(&json!(
+                {
+                    "input": queries.iter().map(|item| item.texts.clone()).collect::<Vec<String>>(),
+                    "model": &self.embedder_config.model,
+                    "encoding_format": &self.embedder_config.encoding_format,
+                    // "dimensions": config.dimensions,
+                }
+            ))
+            .timeout(Duration::from_secs(1000))
+            .send()
+            .await?;
 
         match response.error_for_status_ref() {
             Ok(_) => {}
             Err(error) => {
                 let error_response_body: String = response.text().await?;
-                if error_response_body.contains("Please reduce the length of the input.") {
-                    log::error!(
-                        "User had requested a larger chunk than the embedding model can handle. Please set the chunk size smaller"
-                    );
-                } else {
-                    log::error!("Error response body: {}", error_response_body);
-                }
-
                 return Err(anyhow!(
                     "Vectorization request has failed. Error: {}. Message: {}",
                     error,

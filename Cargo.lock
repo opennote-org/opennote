@@ -6100,6 +6100,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "opennote-connectors"
+version = "0.1.0"
+
+[[package]]
 name = "opennote-core"
 version = "0.1.0"
 dependencies = [
@@ -6115,6 +6119,7 @@ dependencies = [
  "lancedb",
  "migration",
  "opennote-embedder",
+ "opennote-entities",
  "opennote-models",
  "reqwest",
  "rmcp 0.14.0",
@@ -6139,6 +6144,8 @@ dependencies = [
  "embed_anything",
  "futures",
  "opennote-models",
+ "reqwest",
+ "serde_json",
 ]
 
 [[package]]
@@ -6152,18 +6159,13 @@ dependencies = [
 name = "opennote-models"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "opennote-entities",
+ "schemars 1.2.1",
  "sea-orm",
  "serde",
  "serde_json",
  "uuid",
-]
-
-[[package]]
-name = "opennote-server"
-version = "0.1.0"
-dependencies = [
- "opennote-core",
 ]
 
 [[package]]

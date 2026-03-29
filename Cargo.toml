@@ -5,13 +5,23 @@ license = "MIT"
 
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = [
+    "crates/opennote-core",
+    "crates/opennote-ui",
+    "crates/opennote-embedder",
+    "crates/opennote-models",
+    "crates/opennote-entities",
+    "crates/opennote-connectors",
+    # "crates/opennote-mcp-server",
+    # "crates/opennote-server",
+]
 
 [workspace.dependencies]
 # Internal dependencies
 opennote-ui = { path = "crates/opennote-ui" }
 opennote-core = { path = "crates/opennote-core" }
-opennote-server = { path = "crates/opennote-server" }
+# opennote-server = { path = "crates/opennote-server" }
+# opennote-mcp-server = { path = "crates/opennote-mcp-server" }
 opennote-embedder = { path = "crates/opennote-embedder" }
 opennote-models = { path = "crates/opennote-models" }
 opennote-entities = { path = "crates/opennote-entities" }
@@ -25,3 +35,5 @@ uuid = { version = "1.18.1", features = ["v4"] }
 anyhow = "1.0.100"
 async-trait = "0.1.89"
 futures = "0.3.31"
+reqwest = { version = "0.12.24", features = ["cookies", "gzip", "json", "rustls-tls"] }
+schemars = "1.2.0"
