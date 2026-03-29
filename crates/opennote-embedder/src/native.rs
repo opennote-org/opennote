@@ -1,9 +1,12 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use embed_anything::embeddings::embed::{Embedder as AnythingEmbedder, EmbeddingResult};
 
+use opennote_models::{configurations::system::Config, payload::Payload};
+
+use crate::traits::Embedder;
+
 pub struct Native {
-    embedder_config: EmbedderConfig,
     anything_embedder: AnythingEmbedder,
 }
 
@@ -11,13 +14,12 @@ impl Native {
     pub async fn new(config: &Config) -> Result<Self> {
         Ok(Self {
             anything_embedder: AnythingEmbedder::from_pretrained_hf(
-                model_id.as_ref(),
+                &config.embedder.model,
                 None,
                 None,
                 None,
             )
             .context("Native embedder initialization failed")?,
-            embedder_config: config.embedder.clone(),
         })
     }
 }
@@ -31,14 +33,11 @@ impl Embedder for Native {
 
         let inputs: Vec<&str> = queries.iter().map(|item| item.texts.as_str()).collect();
 
-        let result = self
+        let results = self
             .anything_embedder
             .embed(&inputs, None, None)
             .await
-            .map_err(|error| {
-                log::error!("Vectorization failed due to {}", error);
-                anyhow!("{}", error)
-            })?;
+            .map_err(|error| anyhow!("{}", error))?;
 
         let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(results.len());
 
@@ -51,6 +50,6 @@ impl Embedder for Native {
             }
         }
 
-        Ok(result)
+        Ok(vectors)
     }
 }

@@ -14,3 +14,5 @@ embed_anything = { git = "https://github.com/AspadaX/EmbedAnything.git", branch 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }

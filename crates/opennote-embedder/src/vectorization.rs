@@ -1,7 +1,7 @@
 use anyhow::Result;
 use futures::future::join_all;
 
-use opennote_models::payload::Payload;
+use opennote_models::{configurations::system::EmbedderConfig, payload::Payload};
 
 use crate::entry::EmbedderEntry;
 

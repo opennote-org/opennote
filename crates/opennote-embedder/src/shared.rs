@@ -1,14 +1,10 @@
-use crate::{
-    configurations::system::Config,
-    embedders::{
-        native::Native,
-        other::Other,
-        remote::Remote,
-        traits::{Embedder, EmbedderProvider},
-    },
-};
-use anyhow::Result;
 use std::sync::Arc;
+
+use anyhow::Result;
+
+use opennote_models::{configurations::system::Config, providers::embedder::EmbedderProvider};
+
+use crate::{native::Native, other::Other, remote::Remote, traits::Embedder};
 
 pub async fn create_embedder(config: &Config) -> Result<Arc<dyn Embedder>> {
     let embedder: Arc<dyn Embedder> = match &config.embedder.provider {

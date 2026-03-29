@@ -1,7 +1,10 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 
-use opennote_core::configurations::system::Config;
+use opennote_models::{
+    configurations::system::{Config, EmbedderConfig},
+    payload::Payload,
+};
 
 use crate::traits::Embedder;
 
@@ -19,7 +22,7 @@ impl Other {
 
 #[async_trait]
 impl Embedder for Other {
-    async fn vectorize(&self, queries: &Vec<Payload>) -> anyhow::Result<Vec<Vec<f32>>> {
+    async fn vectorize(&self, queries: &Vec<Payload>) -> Result<Vec<Vec<f32>>> {
         let client: catsu::Client = catsu::Client::new()?;
 
         let response: catsu::EmbedResponse = client

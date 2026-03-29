@@ -1,9 +1,9 @@
 use anyhow::Result;
 use std::sync::Arc;
 
-use opennote_core::configurations::system::Config;
+use opennote_models::configurations::system::Config;
 
-use crate::traits::Embedder;
+use crate::{shared::create_embedder, traits::Embedder};
 
 pub struct EmbedderEntry {
     pub embedder: Arc<dyn Embedder>,
