@@ -1,5 +1,5 @@
 [package]
-name = "opennote-core"
+name = "opennote-data"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

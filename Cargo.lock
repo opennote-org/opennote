@@ -6104,7 +6104,7 @@ name = "opennote-connectors"
 version = "0.1.0"
 
 [[package]]
-name = "opennote-core"
+name = "opennote-data"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -6156,6 +6156,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "opennote-mcp-server"
+version = "0.1.0"
+
+[[package]]
 name = "opennote-models"
 version = "0.1.0"
 dependencies = [
@@ -6166,6 +6170,13 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
+]
+
+[[package]]
+name = "opennote-server"
+version = "0.1.0"
+dependencies = [
+ "opennote-data",
 ]
 
 [[package]]
