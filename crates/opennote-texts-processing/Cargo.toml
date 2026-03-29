@@ -1,0 +1,12 @@
+[package]
+name = "opennote-texts-processing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal dependencies
+opennote-models = { workspace = true }
+
+# External dependencies
+chunk = { workspace = true }
