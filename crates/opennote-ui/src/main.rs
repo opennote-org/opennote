@@ -1,8 +1,8 @@
 use gpui::*;
 use gpui_component::{button::*, *};
 
-pub struct HelloWorld;
-impl Render for HelloWorld {
+pub struct Main;
+impl Render for Main {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         div()
             .v_flex()
@@ -29,7 +29,7 @@ fn main() {
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|_| HelloWorld);
+                let view = cx.new(|_| Main);
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })
