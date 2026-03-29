@@ -22,12 +22,12 @@ use crate::{
 ///
 /// Users, collections, configurations and on are not yet needed for further abstractions
 #[derive(Clone)]
-pub struct DatabasesLayerEntry {
+pub struct Databases {
     pub database: Arc<dyn Database>,
     pub vector_database: Arc<dyn VectorDatabase>,
 }
 
-impl DatabasesLayerEntry {
+impl Databases {
     pub async fn new(config: &Config) -> Result<Self> {
         let vector_database = create_vector_database(config).await?;
         let database = create_database(config).await?;

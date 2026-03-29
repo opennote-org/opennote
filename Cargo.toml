@@ -6,22 +6,22 @@ license = "MIT"
 [workspace]
 resolver = "3"
 members = [
-    "crates/opennote-core",
     "crates/opennote-ui",
+    "crates/opennote-data",
     "crates/opennote-embedder",
     "crates/opennote-models",
     "crates/opennote-entities",
     "crates/opennote-connectors",
-    # "crates/opennote-mcp-server",
-    # "crates/opennote-server",
+    "crates/opennote-mcp-server",
+    "crates/opennote-server",
 ]
 
 [workspace.dependencies]
 # Internal dependencies
 opennote-ui = { path = "crates/opennote-ui" }
-opennote-core = { path = "crates/opennote-core" }
-# opennote-server = { path = "crates/opennote-server" }
-# opennote-mcp-server = { path = "crates/opennote-mcp-server" }
+opennote-data = { path = "crates/opennote-data" }
+opennote-server = { path = "crates/opennote-server" }
+opennote-mcp-server = { path = "crates/opennote-mcp-server" }
 opennote-embedder = { path = "crates/opennote-embedder" }
 opennote-models = { path = "crates/opennote-models" }
 opennote-entities = { path = "crates/opennote-entities" }
