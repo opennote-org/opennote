@@ -12,7 +12,6 @@ migration = { path = "./crates/migration" }
 chrono = { version = "0.4.42", features = ["serde"] }
 config = "0.15.18"
 html-to-markdown-rs = "2.14.1"
-chunk = "0.9.2"
 rmcp = "0.14.0"
 rmcp-actix-web = { version = "0.11.0", features = ["authorization-token-passthrough"] }
 sqlx = { version = "0.8.6", features = ["tls-rustls", "mysql", "postgres", "sqlite", "runtime-tokio"] }

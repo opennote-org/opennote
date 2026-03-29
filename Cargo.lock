@@ -6112,7 +6112,6 @@ dependencies = [
  "arrow-schema",
  "async-trait",
  "chrono",
- "chunk",
  "config",
  "futures",
  "html-to-markdown-rs",
@@ -6177,6 +6176,14 @@ name = "opennote-server"
 version = "0.1.0"
 dependencies = [
  "opennote-data",
+]
+
+[[package]]
+name = "opennote-texts-processing"
+version = "0.1.0"
+dependencies = [
+ "chunk",
+ "opennote-models",
 ]
 
 [[package]]
