@@ -1,3 +1,11 @@
+//! Next step: Create a minimal viable gpui program with all features required by OpenNote
+//! Features should be included in this MVP:
+//! 1. keyboard shortcuts
+//! 2. ui buttons for key actions
+//! 3. actions for calling the core APIs
+//! 4. an input panel for searching and commanding
+//! 5. multi-lingual support, a configuratble language file for all texts displaying in the program
+
 use gpui::*;
 use gpui_component::{
     button::*,
