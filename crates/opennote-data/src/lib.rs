@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use opennote_models::{
     block::Block,
-    configurations::system::{Config, VectorDatabaseConfig},
+    configurations::system::{SystemConfigurations, VectorDatabaseConfig},
 };
 
 use crate::{
@@ -32,7 +32,7 @@ pub struct Databases {
 }
 
 impl Databases {
-    pub async fn new(config: &Config) -> Result<Self> {
+    pub async fn new(config: &SystemConfigurations) -> Result<Self> {
         let vector_database = create_vector_database(config).await?;
         let database = create_database(config).await?;
 

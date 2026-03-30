@@ -5,8 +5,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(from = "String", into = "String")]
 pub enum EmbedderProvider {
+    /// The embedder model embedded by this app
     Native,
+    /// Self-hosted remote embedder model
     Remote,
+    /// Models from third-party providers
     Other(String),
 }
 
