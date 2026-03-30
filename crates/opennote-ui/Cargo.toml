@@ -4,5 +4,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# Internal dependencies
+opennote-bootstrap = { workspace = true }
+
+# External dependencies
 gpui = "0.2.2"
 gpui-component = "0.5.1"
+
+anyhow = { workspace = true }

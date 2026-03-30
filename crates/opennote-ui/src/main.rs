@@ -5,13 +5,23 @@
 //! 3. actions for calling the core APIs
 //! 4. an input panel for searching and commanding
 //! 5. multi-lingual support, a configuratble language file for all texts displaying in the program
+//!
+//! TODOs:
+//! 1. Create a configuration handling module that will read and write configurations from a local source
+//! 2. Create an API that can be called both by the server and ui
 
+pub mod actions;
+pub mod widgets;
+
+use anyhow::Result;
 use gpui::*;
 use gpui_component::{
     button::*,
     sidebar::{Sidebar, SidebarMenu},
     *,
 };
+
+use opennote_bootstrap::ApplicationBootStrap;
 
 pub struct Main;
 
@@ -23,7 +33,7 @@ impl Render for Main {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     let app = Application::new();
 
     app.run(move |cx| {
@@ -31,6 +41,11 @@ fn main() {
         gpui_component::init(cx);
 
         cx.spawn(async move |cx| {
+            // Initialize the necessary services and resources for the app
+            let services_and_resources = ApplicationBootStrap::new(config)
+                .await
+                .expect("Error when loading configurations");
+
             cx.open_window(WindowOptions::default(), |window, cx| {
                 let view = cx.new(|_| Main);
                 // This first level on the window, should be a Root.
@@ -40,4 +55,6 @@ fn main() {
         })
         .detach();
     });
+
+    Ok(())
 }
