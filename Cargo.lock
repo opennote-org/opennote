@@ -8135,6 +8135,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "opennote-bootstrap"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "opennote-data",
+ "opennote-embedder",
+ "opennote-models",
+ "opennote-tasks-scheduler",
+ "tokio",
+]
+
+[[package]]
 name = "opennote-connectors"
 version = "0.1.0"
 
@@ -8214,6 +8226,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "opennote-tasks-scheduler"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "opennote-texts-processing"
 version = "0.1.0"
 dependencies = [
@@ -8225,8 +8246,10 @@ dependencies = [
 name = "opennote-ui"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "gpui",
  "gpui-component",
+ "opennote-bootstrap",
 ]
 
 [[package]]
