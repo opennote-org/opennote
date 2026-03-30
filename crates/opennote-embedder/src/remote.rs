@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
-use opennote_models::{configurations::system::{Config, EmbedderConfig}, payload::Payload};
+use opennote_models::{configurations::system::{SystemConfigurations, EmbedderConfig}, payload::Payload};
 
 use crate::traits::Embedder;
 
@@ -13,7 +13,7 @@ pub struct Remote {
 }
 
 impl Remote {
-    pub async fn new(config: &Config) -> Result<Self> {
+    pub async fn new(config: &SystemConfigurations) -> Result<Self> {
         Ok(Self {
             embedder_config: config.embedder.clone(),
         })

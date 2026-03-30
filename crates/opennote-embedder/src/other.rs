@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use opennote_models::{
-    configurations::system::{Config, EmbedderConfig},
+    configurations::system::{SystemConfigurations, EmbedderConfig},
     payload::Payload,
 };
 
@@ -13,7 +13,7 @@ pub struct Other {
 }
 
 impl Other {
-    pub async fn new(config: &Config) -> Result<Self> {
+    pub async fn new(config: &SystemConfigurations) -> Result<Self> {
         Ok(Self {
             embedder_config: config.embedder.clone(),
         })

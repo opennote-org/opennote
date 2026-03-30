@@ -24,7 +24,7 @@ use crate::{
 };
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    configurations::system::{Config, VectorDatabaseConfig},
+    configurations::system::{SystemConfigurations, VectorDatabaseConfig},
     payload::{Payload, create_query},
 };
 
@@ -224,7 +224,7 @@ impl KeywordSearch for LanceDB {
 }
 
 impl LanceDB {
-    pub async fn new(configuration: &Config) -> Result<Self> {
+    pub async fn new(configuration: &SystemConfigurations) -> Result<Self> {
         let vector_database: lancedb::Connection = connect(&configuration.vector_database.base_url)
             .execute()
             .await?;

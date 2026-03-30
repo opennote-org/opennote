@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    configurations::system::{Config, EmbedderConfig},
+    configurations::system::{SystemConfigurations, EmbedderConfig},
     payload::create_query,
 };
 
@@ -41,7 +41,7 @@ pub async fn handshake_embedding_service(
     }
 }
 
-pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Result<()> {
+pub async fn align_embedder_model(config: &SystemConfigurations, app_state: &AppState) -> Result<()> {
     let mut metadata_settings = app_state
         .databases_layer_entry
         .database
@@ -77,7 +77,7 @@ pub async fn align_embedder_model(config: &Config, app_state: &AppState) -> Resu
     Ok(())
 }
 
-pub async fn align_vector_database(config: &Config, app_state: &AppState) -> Result<()> {
+pub async fn align_vector_database(config: &SystemConfigurations, app_state: &AppState) -> Result<()> {
     let mut metadata_settings = app_state
         .databases_layer_entry
         .database

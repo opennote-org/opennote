@@ -12,15 +12,15 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp_actix_web::transport::StreamableHttpService;
 
 use crate::{
-    app_state::AppState, configurations::system::Config, mcp::service::MCPService,
+    app_state::AppState, configurations::system::SystemConfigurations, mcp::service::MCPService,
     routes::configure_routes,
 };
 
-pub fn load_configurations() -> Result<Config> {
+pub fn load_configurations() -> Result<SystemConfigurations> {
     // Load configuration first
     let config_path: String =
         std::env::var("CONFIG_PATH").unwrap_or_else(|_| "./config.json".to_string());
-    let config: Config = Config::load_from_file(&config_path)?;
+    let config: SystemConfigurations = SystemConfigurations::load_from_file(&config_path)?;
 
     // Validate configuration
     config.validate()?;
@@ -36,7 +36,7 @@ pub fn load_configurations() -> Result<Config> {
     Ok(config)
 }
 
-pub fn initialize_logger(config: &Config) {
+pub fn initialize_logger(config: &SystemConfigurations) {
     env_logger::Builder::from_default_env()
         .filter_level(match config.logging.level.as_str() {
             "trace" => log::LevelFilter::Trace,
@@ -49,7 +49,7 @@ pub fn initialize_logger(config: &Config) {
         .init();
 }
 
-pub async fn initialize_app_state(config: &Config) -> Result<Data<AppState>> {
+pub async fn initialize_app_state(config: &SystemConfigurations) -> Result<Data<AppState>> {
     match AppState::new(config.clone()).await {
         Ok(state) => {
             let database_information = state.databases_layer_entry.database.peek().await?;
@@ -99,7 +99,7 @@ pub async fn initialize_mcp_server(
 pub async fn initialize_backend_api_service(
     app_state: Data<AppState>,
     mcp_service: StreamableHttpService<MCPService>,
-    config: &Config,
+    config: &SystemConfigurations,
 ) -> Result<()> {
     // Start HTTP server
     let bind_address: String = format!("{}:{}", config.server.host, config.server.port);

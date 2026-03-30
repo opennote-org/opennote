@@ -8210,6 +8210,7 @@ name = "opennote-models"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dirs 6.0.0",
  "opennote-entities",
  "schemars 1.2.1",
  "sea-orm",
@@ -8247,9 +8248,11 @@ name = "opennote-ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dirs 6.0.0",
  "gpui",
  "gpui-component",
  "opennote-bootstrap",
+ "opennote-models",
 ]
 
 [[package]]

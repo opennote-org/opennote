@@ -44,3 +44,4 @@ futures = "0.3.31"
 reqwest = { version = "0.12.24", features = ["cookies", "gzip", "json", "rustls-tls"] }
 schemars = "1.2.0"
 chunk = "0.9.2"
+dirs = "6.0.0"
