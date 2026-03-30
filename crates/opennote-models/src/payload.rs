@@ -10,8 +10,10 @@ use crate::content_type::ContentType;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct Payload {
     /// A unique identification of its owner block
+    #[serde(with = "uuid::serde::compact")]
     pub block_id: Uuid,
     /// A unique identification of this payload
+    #[serde(with = "uuid::serde::compact")]
     pub id: Uuid,
     /// The position (row) of the payload on a block.
     pub order_row: i64,

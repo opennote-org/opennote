@@ -11,6 +11,7 @@
 //! 2. Create an API that can be called both by the server and ui
 
 pub mod actions;
+pub mod globals;
 pub mod widgets;
 
 use anyhow::Result;
@@ -23,41 +24,50 @@ use gpui_component::{
 use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
+use crate::globals::UIApplicationBootStrap;
+
 pub struct Main;
 
 impl Render for Main {
-    fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let sidebar = Sidebar::new(Side::Left).child(SidebarMenu::new());
+        // TODO: we are able to access the global states from here
+        let services_and_resources: &UIApplicationBootStrap = cx.global();
 
         v_flex().id("workspace-sidebar").h_full().child(sidebar)
     }
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let app = Application::new();
+
+    // TODO: Consider further restricting the input paths, thus avoiding passing
+    // the config path from here
+    let config_path = if let Some(config_dir) = dirs::config_dir() {
+        config_dir.join(APP_DATA_FOLDER_NAME)
+    } else {
+        panic!("No config directory was found in this system")
+    };
+
+    // Load configurations
+    let configurations =
+        Configurations::load_from_file(config_path).expect("Error when loading configurations");
+
+    // Initialize the necessary services and resources for the app
+    let services_and_resources = UIApplicationBootStrap(
+        ApplicationBootStrap::new(configurations)
+            .await
+            .expect("Error when initializing the application"),
+    );
 
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
 
+        cx.set_global(services_and_resources);
+
         cx.spawn(async move |cx| {
-            // TODO: Consider further restricting the input paths, thus avoiding passing
-            // the config path from here
-            let config_path = if let Some(config_dir) = dirs::config_dir() {
-                config_dir.join(APP_DATA_FOLDER_NAME)
-            } else {
-                panic!("No config directory was found in this system")
-            };
-
-            // Load configurations
-            let configurations = Configurations::load_from_file(config_path)
-                .expect("Error when loading configurations");
-
-            // Initialize the necessary services and resources for the app
-            let services_and_resources = ApplicationBootStrap::new(configurations)
-                .await
-                .expect("Error when initializing the application");
-
             cx.open_window(WindowOptions::default(), |window, cx| {
                 let view = cx.new(|_| Main);
                 // This first level on the window, should be a Root.

@@ -11,6 +11,7 @@ opennote-models = { workspace = true }
 # External dependencies
 anyhow = { workspace = true }
 dirs = { workspace = true }
+tokio = { workspace = true }
 
 gpui = "0.2.2"
 gpui-component = "0.5.1"

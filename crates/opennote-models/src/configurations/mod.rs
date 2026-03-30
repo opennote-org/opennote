@@ -3,10 +3,7 @@ pub mod search;
 pub mod system;
 pub mod user;
 
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};

@@ -229,23 +229,25 @@ impl LanceDB {
             .execute()
             .await?;
 
-        let options = TracingOptions::default().overwrite(
-            "vector",
-            serde_arrow::marrow::datatypes::Field {
-                name: "vector".into(),
-                data_type: serde_arrow::marrow::datatypes::DataType::FixedSizeList(
-                    Box::new(serde_arrow::marrow::datatypes::Field {
-                        name: "item".into(),
-                        data_type: serde_arrow::marrow::datatypes::DataType::Float32,
-                        nullable: false,
-                        metadata: HashMap::new(),
-                    }),
-                    configuration.embedder.dimensions as i32,
-                ),
-                nullable: false,
-                metadata: HashMap::new(),
-            },
-        )?;
+        let options = TracingOptions::default()
+            .enums_without_data_as_strings(true)
+            .overwrite(
+                "vector",
+                serde_arrow::marrow::datatypes::Field {
+                    name: "vector".into(),
+                    data_type: serde_arrow::marrow::datatypes::DataType::FixedSizeList(
+                        Box::new(serde_arrow::marrow::datatypes::Field {
+                            name: "item".into(),
+                            data_type: serde_arrow::marrow::datatypes::DataType::Float32,
+                            nullable: false,
+                            metadata: HashMap::new(),
+                        }),
+                        configuration.embedder.dimensions as i32,
+                    ),
+                    nullable: false,
+                    metadata: HashMap::new(),
+                },
+            )?;
         let fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>> =
             Vec::<FieldRef>::from_type::<Payload>(options)?;
         let schema: Arc<Schema> = Arc::new(Schema::new(fields.clone()));

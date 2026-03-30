@@ -167,9 +167,9 @@ impl Default for EmbedderConfig {
         Self {
             provider: EmbedderProvider::Native,
             base_url: "".to_string(),
-            model: "BAAI/bge-m3".to_string(),
+            model: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
             vectorization_batch_size: 100, // How many vectorization tasks at a time
-            dimensions: 1024,              // BAAI/bge-m3 is a 1024 dimensional model
+            dimensions: 384, // sentence-transformers/all-MiniLM-L6-v2 is a 1024 dimensional model
             encoding_format: "float".to_string(),
             api_key: "".to_string(),
         }
