@@ -13,6 +13,7 @@ pub struct Native {
 impl Native {
     pub async fn new(config: &SystemConfigurations) -> Result<Self> {
         Ok(Self {
+            // TODO: investigate whether this supports baai/bge-m3
             anything_embedder: AnythingEmbedder::from_pretrained_hf(
                 &config.embedder.model,
                 None,
