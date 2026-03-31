@@ -8139,6 +8139,7 @@ name = "opennote-bootstrap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "log",
  "opennote-data",
  "opennote-embedder",
  "opennote-models",

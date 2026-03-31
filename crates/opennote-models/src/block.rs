@@ -8,8 +8,6 @@ use crate::payload::Payload;
 
 /// Everything in OpenNote is a block. All data operations MUST be performed on `Block`s for simplicity
 /// and efficiency.
-///
-/// TODO: Also make configurations as Block
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct Block {
     #[serde(with = "uuid::serde::compact")]

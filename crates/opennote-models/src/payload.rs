@@ -94,7 +94,7 @@ pub fn create_query(query: &str) -> Payload {
         order_column: 0,
         created_at: 0,
         last_modified: 0,
-        content_type: ContentType::Body,
+        content_type: ContentType::Markdown,
         texts: query.to_string(),
         bytes: Vec::new(),
         vector: Vec::new(),
