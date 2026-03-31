@@ -12,31 +12,16 @@
 
 pub mod actions;
 pub mod globals;
-pub mod widgets;
+pub mod screens;
 
 use anyhow::Result;
 use gpui::*;
-use gpui_component::{
-    sidebar::{Sidebar, SidebarMenu},
-    *,
-};
+use gpui_component::*;
 
 use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
-use crate::globals::UIApplicationBootStrap;
-
-pub struct Main;
-
-impl Render for Main {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let sidebar = Sidebar::new(Side::Left).child(SidebarMenu::new());
-        // TODO: we are able to access the global states from here
-        let services_and_resources: &UIApplicationBootStrap = cx.global();
-
-        v_flex().id("workspace-sidebar").h_full().child(sidebar)
-    }
-}
+use crate::{globals::UIApplicationBootStrap, screens::MainWindow};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -69,7 +54,7 @@ async fn main() -> Result<()> {
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|_| Main);
+                let view = cx.new(|_| MainWindow);
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })
