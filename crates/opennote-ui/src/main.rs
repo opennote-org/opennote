@@ -14,6 +14,8 @@ pub mod actions;
 pub mod globals;
 pub mod screens;
 
+use std::fs::read_to_string;
+
 use anyhow::Result;
 use gpui::*;
 use gpui_component::*;
@@ -51,10 +53,18 @@ async fn main() -> Result<()> {
         gpui_component::init(cx);
 
         cx.set_global(services_and_resources);
+        
+        // TODO: create a keymapping loader
+        let keymap_string = read_to_string("/Users/xinyubao/Works/opennote/assets/keymaps/default_macos.json").unwrap();
+        let keys: serde_json::Value = serde_json::from_str(&keymap_string).unwrap();
+        dbg!(keys);
+        
+        // KeyBinding::load(keystrokes, action, context_predicate, use_key_equivalents, action_input, keyboard_mapper);
+        // cx.bind_keys(bindings);
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|_| MainWindow);
+                let view = cx.new(|_| MainWindow::new());
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })

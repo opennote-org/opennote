@@ -12,6 +12,8 @@ opennote-models = { workspace = true }
 anyhow = { workspace = true }
 dirs = { workspace = true }
 tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 gpui = "0.2.2"
 gpui-component = "0.5.1"
