@@ -14,6 +14,8 @@ pub mod actions;
 pub mod globals;
 pub mod key_mappings;
 pub mod screens;
+pub mod widgets;
+pub mod library;
 
 use anyhow::Result;
 use gpui::*;
@@ -24,7 +26,7 @@ use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER
 
 use crate::{
     globals::UIApplicationBootStrap, key_mappings::traits::KeyMappingsUIExtension,
-    screens::main_window::MainWindow,
+    screens::workspace::Workspace,
 };
 
 #[tokio::main]
@@ -70,7 +72,7 @@ async fn main() -> Result<()> {
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|cx| MainWindow::new(cx));
+                let view = cx.new(|cx| Workspace::new(cx));
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })
