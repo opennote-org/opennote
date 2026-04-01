@@ -34,7 +34,7 @@ impl Default for KeyMappings {
     fn default() -> Self {
         Self(vec![KeyMapping {
             sequence: vec!["cmd".to_string(), "-".to_string(), "b".to_string()],
-            action: format!("ToggleWorkspaceSidebar"),
+            action: format!("ToggleSidebar"),
             context: "workspace_sidebar".to_string(),
         }])
     }

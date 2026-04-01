@@ -1,7 +1,0 @@
-[
-  {
-    "bindings": {
-      "cmd-b": "workspace_sidebar::ToggleWorkspaceSidebar"
-    }
-  }
-]
