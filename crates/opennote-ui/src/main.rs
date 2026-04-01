@@ -1,10 +1,10 @@
 //! Next step: Create a minimal viable gpui program with all features required by OpenNote
 //! Features should be included in this MVP:
-//! 1. keyboard shortcuts
-//! 2. ui buttons for key actions
-//! 3. actions for calling the core APIs
-//! 4. an input panel for searching and commanding
-//! 5. multi-lingual support, a configuratble language file for all texts displaying in the program
+//! - [x] keyboard shortcuts
+//! - [ ] ui buttons for key actions
+//! - [ ] actions for calling the core APIs
+//! - [ ] an input panel for searching and commanding
+//! - [ ] multi-lingual support, a configuratble language file for all texts displaying in the program
 //!
 //! TODOs:
 //! 1. Create a configuration handling module that will read and write configurations from a local source
@@ -12,9 +12,8 @@
 
 pub mod actions;
 pub mod globals;
+pub mod key_mappings;
 pub mod screens;
-
-use std::fs::read_to_string;
 
 use anyhow::Result;
 use gpui::*;
@@ -23,7 +22,10 @@ use gpui_component::*;
 use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
-use crate::{globals::UIApplicationBootStrap, screens::MainWindow};
+use crate::{
+    globals::UIApplicationBootStrap, key_mappings::traits::KeyMappingsUIExtension,
+    screens::main_window::MainWindow,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -53,18 +55,22 @@ async fn main() -> Result<()> {
         gpui_component::init(cx);
 
         cx.set_global(services_and_resources);
-        
-        // TODO: create a keymapping loader
-        let keymap_string = read_to_string("/Users/xinyubao/Works/opennote/assets/keymaps/default_macos.json").unwrap();
-        let keys: serde_json::Value = serde_json::from_str(&keymap_string).unwrap();
-        dbg!(keys);
-        
-        // KeyBinding::load(keystrokes, action, context_predicate, use_key_equivalents, action_input, keyboard_mapper);
-        // cx.bind_keys(bindings);
+
+        let services_and_resources: &UIApplicationBootStrap = cx.global();
+
+        cx.bind_keys(
+            services_and_resources
+                .0
+                .configurations
+                .user
+                .key_mappings
+                .clone()
+                .into_keybindings(),
+        );
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|_| MainWindow::new());
+                let view = cx.new(|cx| MainWindow::new(cx));
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })

@@ -4,22 +4,35 @@ use gpui_component::{
     *,
 };
 
-use crate::globals::UIApplicationBootStrap;
-
-actions!(workspace_sidebar, [ToggleWorkspaceSidebar]);
+use crate::{globals::UIApplicationBootStrap, key_mappings::mappings::ToggleWorkspaceSidebar};
 
 pub struct MainWindow {
+    focus_handler: FocusHandle,
     is_workspace_sidebar_collapsed: bool,
 }
 
+/// GPUI needs to have this trait implemented if it needs
+/// to have action binding
+impl Focusable for MainWindow {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus_handler.clone()
+    }
+}
+
 impl MainWindow {
-    pub fn new() -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
+            focus_handler: cx.focus_handle(),
             is_workspace_sidebar_collapsed: false,
         }
     }
 
-    pub fn toggle_workspace_sidebar(&mut self, cx: &mut Context<Self>) {
+    pub fn toggle_workspace_sidebar(
+        &mut self,
+        _: &ToggleWorkspaceSidebar,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.is_workspace_sidebar_collapsed = !self.is_workspace_sidebar_collapsed;
         cx.notify();
     }
@@ -39,13 +52,11 @@ impl Render for MainWindow {
 
         div()
             .v_flex()
-            .id("workspace-sidebar")
+            .id("workspace_sidebar")
+            .key_context("workspace_sidebar")
             .h_full()
+            .track_focus(&self.focus_handler) // GPUI needs this to get the focus of this Window
             .child(self.render_sidebar())
-            .on_action(
-                cx.listener(|this, _action: &ToggleWorkspaceSidebar, _window, cx| {
-                    this.toggle_workspace_sidebar(cx);
-                }),
-            )
+            .on_action(cx.listener(Self::toggle_workspace_sidebar))
     }
 }
