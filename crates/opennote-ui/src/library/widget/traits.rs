@@ -7,5 +7,5 @@ pub trait Widget: Sized {
     fn toggle(&mut self, action: &dyn Action, window: &mut Window, cx: &mut Context<impl Render>);
 
     /// Create this widget in the render tree
-    fn create(&self) -> impl IntoElement;
+    fn create(&self, window: &mut Window, cx: &mut Context<impl Render>) -> impl IntoElement;
 }

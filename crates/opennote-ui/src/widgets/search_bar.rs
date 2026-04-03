@@ -1,8 +1,13 @@
 use gpui::{
-    Context, DismissEvent, EventEmitter, FocusHandle, Focusable, InteractiveElement, Render,
-    Styled, div, rems,
+    AppContext, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement, Render, Styled, Window, div, prelude::FluentBuilder, rems,
 };
-use gpui_component::StyledExt;
+use gpui_component::{
+    StyledExt,
+    input::{Input, InputState},
+    menu::PopupMenu,
+    v_flex,
+};
 
 use crate::library::widget::traits::Widget;
 
@@ -15,7 +20,7 @@ impl SearchBar {
     pub fn new() -> Self {
         SearchBar {
             // focus_handler: cx.focus_handle(),
-            is_toggled: false,
+            is_toggled: true,
         }
     }
 }
@@ -31,20 +36,17 @@ impl SearchBar {
 impl Render for SearchBar {
     fn render(
         &mut self,
-        _window: &mut gpui::Window,
-        _cx: &mut gpui::Context<Self>,
+        window: &mut gpui::Window,
+        cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        self.create()
+        self.create(window, cx)
     }
 }
 
 impl Widget for SearchBar {
-    fn create(&self) -> impl gpui::IntoElement {
-        div()
-            .v_flex()
-            .id("workspace_search_bar")
-            .key_context("workspace_search_bar")
-            .w(rems(34.0))
+    fn create(&self, window: &mut Window, cx: &mut Context<impl Render>) -> impl gpui::IntoElement {
+        dbg!("created searchbar");
+        Input::new(&cx.new(|cx| InputState::new(window, cx))).debug_blue()
     }
 
     fn initialize() -> Self {

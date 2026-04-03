@@ -32,10 +32,23 @@ pub struct KeyMapping {
 
 impl Default for KeyMappings {
     fn default() -> Self {
-        Self(vec![KeyMapping {
-            sequence: vec!["cmd".to_string(), "-".to_string(), "b".to_string()],
-            action: format!("ToggleSidebar"),
-            context: "workspace_sidebar".to_string(),
-        }])
+        Self(vec![
+            KeyMapping {
+                sequence: vec!["cmd".to_string(), "-".to_string(), "b".to_string()],
+                action: format!("ToggleSidebar"),
+                context: "workspace".to_string(),
+            },
+            KeyMapping {
+                sequence: vec![
+                    "cmd".to_string(),
+                    "-".to_string(),
+                    "shift".to_string(),
+                    "-".to_string(),
+                    "p".to_string(),
+                ],
+                action: format!("ToggleSearchBar"),
+                context: "workspace".to_string(),
+            },
+        ])
     }
 }

@@ -4,11 +4,11 @@
 use anyhow::Result;
 use gpui::{Action, actions};
 
-actions!(workspace_sidebar, [ToggleSidebar, ToggleSearchBar]);
+actions!(workspace, [ToggleSidebar, ToggleSearchBar]);
 
 pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
     match context {
-        "workspace_sidebar" => match action {
+        "workspace" => match action {
             "ToggleSidebar" => Ok(Box::new(ToggleSidebar)),
             "ToggleSearchBar" => Ok(Box::new(ToggleSearchBar)),
             _ => Err(anyhow::anyhow!(
