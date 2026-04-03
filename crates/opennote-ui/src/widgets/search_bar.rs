@@ -1,25 +1,28 @@
 use gpui::{
-    AppContext, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement, Render, Styled, Window, div, prelude::FluentBuilder, rems,
+    AppContext, Context, FocusHandle, Focusable, InteractiveElement, ParentElement, Render, Styled,
+    Window, div, px,
 };
 use gpui_component::{
-    StyledExt,
+    h_flex,
     input::{Input, InputState},
-    menu::PopupMenu,
     v_flex,
 };
 
-use crate::library::widget::traits::Widget;
+use crate::{library::widget::traits::Widget, views::workspace::Workspace};
 
 pub struct SearchBar {
-    // focus_handler: FocusHandle,
+    focus_handle: FocusHandle,
+    previous_focus_handle: Option<FocusHandle>,
     is_toggled: bool,
 }
 
 impl SearchBar {
-    pub fn new() -> Self {
+    pub fn new(cx: &mut Context<Workspace>) -> Self {
+        let focus_handle = cx.focus_handle();
+        dbg!("Sidebar gains focus: ", &focus_handle);
         SearchBar {
-            // focus_handler: cx.focus_handle(),
+            focus_handle,
+            previous_focus_handle: None,
             is_toggled: true,
         }
     }
@@ -27,11 +30,11 @@ impl SearchBar {
 
 // impl EventEmitter<DismissEvent> for SearchBar {}
 
-// impl Focusable for SearchBar {
-//     fn focus_handle(&self, cx: &gpui::App) -> gpui::FocusHandle {
-//         self.focus_handler.clone()
-//     }
-// }
+impl Focusable for SearchBar {
+    fn focus_handle(&self, _cx: &gpui::App) -> gpui::FocusHandle {
+        self.focus_handle.clone()
+    }
+}
 
 impl Render for SearchBar {
     fn render(
@@ -45,21 +48,47 @@ impl Render for SearchBar {
 
 impl Widget for SearchBar {
     fn create(&self, window: &mut Window, cx: &mut Context<impl Render>) -> impl gpui::IntoElement {
-        dbg!("created searchbar");
-        Input::new(&cx.new(|cx| InputState::new(window, cx))).debug_blue()
-    }
+        let input = Input::new(&cx.new(|cx| InputState::new(window, cx)));
 
-    fn initialize() -> Self {
-        Self::new()
+        if self.is_toggled {
+            return div()
+                .track_focus(&self.focus_handle)
+                .absolute()
+                .size_full()
+                .inset_0()
+                .occlude()
+                .child(
+                    v_flex()
+                        .h(px(0.0))
+                        .top_20()
+                        .items_center()
+                        .child(h_flex().occlude().child(input)),
+                );
+        }
+
+        div()
     }
 
     fn toggle(
         &mut self,
         _action: &dyn gpui::Action,
-        _window: &mut gpui::Window,
+        window: &mut gpui::Window,
         cx: &mut Context<impl Render>,
     ) {
         self.is_toggled = !self.is_toggled;
+
+        dbg!("Toggle from Sidebar");
+
+        if !self.is_toggled {
+            if let Some(previous_focus_handle) = self.previous_focus_handle.take() {
+                window.focus(&previous_focus_handle);
+                cx.notify();
+                return;
+            }
+        }
+
+        self.previous_focus_handle = window.focused(cx);
+        window.focus(&self.focus_handle);
         cx.notify();
     }
 }

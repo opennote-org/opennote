@@ -15,7 +15,7 @@ pub mod actions;
 pub mod globals;
 pub mod key_mappings;
 pub mod library;
-pub mod screens;
+pub mod views;
 pub mod widgets;
 
 use anyhow::Result;
@@ -26,8 +26,12 @@ use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
 use crate::{
-    globals::UIApplicationBootStrap, key_mappings::traits::KeyMappingsUIExtension,
-    screens::workspace::Workspace,
+    globals::UIApplicationBootStrap,
+    key_mappings::{
+        mappings::{ToggleSearchBar, ToggleSidebar},
+        traits::KeyMappingsUIExtension,
+    },
+    views::{search_bar::SearchBar, workspace::Workspace},
 };
 
 #[tokio::main]
@@ -70,6 +74,10 @@ async fn main() -> Result<()> {
                 .clone()
                 .into_keybindings(),
         );
+
+        // cx.on_action(|action: &ToggleSearchBar, this| {
+        //     this.dispatch_action(action);
+        // });
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
