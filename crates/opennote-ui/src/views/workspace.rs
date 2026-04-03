@@ -26,8 +26,8 @@ impl Workspace {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             focus_handler: cx.focus_handle(),
-            sidebar: Sidebar::new(),
-            search_bar: SearchBar::new(),
+            sidebar: Sidebar::new(cx),
+            search_bar: SearchBar::new(cx),
         }
     }
 }
@@ -36,15 +36,17 @@ impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // TODO: we are able to access the global states from here
         let services_and_resources: &UIApplicationBootStrap = cx.global();
-
+        
+        dbg!("Focus from Workspace: ", window.focused(cx));
+        
         div()
             .v_flex()
             .id("workspace")
             .key_context("workspace")
             .h_full()
-            .track_focus(&self.focus_handler) // GPUI needs this to get the focus of this Window
-            .child(self.sidebar.create(window, cx))
+            .track_focus(&self.focus_handler) // GPUI needs this to get the focus of this workspace
             .child(self.search_bar.create(window, cx))
+            .child(self.sidebar.create(window, cx))
             .on_action(
                 cx.listener(|workspace, action: &ToggleSidebar, window, cx| {
                     workspace.sidebar.toggle(action, window, cx);
