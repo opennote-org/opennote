@@ -1,4 +1,4 @@
-use gpui::{Action, Render};
+use gpui::{Action, Context, Render, Window};
 use gpui_component::{
     Side,
     sidebar::{Sidebar as GPUIComponentSidebar, SidebarMenu, SidebarMenuItem},
@@ -20,10 +20,16 @@ impl Sidebar {
 
 impl Widget for Sidebar {
     fn initialize() -> Self {
-        Self { is_collapsed: false }
+        Self {
+            is_collapsed: false,
+        }
     }
 
-    fn create(&self) -> impl gpui::IntoElement {
+    fn create(
+        &self,
+        _window: &mut Window,
+        _cx: &mut Context<impl Render>,
+    ) -> impl gpui::IntoElement {
         GPUIComponentSidebar::new(Side::Left)
             .child(SidebarMenu::new().child(SidebarMenuItem::new("hello world")))
             .collapsible(true)

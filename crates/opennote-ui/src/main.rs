@@ -5,6 +5,7 @@
 //! - [ ] actions for calling the core APIs
 //! - [ ] an input panel for searching and commanding
 //! - [ ] multi-lingual support, a configuratble language file for all texts displaying in the program
+//! - [ ] a logging mechanism to display debug information to the console
 //!
 //! TODOs:
 //! 1. Create a configuration handling module that will read and write configurations from a local source
@@ -13,9 +14,9 @@
 pub mod actions;
 pub mod globals;
 pub mod key_mappings;
+pub mod library;
 pub mod screens;
 pub mod widgets;
-pub mod library;
 
 use anyhow::Result;
 use gpui::*;

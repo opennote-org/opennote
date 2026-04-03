@@ -3,7 +3,7 @@ use gpui_component::StyledExt;
 
 use crate::{
     globals::UIApplicationBootStrap,
-    key_mappings::mappings::ToggleSidebar,
+    key_mappings::mappings::{ToggleSearchBar, ToggleSidebar},
     library::widget::traits::Widget,
     widgets::{search_bar::SearchBar, sidebar::Sidebar},
 };
@@ -33,22 +33,27 @@ impl Workspace {
 }
 
 impl Render for Workspace {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // TODO: we are able to access the global states from here
         let services_and_resources: &UIApplicationBootStrap = cx.global();
 
         div()
             .v_flex()
-            .id("workspace_sidebar")
-            .key_context("workspace_sidebar")
+            .id("workspace")
+            .key_context("workspace")
             .h_full()
             .track_focus(&self.focus_handler) // GPUI needs this to get the focus of this Window
-            .child(self.sidebar.create())
-            .on_action(cx.listener(|workspace, _: &ToggleSidebar, window, cx| {
-                workspace.sidebar.toggle(&ToggleSidebar, window, cx);
-            }))
-            .on_action(cx.listener(|workspace, _: &ToggleSidebar, window, cx| {
-                workspace.search_bar.toggle(&ToggleSidebar, window, cx);
-            }))
+            .child(self.sidebar.create(window, cx))
+            .child(self.search_bar.create(window, cx))
+            .on_action(
+                cx.listener(|workspace, action: &ToggleSidebar, window, cx| {
+                    workspace.sidebar.toggle(action, window, cx);
+                }),
+            )
+            .on_action(
+                cx.listener(|workspace, action: &ToggleSearchBar, window, cx| {
+                    workspace.search_bar.toggle(action, window, cx);
+                }),
+            )
     }
 }
