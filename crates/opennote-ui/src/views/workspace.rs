@@ -1,33 +1,58 @@
 use gpui::*;
-use gpui_component::StyledExt;
+use gpui_component::{
+    StyledExt,
+    input::{InputEvent, InputState},
+};
 
 use crate::{
     globals::UIApplicationBootStrap,
     key_mappings::mappings::{ToggleSearchBar, ToggleSidebar},
-    library::widget::traits::Widget,
     widgets::{search_bar::SearchBar, sidebar::Sidebar},
 };
 
 pub struct Workspace {
-    focus_handler: FocusHandle,
-    sidebar: Sidebar,
-    search_bar: SearchBar,
+    focus_handle: FocusHandle,
+
+    is_sidebar_toggled: bool,
+
+    search_query: Entity<InputState>,
+    search_query_text: SharedString,
+    is_search_bar_toggled: bool,
+
+    _subscriptions: Vec<Subscription>,
 }
 
 /// GPUI needs to have this trait implemented if it needs
 /// to have action binding
 impl Focusable for Workspace {
     fn focus_handle(&self, _: &App) -> FocusHandle {
-        self.focus_handler.clone()
+        self.focus_handle.clone()
     }
 }
 
 impl Workspace {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let search_query = cx.new(|cx| InputState::new(window, cx));
+
+        let _subscriptions = vec![cx.subscribe_in(&search_query, window, {
+            let search_query = search_query.clone();
+            move |this, _, ev: &InputEvent, _window, cx| match ev {
+                InputEvent::Change => {
+                    let value = search_query.read(cx).value();
+                    this.search_query_text = format!("{}", value).into();
+                    cx.notify()
+                }
+                _ => {}
+            }
+        })];
+
         Self {
-            focus_handler: cx.focus_handle(),
-            sidebar: Sidebar::new(cx),
-            search_bar: SearchBar::new(cx),
+            focus_handle: cx.focus_handle(),
+            search_query,
+            search_query_text: "".into(),
+            is_search_bar_toggled: false,
+            is_sidebar_toggled: false,
+            _subscriptions,
         }
     }
 }
@@ -36,25 +61,28 @@ impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // TODO: we are able to access the global states from here
         let services_and_resources: &UIApplicationBootStrap = cx.global();
-        
-        dbg!("Focus from Workspace: ", window.focused(cx));
-        
+
+        let sidebar = Sidebar::new(self.is_sidebar_toggled);
+
+        let search_bar = SearchBar::new(self.search_query.clone(), self.is_search_bar_toggled);
+
         div()
             .v_flex()
-            .id("workspace")
             .key_context("workspace")
             .h_full()
-            .track_focus(&self.focus_handler) // GPUI needs this to get the focus of this workspace
-            .child(self.search_bar.create(window, cx))
-            .child(self.sidebar.create(window, cx))
+            .track_focus(&self.focus_handle) // GPUI needs this to get the focus of this workspace
+            .child(search_bar)
+            .child(sidebar)
             .on_action(
-                cx.listener(|workspace, action: &ToggleSidebar, window, cx| {
-                    workspace.sidebar.toggle(action, window, cx);
+                cx.listener(|workspace, _action: &ToggleSidebar, _window, cx| {
+                    workspace.is_sidebar_toggled = !workspace.is_sidebar_toggled;
+                    cx.notify();
                 }),
             )
             .on_action(
-                cx.listener(|workspace, action: &ToggleSearchBar, window, cx| {
-                    workspace.search_bar.toggle(action, window, cx);
+                cx.listener(|workspace, _action: &ToggleSearchBar, _window, cx| {
+                    workspace.is_search_bar_toggled = !workspace.is_search_bar_toggled;
+                    cx.notify();
                 }),
             )
     }
