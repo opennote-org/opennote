@@ -3,7 +3,7 @@
 //! - [x] keyboard shortcuts
 //! - [ ] ui buttons for key actions
 //! - [ ] actions for calling the core APIs
-//! - [ ] an input panel for searching and commanding
+//! - [x] an input panel for searching and commanding
 //! - [ ] multi-lingual support, a configuratble language file for all texts displaying in the program
 //! - [ ] a logging mechanism to display debug information to the console
 //!
@@ -26,12 +26,8 @@ use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
 use crate::{
-    globals::UIApplicationBootStrap,
-    key_mappings::{
-        mappings::{ToggleSearchBar, ToggleSidebar},
-        traits::KeyMappingsUIExtension,
-    },
-    views::{search_bar::SearchBar, workspace::Workspace},
+    globals::UIApplicationBootStrap, key_mappings::traits::KeyMappingsUIExtension,
+    views::workspace::Workspace,
 };
 
 #[tokio::main]
@@ -75,13 +71,9 @@ async fn main() -> Result<()> {
                 .into_keybindings(),
         );
 
-        // cx.on_action(|action: &ToggleSearchBar, this| {
-        //     this.dispatch_action(action);
-        // });
-
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|cx| Workspace::new(cx));
+                let view = cx.new(|cx| Workspace::new(window, cx));
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })
