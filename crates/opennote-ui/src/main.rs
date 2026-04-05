@@ -6,7 +6,7 @@
 //! - [x] an input panel for searching and commanding
 //! - [x] multi-lingual support, a configuratble language file for all texts displaying in the program
 //! - [x] a logging mechanism to display debug information to the console
-//! - [ ] notification support
+//! - [x] notification support
 //!
 //! TODOs:
 //! 1. Create a configuration handling module that will read and write configurations from a local source
