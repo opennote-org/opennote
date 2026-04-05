@@ -1,7 +1,8 @@
 use gpui::*;
 use gpui_component::{
-    StyledExt,
+    Root, StyledExt, WindowExt,
     input::{InputEvent, InputState},
+    notification::NotificationType,
 };
 
 use crate::{
@@ -18,6 +19,8 @@ pub struct Workspace {
     search_query: Entity<InputState>,
     search_query_text: SharedString,
     is_search_bar_toggled: bool,
+
+    is_initialization_succeeded: bool,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -36,7 +39,12 @@ impl Workspace {
             let services_and_resources: &UIApplicationBootStrap = cx.global();
             let assets_collection: &AssetsCollection = cx.global();
 
-            let language = services_and_resources.0.configurations.user.language.to_string();
+            let language = services_and_resources
+                .0
+                .configurations
+                .user
+                .language
+                .to_string();
             assets_collection
                 .language_profiles
                 .get(&language)
@@ -66,7 +74,25 @@ impl Workspace {
             search_query_text: "".into(),
             is_search_bar_toggled: false,
             is_sidebar_toggled: false,
+            is_initialization_succeeded: false,
             _subscriptions,
+        }
+    }
+
+    pub fn publish_initialization_successful_message(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.is_initialization_succeeded {
+            window.push_notification(
+                (
+                    NotificationType::Success,
+                    "Embedder model has been loaded successfully",
+                ),
+                cx,
+            );
+            self.is_initialization_succeeded = true;
         }
     }
 }
@@ -74,8 +100,10 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let sidebar = Sidebar::new(self.is_sidebar_toggled);
-
         let search_bar = SearchBar::new(self.search_query.clone(), self.is_search_bar_toggled);
+        let notification = Root::render_notification_layer(window, cx);
+
+        self.publish_initialization_successful_message(window, cx);
 
         div()
             .v_flex()
@@ -96,5 +124,6 @@ impl Render for Workspace {
                     cx.notify();
                 }),
             )
+            .children(notification)
     }
 }
