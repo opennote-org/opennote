@@ -23,7 +23,7 @@ pub struct Workspace {
 }
 
 /// GPUI needs to have this trait implemented if it needs
-/// to have action binding
+/// to have action bindings
 impl Focusable for Workspace {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
@@ -32,7 +32,7 @@ impl Focusable for Workspace {
 
 impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let search_query = cx.new(|cx| InputState::new(window, cx));
+        let search_query = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
 
         let _subscriptions = vec![cx.subscribe_in(&search_query, window, {
             let search_query = search_query.clone();
