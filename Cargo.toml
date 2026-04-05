@@ -16,7 +16,7 @@ members = [
     "crates/opennote-server",
     "crates/opennote-texts-processing", 
     "crates/opennote-tasks-scheduler", 
-    "crates/opennote-bootstrap",
+    "crates/opennote-bootstrap", "crates/opennote-core-logics",
 ]
 
 [workspace.dependencies]

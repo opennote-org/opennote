@@ -8152,6 +8152,15 @@ name = "opennote-connectors"
 version = "0.1.0"
 
 [[package]]
+name = "opennote-core-logics"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "opennote-data",
+ "opennote-models",
+]
+
+[[package]]
 name = "opennote-data"
 version = "0.1.0"
 dependencies = [

@@ -7,6 +7,7 @@ edition.workspace = true
 # Internal dependencies
 opennote-bootstrap = { workspace = true }
 opennote-models = { workspace = true }
+opennote-core-logics = { workspace = true }
 
 # External dependencies
 anyhow = { workspace = true }
