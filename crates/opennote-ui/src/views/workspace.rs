@@ -5,7 +5,7 @@ use gpui_component::{
 };
 
 use crate::{
-    globals::UIApplicationBootStrap,
+    globals::{assets::AssetsCollection, bootstrap::UIApplicationBootStrap},
     key_mappings::mappings::{ToggleSearchBar, ToggleSidebar},
     widgets::{search_bar::SearchBar, sidebar::Sidebar},
 };
@@ -32,7 +32,21 @@ impl Focusable for Workspace {
 
 impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let search_query = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
+        let language_profile = {
+            let services_and_resources: &UIApplicationBootStrap = cx.global();
+            let assets_collection: &AssetsCollection = cx.global();
+
+            let language = services_and_resources.0.configurations.user.language.to_string();
+            assets_collection
+                .language_profiles
+                .get(&language)
+                .unwrap()
+                .to_owned()
+        };
+
+        let search_query = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(&language_profile.search_bar_placeholder)
+        });
 
         let _subscriptions = vec![cx.subscribe_in(&search_query, window, {
             let search_query = search_query.clone();
@@ -59,9 +73,6 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // TODO: we are able to access the global states from here
-        let services_and_resources: &UIApplicationBootStrap = cx.global();
-
         let sidebar = Sidebar::new(self.is_sidebar_toggled);
 
         let search_bar = SearchBar::new(self.search_query.clone(), self.is_search_bar_toggled);

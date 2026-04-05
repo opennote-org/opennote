@@ -8254,6 +8254,7 @@ dependencies = [
  "gpui-component",
  "opennote-bootstrap",
  "opennote-models",
+ "rust-embed",
  "serde",
  "serde_json",
  "tokio",
