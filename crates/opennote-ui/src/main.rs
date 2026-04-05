@@ -5,7 +5,7 @@
 //! - [ ] actions for calling the core APIs
 //! - [x] an input panel for searching and commanding
 //! - [ ] multi-lingual support, a configuratble language file for all texts displaying in the program
-//! - [ ] a logging mechanism to display debug information to the console
+//! - [x] a logging mechanism to display debug information to the console
 //! - [ ] notification support
 //!
 //! TODOs:
@@ -15,7 +15,6 @@
 pub mod actions;
 pub mod globals;
 pub mod key_mappings;
-pub mod library;
 pub mod views;
 pub mod widgets;
 

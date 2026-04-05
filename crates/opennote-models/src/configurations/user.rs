@@ -5,7 +5,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::configurations::{key_mappings::KeyMappings, search::UserSearchConfiguration};
+use crate::configurations::{
+    key_mappings::KeyMappings, language::UserInterfaceLanguage, search::UserSearchConfiguration,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 pub struct UserConfigurations {
@@ -16,6 +18,9 @@ pub struct UserConfigurations {
     /// Configurations for key mappings
     #[serde(default)]
     pub key_mappings: KeyMappings,
+
+    /// The language used in the user interface
+    pub language: UserInterfaceLanguage,
 }
 
 impl Default for UserConfigurations {
@@ -23,6 +28,7 @@ impl Default for UserConfigurations {
         Self {
             search: UserSearchConfiguration::default(),
             key_mappings: KeyMappings::default(),
+            language: UserInterfaceLanguage::default(),
         }
     }
 }
