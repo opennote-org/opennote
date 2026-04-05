@@ -17,3 +17,4 @@ serde_json = { workspace = true }
 
 gpui = "0.2.2"
 gpui-component = "0.5.1"
+rust-embed = "8.11.0"

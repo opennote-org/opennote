@@ -4,7 +4,7 @@
 //! - [ ] ui buttons for key actions
 //! - [ ] actions for calling the core APIs
 //! - [x] an input panel for searching and commanding
-//! - [ ] multi-lingual support, a configuratble language file for all texts displaying in the program
+//! - [x] multi-lingual support, a configuratble language file for all texts displaying in the program
 //! - [x] a logging mechanism to display debug information to the console
 //! - [ ] notification support
 //!
@@ -12,7 +12,6 @@
 //! 1. Create a configuration handling module that will read and write configurations from a local source
 //! 2. Create an API that can be called both by the server and ui
 
-pub mod actions;
 pub mod globals;
 pub mod key_mappings;
 pub mod views;
@@ -26,13 +25,16 @@ use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
 use crate::{
-    globals::UIApplicationBootStrap, key_mappings::traits::KeyMappingsUIExtension,
+    globals::{assets::AssetsCollection, bootstrap::UIApplicationBootStrap}, key_mappings::traits::KeyMappingsUIExtension,
     views::workspace::Workspace,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let app = Application::new();
+    
+    // load assets
+    let assets_collection = AssetsCollection::load()?;
 
     // TODO: Consider further restricting the input paths, thus avoiding passing
     // the config path from here
@@ -58,6 +60,7 @@ async fn main() -> Result<()> {
         gpui_component::init(cx);
 
         cx.set_global(services_and_resources);
+        cx.set_global(assets_collection);
 
         let services_and_resources: &UIApplicationBootStrap = cx.global();
 
