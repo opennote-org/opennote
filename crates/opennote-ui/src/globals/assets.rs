@@ -5,8 +5,6 @@ use gpui::Global;
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 
-use crate::globals::traits::LoadFromBytes;
-
 #[derive(Embed)]
 #[folder = "../../assets"]
 #[include = "*.json"]
