@@ -42,19 +42,19 @@ impl Databases {
         })
     }
 
-    async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {
+    pub async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {
         self.database.create_blocks(num_blocks).await
     }
 
-    async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {
+    pub async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {
         self.database.read_blocks(filter).await
     }
 
-    async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {
+    pub async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()> {
         self.database.update_blocks(blocks).await
     }
 
-    async fn delete_blocks(
+    pub async fn  delete_blocks(
         &self,
         vector_database_config: &VectorDatabaseConfig,
         block_ids: Vec<Uuid>,

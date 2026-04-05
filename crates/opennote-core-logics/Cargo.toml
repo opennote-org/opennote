@@ -1,0 +1,13 @@
+[package]
+name = "opennote-core-logics"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal dependencies
+opennote-data = { workspace = true }
+opennote-models = { workspace = true }
+
+# External dependencies
+anyhow = { workspace = true }
