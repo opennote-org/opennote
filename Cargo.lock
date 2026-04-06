@@ -8262,6 +8262,7 @@ dependencies = [
  "gpui",
  "gpui-component",
  "opennote-bootstrap",
+ "opennote-core-logics",
  "opennote-models",
  "rust-embed",
  "serde",

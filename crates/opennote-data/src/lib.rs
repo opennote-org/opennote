@@ -54,7 +54,7 @@ impl Databases {
         self.database.update_blocks(blocks).await
     }
 
-    pub async fn  delete_blocks(
+    pub async fn delete_blocks(
         &self,
         vector_database_config: &VectorDatabaseConfig,
         block_ids: Vec<Uuid>,

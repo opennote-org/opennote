@@ -17,7 +17,7 @@ pub mod key_mappings;
 pub mod views;
 pub mod widgets;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use gpui::*;
 use gpui_component::*;
 
@@ -25,14 +25,15 @@ use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
 use crate::{
-    globals::{assets::AssetsCollection, bootstrap::UIApplicationBootStrap}, key_mappings::traits::KeyMappingsUIExtension,
+    globals::{assets::AssetsCollection, bootstrap::UIApplicationBootStrap},
+    key_mappings::traits::KeyMappingsUIExtension,
     views::workspace::Workspace,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let app = Application::new();
-    
+
     // load assets
     let assets_collection = AssetsCollection::load()?;
 
@@ -76,7 +77,11 @@ async fn main() -> Result<()> {
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
-                let view = cx.new(|cx| Workspace::new(window, cx));
+                let view = cx.new(|cx| {
+                    Workspace::new(window, cx)
+                        .context("Workspace initialization failed")
+                        .unwrap()
+                });
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })

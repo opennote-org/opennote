@@ -1,4 +1,5 @@
-use gpui::*;
+use anyhow::Context as AnyhowContext;
+use gpui::{Context, *};
 use gpui_component::{
     Root, StyledExt, WindowExt,
     input::{InputEvent, InputState},
@@ -6,7 +7,7 @@ use gpui_component::{
 };
 
 use crate::{
-    globals::{assets::AssetsCollection, bootstrap::UIApplicationBootStrap},
+    globals::helpers::get_language_profile,
     key_mappings::mappings::{ToggleSearchBar, ToggleSidebar},
     widgets::{search_bar::SearchBar, sidebar::Sidebar},
 };
@@ -34,23 +35,9 @@ impl Focusable for Workspace {
 }
 
 impl Workspace {
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let language_profile = {
-            let services_and_resources: &UIApplicationBootStrap = cx.global();
-            let assets_collection: &AssetsCollection = cx.global();
-
-            let language = services_and_resources
-                .0
-                .configurations
-                .user
-                .language
-                .to_string();
-            assets_collection
-                .language_profiles
-                .get(&language)
-                .unwrap()
-                .to_owned()
-        };
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Result<Self> {
+        let language_profile = get_language_profile(cx.global(), cx.global())
+            .context("Getting language profile failed")?;
 
         let search_query = cx.new(|cx| {
             InputState::new(window, cx).placeholder(&language_profile.search_bar_placeholder)
@@ -68,7 +55,7 @@ impl Workspace {
             }
         })];
 
-        Self {
+        Ok(Self {
             focus_handle: cx.focus_handle(),
             search_query,
             search_query_text: "".into(),
@@ -76,7 +63,7 @@ impl Workspace {
             is_sidebar_toggled: false,
             is_initialization_succeeded: false,
             _subscriptions,
-        }
+        })
     }
 
     pub fn publish_initialization_successful_message(
@@ -106,10 +93,10 @@ impl Render for Workspace {
         self.publish_initialization_successful_message(window, cx);
 
         div()
-            .v_flex()
             .key_context("workspace")
-            .h_full()
             .track_focus(&self.focus_handle) // GPUI needs this to get the focus of this workspace
+            .v_flex()
+            .h_full()
             .child(search_bar)
             .child(sidebar)
             .on_action(
