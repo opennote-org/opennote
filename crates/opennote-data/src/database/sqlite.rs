@@ -5,8 +5,9 @@ use async_trait::async_trait;
 use futures::future::{join, join_all};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
-    ActiveModelBehavior, ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait,
-    QueryFilter,
+    ActiveModelBehavior,
+    ActiveValue::{self, Set},
+    ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use uuid::Uuid;
 
@@ -172,8 +173,13 @@ impl Blocks for SQLiteDatabase {
             return Ok(Vec::new());
         }
 
-        let blocks_active_models: Vec<ActiveModel> =
-            (0..num_blocks).map(|_| ActiveModel::new()).collect();
+        let blocks_active_models: Vec<ActiveModel> = (0..num_blocks)
+            .map(|_| ActiveModel {
+                id: Set(Uuid::new_v4()),
+                parent_id: Set(None),
+                is_deleted: Set(false),
+            })
+            .collect();
 
         let block = BlockEntity::insert_many(blocks_active_models)
             .exec_with_returning(&self.pool)

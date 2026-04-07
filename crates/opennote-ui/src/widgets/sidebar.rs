@@ -1,14 +1,23 @@
 use std::sync::{Arc, RwLock};
 
-use gpui::{BorrowAppContext, IntoElement, ParentElement, RenderOnce, Window};
+use gpui::{AppContext, BorrowAppContext, Entity, IntoElement, ParentElement, RenderOnce, Window};
 use gpui_component::{
-    Side, h_flex,
+    Side,
+    button::Button,
+    h_flex,
+    plot::label,
     sidebar::{Sidebar as GPUIComponentSidebar, SidebarMenu, SidebarMenuItem},
 };
+use opennote_core_logics::note::create_blocks;
 
-use opennote_models::block::Block;
-
-use crate::globals::{helpers::get_language_profile, states::States};
+use crate::{
+    globals::{
+        bootstrap::GlobalApplicationBootStrap,
+        helpers::get_language_profile,
+        states::{ProtectedBlock, States},
+    },
+    views::workspace::Workspace,
+};
 
 #[derive(IntoElement)]
 pub struct Sidebar {
@@ -20,34 +29,92 @@ impl Sidebar {
         Self { is_collapsed }
     }
 
-    pub fn create_sidebar_items(&self, blocks: Arc<RwLock<Vec<Block>>>) -> SidebarMenu {
+    pub fn create_sidebar_items(blocks: Arc<RwLock<Vec<ProtectedBlock>>>) -> SidebarMenu {
         let blocks = blocks.read().unwrap();
-        
-        SidebarMenu::new().children(
-            blocks
-                .iter()
-                .map(|item| {
-                    SidebarMenuItem::new(item.payloads[0].texts).on_click(|click, window, cx| {
-                        if !click.is_right_click() {
-                            cx.update_global::<States, ()>(|states, cx| {
-                                states.active_block = Some(item);
-                            })
-                        }
-                    })
+
+        let sidebar_menu_items: Vec<SidebarMenuItem> = blocks
+            .iter()
+            .map(|item| {
+                let read_item = item.0.read().unwrap();
+
+                let mut label = String::new();
+                if read_item.payloads.len() != 0 {
+                    label = read_item.payloads[0].texts.clone();
+                }
+
+                let active_block = item.clone();
+
+                SidebarMenuItem::new(label).on_click(move |click, _window, cx| {
+                    if !click.is_right_click() {
+                        cx.update_global::<States, ()>(|states, _cx| {
+                            states.active_block = Some(active_block.clone());
+                        })
+                    }
                 })
-                .collect(), 
-        )
+            })
+            .collect();
+
+        SidebarMenu::new().children(sidebar_menu_items)
+    }
+
+    pub fn create_new_block_button() -> Button {
+        Button::new("workspace_sidebar_create_new_block_button")
+            .label("+")
+            .on_click(|click, window, cx| {
+                if !click.is_right_click() {
+                    let bootstrap: &GlobalApplicationBootStrap = cx.global();
+                    let databases = bootstrap.0.databases.clone();
+                    let window_handle = window.window_handle();
+
+                    cx.spawn(async move |cx| {
+                        log::debug!("Creating 1 block...");
+
+                        match create_blocks(&databases, 1).await {
+                            Ok(_result) => {}
+                            Err(error) => log::error!("{}", error),
+                        }
+
+                        cx.update_window(window_handle, |view, _window, cx| {
+                            log::debug!(
+                                "Block creation finished, preceed to refreshing the block list..."
+                            );
+
+                            // TODO: this will error out, think a different way
+                            let workspace: Entity<Workspace> = match view.downcast() {
+                                Ok(result) => result,
+                                Err(error) => {
+                                    log::error!("Error when getting a view: {:#?}", error);
+                                    panic!()
+                                }
+                            };
+                            
+                            workspace.update(cx, |this, cx| {
+                                this.refresh_blocks_list(cx);
+                            });
+                        })
+                        .unwrap();
+
+                        Ok::<(), anyhow::Error>(())
+                    })
+                    .detach();
+                }
+            })
     }
 }
 
 impl RenderOnce for Sidebar {
     fn render(self, _window: &mut Window, cx: &mut gpui::App) -> impl IntoElement {
         let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+        let states: &States = cx.global();
 
         GPUIComponentSidebar::new(Side::Left)
-            .child(self.create_sidebar_items())
+            .child(Self::create_sidebar_items(states.blocks.clone()))
             .collapsible(true)
             .collapsed(self.is_collapsed)
-            .header(h_flex().child(language_profile.sidebar_title))
+            .header(
+                h_flex()
+                    .child(language_profile.sidebar_title)
+                    .child(Self::create_new_block_button()),
+            )
     }
 }

@@ -16,6 +16,7 @@ pub mod globals;
 pub mod key_mappings;
 pub mod views;
 pub mod widgets;
+pub mod logs;
 
 use anyhow::{Context, Result};
 use gpui::*;
@@ -25,21 +26,40 @@ use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
 use crate::{
-    globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap, states::States},
-    views::workspace::Workspace,
+    globals::{
+        assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap,
+        helpers::create_required_folders, states::States,
+    }, logs::UICustomLog, views::workspace::Workspace
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let app = Application::new();
+    fast_log::init(
+        fast_log::Config::new()
+            .console()
+            .chan_len(Some(100000))
+            .level(log::LevelFilter::Debug)
+            .custom(UICustomLog {})
+        ,
+    )
+    .unwrap();
 
     // TODO: Consider further restricting the input paths, thus avoiding passing
     // the config path from here
     let config_path = if let Some(config_dir) = dirs::config_dir() {
-        config_dir.join(APP_DATA_FOLDER_NAME)
+        let path = config_dir.join(APP_DATA_FOLDER_NAME);
+        log::debug!(
+            "Configuration directory has been set to: {}",
+            path.display()
+        );
+
+        path
     } else {
         panic!("No config directory was found in this system")
     };
+
+    create_required_folders(&config_path)?;
 
     // Load configurations
     let configurations =
@@ -61,9 +81,11 @@ async fn main() -> Result<()> {
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
                 let view = cx.new(|cx| {
-                    Workspace::new(window, cx)
+                    let mut workspace = Workspace::new(window, cx)
                         .context("Workspace initialization failed")
-                        .unwrap()
+                        .unwrap();
+                    workspace.refresh_blocks_list(cx);
+                    workspace
                 });
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
