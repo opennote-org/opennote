@@ -2,11 +2,11 @@ use anyhow::Result;
 
 use crate::globals::{
     assets::{AssetsCollection, LanguageProfile},
-    bootstrap::UIApplicationBootStrap,
+    bootstrap::GlobalApplicationBootStrap,
 };
 
 pub fn get_language_profile(
-    bootstrap: &UIApplicationBootStrap,
+    bootstrap: &GlobalApplicationBootStrap,
     assets_collection: &AssetsCollection,
 ) -> Result<LanguageProfile> {
     let language = bootstrap.0.configurations.user.language.to_string();

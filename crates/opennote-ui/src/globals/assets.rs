@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gpui::Global;
+use gpui::{App, Global};
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +16,13 @@ pub struct AssetsCollection {
 }
 
 impl AssetsCollection {
+    pub fn init(cx: &mut App) -> Result<()> {
+        // load assets
+        let assets_collection = AssetsCollection::load()?;
+        cx.set_global(assets_collection);
+        Ok(())
+    }
+
     pub fn load() -> Result<Self> {
         let mut language_profiles = HashMap::new();
 
@@ -24,16 +31,13 @@ impl AssetsCollection {
                 if let Some(embedded_file) = Assets::get(&file) {
                     let language_profile: LanguageProfile =
                         serde_json::from_slice(&embedded_file.data.as_ref())?;
-                    
+
                     let language = file
                         .trim_start_matches("languages/")
                         .trim_end_matches(".json")
                         .to_string();
 
-                    language_profiles.insert(
-                        language,
-                        language_profile,
-                    );
+                    language_profiles.insert(language, language_profile);
                 }
             }
         }

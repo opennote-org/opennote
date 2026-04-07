@@ -8,11 +8,11 @@ edition.workspace = true
 opennote-bootstrap = { workspace = true }
 opennote-models = { workspace = true }
 opennote-core-logics = { workspace = true }
+opennote-data = { workspace = true }
 
 # External dependencies
 anyhow = { workspace = true }
 dirs = { workspace = true }
-tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

@@ -1,13 +1,17 @@
-use anyhow::Context as AnyhowContext;
+use anyhow::{Context as AnyhowContext, Error};
 use gpui::{Context, *};
 use gpui_component::{
     Root, StyledExt, WindowExt,
     input::{InputEvent, InputState},
     notification::NotificationType,
 };
+use opennote_data::database::enums::BlockQuery;
+use opennote_models::block::Block;
 
 use crate::{
-    globals::helpers::get_language_profile,
+    globals::{
+        bootstrap::GlobalApplicationBootStrap, helpers::get_language_profile, states::States,
+    },
     key_mappings::mappings::{ToggleSearchBar, ToggleSidebar},
     widgets::{search_bar::SearchBar, sidebar::Sidebar},
 };
@@ -81,6 +85,30 @@ impl Workspace {
             );
             self.is_initialization_succeeded = true;
         }
+    }
+
+    pub fn refresh_blocks_list(&mut self, cx: &mut Context<Self>) {
+        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let databases = bootstrap.0.databases.clone();
+        cx.spawn(async move |this, cx| {
+            match databases.read_blocks(&BlockQuery::All).await {
+                Ok(results) => {
+                    cx.read_global::<States, ()>(|this, cx| {
+                        let mut states_blocks = this.blocks.write().unwrap();
+                        states_blocks.clear();
+                        states_blocks.extend(results);
+                    })
+                    .unwrap();
+                }
+                Err(error) => {
+                    cx.read_global::<States, ()>(|this, cx| {
+                        this.errors.write().unwrap().push(error);
+                    })
+                    .unwrap();
+                }
+            };
+        })
+        .detach();
     }
 }
 
