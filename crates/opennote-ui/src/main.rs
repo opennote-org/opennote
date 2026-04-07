@@ -21,21 +21,16 @@ use anyhow::{Context, Result};
 use gpui::*;
 use gpui_component::*;
 
-use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
 use crate::{
-    globals::{assets::AssetsCollection, bootstrap::UIApplicationBootStrap},
+    globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap, states::States},
     key_mappings::traits::KeyMappingsUIExtension,
     views::workspace::Workspace,
 };
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let app = Application::new();
-
-    // load assets
-    let assets_collection = AssetsCollection::load()?;
 
     // TODO: Consider further restricting the input paths, thus avoiding passing
     // the config path from here
@@ -49,21 +44,18 @@ async fn main() -> Result<()> {
     let configurations =
         Configurations::load_from_file(config_path).expect("Error when loading configurations");
 
-    // Initialize the necessary services and resources for the app
-    let services_and_resources = UIApplicationBootStrap(
-        ApplicationBootStrap::new(configurations)
-            .await
-            .expect("Error when initializing the application"),
-    );
-
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
 
-        cx.set_global(services_and_resources);
-        cx.set_global(assets_collection);
+        // Initialize the necessary services and resources for the app
+        States::init(cx);
+        GlobalApplicationBootStrap::init(cx, configurations);
+        AssetsCollection::init(cx)
+            .context("Failed to load the assets on application start")
+            .unwrap();
 
-        let services_and_resources: &UIApplicationBootStrap = cx.global();
+        let services_and_resources: &GlobalApplicationBootStrap = cx.global();
 
         cx.bind_keys(
             services_and_resources

@@ -8263,11 +8263,11 @@ dependencies = [
  "gpui-component",
  "opennote-bootstrap",
  "opennote-core-logics",
+ "opennote-data",
  "opennote-models",
  "rust-embed",
  "serde",
  "serde_json",
- "tokio",
 ]
 
 [[package]]

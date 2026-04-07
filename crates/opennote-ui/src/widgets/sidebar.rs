@@ -1,6 +1,7 @@
-use gpui::{IntoElement, ParentElement, RenderOnce, Window, div};
+use gpui::{IntoElement, ParentElement, RenderOnce, Window};
 use gpui_component::{
-    Side, button::Button, h_flex, sidebar::{Sidebar as GPUIComponentSidebar, SidebarMenu, SidebarMenuItem}
+    Side, h_flex,
+    sidebar::{Sidebar as GPUIComponentSidebar, SidebarMenu, SidebarMenuItem},
 };
 
 use crate::globals::helpers::get_language_profile;
@@ -12,9 +13,7 @@ pub struct Sidebar {
 
 impl Sidebar {
     pub fn new(is_collapsed: bool) -> Self {
-        Self {
-            is_collapsed,
-        }
+        Self { is_collapsed }
     }
 }
 
@@ -26,9 +25,6 @@ impl RenderOnce for Sidebar {
             .child(SidebarMenu::new().child(SidebarMenuItem::new("hello world")))
             .collapsible(true)
             .collapsed(self.is_collapsed)
-            .header(
-                h_flex()
-                    .child(language_profile.sidebar_title)
-            )
+            .header(h_flex().child(language_profile.sidebar_title))
     }
 }
