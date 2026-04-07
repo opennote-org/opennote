@@ -21,15 +21,16 @@ use anyhow::{Context, Result};
 use gpui::*;
 use gpui_component::*;
 
+use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
 
 use crate::{
     globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap, states::States},
-    key_mappings::traits::KeyMappingsUIExtension,
     views::workspace::Workspace,
 };
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let app = Application::new();
 
     // TODO: Consider further restricting the input paths, thus avoiding passing
@@ -44,28 +45,18 @@ fn main() -> Result<()> {
     let configurations =
         Configurations::load_from_file(config_path).expect("Error when loading configurations");
 
+    let bootstrap = ApplicationBootStrap::new(configurations).await?;
+
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
 
         // Initialize the necessary services and resources for the app
         States::init(cx);
-        GlobalApplicationBootStrap::init(cx, configurations);
+        GlobalApplicationBootStrap::init(cx, bootstrap);
         AssetsCollection::init(cx)
             .context("Failed to load the assets on application start")
             .unwrap();
-
-        let services_and_resources: &GlobalApplicationBootStrap = cx.global();
-
-        cx.bind_keys(
-            services_and_resources
-                .0
-                .configurations
-                .user
-                .key_mappings
-                .clone()
-                .into_keybindings(),
-        );
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
