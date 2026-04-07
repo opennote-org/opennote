@@ -1,12 +1,13 @@
-use anyhow::{Context as AnyhowContext, Error};
+use anyhow::Context as AnyhowContext;
 use gpui::{Context, *};
 use gpui_component::{
     Root, StyledExt, WindowExt,
     input::{InputEvent, InputState},
     notification::NotificationType,
 };
+
+use opennote_core_logics::note::read_blocks;
 use opennote_data::database::enums::BlockQuery;
-use opennote_models::block::Block;
 
 use crate::{
     globals::{
@@ -88,25 +89,31 @@ impl Workspace {
     }
 
     pub fn refresh_blocks_list(&mut self, cx: &mut Context<Self>) {
+        log::debug!("Refreshing blocks...");
+        
         let bootstrap: &GlobalApplicationBootStrap = cx.global();
         let databases = bootstrap.0.databases.clone();
         cx.spawn(async move |this, cx| {
-            match databases.read_blocks(&BlockQuery::All).await {
+            match read_blocks(&databases, &BlockQuery::All).await {
                 Ok(results) => {
-                    cx.read_global::<States, ()>(|this, cx| {
-                        let mut states_blocks = this.blocks.write().unwrap();
-                        states_blocks.clear();
-                        states_blocks.extend(results);
+                    log::debug!("Refreshing blocks...");
+                    
+                    cx.update_global::<States, ()>(|this, _cx| {
+                        this.hard_update_blocks(results);
                     })
                     .unwrap();
                 }
                 Err(error) => {
-                    cx.read_global::<States, ()>(|this, cx| {
+                    cx.read_global::<States, ()>(|this, _cx| {
                         this.errors.write().unwrap().push(error);
                     })
                     .unwrap();
                 }
             };
+
+            this.update(cx, |_this, cx| {
+                cx.notify();
+            })
         })
         .detach();
     }

@@ -16,7 +16,9 @@ dirs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+log = { workspace = true }
 
 gpui = "0.2.2"
 gpui-component = "0.5.1"
 rust-embed = "8.11.0"
+fast_log = "1.7.7"

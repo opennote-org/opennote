@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 
 use crate::globals::{
@@ -16,4 +18,9 @@ pub fn get_language_profile(
         .get(&language)
         .unwrap()
         .to_owned())
+}
+
+pub fn create_required_folders(config_directory: &Path) -> Result<()> {
+    std::fs::create_dir_all(config_directory)?;
+    Ok(())
 }
