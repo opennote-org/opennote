@@ -11,3 +11,5 @@ opennote-models = { workspace = true }
 
 # External dependencies
 anyhow = { workspace = true }
+uuid = { workspace = true }
+futures = { workspace = true }

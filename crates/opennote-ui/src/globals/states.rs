@@ -2,8 +2,12 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::Error;
 
-use gpui::{App, Global};
+use gpui::{App, AppContext, Global};
+use opennote_core_logics::note::read_blocks;
+use opennote_data::database::enums::BlockQuery;
 use opennote_models::block::Block;
+
+use crate::globals::bootstrap::GlobalApplicationBootStrap;
 
 #[derive(Debug, Clone)]
 pub struct ProtectedBlock(pub Arc<RwLock<Block>>);
@@ -47,5 +51,33 @@ impl States {
     pub fn hard_update_blocks(&mut self, blocks: Vec<Block>) {
         let items: Vec<ProtectedBlock> = blocks.into_iter().map(|item| item.into()).collect();
         self.blocks = Arc::new(RwLock::new(items));
+    }
+
+    pub fn refresh_blocks_list(cx: &mut App) {
+        log::debug!("Refreshing blocks...");
+
+        cx.read_global::<GlobalApplicationBootStrap, ()>(|this, _app| {
+            let databases = this.0.databases.clone();
+
+            cx.spawn(async move |cx| {
+                match read_blocks(&databases, &BlockQuery::All).await {
+                    Ok(results) => {
+                        log::debug!("Refreshing blocks...");
+
+                        cx.update_global::<States, ()>(|this, _cx| {
+                            this.hard_update_blocks(results);
+                        })
+                        .unwrap();
+                    }
+                    Err(error) => {
+                        cx.read_global::<States, ()>(|this, _cx| {
+                            this.errors.write().unwrap().push(error);
+                        })
+                        .unwrap();
+                    }
+                };
+            })
+            .detach();
+        });
     }
 }

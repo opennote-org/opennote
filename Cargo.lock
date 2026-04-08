@@ -8208,8 +8208,10 @@ name = "opennote-core-logics"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures",
  "opennote-data",
  "opennote-models",
+ "uuid",
 ]
 
 [[package]]
@@ -8272,6 +8274,7 @@ name = "opennote-models"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "dirs 6.0.0",
  "opennote-entities",
  "schemars 1.2.1",
