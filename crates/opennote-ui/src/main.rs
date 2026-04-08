@@ -14,9 +14,9 @@
 
 pub mod globals;
 pub mod key_mappings;
+pub mod logs;
 pub mod views;
 pub mod widgets;
-pub mod logs;
 
 use anyhow::{Context, Result};
 use gpui::*;
@@ -29,7 +29,9 @@ use crate::{
     globals::{
         assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap,
         helpers::create_required_folders, states::States,
-    }, logs::UICustomLog, views::workspace::Workspace
+    },
+    logs::UICustomLog,
+    views::workspace::Workspace,
 };
 
 #[tokio::main]
@@ -40,8 +42,7 @@ async fn main() -> Result<()> {
             .console()
             .chan_len(Some(100000))
             .level(log::LevelFilter::Debug)
-            .custom(UICustomLog {})
-        ,
+            .custom(UICustomLog {}),
     )
     .unwrap();
 
@@ -80,11 +81,12 @@ async fn main() -> Result<()> {
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
+                States::refresh_blocks_list(cx);
+
                 let view = cx.new(|cx| {
-                    let mut workspace = Workspace::new(window, cx)
+                    let workspace = Workspace::new(window, cx)
                         .context("Workspace initialization failed")
                         .unwrap();
-                    workspace.refresh_blocks_list(cx);
                     workspace
                 });
                 // This first level on the window, should be a Root.

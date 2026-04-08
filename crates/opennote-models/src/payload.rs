@@ -1,3 +1,4 @@
+use chrono::Local;
 use sea_orm::{ActiveValue::Set, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -34,6 +35,31 @@ pub struct Payload {
 }
 
 impl Payload {
+    pub fn new(
+        block_id: Uuid,
+        order_row: i64,
+        order_column: i64,
+        content_type: ContentType,
+        texts: String,
+        bytes: Vec<u8>,
+        vector: Vec<f32>,
+    ) -> Self {
+        let now = Local::now().timestamp();
+
+        Self {
+            block_id,
+            id: Uuid::new_v4(),
+            order_row,
+            order_column,
+            created_at: now,
+            last_modified: now,
+            content_type,
+            texts,
+            bytes,
+            vector,
+        }
+    }
+
     /// Consume self to create an ActiveModel for updating the database
     pub fn to_active_model(self) -> ActiveModel {
         let model: Model = self.into();

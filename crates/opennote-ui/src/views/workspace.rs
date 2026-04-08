@@ -14,7 +14,7 @@ use crate::{
         bootstrap::GlobalApplicationBootStrap, helpers::get_language_profile, states::States,
     },
     key_mappings::mappings::{ToggleSearchBar, ToggleSidebar},
-    widgets::{search_bar::SearchBar, sidebar::Sidebar},
+    widgets::{search_bar::SearchBar, sidebar::create_sidebar},
 };
 
 pub struct Workspace {
@@ -48,7 +48,10 @@ impl Workspace {
             InputState::new(window, cx).placeholder(&language_profile.search_bar_placeholder)
         });
 
-        let _subscriptions = vec![cx.subscribe_in(&search_query, window, {
+        let mut _subscriptions = vec![];
+
+        // Reserved for capturing search queries
+        _subscriptions.push(cx.subscribe_in(&search_query, window, {
             let search_query = search_query.clone();
             move |this, _, ev: &InputEvent, _window, cx| match ev {
                 InputEvent::Change => {
@@ -58,7 +61,12 @@ impl Workspace {
                 }
                 _ => {}
             }
-        })];
+        }));
+
+        // // When the States changes, the workspace should refresh to reflect the change
+        // _subscriptions.push(cx.observe_global::<States>(|this, cx| {
+        //     cx.notify();
+        // }));
 
         Ok(Self {
             focus_handle: cx.focus_handle(),
@@ -87,41 +95,10 @@ impl Workspace {
             self.is_initialization_succeeded = true;
         }
     }
-
-    pub fn refresh_blocks_list(&mut self, cx: &mut Context<Self>) {
-        log::debug!("Refreshing blocks...");
-        
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
-        let databases = bootstrap.0.databases.clone();
-        cx.spawn(async move |this, cx| {
-            match read_blocks(&databases, &BlockQuery::All).await {
-                Ok(results) => {
-                    log::debug!("Refreshing blocks...");
-                    
-                    cx.update_global::<States, ()>(|this, _cx| {
-                        this.hard_update_blocks(results);
-                    })
-                    .unwrap();
-                }
-                Err(error) => {
-                    cx.read_global::<States, ()>(|this, _cx| {
-                        this.errors.write().unwrap().push(error);
-                    })
-                    .unwrap();
-                }
-            };
-
-            this.update(cx, |_this, cx| {
-                cx.notify();
-            })
-        })
-        .detach();
-    }
 }
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let sidebar = Sidebar::new(self.is_sidebar_toggled);
         let search_bar = SearchBar::new(self.search_query.clone(), self.is_search_bar_toggled);
         let notification = Root::render_notification_layer(window, cx);
 
@@ -133,7 +110,7 @@ impl Render for Workspace {
             .v_flex()
             .h_full()
             .child(search_bar)
-            .child(sidebar)
+            .child(create_sidebar(self.is_sidebar_toggled, cx))
             .on_action(
                 cx.listener(|workspace, _action: &ToggleSidebar, _window, cx| {
                     workspace.is_sidebar_toggled = !workspace.is_sidebar_toggled;
