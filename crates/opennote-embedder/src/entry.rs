@@ -5,6 +5,7 @@ use opennote_models::configurations::system::SystemConfigurations;
 
 use crate::{shared::create_embedder, traits::Embedder};
 
+#[derive(Clone)]
 pub struct EmbedderEntry {
     pub embedder: Arc<dyn Embedder>,
 }

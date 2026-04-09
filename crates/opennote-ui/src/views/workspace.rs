@@ -6,7 +6,7 @@ use gpui_component::{
     notification::NotificationType,
 };
 
-use opennote_core_logics::note::read_blocks;
+use opennote_core_logics::block::read_blocks;
 use opennote_data::database::enums::BlockQuery;
 
 use crate::{

@@ -8210,7 +8210,9 @@ dependencies = [
  "anyhow",
  "futures",
  "opennote-data",
+ "opennote-embedder",
  "opennote-models",
+ "serde_json",
  "uuid",
 ]
 
@@ -8321,6 +8323,7 @@ dependencies = [
  "opennote-bootstrap",
  "opennote-core-logics",
  "opennote-data",
+ "opennote-embedder",
  "opennote-models",
  "rust-embed",
  "serde",

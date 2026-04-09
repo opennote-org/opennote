@@ -47,8 +47,6 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(pk_uuid(Payloads::Id).primary_key().not_null())
                     .col(uuid(Payloads::BlockId).not_null())
-                    .col(big_integer(Payloads::OrderRow).not_null())
-                    .col(big_integer(Payloads::OrderColumn).not_null())
                     .col(big_integer(Payloads::CreatedAt).not_null())
                     .col(big_integer(Payloads::LastModified).not_null())
                     .col(text(Payloads::Texts))
@@ -146,8 +144,6 @@ enum Payloads {
     Table,
     Id,
     BlockId,
-    OrderRow,
-    OrderColumn,
     CreatedAt,
     LastModified,
     ContentType,

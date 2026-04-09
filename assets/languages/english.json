@@ -1,4 +1,5 @@
 {
   "sidebar_title": "Notes",
-  "search_bar_placeholder": "Type to search..."
+  "search_bar_placeholder": "Type to search...",
+  "default_block_title": "Untitled"
 }

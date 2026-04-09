@@ -16,10 +16,6 @@ pub struct Payload {
     /// A unique identification of this payload
     #[serde(with = "uuid::serde::compact")]
     pub id: Uuid,
-    /// The position (row) of the payload on a block.
-    pub order_row: i64,
-    /// The position (column) of the payload on a block.
-    pub order_column: i64,
     /// When this payload is created
     pub created_at: i64,
     /// Last time this payload is modified
@@ -37,8 +33,6 @@ pub struct Payload {
 impl Payload {
     pub fn new(
         block_id: Uuid,
-        order_row: i64,
-        order_column: i64,
         content_type: ContentType,
         texts: String,
         bytes: Vec<u8>,
@@ -49,8 +43,6 @@ impl Payload {
         Self {
             block_id,
             id: Uuid::new_v4(),
-            order_row,
-            order_column,
             created_at: now,
             last_modified: now,
             content_type,
@@ -65,8 +57,6 @@ impl Payload {
         let model: Model = self.into();
         let mut active_model = model.clone().into_active_model();
 
-        active_model.order_row = Set(model.order_row);
-        active_model.order_column = Set(model.order_column);
         active_model.last_modified = Set(model.last_modified);
         active_model.texts = Set(model.texts);
         active_model.bytes = Set(model.bytes);
@@ -82,8 +72,6 @@ impl From<Model> for Payload {
         Self {
             block_id: value.block_id,
             id: value.id,
-            order_row: value.order_row,
-            order_column: value.order_column,
             created_at: value.created_at,
             last_modified: value.last_modified,
             content_type: serde_json::from_str(&value.content_type).unwrap(),
@@ -99,8 +87,6 @@ impl Into<Model> for Payload {
         Model {
             id: self.id,
             block_id: self.block_id,
-            order_row: self.order_row,
-            order_column: self.order_column,
             created_at: self.created_at,
             last_modified: self.last_modified,
             texts: self.texts,
@@ -116,8 +102,6 @@ pub fn create_query(query: &str) -> Payload {
     Payload {
         block_id: Uuid::max(),
         id: Uuid::new_v4(),
-        order_row: 0,
-        order_column: 0,
         created_at: 0,
         last_modified: 0,
         content_type: ContentType::Markdown,
