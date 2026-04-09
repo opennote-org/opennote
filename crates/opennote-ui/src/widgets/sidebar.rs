@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use gpui::{BorrowAppContext, Context, IntoElement, ParentElement, div};
+use gpui::{BorrowAppContext, Context, IntoElement, ParentElement, Styled, div};
 use gpui_component::{
     Side,
     button::Button,
@@ -31,7 +31,7 @@ pub fn create_sidebar<T: Sized + 'static>(
         return div();
     }
 
-    div().child(
+    div().size_full().child(
         Sidebar::new(Side::Left)
             .child(create_sidebar_items(states.blocks.clone()))
             .header(
