@@ -122,7 +122,10 @@ fn create_new_block_button() -> Button {
                                 }
                             }
 
-                            update_blocks(&databases, vec![block]).await?
+                            match update_blocks(&databases, vec![block]).await {
+                                Ok(_) => {},
+                                Err(error) => log::error!("Error when trying to update blocks: {}", error)
+                            }
                         }
 
                         log::debug!(
