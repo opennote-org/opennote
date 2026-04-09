@@ -9,6 +9,7 @@ opennote-bootstrap = { workspace = true }
 opennote-models = { workspace = true }
 opennote-core-logics = { workspace = true }
 opennote-data = { workspace = true }
+opennote-embedder = { workspace = true }
 
 # External dependencies
 anyhow = { workspace = true }

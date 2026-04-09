@@ -50,6 +50,18 @@ impl Global for AssetsCollection {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanguageProfile {
+    /*
+     * Sidebar
+     */
     pub sidebar_title: String,
+    
+    /*
+     * Search Bar
+     */
     pub search_bar_placeholder: String,
+    
+    /*
+     * Notes / Blocks
+     */
+     pub default_block_title: String,
 }

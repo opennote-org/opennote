@@ -1,14 +1,13 @@
-//! this file defines logics regarding notes managements
-
 use anyhow::Result;
 
 use futures::future::join;
+use uuid::Uuid;
+
 use opennote_data::{
     Databases,
     database::enums::{BlockQuery, PayloadQuery},
 };
 use opennote_models::{block::Block, configurations::system::VectorDatabaseConfig};
-use uuid::Uuid;
 
 /// Create num of empty notes
 /// You can update them with the update function
@@ -50,7 +49,7 @@ pub async fn delete_blocks(
     Ok(())
 }
 
-/// Reover all document chunks from the relational database to the vector database
+/// Reover all blocks from the relational database to the vector database
 pub async fn recover(databases: &Databases, index: &str, dimensions: usize) -> Result<()> {
     let payloads = databases.database.read_payloads(&PayloadQuery::All).await?;
 

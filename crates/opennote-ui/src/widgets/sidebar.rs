@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::anyhow;
 use gpui::{BorrowAppContext, Context, IntoElement, ParentElement, div};
 use gpui_component::{
     Side,
@@ -8,8 +7,12 @@ use gpui_component::{
     h_flex,
     sidebar::{Sidebar, SidebarMenu, SidebarMenuItem},
 };
-use opennote_core_logics::note::{create_blocks, update_blocks};
-use opennote_models::payload::Payload;
+use opennote_core_logics::{
+    block::{create_blocks, update_blocks},
+    payload::{PayloadContentParameters, create_payload},
+};
+use opennote_data::Databases;
+use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 
 use crate::globals::{
     bootstrap::GlobalApplicationBootStrap,
@@ -70,37 +73,69 @@ fn create_sidebar_items(blocks: Arc<RwLock<Vec<ProtectedBlock>>>) -> SidebarMenu
 fn create_new_block_button() -> Button {
     Button::new("workspace_sidebar_create_new_block_button")
         .label("+")
-        .on_click(|click, _window, cx| {
+        .on_click(move |click, _window, app_cx| {
             if !click.is_right_click() {
-                let bootstrap: &GlobalApplicationBootStrap = cx.global();
-                let databases = bootstrap.0.databases.clone();
+                app_cx
+                    .spawn(async move |cx| {
+                        log::debug!("Creating 1 block...");
 
-                cx.spawn(async move |cx| {
-                    log::debug!("Creating 1 block...");
+                        let (default_block_title, databases, embedders) = cx
+                            .read_global::<GlobalApplicationBootStrap, (String, Databases, Option<EmbedderEntry>)>(
+                                |this, cx| {
+                                    let language_profile =
+                                        get_language_profile(cx.global(), cx.global()).unwrap();
 
-                    let block = match create_blocks(&databases, 1).await {
-                        Ok(mut result) => result.pop(),
-                        Err(error) => {
-                            log::error!("{}", error);
-                            return Err(error);
-                        },
-                    };
-                    
-                    if let Some(block) = block {
-                        todo!("Need to have a way to create payloads with proper vectors etc");
-                        block.payloads.push();
-                        update_blocks(&databases, vec![block]).await?
-                    }
+                                    (language_profile.default_block_title.clone(), this.0.databases.clone(), this.0.embedders.clone())
+                                },
+                            )?;
 
-                    log::debug!("Block creation finished, preceed to refreshing the block list...");
+                        let block = match create_blocks(&databases, 1).await {
+                            Ok(mut result) => result.pop(),
+                            Err(error) => {
+                                log::error!("{}", error);
+                                return Err(error);
+                            }
+                        };
 
-                    let _ = cx.update_global::<States, ()>(|_this, cx| {
-                        States::refresh_blocks_list(cx);
-                    });
+                        if let Some(mut block) = block {
+                            let payload = create_payload(
+                                block.id,
+                                PayloadContentParameters {
+                                    title: Some(default_block_title.to_string()),
+                                    ..Default::default()
+                                },
+                            )?;
 
-                    Ok::<(), anyhow::Error>(())
-                })
-                .detach();
+                            match &embedders {
+                                Some(embedders) => {
+                                    let mut vectorized_payloads =
+                                        send_vectorization(vec![payload], &embedders)
+                                            .await?;
+
+                                    if let Some(vectorized_payload) = vectorized_payloads.pop() {
+                                        block.payloads.push(vectorized_payload);
+                                    }
+                                }
+                                None => {
+                                    log::error!("No embedders available. Please load an embedder before proceeding");
+                                    return Err(anyhow::anyhow!("No embedders available"));
+                                }
+                            }
+
+                            update_blocks(&databases, vec![block]).await?
+                        }
+
+                        log::debug!(
+                            "Block creation finished, preceed to refreshing the block list..."
+                        );
+
+                        let _ = cx.update_global::<States, ()>(|_this, cx| {
+                            States::refresh_blocks_list(cx);
+                        });
+
+                        Ok::<(), anyhow::Error>(())
+                    })
+                    .detach();
             }
         })
 }
