@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use gpui::{
     AppContext, BorrowAppContext, Context, FocusHandle, Focusable, InteractiveElement, IntoElement,
-    ParentElement, Render, Styled, Window, div, prelude::FluentBuilder,
+    ParentElement, Render, Styled, Subscription, Window, div, prelude::FluentBuilder,
 };
 use gpui_component::{
     Side,
@@ -23,16 +23,26 @@ use crate::{
 pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
+
+    _subscriptions: Vec<Subscription>,
 }
 
 impl OpenNoteSidebar {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let mut _subscriptions = Vec::new();
+
+        // Watch for changes in States, such as the blocks list
+        _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
+            cx.notify();
+        }));
+
         Self {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
+            _subscriptions,
         }
     }
-    
+
     pub fn is_toggled(&self) -> bool {
         self.is_toggled
     }
