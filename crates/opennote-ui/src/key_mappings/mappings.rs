@@ -4,13 +4,17 @@
 use anyhow::Result;
 use gpui::{Action, actions};
 
+use crate::key_mappings::key_contexts::WORKSPACE;
+
 actions!(workspace, [ToggleSidebar, ToggleSearchBar]);
+actions!(sidebar, [CreateOneBlock]);
 
 pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
     match context {
-        "workspace" => match action {
+        WORKSPACE => match action {
             "ToggleSidebar" => Ok(Box::new(ToggleSidebar)),
             "ToggleSearchBar" => Ok(Box::new(ToggleSearchBar)),
+            "CreateOneBlock" => Ok(Box::new(CreateOneBlock)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,
