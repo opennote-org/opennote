@@ -1,5 +1,5 @@
 use anyhow::Context as AnyhowContext;
-use gpui::{Context, prelude::FluentBuilder, *};
+use gpui::{Context, *};
 use gpui_component::{
     Root, StyledExt, WindowExt,
     input::{InputEvent, InputState},
@@ -7,18 +7,19 @@ use gpui_component::{
 };
 
 use crate::{
-    globals::{actions::create_one_block, helpers::get_language_profile},
+    globals::helpers::get_language_profile,
     key_mappings::{
         key_contexts::WORKSPACE,
-        mappings::{CreateOneBlock, ToggleSearchBar, ToggleSidebar},
+        mappings::{ToggleSearchBar, ToggleSidebar},
     },
-    widgets::{search_bar::create_search_bar, sidebar::create_sidebar},
+    widgets::{search_bar::create_search_bar, sidebar::OpenNoteSidebar},
 };
 
+/// This is the root of all views in this app.
 pub struct Workspace {
     focus_handle: FocusHandle,
 
-    is_sidebar_toggled: bool,
+    sidebar: Entity<OpenNoteSidebar>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -63,10 +64,10 @@ impl Workspace {
 
         Ok(Self {
             focus_handle: cx.focus_handle(),
+            sidebar: cx.new(|cx| OpenNoteSidebar::new(cx)),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
-            is_sidebar_toggled: false,
             is_initialization_succeeded: false,
             _subscriptions,
         })
@@ -105,11 +106,22 @@ impl Render for Workspace {
                 &self.search_query,
                 self.is_search_bar_toggled,
             ))
-            .child(create_sidebar(self.is_sidebar_toggled, cx))
+            .child(self.sidebar.clone())
             .on_action(
-                cx.listener(|workspace, _action: &ToggleSidebar, _window, cx| {
-                    workspace.is_sidebar_toggled = !workspace.is_sidebar_toggled;
-                    cx.notify();
+                cx.listener(|workspace, _action: &ToggleSidebar, window, cx| {
+                    workspace.sidebar.update(cx, |this, cx| {
+                        this.toggle(cx);
+                    });
+
+                    let sidebar = workspace.sidebar.read(cx);
+
+                    if !sidebar.is_toggled() {
+                        window.focus(&workspace.focus_handle(cx));
+                    }
+
+                    if sidebar.is_toggled() {
+                        window.focus(&sidebar.focus_handle(cx));
+                    }
                 }),
             )
             .on_action(
@@ -118,14 +130,6 @@ impl Render for Workspace {
                     cx.notify();
                 }),
             )
-            .when(self.is_sidebar_toggled, |this| {
-                this.on_action(
-                    cx.listener(|_workspace, _action: &CreateOneBlock, _window, cx| {
-                        create_one_block(cx);
-                        cx.notify();
-                    }),
-                )
-            })
             .children(notification)
     }
 }
