@@ -1,0 +1,1 @@
+pub const WORKSPACE: &str = "workspace";

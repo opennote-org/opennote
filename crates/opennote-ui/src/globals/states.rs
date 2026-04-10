@@ -62,8 +62,6 @@ impl States {
             cx.spawn(async move |cx| {
                 match read_blocks(&databases, &BlockQuery::All).await {
                     Ok(results) => {
-                        log::debug!("Refreshing blocks...");
-
                         cx.update_global::<States, ()>(|this, _cx| {
                             this.hard_update_blocks(results);
                         })

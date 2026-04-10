@@ -49,6 +49,11 @@ impl Default for KeyMappings {
                 action: format!("ToggleSearchBar"),
                 context: "workspace".to_string(),
             },
+            KeyMapping {
+                sequence: vec!["cmd".to_string(), "-".to_string(), "n".to_string()],
+                action: format!("CreateOneBlock"),
+                context: "workspace".to_string(),
+            },
         ])
     }
 }

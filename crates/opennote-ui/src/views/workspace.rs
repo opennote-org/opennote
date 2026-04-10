@@ -1,20 +1,18 @@
 use anyhow::Context as AnyhowContext;
-use gpui::{Context, *};
+use gpui::{Context, prelude::FluentBuilder, *};
 use gpui_component::{
     Root, StyledExt, WindowExt,
     input::{InputEvent, InputState},
     notification::NotificationType,
 };
 
-use opennote_core_logics::block::read_blocks;
-use opennote_data::database::enums::BlockQuery;
-
 use crate::{
-    globals::{
-        bootstrap::GlobalApplicationBootStrap, helpers::get_language_profile, states::States,
+    globals::{actions::create_one_block, helpers::get_language_profile},
+    key_mappings::{
+        key_contexts::WORKSPACE,
+        mappings::{CreateOneBlock, ToggleSearchBar, ToggleSidebar},
     },
-    key_mappings::mappings::{ToggleSearchBar, ToggleSidebar},
-    widgets::{search_bar::SearchBar, sidebar::create_sidebar},
+    widgets::{search_bar::create_search_bar, sidebar::create_sidebar},
 };
 
 pub struct Workspace {
@@ -63,11 +61,6 @@ impl Workspace {
             }
         }));
 
-        // // When the States changes, the workspace should refresh to reflect the change
-        // _subscriptions.push(cx.observe_global::<States>(|this, cx| {
-        //     cx.notify();
-        // }));
-
         Ok(Self {
             focus_handle: cx.focus_handle(),
             search_query,
@@ -99,17 +92,19 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let search_bar = SearchBar::new(self.search_query.clone(), self.is_search_bar_toggled);
         let notification = Root::render_notification_layer(window, cx);
 
         self.publish_initialization_successful_message(window, cx);
 
         div()
-            .key_context("workspace")
+            .key_context(WORKSPACE)
             .track_focus(&self.focus_handle) // GPUI needs this to get the focus of this workspace
             .v_flex()
             .h_full()
-            .child(search_bar)
+            .child(create_search_bar(
+                &self.search_query,
+                self.is_search_bar_toggled,
+            ))
             .child(create_sidebar(self.is_sidebar_toggled, cx))
             .on_action(
                 cx.listener(|workspace, _action: &ToggleSidebar, _window, cx| {
@@ -123,6 +118,14 @@ impl Render for Workspace {
                     cx.notify();
                 }),
             )
+            .when(self.is_sidebar_toggled, |this| {
+                this.on_action(
+                    cx.listener(|_workspace, _action: &CreateOneBlock, _window, cx| {
+                        create_one_block(cx);
+                        cx.notify();
+                    }),
+                )
+            })
             .children(notification)
     }
 }
