@@ -17,6 +17,7 @@ pub mod key_mappings;
 pub mod logs;
 pub mod views;
 pub mod widgets;
+pub mod libs;
 
 use anyhow::{Context, Result};
 use gpui::*;
