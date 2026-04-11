@@ -81,4 +81,15 @@ impl Block {
             .map(|item| item.to_active_model())
             .collect()
     }
+
+    /// Get the block's title as an owned string. 
+    /// It will return an empty string if the block does not
+    /// have any payload. 
+    pub fn get_title(&self) -> String {
+        if self.payloads.len() != 0 {
+            return self.payloads[0].texts.clone();
+        }
+
+        return String::new();
+    }
 }

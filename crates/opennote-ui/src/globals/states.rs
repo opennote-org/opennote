@@ -47,6 +47,11 @@ impl States {
         cx.set_global(States::new());
     }
 
+    /// Set the block for user operations
+    pub fn set_active_block(&mut self, block: ProtectedBlock) {
+        self.active_block = Some(block)
+    }
+
     /// Overwrite the existing blocks in the states with the new blocks
     pub fn hard_update_blocks(&mut self, blocks: Vec<Block>) {
         let items: Vec<ProtectedBlock> = blocks.into_iter().map(|item| item.into()).collect();

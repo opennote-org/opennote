@@ -1,15 +1,18 @@
 use std::sync::{Arc, RwLock};
 
 use gpui::{
-    AppContext, BorrowAppContext, Context, FocusHandle, Focusable, InteractiveElement, IntoElement,
-    ParentElement, Render, Styled, Subscription, Window, div, prelude::FluentBuilder,
+    AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
+    IntoElement, ParentElement, Render, Styled, Subscription, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{
     Side,
     button::Button,
     h_flex,
-    sidebar::{Sidebar, SidebarMenu, SidebarMenuItem},
+    label::Label,
+    list::ListItem,
+    tree::{Tree, TreeState, tree},
 };
+use uuid::Uuid;
 
 use crate::{
     globals::{
@@ -18,11 +21,14 @@ use crate::{
         states::{ProtectedBlock, States},
     },
     key_mappings::{key_contexts::SIDEBAR, mappings::CreateOneBlock},
+    libs::tree_view_sidebar::TreeViewSidebar,
+    widgets::blocks_tree::build_blocks_tree,
 };
 
 pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
+    tree_state: Entity<TreeState>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -31,14 +37,40 @@ impl OpenNoteSidebar {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let mut _subscriptions = Vec::new();
 
+        let tree_state = cx.new(|cx| TreeState::new(cx));
+
         // Watch for changes in States, such as the blocks list
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
             cx.notify();
         }));
 
+        _subscriptions.push(cx.observe(&tree_state, |_this, tree_state, cx| {
+            let Some(selected) = tree_state.read(cx).selected_entry() else {
+                return;
+            };
+
+            let Ok(uuid) = Uuid::parse_str(&selected.item().id) else {
+                return;
+            };
+
+            cx.update_global::<States, ()>(|global, _cx| {
+                let selected_block = {
+                    let blocks = global.blocks.read().unwrap();
+                    let mut selected_block: Vec<&ProtectedBlock> = blocks
+                        .iter()
+                        .filter(|item| item.0.read().unwrap().id == uuid)
+                        .collect();
+                    selected_block.remove(0).clone()
+                };
+
+                global.set_active_block(selected_block.clone());
+            });
+        }));
+
         Self {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
+            tree_state,
             _subscriptions,
         }
     }
@@ -52,32 +84,25 @@ impl OpenNoteSidebar {
         cx.notify();
     }
 
-    fn create_sidebar_items(blocks: Arc<RwLock<Vec<ProtectedBlock>>>) -> SidebarMenu {
-        let blocks = blocks.read().unwrap();
+    fn create_sidebar_items(
+        &self,
+        cx: &mut Context<Self>,
+        blocks: Arc<RwLock<Vec<ProtectedBlock>>>,
+    ) -> Tree {
+        let tree_items = build_blocks_tree(blocks);
 
-        let sidebar_menu_items: Vec<SidebarMenuItem> = blocks
-            .iter()
-            .map(|item| {
-                let read_item = item.0.read().unwrap();
+        self.tree_state.update(cx, |this, cx| {
+            this.set_items(tree_items, cx);
+        });
 
-                let mut label = String::new();
-                if read_item.payloads.len() != 0 {
-                    label = read_item.payloads[0].texts.clone();
-                }
+        tree(&self.tree_state, |ix, entry, _selected, _window, _cx| {
+            let item = entry.item();
 
-                let active_block = item.clone();
-
-                SidebarMenuItem::new(label).on_click(move |click, _window, cx| {
-                    if !click.is_right_click() {
-                        cx.update_global::<States, ()>(|states, _cx| {
-                            states.active_block = Some(active_block.clone());
-                        })
-                    }
-                })
-            })
-            .collect();
-
-        SidebarMenu::new().children(sidebar_menu_items)
+            ListItem::new(ix)
+                // .selected(selected)
+                .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
+                .child(h_flex().gap_2().child(item.label.clone()))
+        })
     }
 
     fn create_new_block_button() -> Button {
@@ -109,11 +134,14 @@ impl Render for OpenNoteSidebar {
             .when(self.is_toggled, |this| this.visible())
             .when(!self.is_toggled, |this| this.invisible())
             .child(
-                Sidebar::new(Side::Left)
-                    .child(Self::create_sidebar_items(states.blocks.clone()))
+                TreeViewSidebar::new(Side::Left)
+                    .child(self.create_sidebar_items(cx, states.blocks.clone()))
                     .header(
                         h_flex()
-                            .child(language_profile.sidebar_title)
+                            .w_full()
+                            .justify_between()
+                            .items_center()
+                            .child(Label::new(language_profile.sidebar_title).text_xl())
                             .child(Self::create_new_block_button()),
                     ),
             )
