@@ -7,7 +7,7 @@ use gpui_component::tree::Tree;
 
 const DEFAULT_WIDTH: Pixels = px(255.);
 
-/// A Sidebar element that can contain collapsible child elements.
+/// A Sidebar element that can contain trees
 #[derive(IntoElement)]
 pub struct TreeViewSidebar {
     style: StyleRefinement,
