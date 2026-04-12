@@ -10,7 +10,8 @@ opennote-models = { workspace = true }
 
 # External dependencies
 catsu = "0.1.7"
-embed_anything = { git = "https://github.com/AspadaX/EmbedAnything.git", branch = "main" }
+embed = { path = "crates/embed" }
+
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
