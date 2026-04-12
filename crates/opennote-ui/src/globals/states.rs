@@ -6,6 +6,7 @@ use gpui::{App, AppContext, Global};
 use opennote_core_logics::block::read_blocks;
 use opennote_data::database::enums::BlockQuery;
 use opennote_models::block::Block;
+use uuid::Uuid;
 
 use crate::globals::bootstrap::GlobalApplicationBootStrap;
 

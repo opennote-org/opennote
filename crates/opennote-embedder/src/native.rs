@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
-use embed_anything::embeddings::embed::{Embedder as AnythingEmbedder, EmbeddingResult};
+
+use embed::embeddings::embed::{Embedder as AnythingEmbedder, EmbeddingResult};
 
 use opennote_models::{configurations::system::SystemConfigurations, payload::Payload};
 
