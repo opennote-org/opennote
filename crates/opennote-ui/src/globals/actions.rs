@@ -13,7 +13,7 @@ use crate::globals::{
 };
 
 /// It will create one new block with a default title payload
-pub fn create_one_block(app_cx: &mut gpui::App) {
+pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
     app_cx
         .spawn(async move |cx| {
             log::debug!("Creating 1 block...");
@@ -59,6 +59,10 @@ pub fn create_one_block(app_cx: &mut gpui::App) {
                         log::error!("No embedders available. Please load an embedder before proceeding");
                         return Err(anyhow::anyhow!("No embedders available"));
                     }
+                }
+                
+                if let Some(parent_block_id) = parent_block_id {
+                    block.parent_id = Some(parent_block_id)
                 }
 
                 match update_blocks(&databases, vec![block]).await {
