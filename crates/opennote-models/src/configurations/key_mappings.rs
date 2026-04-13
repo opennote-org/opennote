@@ -54,6 +54,11 @@ impl Default for KeyMappings {
                 action: format!("CreateOneBlock"),
                 context: "workspace_sidebar".to_string(),
             },
+            KeyMapping {
+                sequence: vec!["cmd".to_string(), "-".to_string(), "d".to_string()],
+                action: format!("DeleteBlocks"),
+                context: "workspace_sidebar".to_string(),
+            },
         ])
     }
 }

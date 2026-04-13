@@ -7,14 +7,13 @@ use gpui::{Action, actions};
 use crate::key_mappings::key_contexts::{SIDEBAR, WORKSPACE};
 
 actions!(workspace, [ToggleSidebar, ToggleSearchBar]);
-actions!(sidebar, [CreateOneBlock]);
+actions!(sidebar, [CreateOneBlock, DeleteBlocks]);
 
 pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
     match context {
         WORKSPACE => match action {
             "ToggleSidebar" => Ok(Box::new(ToggleSidebar)),
             "ToggleSearchBar" => Ok(Box::new(ToggleSearchBar)),
-            "CreateOneBlock" => Ok(Box::new(CreateOneBlock)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,
@@ -23,6 +22,7 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
         },
         SIDEBAR => match action {
             "CreateOneBlock" => Ok(Box::new(CreateOneBlock)),
+            "DeleteBlocks" => Ok(Box::new(DeleteBlocks)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,

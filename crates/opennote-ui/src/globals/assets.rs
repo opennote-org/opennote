@@ -54,6 +54,7 @@ pub struct LanguageProfile {
      * Sidebar
      */
     pub sidebar_title: String,
+    pub delete_blocks: String,
     
     /*
      * Search Bar
