@@ -101,28 +101,33 @@ impl OpenNoteSidebar {
             this.set_items(tree_items, cx);
         });
 
-        tree(&self.tree_state, |ix, entry, selected, _window, cx| {
+        tree(&self.tree_state, |index, entry, selected, _window, cx| {
             let item = entry.item();
             let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
 
-            if selected {
-                dbg!("{} is selected", ix);
-            }
-
-            ListItem::new(ix)
+            ListItem::new(index)
                 .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
-                .child(h_flex().gap_2().child(item.label.clone()).context_menu(
-                    move |menu, _window, _cx| {
-                        menu.menu(
-                            language_profile.create_one_block.clone(),
-                            Box::new(CreateOneBlock),
-                        )
-                        .menu(
-                            language_profile.delete_blocks.clone(),
-                            Box::new(DeleteBlocks),
-                        )
-                    },
-                ))
+                .child(
+                    h_flex()
+                        .gap_2()
+                        .child(item.label.clone())
+                        .on_mouse_down(gpui::MouseButton::Left, |event, window, cx| {
+                            if event.modifiers.platform {
+                                self.selected_blocks
+                                    .push(Uuid::parse_str(&item.id).unwrap());
+                            }
+                        })
+                        .context_menu(move |menu, _window, _cx| {
+                            menu.menu(
+                                language_profile.create_one_block.clone(),
+                                Box::new(CreateOneBlock),
+                            )
+                            .menu(
+                                language_profile.delete_blocks.clone(),
+                                Box::new(DeleteBlocks),
+                            )
+                        }),
+                )
             // .on_click(|click, window, app| if click.is_right_click() {})
         })
     }
