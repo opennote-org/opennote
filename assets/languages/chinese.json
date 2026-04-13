@@ -2,5 +2,6 @@
   "sidebar_title": "笔记",
   "search_bar_placeholder": "请输入搜索文本...",
   "default_block_title": "未命名文档",
-  "delete_blocks": "删除"
+  "delete_blocks": "删除",
+  "create_one_block": "新建"
 }

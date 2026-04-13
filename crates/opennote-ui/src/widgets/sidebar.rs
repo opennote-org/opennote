@@ -33,6 +33,7 @@ pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
+    selected_blocks: Vec<Uuid>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -75,6 +76,7 @@ impl OpenNoteSidebar {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
             tree_state,
+            selected_blocks: Vec::new(),
             _subscriptions,
         }
     }
@@ -112,6 +114,10 @@ impl OpenNoteSidebar {
                 .child(h_flex().gap_2().child(item.label.clone()).context_menu(
                     move |menu, _window, _cx| {
                         menu.menu(
+                            language_profile.create_one_block.clone(),
+                            Box::new(CreateOneBlock),
+                        )
+                        .menu(
                             language_profile.delete_blocks.clone(),
                             Box::new(DeleteBlocks),
                         )
@@ -126,7 +132,8 @@ impl OpenNoteSidebar {
             .label("+")
             .on_click(move |click, _window, app_cx| {
                 if !click.is_right_click() {
-                    create_one_block(app_cx);
+                    // Default to create a root block
+                    create_one_block(app_cx, None);
                 }
             })
     }
@@ -165,9 +172,9 @@ impl Render for OpenNoteSidebar {
                 create_one_block(cx);
                 cx.notify();
             }))
-            // .on_action(cx.listener(|_this, _action: &DeleteBlocks, _window, cx| {
-            //     delete_n_blocks(cx);
-            //     cx.notify();
-            // }))
+        // .on_action(cx.listener(|_this, _action: &DeleteBlocks, _window, cx| {
+        //     delete_n_blocks(cx);
+        //     cx.notify();
+        // }))
     }
 }
