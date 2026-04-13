@@ -10,17 +10,21 @@ use gpui_component::{
     h_flex,
     label::Label,
     list::ListItem,
+    menu::ContextMenuExt,
     tree::{Tree, TreeState, tree},
 };
 use uuid::Uuid;
 
 use crate::{
     globals::{
-        actions::create_one_block,
+        actions::{create_one_block, delete_n_blocks},
         helpers::get_language_profile,
         states::{ProtectedBlock, States},
     },
-    key_mappings::{key_contexts::SIDEBAR, mappings::CreateOneBlock},
+    key_mappings::{
+        key_contexts::SIDEBAR,
+        mappings::{CreateOneBlock, DeleteBlocks},
+    },
     libs::tree_view_sidebar::TreeViewSidebar,
     widgets::blocks_tree::build_blocks_tree,
 };
@@ -95,13 +99,25 @@ impl OpenNoteSidebar {
             this.set_items(tree_items, cx);
         });
 
-        tree(&self.tree_state, |ix, entry, _selected, _window, _cx| {
+        tree(&self.tree_state, |ix, entry, selected, _window, cx| {
             let item = entry.item();
+            let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+
+            if selected {
+                dbg!("{} is selected", ix);
+            }
 
             ListItem::new(ix)
-                // .selected(selected)
                 .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
-                .child(h_flex().gap_2().child(item.label.clone()))
+                .child(h_flex().gap_2().child(item.label.clone()).context_menu(
+                    move |menu, _window, _cx| {
+                        menu.menu(
+                            language_profile.delete_blocks.clone(),
+                            Box::new(DeleteBlocks),
+                        )
+                    },
+                ))
+            // .on_click(|click, window, app| if click.is_right_click() {})
         })
     }
 
@@ -149,5 +165,9 @@ impl Render for OpenNoteSidebar {
                 create_one_block(cx);
                 cx.notify();
             }))
+            // .on_action(cx.listener(|_this, _action: &DeleteBlocks, _window, cx| {
+            //     delete_n_blocks(cx);
+            //     cx.notify();
+            // }))
     }
 }

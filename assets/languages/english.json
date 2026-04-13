@@ -1,5 +1,6 @@
 {
   "sidebar_title": "Notes",
   "search_bar_placeholder": "Type to search...",
-  "default_block_title": "Untitled"
+  "default_block_title": "Untitled",
+  "delete_blocks": "Delete"
 }
