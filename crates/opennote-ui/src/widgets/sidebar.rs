@@ -1,8 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use gpui::{
-    AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, ParentElement, Render, Styled, Subscription, div, prelude::FluentBuilder, px,
+    AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, div, prelude::FluentBuilder, px
 };
 use gpui_component::{
     Side,
@@ -33,6 +32,7 @@ pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
+    selected_block: Option<Uuid>,
     selected_blocks: Vec<Uuid>,
 
     _subscriptions: Vec<Subscription>,
@@ -47,6 +47,33 @@ impl OpenNoteSidebar {
         // Watch for changes in States, such as the blocks list
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
             cx.notify();
+        }));
+
+        _subscriptions.push(cx.observe_self(|_this, cx| {
+            cx.notify();
+        }));
+
+        _subscriptions.push(cx.observe(&tree_state, |_this, tree_state, cx| {
+            let Some(selected) = tree_state.read(cx).selected_entry() else {
+                return;
+            };
+
+            let Ok(uuid) = Uuid::parse_str(&selected.item().id) else {
+                return;
+            };
+
+            cx.update_global::<States, ()>(|global, _cx| {
+                let selected_block = {
+                    let blocks = global.blocks.read().unwrap();
+                    let mut selected_block: Vec<&ProtectedBlock> = blocks
+                        .iter()
+                        .filter(|item| item.0.read().unwrap().id == uuid)
+                        .collect();
+                    selected_block.remove(0).clone()
+                };
+
+                global.set_active_block(selected_block.clone());
+            });
         }));
 
         _subscriptions.push(cx.observe(&tree_state, |_this, tree_state, cx| {
@@ -76,6 +103,7 @@ impl OpenNoteSidebar {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
             tree_state,
+            selected_block: None,
             selected_blocks: Vec::new(),
             _subscriptions,
         }
@@ -101,7 +129,7 @@ impl OpenNoteSidebar {
             this.set_items(tree_items, cx);
         });
 
-        tree(&self.tree_state, |index, entry, selected, _window, cx| {
+        tree(&self.tree_state, |index, entry, _selected, _window, cx| {
             let item = entry.item();
             let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
 
@@ -111,6 +139,24 @@ impl OpenNoteSidebar {
                     h_flex()
                         .gap_2()
                         .child(item.label.clone())
+                        .on_action(|_action: &DeleteBlocks, _window, cx| {
+                            let mut to_delete = Vec::new();
+                            let is_multi_selected = self.selected_blocks.is_empty();
+                            
+                            cx.read
+
+                            if is_multi_selected {
+                                if let Some(block) = self.selected_block {
+                                    to_delete.push(block);
+                                }
+                            }
+
+                            if !is_multi_selected {
+                                to_delete.extend(self.selected_blocks);
+                            }
+
+                            delete_n_blocks(cx, to_delete);
+                        })
                         .on_mouse_down(gpui::MouseButton::Left, |event, window, cx| {
                             if event.modifiers.platform {
                                 self.selected_blocks
@@ -177,9 +223,5 @@ impl Render for OpenNoteSidebar {
                 create_one_block(cx);
                 cx.notify();
             }))
-        // .on_action(cx.listener(|_this, _action: &DeleteBlocks, _window, cx| {
-        //     delete_n_blocks(cx);
-        //     cx.notify();
-        // }))
     }
 }
