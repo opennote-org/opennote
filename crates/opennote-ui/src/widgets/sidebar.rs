@@ -2,9 +2,9 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use gpui::{
-    AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, Styled, Subscription,
-    WeakEntity, div, prelude::FluentBuilder, px,
+    AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
+    IntoElement, MouseButton, ParentElement, Render, Styled, Subscription, div,
+    prelude::FluentBuilder, px,
 };
 use gpui_component::{
     Side,
@@ -49,12 +49,9 @@ impl OpenNoteSidebar {
 
         // Watch for changes in States, such as the blocks list
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
+            log::debug!("Sidebar refreshes because the global state had changed");
             cx.notify();
         }));
-
-        // _subscriptions.push(cx.observe_self(|_this, cx| {
-        //     cx.notify();
-        // }));
 
         _subscriptions.push(cx.observe(&tree_state, |_this, tree_state, cx| {
             let Some(selected) = tree_state.read(cx).selected_entry() else {
@@ -202,8 +199,9 @@ impl OpenNoteSidebar {
 
                                     log::debug!("About to delete blocks: {:?}", to_delete);
                                     delete_n_blocks(cx, to_delete);
-                                    // TODO: 
-                                    // 1. Sidebar does not refresh after deletion
+                                    // TODO:
+                                    // 1. Sidebar does not refresh after deletion because deletion of the lancedb failed, because payload was never stored to lancedb; 
+                                    // need to separate concerns. need to create payload methods. no "blocks" abstract all. the update_blocks should only update, not creating
                                     // 2. Selection UI effect does not retain after refresh
                                     cx.notify();
                                 });

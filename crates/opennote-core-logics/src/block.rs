@@ -7,7 +7,9 @@ use opennote_data::{
     Databases,
     database::enums::{BlockQuery, PayloadQuery},
 };
-use opennote_models::{block::Block, configurations::system::VectorDatabaseConfig};
+use opennote_models::{
+    block::Block, configurations::system::VectorDatabaseConfig, payload::Payload,
+};
 
 /// Create num of empty notes
 /// You can update them with the update function
@@ -46,6 +48,11 @@ pub async fn delete_blocks(
     delete_blocks_result?;
     delete_entries_results?;
 
+    Ok(())
+}
+
+pub async fn create_payloads(databases: &Databases, payloads: Vec<Payload>) -> Result<()> {
+    databases.database.create_payloads(active_models);
     Ok(())
 }
 
