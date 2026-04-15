@@ -1,7 +1,9 @@
 use std::sync::{Arc, RwLock};
 
 use gpui::{
-    AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, div, prelude::FluentBuilder, px
+    AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, Styled, Subscription,
+    WeakEntity, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{
     Side,
@@ -118,6 +120,7 @@ impl OpenNoteSidebar {
         cx.notify();
     }
 
+    /// TODO: how to display the highlights for multi-selections?
     fn create_sidebar_items(
         &self,
         cx: &mut Context<Self>,
@@ -129,53 +132,70 @@ impl OpenNoteSidebar {
             this.set_items(tree_items, cx);
         });
 
-        tree(&self.tree_state, |index, entry, _selected, _window, cx| {
-            let item = entry.item();
-            let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+        // We need this to update the sidebar's internal state
+        let sidebar = cx.entity();
 
-            ListItem::new(index)
-                .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
-                .child(
-                    h_flex()
-                        .gap_2()
-                        .child(item.label.clone())
-                        .on_action(|_action: &DeleteBlocks, _window, cx| {
-                            let mut to_delete = Vec::new();
-                            let is_multi_selected = self.selected_blocks.is_empty();
-                            
-                            cx.read
+        tree(
+            &self.tree_state,
+            move |index, entry, _selected, _window, cx| {
+                let label = entry.item().label.clone();
+                let id = entry.item().id.clone();
+                let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+                let sidebar_entity_delete_blocks = sidebar.clone();
+                let sidebar_entity_on_mouse_down = sidebar.clone();
 
-                            if is_multi_selected {
-                                if let Some(block) = self.selected_block {
-                                    to_delete.push(block);
-                                }
-                            }
+                ListItem::new(index)
+                    .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .child(label)
+                            .on_action(move |_action: &DeleteBlocks, _window, cx| {
+                                sidebar_entity_delete_blocks.update(cx, |this, cx| {
+                                    let mut to_delete = Vec::new();
+                                    let is_multi_selected = this.selected_blocks.is_empty();
 
-                            if !is_multi_selected {
-                                to_delete.extend(self.selected_blocks);
-                            }
+                                    if is_multi_selected {
+                                        if let Some(block) = this.selected_block.take() {
+                                            to_delete.push(block);
+                                        }
+                                    }
 
-                            delete_n_blocks(cx, to_delete);
-                        })
-                        .on_mouse_down(gpui::MouseButton::Left, |event, window, cx| {
-                            if event.modifiers.platform {
-                                self.selected_blocks
-                                    .push(Uuid::parse_str(&item.id).unwrap());
-                            }
-                        })
-                        .context_menu(move |menu, _window, _cx| {
-                            menu.menu(
-                                language_profile.create_one_block.clone(),
-                                Box::new(CreateOneBlock),
-                            )
-                            .menu(
-                                language_profile.delete_blocks.clone(),
-                                Box::new(DeleteBlocks),
-                            )
-                        }),
-                )
-            // .on_click(|click, window, app| if click.is_right_click() {})
-        })
+                                    if !is_multi_selected {
+                                        to_delete.extend(this.selected_blocks.to_owned());
+                                        this.selected_blocks.clear();
+                                    }
+
+                                    delete_n_blocks(cx, to_delete);
+                                });
+                            })
+                            .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
+                                sidebar_entity_on_mouse_down.update(cx, |this, _cx| {
+                                    let id = Uuid::parse_str(&id).unwrap();
+                                    match event.button {
+                                        MouseButton::Left => this.selected_block = Some(id),
+                                        MouseButton::Right => {
+                                            // Multi-selection only happens when the platform key is pressed
+                                            this.selected_blocks.push(id);
+                                        }
+                                        _ => {}
+                                    }
+                                });
+                            })
+                            .context_menu(move |menu, _window, _cx| {
+                                menu.menu(
+                                    language_profile.create_one_block.clone(),
+                                    Box::new(CreateOneBlock),
+                                )
+                                .menu(
+                                    language_profile.delete_blocks.clone(),
+                                    Box::new(DeleteBlocks),
+                                )
+                            }),
+                    )
+                // .on_click(|click, window, app| if click.is_right_click() {})
+            },
+        )
     }
 
     fn create_new_block_button() -> Button {
