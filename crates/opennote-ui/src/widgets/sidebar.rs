@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
     InteractiveElement, IntoElement, MouseButton, ParentElement, Render, Styled, Subscription,
@@ -51,16 +52,16 @@ impl OpenNoteSidebar {
             cx.notify();
         }));
 
-        _subscriptions.push(cx.observe_self(|_this, cx| {
-            cx.notify();
-        }));
+        // _subscriptions.push(cx.observe_self(|_this, cx| {
+        //     cx.notify();
+        // }));
 
         _subscriptions.push(cx.observe(&tree_state, |_this, tree_state, cx| {
             let Some(selected) = tree_state.read(cx).selected_entry() else {
                 return;
             };
 
-            let Ok(uuid) = Uuid::parse_str(&selected.item().id) else {
+            let Ok(uuid) = Self::convert_str_to_uuid(&selected.item().id) else {
                 return;
             };
 
@@ -83,7 +84,7 @@ impl OpenNoteSidebar {
                 return;
             };
 
-            let Ok(uuid) = Uuid::parse_str(&selected.item().id) else {
+            let Ok(uuid) = Self::convert_str_to_uuid(&selected.item().id) else {
                 return;
             };
 
@@ -92,6 +93,8 @@ impl OpenNoteSidebar {
                     let blocks = global.blocks.read().unwrap();
                     let mut selected_block: Vec<&ProtectedBlock> = blocks
                         .iter()
+                        .filter(|item| item.0.read().unwrap().id == uuid)
+                        .filter(|item| item.0.read().unwrap().id == uuid)
                         .filter(|item| item.0.read().unwrap().id == uuid)
                         .collect();
                     selected_block.remove(0).clone()
@@ -120,12 +123,38 @@ impl OpenNoteSidebar {
         cx.notify();
     }
 
+    /// Use .unwrap by default. Make sure the input is a valid uuid string
+    fn convert_str_to_uuid(str: &str) -> Result<Uuid> {
+        Ok(Uuid::parse_str(str)?)
+    }
+
+    /// Determine whether the sidebar item is selected, either by single selection
+    /// or multi-selection
+    fn is_sidebar_item_selected(&self, sidebar_item_id: Uuid) -> bool {
+        let mut is_selected = false;
+
+        // Check against the multi-selection
+        if self.selected_blocks.contains(&sidebar_item_id) {
+            is_selected = true;
+        }
+
+        // Check against the single selection
+        if let Some(block) = self.selected_block {
+            if block == sidebar_item_id {
+                is_selected = true;
+            }
+        }
+
+        is_selected
+    }
+
     /// TODO: how to display the highlights for multi-selections?
     fn create_sidebar_items(
         &self,
         cx: &mut Context<Self>,
         blocks: Arc<RwLock<Vec<ProtectedBlock>>>,
     ) -> Tree {
+        log::debug!("Building sidebar items...");
         let tree_items = build_blocks_tree(blocks);
 
         self.tree_state.update(cx, |this, cx| {
@@ -143,9 +172,14 @@ impl OpenNoteSidebar {
                 let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
                 let sidebar_entity_delete_blocks = sidebar.clone();
                 let sidebar_entity_on_mouse_down = sidebar.clone();
+                let is_selected = sidebar
+                    .read(cx)
+                    .is_sidebar_item_selected(Self::convert_str_to_uuid(&id).unwrap());
 
+                log::debug!("Building ListItems for TreeView");
                 ListItem::new(index)
                     .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
+                    .selected(is_selected)
                     .child(
                         h_flex()
                             .gap_2()
@@ -171,7 +205,7 @@ impl OpenNoteSidebar {
                             })
                             .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
                                 sidebar_entity_on_mouse_down.update(cx, |this, _cx| {
-                                    let id = Uuid::parse_str(&id).unwrap();
+                                    let id = Self::convert_str_to_uuid(&id).unwrap();
                                     match event.button {
                                         MouseButton::Left => this.selected_block = Some(id),
                                         MouseButton::Right => {
@@ -220,6 +254,7 @@ impl Render for OpenNoteSidebar {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
         let states: &States = cx.global();
+        log::debug!("Refreshing sidebar...");
 
         div()
             .key_context(SIDEBAR)
@@ -239,8 +274,13 @@ impl Render for OpenNoteSidebar {
                             .child(Self::create_new_block_button()),
                     ),
             )
-            .on_action(cx.listener(|_this, _action: &CreateOneBlock, _window, cx| {
-                create_one_block(cx);
+            .on_action(cx.listener(|this, _action: &CreateOneBlock, _window, cx| {
+                let mut parent_block_id = None;
+                if let Some(block) = this.selected_block {
+                    parent_block_id = Some(block)
+                }
+
+                create_one_block(cx, parent_block_id);
                 cx.notify();
             }))
     }

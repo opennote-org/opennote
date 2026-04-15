@@ -94,8 +94,9 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let notification = Root::render_notification_layer(window, cx);
-
         self.publish_initialization_successful_message(window, cx);
+
+        log::debug!("Refreshing the workspace...");
 
         div()
             .key_context(WORKSPACE)
