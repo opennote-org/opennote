@@ -200,7 +200,12 @@ impl OpenNoteSidebar {
                                         this.selected_blocks.clear();
                                     }
 
+                                    log::debug!("About to delete blocks: {:?}", to_delete);
                                     delete_n_blocks(cx, to_delete);
+                                    // TODO: 
+                                    // 1. Sidebar does not refresh after deletion
+                                    // 2. Selection UI effect does not retain after refresh
+                                    cx.notify();
                                 });
                             })
                             .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
@@ -255,6 +260,8 @@ impl Render for OpenNoteSidebar {
         let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
         let states: &States = cx.global();
         log::debug!("Refreshing sidebar...");
+        log::debug!("Single selected block: {:?}", self.selected_block);
+        log::debug!("Multi selected blocks: {:?}", self.selected_blocks);
 
         div()
             .key_context(SIDEBAR)
@@ -280,6 +287,7 @@ impl Render for OpenNoteSidebar {
                     parent_block_id = Some(block)
                 }
 
+                log::debug!("About to create a block under: {:?}", parent_block_id);
                 create_one_block(cx, parent_block_id);
                 cx.notify();
             }))
