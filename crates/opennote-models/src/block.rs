@@ -21,6 +21,15 @@ pub struct Block {
 }
 
 impl Block {
+    pub fn new(parent_id: Option<Uuid>, payloads: Vec<Payload>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            parent_id,
+            is_deleted: false,
+            payloads,
+        }
+    }
+
     /// Convert from a database model
     pub fn from_model(model: Model, payloads: Vec<opennote_entities::payloads::Model>) -> Self {
         Self {
@@ -62,7 +71,7 @@ impl Block {
     pub fn to_active_model(self) -> (ActiveModel, Vec<opennote_entities::payloads::ActiveModel>) {
         (
             ActiveModel {
-                id: Unchanged(self.id),
+                id: Set(self.id),
                 parent_id: Set(self.parent_id),
                 is_deleted: Set(self.is_deleted),
             },
@@ -82,9 +91,9 @@ impl Block {
             .collect()
     }
 
-    /// Get the block's title as an owned string. 
+    /// Get the block's title as an owned string.
     /// It will return an empty string if the block does not
-    /// have any payload. 
+    /// have any payload.
     pub fn get_title(&self) -> String {
         if self.payloads.len() != 0 {
             return self.payloads[0].texts.clone();

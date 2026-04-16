@@ -11,10 +11,25 @@ use opennote_models::{
     block::Block, configurations::system::VectorDatabaseConfig, payload::Payload,
 };
 
-/// Create num of empty notes
-/// You can update them with the update function
-pub async fn create_blocks(databases: &Databases, num_blocks: usize) -> Result<Vec<Block>> {
-    databases.database.create_blocks(num_blocks).await
+pub async fn create_blocks(
+    vector_database_config: &VectorDatabaseConfig,
+    databases: &Databases,
+    blocks: Vec<Block>,
+) -> Result<Vec<Block>> {
+    let payloads: Vec<Payload> = blocks
+        .iter()
+        .flat_map(|block| block.payloads.clone())
+        .collect();
+
+    let (_, blocks) = join(
+        databases
+            .vector_database
+            .create_entries(&vector_database_config.index, payloads),
+        databases.database.create_blocks(blocks),
+    )
+    .await;
+
+    Ok(blocks?)
 }
 
 /// Read blocks from the database
@@ -22,8 +37,33 @@ pub async fn read_blocks(databases: &Databases, filter: &BlockQuery) -> Result<V
     databases.database.read_blocks(filter).await
 }
 
-pub async fn update_blocks(databases: &Databases, blocks: Vec<Block>) -> Result<()> {
-    databases.database.update_blocks(blocks).await
+pub async fn update_blocks(
+    vector_database_config: &VectorDatabaseConfig,
+    databases: &Databases,
+    blocks: Vec<Block>,
+) -> Result<()> {
+    let mut payload_ids = Vec::new();
+    let mut payloads = Vec::new();
+
+    for block in blocks.iter() {
+        payload_ids.push(block.id);
+        payloads.extend(block.payloads.clone());
+    }
+
+    databases
+        .vector_database
+        .delete_entries(vector_database_config, &payload_ids)
+        .await?;
+
+    let _ = join(
+        databases
+            .vector_database
+            .create_entries(&vector_database_config.index, payloads),
+        databases.database.update_blocks(blocks),
+    )
+    .await;
+
+    Ok(())
 }
 
 pub async fn delete_blocks(
@@ -51,8 +91,21 @@ pub async fn delete_blocks(
     Ok(())
 }
 
-pub async fn create_payloads(databases: &Databases, payloads: Vec<Payload>) -> Result<()> {
-    databases.database.create_payloads(active_models);
+/// Create new payloads for blocks
+/// However, this function does not check if the payloads exist already
+pub async fn create_payloads(
+    vector_database_config: &VectorDatabaseConfig,
+    databases: &Databases,
+    payloads: Vec<Payload>,
+) -> Result<()> {
+    join(
+        databases.database.create_payloads(payloads.clone()),
+        databases
+            .vector_database
+            .create_entries(&vector_database_config.index, payloads),
+    )
+    .await;
+
     Ok(())
 }
 

@@ -1,11 +1,10 @@
 use opennote_core_logics::{
-    block::{create_blocks, update_blocks},
-    delete_blocks,
-    payload::{PayloadContentParameters, create_payload},
+    block::{create_blocks, delete_blocks},
+    payload::{PayloadContentParameters, build_payload},
 };
 use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
-use opennote_models::configurations::system::VectorDatabaseConfig;
+use opennote_models::{block::Block, configurations::system::VectorDatabaseConfig};
 use uuid::Uuid;
 
 use crate::globals::{
@@ -18,61 +17,62 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
         .spawn(async move |cx| {
             log::debug!("Creating 1 block...");
 
-            let (default_block_title, databases, embedders) = cx
-                .read_global::<GlobalApplicationBootStrap, (String, Databases, Option<EmbedderEntry>)>(
-                    |this, cx| {
-                        let language_profile =
-                            get_language_profile(cx.global(), cx.global()).unwrap();
+            let (default_block_title, databases, embedders, vector_database_config) =
+                cx.read_global::<GlobalApplicationBootStrap, (
+                    String,
+                    Databases,
+                    Option<EmbedderEntry>,
+                    VectorDatabaseConfig,
+                )>(|this, cx| {
+                    let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
 
-                        (language_profile.default_block_title.clone(), this.0.databases.clone(), this.0.embedders.clone())
-                    },
-                )?;
+                    (
+                        language_profile.default_block_title.clone(),
+                        this.0.databases.clone(),
+                        this.0.embedders.clone(),
+                        this.0.configurations.system.vector_database.clone(),
+                    )
+                })?;
 
-            let block = match create_blocks(&databases, 1).await {
-                Ok(mut result) => result.pop(),
-                Err(error) => {
-                    log::error!("{}", error);
-                    return Err(error);
-                }
-            };
+            let mut block = Block::new(parent_block_id, Vec::new());
 
-            if let Some(mut block) = block {
-                let payload = create_payload(
-                    block.id,
-                    PayloadContentParameters {
-                        title: Some(default_block_title.to_string()),
-                        ..Default::default()
-                    },
-                )?;
+            let payload = build_payload(
+                block.id,
+                PayloadContentParameters {
+                    title: Some(default_block_title.to_string()),
+                    ..Default::default()
+                },
+            )?;
 
-                match &embedders {
-                    Some(embedders) => {
-                        let mut vectorized_payloads =
-                            send_vectorization(vec![payload], &embedders)
-                                .await?;
+            match &embedders {
+                Some(embedders) => {
+                    let mut vectorized_payloads =
+                        send_vectorization(vec![payload], &embedders).await?;
 
-                        if let Some(vectorized_payload) = vectorized_payloads.pop() {
-                            block.payloads.push(vectorized_payload);
-                        }
-                    }
-                    None => {
-                        log::error!("No embedders available. Please load an embedder before proceeding");
-                        return Err(anyhow::anyhow!("No embedders available"));
+                    if let Some(vectorized_payload) = vectorized_payloads.pop() {
+                        block.payloads.push(vectorized_payload);
                     }
                 }
-                
-                if let Some(parent_block_id) = parent_block_id {
-                    block.parent_id = Some(parent_block_id)
-                }
-
-                match update_blocks(&databases, vec![block]).await {
-                    Ok(_) => {},
-                    Err(error) => log::error!("Error when trying to update blocks: {}", error)
+                None => {
+                    log::error!(
+                        "No embedders available. Please load an embedder before proceeding"
+                    );
+                    return Err(anyhow::anyhow!("No embedders available"));
                 }
             }
 
+            let num_blocks =
+                match create_blocks(&vector_database_config, &databases, vec![block]).await {
+                    Ok(result) => result.len(),
+                    Err(error) => {
+                        log::error!("{}", error);
+                        return Err(error);
+                    }
+                };
+
             log::debug!(
-                "Block creation finished, preceed to refreshing the block list..."
+                "Block creation finished for {} blocks, preceed to refreshing the block list...",
+                num_blocks
             );
 
             let _ = cx.update_global::<States, ()>(|_this, cx| {

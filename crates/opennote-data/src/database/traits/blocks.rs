@@ -8,8 +8,9 @@ use crate::database::enums::BlockQuery;
 
 #[async_trait]
 pub trait Blocks {
-    /// Create num_blocks of empty blocks
-    async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>>;
+    /// Create blocks in the database. 
+    /// It will also create their belonging payloads. 
+    async fn create_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>>;
 
     /// Get blocks with a query filter
     async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>>;
