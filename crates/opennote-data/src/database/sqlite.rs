@@ -5,9 +5,8 @@ use async_trait::async_trait;
 use futures::future::{join, join_all};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
-    ActiveModelBehavior,
-    ActiveValue::{self, Set},
-    ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
+    ActiveValue::Set, ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait,
+    QueryFilter,
 };
 use uuid::Uuid;
 
@@ -91,7 +90,7 @@ impl MetadataManagement for SQLiteDatabase {
 
 #[async_trait]
 impl Payloads for SQLiteDatabase {
-    async fn create_payloads(
+    async fn create_payloads_with_active_models(
         &self,
         active_models: Vec<opennote_entities::payloads::ActiveModel>,
     ) -> Result<()> {
@@ -102,6 +101,16 @@ impl Payloads for SQLiteDatabase {
             .await?;
 
         Ok(())
+    }
+
+    async fn create_payloads(&self, payloads: Vec<Payload>) -> Result<()> {
+        self.create_payloads_with_active_models(
+            payloads
+                .into_iter()
+                .map(|item| item.to_active_model())
+                .collect(),
+        )
+        .await
     }
 
     async fn read_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>> {
@@ -138,7 +147,8 @@ impl Payloads for SQLiteDatabase {
             Err(_) => {
                 // for now, we are assuming the update fails because no entries need
                 // to update. Hence, we will create the entries instead
-                self.create_payloads(active_models).await?;
+                self.create_payloads_with_active_models(active_models)
+                    .await?;
                 Ok(())
             }
         }
@@ -187,29 +197,35 @@ impl Payloads for SQLiteDatabase {
 
 #[async_trait]
 impl Blocks for SQLiteDatabase {
-    async fn create_blocks(&self, num_blocks: usize) -> Result<Vec<Block>> {
-        use opennote_entities::blocks::{ActiveModel, Entity as BlockEntity};
+    async fn create_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>> {
+        use opennote_entities::blocks;
 
-        if num_blocks == 0 {
+        if blocks.is_empty() {
             return Ok(Vec::new());
         }
 
-        let blocks_active_models: Vec<ActiveModel> = (0..num_blocks)
-            .map(|_| ActiveModel {
-                id: Set(Uuid::new_v4()),
-                parent_id: Set(None),
-                is_deleted: Set(false),
-            })
-            .collect();
+        let active_blocks_payloads_pairs = Block::to_active_models(blocks.clone());
+        let mut insert_blocks_tasks = Vec::new();
+        let mut payloads_to_insert = Vec::new();
 
-        let block = BlockEntity::insert_many(blocks_active_models)
-            .exec_with_returning(&self.pool)
-            .await?;
+        for (active_block_model, active_payload_model) in active_blocks_payloads_pairs {
+            payloads_to_insert.extend(active_payload_model);
+            insert_blocks_tasks.push(blocks::Entity::insert(active_block_model).exec(&self.pool));
+        }
 
-        Ok(block
-            .into_iter()
-            .map(|item| Block::from_model(item, vec![]))
-            .collect())
+        let (payload_update_result, block_update_results) = join(
+            self.create_payloads_with_active_models(payloads_to_insert.clone()),
+            join_all(insert_blocks_tasks),
+        )
+        .await;
+
+        payload_update_result?;
+
+        for result in block_update_results {
+            result?;
+        }
+
+        Ok(blocks)
     }
 
     async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>> {
@@ -331,7 +347,10 @@ impl Blocks for SQLiteDatabase {
 
         match payload_update_result {
             Ok(_) => {}
-            Err(_) => self.create_payloads(payloads_to_update).await?,
+            Err(_) => {
+                self.create_payloads_with_active_models(payloads_to_update)
+                    .await?
+            }
         }
 
         for result in block_update_results {

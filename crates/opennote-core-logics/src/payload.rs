@@ -24,20 +24,20 @@ impl Default for PayloadContentParameters {
 
 /// Create payloads without vectors
 /// If one of the payloads failed, it will fail all
-pub fn create_payloads(
+pub fn build_payloads(
     creation_parameters: impl Iterator<Item = (Uuid, PayloadContentParameters)>,
 ) -> Result<Vec<Payload>> {
     let mut payloads = Vec::new();
 
     for (block_id, parameters) in creation_parameters {
-        payloads.push(create_payload(block_id, parameters)?);
+        payloads.push(build_payload(block_id, parameters)?);
     }
 
     Ok(payloads)
 }
 
 /// Create a payload without vectors
-pub fn create_payload(block_id: Uuid, parameters: PayloadContentParameters) -> Result<Payload> {
+pub fn build_payload(block_id: Uuid, parameters: PayloadContentParameters) -> Result<Payload> {
     if let Some(_json) = parameters.json {
         todo!()
     }

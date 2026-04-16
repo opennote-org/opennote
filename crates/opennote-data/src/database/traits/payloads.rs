@@ -7,7 +7,9 @@ use crate::database::enums::PayloadQuery;
 
 #[async_trait]
 pub trait Payloads {
-    async fn create_payloads(
+    async fn create_payloads(&self, payloads: Vec<Payload>) -> Result<()>;
+
+    async fn create_payloads_with_active_models(
         &self,
         active_models: Vec<opennote_entities::payloads::ActiveModel>,
     ) -> Result<()>;
