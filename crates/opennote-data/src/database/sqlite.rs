@@ -187,6 +187,7 @@ impl Payloads for SQLiteDatabase {
             .filter(conditions)
             .exec_with_returning(&self.pool)
             .await?;
+        dbg!(&payload_models);
 
         Ok(payload_models
             .into_iter()
@@ -213,17 +214,13 @@ impl Blocks for SQLiteDatabase {
             insert_blocks_tasks.push(blocks::Entity::insert(active_block_model).exec(&self.pool));
         }
 
-        let (payload_update_result, block_update_results) = join(
-            self.create_payloads_with_active_models(payloads_to_insert.clone()),
-            join_all(insert_blocks_tasks),
-        )
-        .await;
-
-        payload_update_result?;
-
+        let block_update_results = join_all(insert_blocks_tasks).await;
         for result in block_update_results {
             result?;
         }
+
+        self.create_payloads_with_active_models(payloads_to_insert.clone())
+            .await?;
 
         Ok(blocks)
     }
