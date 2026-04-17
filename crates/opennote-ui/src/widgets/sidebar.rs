@@ -3,8 +3,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, MouseButton, ParentElement, Render, Styled, Subscription, div,
-    prelude::FluentBuilder, px,
+    IntoElement, ParentElement, Render, Styled, Subscription, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{
     Side,
@@ -48,6 +47,7 @@ impl OpenNoteSidebar {
         let tree_state = cx.new(|cx| TreeState::new(cx));
 
         // Watch for changes in States, such as the blocks list
+        // TODO: Somtimes the sidebar may not refresh, we might need to sub for change signals
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
             log::debug!("Sidebar refreshes because the global state had changed");
             cx.notify();
@@ -130,11 +130,6 @@ impl OpenNoteSidebar {
     fn is_sidebar_item_selected(&self, sidebar_item_id: Uuid) -> bool {
         let mut is_selected = false;
 
-        // Check against the multi-selection
-        if self.selected_blocks.contains(&sidebar_item_id) {
-            is_selected = true;
-        }
-
         // Check against the single selection
         if let Some(block) = self.selected_block {
             if block == sidebar_item_id {
@@ -143,6 +138,17 @@ impl OpenNoteSidebar {
         }
 
         is_selected
+    }
+
+    fn is_sidebar_item_confirmed(&self, sidebar_item_id: Uuid) -> bool {
+        let mut is_confirmed = false;
+
+        // Check against the multi-selection
+        if self.selected_blocks.contains(&sidebar_item_id) {
+            is_confirmed = true;
+        }
+
+        is_confirmed
     }
 
     /// TODO: how to display the highlights for multi-selections?
@@ -169,14 +175,20 @@ impl OpenNoteSidebar {
                 let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
                 let sidebar_entity_delete_blocks = sidebar.clone();
                 let sidebar_entity_on_mouse_down = sidebar.clone();
-                let is_selected = sidebar
-                    .read(cx)
-                    .is_sidebar_item_selected(Self::convert_str_to_uuid(&id).unwrap());
 
-                log::debug!("Building ListItems for TreeView");
+                let uuid = Self::convert_str_to_uuid(&id).unwrap();
+                let is_selected = sidebar.read(cx).is_sidebar_item_selected(uuid);
+                let is_confirmed = sidebar.read(cx).is_sidebar_item_confirmed(uuid);
+
+                log::debug!(
+                    "Building ListItems for TreeView. Is selected: {} | Is confirmed: {}",
+                    is_selected,
+                    is_confirmed
+                );
                 ListItem::new(index)
                     .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
                     .selected(is_selected)
+                    .confirmed(is_confirmed)
                     .child(
                         h_flex()
                             .gap_2()
@@ -200,22 +212,29 @@ impl OpenNoteSidebar {
                                     log::debug!("About to delete blocks: {:?}", to_delete);
                                     delete_n_blocks(cx, to_delete);
                                     // TODO:
-                                    // 1. Sidebar does not refresh after deletion because deletion of the lancedb failed, because payload was never stored to lancedb; 
-                                    // need to separate concerns. need to create payload methods. no "blocks" abstract all. the update_blocks should only update, not creating
-                                    // 2. Selection UI effect does not retain after refresh
+                                    // 1. need to have deselect
+                                    // 2. multi-select does not highlight properly
                                     cx.notify();
                                 });
                             })
                             .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
                                 sidebar_entity_on_mouse_down.update(cx, |this, _cx| {
                                     let id = Self::convert_str_to_uuid(&id).unwrap();
-                                    match event.button {
-                                        MouseButton::Left => this.selected_block = Some(id),
-                                        MouseButton::Right => {
-                                            // Multi-selection only happens when the platform key is pressed
-                                            this.selected_blocks.push(id);
+
+                                    if event.modifiers.platform {
+                                        if let Some(selected) = this.selected_block {
+                                            // Only items that are not single selected can be multi-selected
+                                            if selected == id {
+                                                return;
+                                            }
                                         }
-                                        _ => {}
+
+                                        // Multi-selection only happens when the platform key is pressed
+                                        this.selected_blocks.push(id);
+                                    }
+
+                                    if !event.modifiers.platform {
+                                        this.selected_block = Some(id)
                                     }
                                 });
                             })
