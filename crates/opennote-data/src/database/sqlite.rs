@@ -187,7 +187,6 @@ impl Payloads for SQLiteDatabase {
             .filter(conditions)
             .exec_with_returning(&self.pool)
             .await?;
-        dbg!(&payload_models);
 
         Ok(payload_models
             .into_iter()

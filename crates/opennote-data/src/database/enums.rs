@@ -22,8 +22,10 @@ impl DataQueryFilter for PayloadQuery {
                 }
 
                 Some(
-                    Condition::any()
-                        .add(payloads::Column::Id.is_in(ids.iter().map(|item| item.to_string()))),
+                    Condition::any().add(
+                        payloads::Column::Id
+                            .is_in(ids.iter().map(|item| sea_orm::Value::Uuid(Some(*item)))),
+                    ),
                 )
             }
             PayloadQuery::ByBlockIds(block_ids) => {
@@ -31,9 +33,15 @@ impl DataQueryFilter for PayloadQuery {
                     return None;
                 }
 
-                Some(Condition::any().add(
-                    payloads::Column::BlockId.is_in(block_ids.iter().map(|item| item.to_string())),
-                ))
+                Some(
+                    Condition::any().add(
+                        payloads::Column::BlockId.is_in(
+                            block_ids
+                                .iter()
+                                .map(|item| sea_orm::Value::Uuid(Some(*item))),
+                        ),
+                    ),
+                )
             }
         }
     }
