@@ -98,7 +98,7 @@ pub async fn create_payloads(
     databases: &Databases,
     payloads: Vec<Payload>,
 ) -> Result<()> {
-    join(
+    let _ = join(
         databases.database.create_payloads(payloads.clone()),
         databases
             .vector_database

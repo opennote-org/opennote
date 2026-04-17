@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
         fast_log::Config::new()
             .console()
             .chan_len(Some(100000))
-            .level(log::LevelFilter::Debug)
+            .level(log::LevelFilter::Trace)
             .custom(UICustomLog {}),
     )
     .unwrap();
