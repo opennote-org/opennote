@@ -1,4 +1,7 @@
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::HashSet,
+    sync::{Arc, RwLock},
+};
 
 use anyhow::Result;
 use gpui::{
@@ -35,7 +38,7 @@ pub struct OpenNoteSidebar {
     is_toggled: bool,
     tree_state: Entity<TreeState>,
     selected_block: Option<Uuid>,
-    selected_blocks: Vec<Uuid>,
+    selected_blocks: HashSet<Uuid>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -106,7 +109,7 @@ impl OpenNoteSidebar {
             is_toggled: true,
             tree_state,
             selected_block: None,
-            selected_blocks: Vec::new(),
+            selected_blocks: HashSet::new(),
             _subscriptions,
         }
     }
@@ -211,29 +214,38 @@ impl OpenNoteSidebar {
 
                                     log::debug!("About to delete blocks: {:?}", to_delete);
                                     delete_n_blocks(cx, to_delete);
-                                    // TODO:
-                                    // 1. need to have deselect
-                                    // 2. multi-select does not highlight properly
                                     cx.notify();
                                 });
                             })
                             .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
                                 sidebar_entity_on_mouse_down.update(cx, |this, _cx| {
+                                    // TODO:
+                                    // 2. multi-select does not highlight properly
+
                                     let id = Self::convert_str_to_uuid(&id).unwrap();
 
+                                    // Multi-selection only happens when the platform key is pressed
                                     if event.modifiers.platform {
+                                        // Single selection should be converted to multi-selection
                                         if let Some(selected) = this.selected_block {
-                                            // Only items that are not single selected can be multi-selected
-                                            if selected == id {
+                                            let has_single_selected = selected == id;
+                                            this.selected_block = None;
+
+                                            // Multi-selecting a single selected item will deselect the item
+                                            if has_single_selected {
                                                 return;
                                             }
                                         }
 
-                                        // Multi-selection only happens when the platform key is pressed
-                                        this.selected_blocks.push(id);
+                                        // Each selection must be unique
+                                        if !this.selected_blocks.insert(id) {
+                                            // Deselect the already multi-selected
+                                            this.selected_blocks.remove(&id);
+                                        }
                                     }
 
                                     if !event.modifiers.platform {
+                                        this.selected_blocks.clear();
                                         this.selected_block = Some(id)
                                     }
                                 });
