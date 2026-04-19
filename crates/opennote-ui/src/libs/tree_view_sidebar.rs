@@ -1,9 +1,11 @@
-use crate::{ActiveTheme, Side, StyledExt, h_flex, scroll::ScrollableElement, v_flex};
 use gpui::{
     AnyElement, App, EdgesRefinement, InteractiveElement as _, IntoElement, ParentElement, Pixels,
     RenderOnce, StyleRefinement, Styled, Window, prelude::FluentBuilder, px,
 };
-use gpui_component::tree::Tree;
+
+use crate::{
+    ActiveTheme, Side, StyledExt, h_flex, libs::tree::Tree, scroll::ScrollableElement, v_flex,
+};
 
 const DEFAULT_WIDTH: Pixels = px(255.);
 

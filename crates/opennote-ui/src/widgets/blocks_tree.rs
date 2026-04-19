@@ -3,10 +3,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use gpui_component::tree::TreeItem;
 use uuid::Uuid;
 
-use crate::globals::states::ProtectedBlock;
+use crate::{globals::states::ProtectedBlock, libs::tree::TreeItem};
 
 /// Build a `TreeItem` hierarchy from blocks, ready to pass into `TreeState::items()`.
 pub fn build_blocks_tree(blocks: Arc<RwLock<Vec<ProtectedBlock>>>) -> Vec<TreeItem> {

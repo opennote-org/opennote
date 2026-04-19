@@ -5028,6 +5028,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gpui-component-assets"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afc6e4c6551a1a12d4e8b69c3e8eba3cef43331c8c87898a0d4d040c78c6865e"
+dependencies = [
+ "anyhow",
+ "gpui",
+ "rust-embed",
+]
+
+[[package]]
 name = "gpui-component-macros"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8278,6 +8289,7 @@ dependencies = [
  "fast_log",
  "gpui",
  "gpui-component",
+ "gpui-component-assets",
  "log",
  "opennote-bootstrap",
  "opennote-core-logics",
@@ -10014,6 +10026,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rust-embed-utils",
+ "shellexpand",
  "syn 2.0.117",
  "walkdir",
 ]
