@@ -9,13 +9,7 @@ use gpui::{
     IntoElement, ParentElement, Render, Styled, Subscription, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{
-    Side,
-    button::Button,
-    h_flex,
-    label::Label,
-    list::ListItem,
-    menu::ContextMenuExt,
-    tree::{Tree, TreeState, tree},
+    IconName, Side, button::Button, h_flex, label::Label, list::ListItem, menu::ContextMenuExt,
 };
 use uuid::Uuid;
 
@@ -29,7 +23,10 @@ use crate::{
         key_contexts::SIDEBAR,
         mappings::{CreateOneBlock, DeleteBlocks},
     },
-    libs::tree_view_sidebar::TreeViewSidebar,
+    libs::{
+        tree::{Tree, TreeState, tree},
+        tree_view_sidebar::TreeViewSidebar,
+    },
     widgets::blocks_tree::build_blocks_tree,
 };
 
@@ -128,22 +125,22 @@ impl OpenNoteSidebar {
         Ok(Uuid::parse_str(str)?)
     }
 
-    /// Determine whether the sidebar item is selected, either by single selection
-    /// or multi-selection
-    fn is_sidebar_item_selected(&self, sidebar_item_id: Uuid) -> bool {
-        let mut is_selected = false;
+    /// Determine whether the sidebar item is single selected.
+    fn is_sidebar_item_single_selected(&self, sidebar_item_id: Uuid) -> bool {
+        let mut is_single_selected = false;
 
         // Check against the single selection
         if let Some(block) = self.selected_block {
             if block == sidebar_item_id {
-                is_selected = true;
+                is_single_selected = true;
             }
         }
 
-        is_selected
+        is_single_selected
     }
 
-    fn is_sidebar_item_confirmed(&self, sidebar_item_id: Uuid) -> bool {
+    /// Determine whether the sidebar item is multi selected
+    fn is_sidebar_item_multi_selected(&self, sidebar_item_id: Uuid) -> bool {
         let mut is_confirmed = false;
 
         // Check against the multi-selection
@@ -180,18 +177,20 @@ impl OpenNoteSidebar {
                 let sidebar_entity_on_mouse_down = sidebar.clone();
 
                 let uuid = Self::convert_str_to_uuid(&id).unwrap();
-                let is_selected = sidebar.read(cx).is_sidebar_item_selected(uuid);
-                let is_confirmed = sidebar.read(cx).is_sidebar_item_confirmed(uuid);
+                let is_selected = sidebar.read(cx).is_sidebar_item_single_selected(uuid);
+                let is_multi_selected = sidebar.read(cx).is_sidebar_item_multi_selected(uuid);
 
                 log::debug!(
-                    "Building ListItems for TreeView. Is selected: {} | Is confirmed: {}",
+                    "Building ListItems for TreeView. Is selected: {} | Is multi selected: {}",
                     is_selected,
-                    is_confirmed
+                    is_multi_selected
                 );
                 ListItem::new(index)
                     .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
-                    .selected(is_selected)
-                    .confirmed(is_confirmed)
+                    .check_icon(IconName::Check)
+                    .when(is_selected || is_multi_selected, |this| {
+                        this.confirmed(true)
+                    })
                     .child(
                         h_flex()
                             .gap_2()
