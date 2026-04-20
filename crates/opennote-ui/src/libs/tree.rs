@@ -35,7 +35,7 @@ const CONTEXT: &str = "Tree";
 /// ```
 pub fn tree<R>(state: &Entity<TreeState>, render_item: R) -> Tree
 where
-    R: Fn(usize, &TreeEntry, bool, &mut Window, &mut App) -> ListItem + 'static,
+    R: Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem + 'static,
 {
     Tree::new(state, render_item)
 }
@@ -167,19 +167,17 @@ pub struct TreeState {
     focus_handle: FocusHandle,
     entries: Vec<TreeEntry>,
     scroll_handle: UniformListScrollHandle,
-    selected_ix: Option<usize>,
-    render_item: Rc<dyn Fn(usize, &TreeEntry, bool, &mut Window, &mut App) -> ListItem>,
+    render_item: Rc<dyn Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem>,
 }
 
 impl TreeState {
     /// Create a new empty tree state.
     pub fn new(cx: &mut App) -> Self {
         Self {
-            selected_ix: None,
             focus_handle: cx.focus_handle(),
             scroll_handle: UniformListScrollHandle::default(),
             entries: Vec::new(),
-            render_item: Rc::new(|_, _, _, _, _| ListItem::new(0)),
+            render_item: Rc::new(|_, _, _, _| ListItem::new(0)),
         }
     }
 
@@ -200,29 +198,29 @@ impl TreeState {
         for item in items.into_iter() {
             self.add_entry(item, 0);
         }
-        self.selected_ix = None;
+        // self.selected_ix = None;
         cx.notify();
     }
 
-    /// Get the currently selected index, if any.
-    pub fn selected_index(&self) -> Option<usize> {
-        self.selected_ix
-    }
+    // /// Get the currently selected index, if any.
+    // pub fn selected_index(&self) -> Option<usize> {
+    //     self.selected_ix
+    // }
 
-    /// Set the selected index, or `None` to clear selection.
-    pub fn set_selected_index(&mut self, ix: Option<usize>, cx: &mut Context<Self>) {
-        self.selected_ix = ix;
-        cx.notify();
-    }
+    // /// Set the selected index, or `None` to clear selection.
+    // pub fn set_selected_index(&mut self, ix: Option<usize>, cx: &mut Context<Self>) {
+    //     self.selected_ix = ix;
+    //     cx.notify();
+    // }
 
     pub fn scroll_to_item(&mut self, ix: usize, strategy: gpui::ScrollStrategy) {
         self.scroll_handle.scroll_to_item(ix, strategy);
     }
 
-    /// Get the currently selected entry, if any.
-    pub fn selected_entry(&self) -> Option<&TreeEntry> {
-        self.selected_ix.and_then(|ix| self.entries.get(ix))
-    }
+    // /// Get the currently selected entry, if any.
+    // pub fn selected_entry(&self) -> Option<&TreeEntry> {
+    //     self.selected_ix.and_then(|ix| self.entries.get(ix))
+    // }
 
     fn add_entry(&mut self, item: TreeItem, depth: usize) {
         self.entries.push(TreeEntry {
@@ -324,7 +322,7 @@ impl TreeState {
     // }
 
     fn on_entry_click(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Self>) {
-        self.selected_ix = Some(ix);
+        // self.selected_ix = Some(ix);
         self.toggle_expand(ix);
         cx.notify();
     }
@@ -340,8 +338,7 @@ impl Render for TreeState {
                     let mut items = Vec::with_capacity(visible_range.len());
                     for ix in visible_range {
                         let entry = &state.entries[ix];
-                        let selected = Some(ix) == state.selected_ix;
-                        let item = (render_item)(ix, entry, selected, window, cx);
+                        let item = (render_item)(ix, entry, window, cx);
 
                         let el = div()
                             .id(ix)
@@ -378,21 +375,19 @@ pub struct Tree {
     id: ElementId,
     state: Entity<TreeState>,
     style: StyleRefinement,
-    render_item: Rc<dyn Fn(usize, &TreeEntry, bool, &mut Window, &mut App) -> ListItem>,
+    render_item: Rc<dyn Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem>,
 }
 
 impl Tree {
     pub fn new<R>(state: &Entity<TreeState>, render_item: R) -> Self
     where
-        R: Fn(usize, &TreeEntry, bool, &mut Window, &mut App) -> ListItem + 'static,
+        R: Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem + 'static,
     {
         Self {
             id: ElementId::Name(format!("tree-{}", state.entity_id()).into()),
             state: state.clone(),
             style: StyleRefinement::default(),
-            render_item: Rc::new(move |ix, item, selected, window, app| {
-                render_item(ix, item, selected, window, app)
-            }),
+            render_item: Rc::new(move |ix, item, window, app| render_item(ix, item, window, app)),
         }
     }
 }
