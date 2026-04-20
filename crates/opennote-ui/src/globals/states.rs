@@ -6,7 +6,6 @@ use gpui::{App, AppContext, Global};
 use opennote_core_logics::block::read_blocks;
 use opennote_data::database::enums::BlockQuery;
 use opennote_models::block::Block;
-use uuid::Uuid;
 
 use crate::globals::bootstrap::GlobalApplicationBootStrap;
 
@@ -68,16 +67,19 @@ impl States {
             cx.spawn(async move |cx| {
                 match read_blocks(&databases, &BlockQuery::All).await {
                     Ok(results) => {
-                        cx.update_global::<States, ()>(|this, _cx| {
+                        match cx.update_global::<States, ()>(|this, _cx| {
                             this.hard_update_blocks(results);
-                        })
-                        .unwrap();
+                        }) {
+                            Ok(_) => {}
+                            Err(error) => log::error!("{}", error),
+                        }
                     }
                     Err(error) => {
-                        cx.read_global::<States, ()>(|this, _cx| {
-                            this.errors.write().unwrap().push(error);
-                        })
-                        .unwrap();
+                        // cx.read_global::<States, ()>(|this, _cx| {
+                        //     this.errors.write().unwrap().push(error);
+                        // })
+                        // .unwrap();
+                        log::error!("{}", error);
                     }
                 };
             })

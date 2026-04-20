@@ -5,8 +5,9 @@ use std::{
 
 use anyhow::Result;
 use gpui::{
-    AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    IntoElement, ParentElement, Render, Styled, Subscription, div, prelude::FluentBuilder, px,
+    AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, div,
+    prelude::FluentBuilder, px,
 };
 use gpui_component::{
     IconName, Side, button::Button, h_flex, label::Label, list::ListItem, menu::ContextMenuExt,
@@ -53,28 +54,28 @@ impl OpenNoteSidebar {
             cx.notify();
         }));
 
-        // _subscriptions.push(cx.observe(&tree_state, |_this, tree_state, cx| {
-        //     let Some(selected) = tree_state.read(cx).selected_entry() else {
-        //         return;
-        //     };
+        _subscriptions.push(cx.observe(&tree_state, |this, _tree_state, cx| {
+            let Some(uuid) = this.selected_block else {
+                return;
+            };
 
-        //     let Ok(uuid) = Self::convert_str_to_uuid(&selected.item().id) else {
-        //         return;
-        //     };
+            cx.update_global::<States, ()>(|global, _cx| {
+                let selected_block = {
+                    let blocks = global.blocks.read().unwrap();
+                    let mut selected_block: Vec<&ProtectedBlock> = blocks
+                        .iter()
+                        .filter(|item| item.0.read().unwrap().id == uuid)
+                        .collect();
+                    selected_block.remove(0).clone()
+                };
 
-        //     cx.update_global::<States, ()>(|global, _cx| {
-        //         let selected_block = {
-        //             let blocks = global.blocks.read().unwrap();
-        //             let mut selected_block: Vec<&ProtectedBlock> = blocks
-        //                 .iter()
-        //                 .filter(|item| item.0.read().unwrap().id == uuid)
-        //                 .collect();
-        //             selected_block.remove(0).clone()
-        //         };
-
-        //         global.set_active_block(selected_block.clone());
-        //     });
-        // }));
+                global.set_active_block(selected_block.clone());
+                log::debug!(
+                    "Set active block to {}",
+                    selected_block.0.read().unwrap().id
+                );
+            });
+        }));
 
         Self {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
@@ -126,7 +127,6 @@ impl OpenNoteSidebar {
         is_confirmed
     }
 
-    /// TODO: how to display the highlights for multi-selections?
     fn create_sidebar_items(
         &self,
         cx: &mut Context<Self>,
@@ -153,11 +153,6 @@ impl OpenNoteSidebar {
             let is_selected = sidebar.read(cx).is_sidebar_item_single_selected(uuid);
             let is_multi_selected = sidebar.read(cx).is_sidebar_item_multi_selected(uuid);
 
-            log::debug!(
-                "Building ListItems for TreeView. Is selected: {} | Is multi selected: {}",
-                is_selected,
-                is_multi_selected
-            );
             ListItem::new(index)
                 .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
                 .check_icon(IconName::Check)
@@ -189,9 +184,6 @@ impl OpenNoteSidebar {
                         })
                         .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
                             sidebar_entity_on_mouse_down.update(cx, |this, _cx| {
-                                // TODO:
-                                // 2. multi-select does not highlight properly
-
                                 let id = Self::convert_str_to_uuid(&id).unwrap();
 
                                 // Multi-selection only happens when the platform key is pressed
@@ -231,19 +223,19 @@ impl OpenNoteSidebar {
                             )
                         }),
                 )
-            // .on_click(|click, window, app| if click.is_right_click() {})
         });
 
         tree
     }
 
-    fn create_new_block_button() -> Button {
+    fn create_new_block_button(entity_id: EntityId) -> Button {
         Button::new("workspace_sidebar_create_new_block_button")
             .label("+")
             .on_click(move |click, _window, app_cx| {
                 if !click.is_right_click() {
                     // Default to create a root block
                     create_one_block(app_cx, None);
+                    app_cx.notify(entity_id);
                 }
             })
     }
@@ -259,9 +251,12 @@ impl Render for OpenNoteSidebar {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
         let states: &States = cx.global();
+        let entity_id = cx.entity_id();
+
         log::debug!("Refreshing sidebar...");
         log::debug!("Single selected block: {:?}", self.selected_block);
         log::debug!("Multi selected blocks: {:?}", self.selected_blocks);
+        log::debug!("Got {} blocks", states.blocks.read().unwrap().len());
 
         div()
             .key_context(SIDEBAR)
@@ -278,7 +273,7 @@ impl Render for OpenNoteSidebar {
                             .justify_between()
                             .items_center()
                             .child(Label::new(language_profile.sidebar_title).text_xl())
-                            .child(Self::create_new_block_button()),
+                            .child(Self::create_new_block_button(entity_id)),
                     ),
             )
             .on_action(cx.listener(|this, _action: &CreateOneBlock, _window, cx| {
