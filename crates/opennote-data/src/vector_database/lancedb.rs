@@ -141,12 +141,11 @@ impl VectorDatabase for LanceDB {
     }
 
     async fn create_entries(&self, index: &str, payloads: Vec<Payload>) -> Result<()> {
-        let table = self.vector_database.open_table(index).execute().await?;
-
         let batch = self.convert_payloads_to_record_batch(&payloads)?;
         let iter = vec![batch].into_iter().map(Ok);
         let iterator = RecordBatchIterator::new(iter, self.schema.clone());
 
+        let table = self.vector_database.open_table(index).execute().await?;
         table.add(iterator).execute().await?;
 
         Ok(())
@@ -163,12 +162,6 @@ impl VectorDatabase for LanceDB {
         vector_database_config: &VectorDatabaseConfig,
         payload_ids: &Vec<Uuid>,
     ) -> Result<()> {
-        let table = self
-            .vector_database
-            .open_table(&vector_database_config.index)
-            .execute()
-            .await?;
-
         let predicate: String = format!(
             "id IN ({})",
             payload_ids
@@ -177,6 +170,12 @@ impl VectorDatabase for LanceDB {
                 .collect::<Vec<String>>()
                 .join(", ")
         );
+
+        let table = self
+            .vector_database
+            .open_table(&vector_database_config.index)
+            .execute()
+            .await?;
 
         table.delete(&predicate).await?;
 
