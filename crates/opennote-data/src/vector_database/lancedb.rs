@@ -14,6 +14,8 @@ use lancedb::{
     index::Index,
     query::{ExecutableQuery, QueryBase},
 };
+use opennote_models::content_type::ContentType;
+use serde::{Deserialize, Serialize};
 use serde_arrow::schema::{SchemaLike, TracingOptions};
 use uuid::Uuid;
 
@@ -24,7 +26,7 @@ use crate::{
 };
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    configurations::system::{Config, VectorDatabaseConfig},
+    configurations::system::{SystemConfigurations, VectorDatabaseConfig},
     payload::{Payload, create_query},
 };
 
@@ -33,6 +35,58 @@ pub struct LanceDB {
     table_name: String,
     schema: Arc<Schema>,
     fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>>,
+}
+
+/// LancedDB sucks at handling non-string types in their query,
+/// therefore, we need to create a struct for handling this
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayloadLanceDB {
+    /// A unique identification of its owner block
+    pub block_id: String,
+    /// A unique identification of this payload
+    pub id: String,
+    /// When this payload is created
+    pub created_at: i64,
+    /// Last time this payload is modified
+    pub last_modified: i64,
+    /// Content type presented in which style. For example, text can be P1 or so.
+    pub content_type: ContentType,
+    /// Texts stored in payload. When saving jsons, it is recommended to also save a string json for indexing for searching
+    pub texts: String,
+    /// Bytes stored in payload. Typically, we modalities other than texts, like images and jsons
+    pub bytes: Vec<u8>,
+    /// Vector representation of the stored texts or bytes
+    pub vector: Vec<f32>,
+}
+
+impl From<Payload> for PayloadLanceDB {
+    fn from(value: Payload) -> Self {
+        Self {
+            block_id: value.block_id.to_string(),
+            id: value.id.to_string(),
+            created_at: value.created_at,
+            last_modified: value.last_modified,
+            content_type: value.content_type,
+            texts: value.texts,
+            bytes: value.bytes,
+            vector: value.vector,
+        }
+    }
+}
+
+impl From<PayloadLanceDB> for Payload {
+    fn from(value: PayloadLanceDB) -> Self {
+        Self {
+            block_id: Uuid::parse_str(&value.block_id).unwrap(),
+            id: Uuid::parse_str(&value.id).unwrap(),
+            created_at: value.created_at,
+            last_modified: value.last_modified,
+            content_type: value.content_type,
+            texts: value.texts,
+            bytes: value.bytes,
+            vector: value.vector,
+        }
+    }
 }
 
 #[async_trait]
@@ -224,30 +278,32 @@ impl KeywordSearch for LanceDB {
 }
 
 impl LanceDB {
-    pub async fn new(configuration: &Config) -> Result<Self> {
+    pub async fn new(configuration: &SystemConfigurations) -> Result<Self> {
         let vector_database: lancedb::Connection = connect(&configuration.vector_database.base_url)
             .execute()
             .await?;
 
-        let options = TracingOptions::default().overwrite(
-            "vector",
-            serde_arrow::marrow::datatypes::Field {
-                name: "vector".into(),
-                data_type: serde_arrow::marrow::datatypes::DataType::FixedSizeList(
-                    Box::new(serde_arrow::marrow::datatypes::Field {
-                        name: "item".into(),
-                        data_type: serde_arrow::marrow::datatypes::DataType::Float32,
-                        nullable: false,
-                        metadata: HashMap::new(),
-                    }),
-                    configuration.embedder.dimensions as i32,
-                ),
-                nullable: false,
-                metadata: HashMap::new(),
-            },
-        )?;
+        let options = TracingOptions::default()
+            .enums_without_data_as_strings(true)
+            .overwrite(
+                "vector",
+                serde_arrow::marrow::datatypes::Field {
+                    name: "vector".into(),
+                    data_type: serde_arrow::marrow::datatypes::DataType::FixedSizeList(
+                        Box::new(serde_arrow::marrow::datatypes::Field {
+                            name: "item".into(),
+                            data_type: serde_arrow::marrow::datatypes::DataType::Float32,
+                            nullable: false,
+                            metadata: HashMap::new(),
+                        }),
+                        configuration.embedder.dimensions as i32,
+                    ),
+                    nullable: false,
+                    metadata: HashMap::new(),
+                },
+            )?;
         let fields: Vec<Arc<lancedb::arrow::arrow_schema::Field>> =
-            Vec::<FieldRef>::from_type::<Payload>(options)?;
+            Vec::<FieldRef>::from_type::<PayloadLanceDB>(options)?;
         let schema: Arc<Schema> = Arc::new(Schema::new(fields.clone()));
 
         let vector_database = Self {
@@ -268,7 +324,11 @@ impl LanceDB {
     }
 
     pub fn convert_payloads_to_record_batch(&self, chunks: &Vec<Payload>) -> Result<RecordBatch> {
-        Ok(serde_arrow::to_record_batch(&self.fields, chunks)?)
+        let chunks: Vec<PayloadLanceDB> = chunks
+            .iter()
+            .map(|item| PayloadLanceDB::from(item.clone()))
+            .collect();
+        Ok(serde_arrow::to_record_batch(&self.fields, &chunks)?)
     }
 
     pub async fn convert_record_batch_to_payloads(
@@ -280,11 +340,14 @@ impl LanceDB {
         let mut acquired_chunks = Vec::new();
         while let Some(next) = stream.next().await {
             let next = next?;
-            let chunks: Vec<Payload> = serde_arrow::from_record_batch(&next)?;
+            let chunks: Vec<PayloadLanceDB> = serde_arrow::from_record_batch(&next)?;
             acquired_chunks.extend(chunks);
         }
 
-        Ok(acquired_chunks)
+        Ok(acquired_chunks
+            .into_iter()
+            .map(|item| item.into())
+            .collect())
     }
 }
 

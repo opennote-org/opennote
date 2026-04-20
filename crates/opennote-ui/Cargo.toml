@@ -4,3 +4,24 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+# Internal dependencies
+opennote-bootstrap = { workspace = true }
+opennote-models = { workspace = true }
+opennote-core-logics = { workspace = true }
+opennote-data = { workspace = true }
+opennote-embedder = { workspace = true }
+
+# External dependencies
+anyhow = { workspace = true }
+dirs = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
+uuid = { workspace = true }
+
+gpui = "0.2.2"
+rust-embed = "8.11.0"
+fast_log = "1.7.7"
+gpui-component = "0.5.1"
+gpui-component-assets = "0.5.1"

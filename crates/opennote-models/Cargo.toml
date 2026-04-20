@@ -15,3 +15,5 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 anyhow = { workspace = true }
 schemars = { workspace = true }
+dirs = { workspace = true }
+chrono = "0.4.44"
