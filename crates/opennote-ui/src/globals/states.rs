@@ -57,7 +57,7 @@ impl States {
         let items: Vec<ProtectedBlock> = blocks.into_iter().map(|item| item.into()).collect();
         self.blocks = Arc::new(RwLock::new(items));
     }
-
+     
     pub fn refresh_blocks_list(cx: &mut App) {
         log::debug!("Refreshing blocks...");
 

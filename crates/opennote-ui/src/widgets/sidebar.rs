@@ -6,8 +6,8 @@ use std::{
 use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, div,
-    prelude::FluentBuilder, px,
+    InteractiveElement, IntoElement, ParentElement, Render, SharedString,
+    StatefulInteractiveElement, Styled, Subscription, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{
     IconName, Side, button::Button, h_flex, label::Label, list::ListItem, menu::ContextMenuExt,
@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::{
     globals::{
-        actions::{create_one_block, delete_n_blocks},
+        actions::{create_one_block, delete_n_blocks, update_parent},
         helpers::get_language_profile,
         states::{ProtectedBlock, States},
     },
@@ -31,10 +31,31 @@ use crate::{
     widgets::blocks_tree::build_blocks_tree,
 };
 
+#[derive(Debug, Clone)]
+pub struct DraggedBlock {
+    pub block_id: Uuid,
+    pub label: SharedString,
+}
+
+impl Render for DraggedBlock {
+    fn render(&mut self, _: &mut gpui::Window, _: &mut Context<'_, Self>) -> impl IntoElement {
+        div()
+            .px_3()
+            .py_1()
+            .rounded_md()
+            .shadow_md()
+            .bg(gpui::white())
+            .opacity(0.85)
+            .text_sm()
+            .child(self.label.clone())
+    }
+}
+
 pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
+    dragged_block: Option<Uuid>,
     selected_block: Option<Uuid>,
     selected_blocks: HashSet<Uuid>,
 
@@ -81,6 +102,7 @@ impl OpenNoteSidebar {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
             tree_state,
+            dragged_block: None,
             selected_block: None,
             selected_blocks: HashSet::new(),
             _subscriptions,
@@ -148,19 +170,55 @@ impl OpenNoteSidebar {
             let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
             let sidebar_entity_delete_blocks = sidebar.clone();
             let sidebar_entity_on_mouse_down = sidebar.clone();
+            let sidebar_entity_on_drop = sidebar.clone();
+            let sidebar_entity_on_drag_move = sidebar.clone();
 
             let uuid = Self::convert_str_to_uuid(&id).unwrap();
             let is_selected = sidebar.read(cx).is_sidebar_item_single_selected(uuid);
             let is_multi_selected = sidebar.read(cx).is_sidebar_item_multi_selected(uuid);
+            let is_dragged_over = sidebar.read(cx).dragged_block == Some(uuid);
+            let dragged_block = DraggedBlock {
+                block_id: uuid,
+                label: label.clone(),
+            };
 
             ListItem::new(index)
                 .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
                 .check_icon(IconName::Check)
                 .when(is_selected || is_multi_selected, |this| this.selected(true))
+                .cursor_move()
                 .child(
                     h_flex()
+                        .id("sidebar_list_item")
                         .gap_2()
+                        .when(is_dragged_over, |this| {
+                            this.border_b_2().border_color(gpui::blue())
+                        })
                         .child(label)
+                        .on_drag(dragged_block.clone(), |value, point, window, app| {
+                            app.new(|_| value.clone())
+                        })
+                        .on_drop(move |dragged: &DraggedBlock, window, app| {
+                            sidebar_entity_on_drop.update(app, |this, cx| {
+                                this.dragged_block = None;
+
+                                if dragged.block_id == uuid {
+                                    return;
+                                }
+
+                                cx.update_global::<States, ()>(|global, cx| {
+                                    update_parent(cx, uuid, vec![dragged_block.block_id]);
+                                });
+
+                                cx.notify();
+                            });
+                        })
+                        .on_drag_move::<DraggedBlock>(move |event, window, app| {
+                            sidebar_entity_on_drag_move.update(app, |this, cx| {
+                                this.dragged_block = Some(uuid);
+                                cx.notify();
+                            })
+                        })
                         .on_action(move |_action: &DeleteBlocks, _window, cx| {
                             sidebar_entity_delete_blocks.update(cx, |this, cx| {
                                 let mut to_delete = Vec::new();
