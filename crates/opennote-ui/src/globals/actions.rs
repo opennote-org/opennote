@@ -138,7 +138,10 @@ pub fn update_parent(app_cx: &mut gpui::App, new_parent_block_id: Uuid, block_id
                         })
                         .collect();
 
-                    let _ = update_blocks(&vector_database_config, &databases, blocks).await;
+                    match update_blocks(&vector_database_config, &databases, blocks).await {
+                        Ok(_) => {}
+                        Err(error) => log::error!("{}", error),
+                    }
                 }
                 Err(error) => log::error!("{}", error),
             };

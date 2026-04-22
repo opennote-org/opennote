@@ -207,7 +207,7 @@ impl OpenNoteSidebar {
                                 }
 
                                 cx.update_global::<States, ()>(|global, cx| {
-                                    update_parent(cx, uuid, vec![dragged_block.block_id]);
+                                    update_parent(cx, uuid, vec![dragged.block_id]);
                                 });
 
                                 cx.notify();

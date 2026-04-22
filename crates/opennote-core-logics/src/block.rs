@@ -46,7 +46,7 @@ pub async fn update_blocks(
     let mut payloads = Vec::new();
 
     for block in blocks.iter() {
-        payload_ids.push(block.id);
+        payload_ids.extend::<Vec<Uuid>>(block.payloads.iter().map(|item| item.id).collect());
         payloads.extend(block.payloads.clone());
     }
 
@@ -55,13 +55,16 @@ pub async fn update_blocks(
         .delete_entries(vector_database_config, &payload_ids)
         .await?;
 
-    let _ = join(
+    let (create_entries, update_blocks) = join(
         databases
             .vector_database
             .create_entries(&vector_database_config.index, payloads),
         databases.database.update_blocks(blocks),
     )
     .await;
+
+    create_entries?;
+    update_blocks?;
 
     Ok(())
 }
