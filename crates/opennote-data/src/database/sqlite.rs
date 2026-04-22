@@ -258,16 +258,20 @@ impl Blocks for SQLiteDatabase {
                     return Ok(vec![]);
                 }
 
-                Condition::any()
-                    .add(blocks::Column::Id.is_in(ids.iter().map(|item| item.to_string())))
+                Condition::any().add(
+                    blocks::Column::Id
+                        .is_in(ids.iter().map(|item| sea_orm::Value::Uuid(Some(*item)))),
+                )
             }
             BlockQuery::ChildrenOf(ids) => {
                 if ids.is_empty() {
                     return Ok(vec![]);
                 }
 
-                Condition::any()
-                    .add(blocks::Column::ParentId.is_in(ids.iter().map(|item| item.to_string())))
+                Condition::any().add(
+                    blocks::Column::ParentId
+                        .is_in(ids.iter().map(|item| sea_orm::Value::Uuid(Some(*item)))),
+                )
             }
         };
 
@@ -320,7 +324,22 @@ impl Blocks for SQLiteDatabase {
             return Ok(());
         }
 
-        let block_ids: Vec<Uuid> = blocks.iter().map(|item| item.id).collect();
+        let mut block_ids: Vec<Uuid> = Vec::new();
+
+        for block in blocks.iter() {
+            block_ids.push(block.id);
+
+            // Validate before performing an update.
+            // Prevent potential polluted data.
+            if let Some(parent_id) = block.parent_id {
+                if block.id == parent_id {
+                    return Err(anyhow!(
+                        "Block id matches its parent. Blocks cannot be their own parent"
+                    ));
+                }
+            }
+        }
+
         let active_blocks_payloads_pairs = Block::to_active_models(blocks);
         let mut update_blocks_tasks = Vec::new();
         let mut payloads_to_update = Vec::new();
