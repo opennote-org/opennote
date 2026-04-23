@@ -12,12 +12,16 @@ pub fn build_blocks_tree(blocks: Arc<RwLock<Vec<ProtectedBlock>>>) -> Vec<TreeIt
     let blocks = blocks.read().unwrap().clone();
     let mut map: HashMap<Option<Uuid>, Vec<ProtectedBlock>> = HashMap::new();
 
+    // We need the root blocks for starting the recursion
     for block in blocks {
         let parent_id = block.0.read().unwrap().parent_id;
         map.entry(parent_id).or_default().push(block);
     }
 
-    build_children(None, &mut map)
+    let mut tree_items = vec![TreeItem::new(Uuid::new_v4().to_string(), "root")]; // Reserved for being able to drag blocks back to root
+    tree_items.extend(build_children(None, &mut map));
+
+    tree_items
 }
 
 fn build_children(
