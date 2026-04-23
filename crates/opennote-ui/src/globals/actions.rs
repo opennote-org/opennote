@@ -120,7 +120,11 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
         .detach();
 }
 
-pub fn update_parent(app_cx: &mut gpui::App, new_parent_block_id: Uuid, block_ids: Vec<Uuid>) {
+pub fn update_parent(
+    app_cx: &mut gpui::App,
+    new_parent_block_id: Option<Uuid>,
+    block_ids: Vec<Uuid>,
+) {
     log::debug!("Updating blocks' parent...");
 
     app_cx.read_global::<GlobalApplicationBootStrap, ()>(|this, app| {
@@ -133,7 +137,7 @@ pub fn update_parent(app_cx: &mut gpui::App, new_parent_block_id: Uuid, block_id
                     let blocks = blocks
                         .into_iter()
                         .map(|mut item| {
-                            item.parent_id = Some(new_parent_block_id);
+                            item.parent_id = new_parent_block_id;
                             item
                         })
                         .collect();
