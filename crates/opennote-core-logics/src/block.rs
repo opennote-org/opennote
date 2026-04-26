@@ -37,6 +37,7 @@ pub async fn read_blocks(databases: &Databases, filter: &BlockQuery) -> Result<V
     databases.database.read_blocks(filter).await
 }
 
+// TODO: the vdb may fail the updates. we will need to have a reliable vdb instead. 
 pub async fn update_blocks(
     vector_database_config: &VectorDatabaseConfig,
     databases: &Databases,
@@ -65,7 +66,7 @@ pub async fn update_blocks(
 
     create_entries?;
     update_blocks?;
-
+    
     Ok(())
 }
 

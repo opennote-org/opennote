@@ -5,8 +5,7 @@ use async_trait::async_trait;
 use futures::future::{join, join_all};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait,
-    QueryFilter,
+    ColumnTrait, Condition, ConnectOptions, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use uuid::Uuid;
 
@@ -73,6 +72,29 @@ impl SQLiteDatabase {
             Ok(result) => result,
             Err(_) => false,
         }
+    }
+
+    /// Check if the blocks are good for update.
+    /// It will report errors if it cannot resolve the issues.
+    /// Return ids of the blocks
+    pub fn check_blocks(blocks: &Vec<Block>) -> Result<Vec<Uuid>> {
+        let mut block_ids: Vec<Uuid> = Vec::new();
+
+        for block in blocks.iter() {
+            block_ids.push(block.id);
+
+            // Validate before performing an update.
+            // Prevent potential polluted data.
+            if let Some(parent_id) = block.parent_id {
+                if block.id == parent_id {
+                    return Err(anyhow!(
+                        "Block id matches its parent. Blocks cannot be their own parent"
+                    ));
+                }
+            }
+        }
+
+        Ok(block_ids)
     }
 }
 
@@ -324,21 +346,7 @@ impl Blocks for SQLiteDatabase {
             return Ok(());
         }
 
-        let mut block_ids: Vec<Uuid> = Vec::new();
-
-        for block in blocks.iter() {
-            block_ids.push(block.id);
-
-            // Validate before performing an update.
-            // Prevent potential polluted data.
-            if let Some(parent_id) = block.parent_id {
-                if block.id == parent_id {
-                    return Err(anyhow!(
-                        "Block id matches its parent. Blocks cannot be their own parent"
-                    ));
-                }
-            }
-        }
+        Self::check_blocks(&blocks)?;
 
         let active_blocks_payloads_pairs = Block::to_active_models(blocks);
         let mut update_blocks_tasks = Vec::new();
@@ -346,12 +354,7 @@ impl Blocks for SQLiteDatabase {
 
         for (active_block_model, active_payload_model) in active_blocks_payloads_pairs {
             payloads_to_update.extend(active_payload_model);
-            update_blocks_tasks.push(
-                blocks::Entity::update_many()
-                    .set(active_block_model)
-                    .filter(blocks::Column::Id.is_in(block_ids.clone()))
-                    .exec(&self.pool),
-            );
+            update_blocks_tasks.push(blocks::Entity::update(active_block_model).exec(&self.pool));
         }
 
         let (payload_update_result, block_update_results) = join(
