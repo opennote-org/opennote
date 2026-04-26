@@ -32,12 +32,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct DraggedBlock {
+pub struct DraggedBlocks {
     pub block_id: Uuid,
     pub label: SharedString,
+    pub current_selections: Vec<Uuid>,
 }
 
-impl Render for DraggedBlock {
+impl Render for DraggedBlocks {
     fn render(&mut self, _: &mut gpui::Window, _: &mut Context<'_, Self>) -> impl IntoElement {
         div()
             .px_3()
@@ -47,7 +48,7 @@ impl Render for DraggedBlock {
             .bg(gpui::white())
             .opacity(0.85)
             .text_sm()
-            .child(self.label.clone())
+            .child(format!("{} items", self.current_selections.len()))
     }
 }
 
@@ -55,9 +56,9 @@ pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
-    dragged_target_block: Option<Uuid>,
     selected_block: Option<Uuid>,
     selected_blocks: HashSet<Uuid>,
+    dragged_target_block: Option<Uuid>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -69,7 +70,6 @@ impl OpenNoteSidebar {
         let tree_state = cx.new(|cx| TreeState::new(cx));
 
         // Watch for changes in States, such as the blocks list
-        // TODO: Somtimes the sidebar may not refresh, we might need to sub for change signals
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
             log::debug!("Sidebar refreshes because the global state had changed");
             cx.notify();
@@ -194,9 +194,16 @@ impl OpenNoteSidebar {
             let is_selected = sidebar.read(cx).is_sidebar_item_single_selected(uuid);
             let is_multi_selected = sidebar.read(cx).is_sidebar_item_multi_selected(uuid);
 
-            let dragged_block = DraggedBlock {
+            let current_selections = if let Some(dragged) = sidebar.read(cx).selected_block {
+                vec![dragged]
+            } else {
+                sidebar.read(cx).selected_blocks.clone().drain().collect()
+            };
+
+            let dragged_block = DraggedBlocks {
                 block_id: uuid,
                 label: label.clone(),
+                current_selections,
             };
 
             create_tree_list_item(
@@ -256,7 +263,7 @@ fn create_root_tree_list_item(
                 .when(is_dragged_over, |this| {
                     this.border_b_2().border_color(gpui::blue())
                 })
-                .on_drag_move::<DraggedBlock>(move |event, window, app| {
+                .on_drag_move::<DraggedBlocks>(move |event, window, app| {
                     sidebar_entity_on_drag_move.update(app, |this, cx| {
                         // Update the dragged block when the mouse moves into a bound of list item
                         if event.bounds.contains(&event.event.position) {
@@ -265,12 +272,15 @@ fn create_root_tree_list_item(
                         }
                     });
                 })
-                .on_drop(move |dragged: &DraggedBlock, window, app| {
+                .on_drop(move |dragged: &DraggedBlocks, window, app| {
                     sidebar_entity_on_drop.update(app, |this, cx| {
                         this.dragged_target_block = None;
 
+                        this.selected_block = None;
+                        this.selected_blocks.clear();
+
                         cx.update_global::<States, ()>(|global, cx| {
-                            update_parent(cx, None, vec![dragged.block_id]);
+                            update_parent(cx, None, dragged.current_selections.clone());
                         });
 
                         cx.notify();
@@ -293,7 +303,7 @@ fn create_tree_list_item(
     is_selected: bool,
     is_multi_selected: bool,
     is_dragged_over: bool,
-    dragged_block: DraggedBlock,
+    dragged_block: DraggedBlocks,
 ) -> ListItem {
     ListItem::new(index)
         .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
@@ -308,10 +318,10 @@ fn create_tree_list_item(
                     this.border_b_2().border_color(gpui::blue())
                 })
                 .child(label)
-                .on_drag(dragged_block.clone(), |value, point, window, app| {
+                .on_drag(dragged_block.clone(), |value, _point, _window, app| {
                     app.new(|_| value.clone())
                 })
-                .on_drop(move |dragged: &DraggedBlock, window, app| {
+                .on_drop(move |dragged: &DraggedBlocks, _window, app| {
                     sidebar_entity_on_drop.update(app, |this, cx| {
                         this.dragged_target_block = None;
 
@@ -319,14 +329,17 @@ fn create_tree_list_item(
                             return;
                         }
 
+                        this.selected_block = None;
+                        this.selected_blocks.clear();
+
                         cx.update_global::<States, ()>(|global, cx| {
-                            update_parent(cx, Some(uuid), vec![dragged.block_id]);
+                            update_parent(cx, Some(uuid), dragged.current_selections.clone());
                         });
 
                         cx.notify();
                     });
                 })
-                .on_drag_move::<DraggedBlock>(move |event, window, app| {
+                .on_drag_move::<DraggedBlocks>(move |event, window, app| {
                     sidebar_entity_on_drag_move.update(app, |this, cx| {
                         // Update the dragged block when the mouse moves into a bound of list item
                         if event.bounds.contains(&event.event.position) {
@@ -338,17 +351,17 @@ fn create_tree_list_item(
                 .on_action(move |_action: &DeleteBlocks, _window, cx| {
                     sidebar_entity_delete_blocks.update(cx, |this, cx| {
                         let mut to_delete = Vec::new();
-                        let is_multi_selected = this.selected_blocks.is_empty();
+                        let is_multi_selected = !this.selected_blocks.is_empty();
 
                         if is_multi_selected {
-                            if let Some(block) = this.selected_block.take() {
-                                to_delete.push(block);
-                            }
+                            to_delete.extend(this.selected_blocks.to_owned());
+                            this.selected_blocks.clear();
                         }
 
                         if !is_multi_selected {
-                            to_delete.extend(this.selected_blocks.to_owned());
-                            this.selected_blocks.clear();
+                            if let Some(block) = this.selected_block.take() {
+                                to_delete.push(block);
+                            }
                         }
 
                         log::debug!("About to delete blocks: {:?}", to_delete);
@@ -356,12 +369,12 @@ fn create_tree_list_item(
                         cx.notify();
                     });
                 })
-                .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
-                    sidebar_entity_on_mouse_down.update(cx, |this, _cx| {
+                .on_click(move |event, _window, app| {
+                    sidebar_entity_on_mouse_down.update(app, |this, cx| {
                         let id = OpenNoteSidebar::convert_str_to_uuid(&id.clone()).unwrap();
 
                         // Multi-selection only happens when the platform key is pressed
-                        if event.modifiers.platform {
+                        if event.modifiers().platform {
                             // Single selection should be converted to multi-selection
                             if let Some(selected) = this.selected_block {
                                 let has_single_selected = selected == id;
@@ -380,10 +393,12 @@ fn create_tree_list_item(
                             }
                         }
 
-                        if !event.modifiers.platform {
+                        if !event.modifiers().platform {
                             this.selected_blocks.clear();
                             this.selected_block = Some(id)
                         }
+
+                        cx.notify();
                     });
                 })
                 .context_menu(move |menu, _window, _cx| {
