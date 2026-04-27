@@ -33,6 +33,7 @@ pub struct KeyMapping {
 impl Default for KeyMappings {
     fn default() -> Self {
         Self(vec![
+            // Workspace
             KeyMapping {
                 sequence: vec!["cmd".to_string(), "-".to_string(), "b".to_string()],
                 action: format!("ToggleSidebar"),
@@ -58,6 +59,27 @@ impl Default for KeyMappings {
                 sequence: vec!["cmd".to_string(), "-".to_string(), "d".to_string()],
                 action: format!("DeleteBlocks"),
                 context: "workspace_sidebar".to_string(),
+            },
+            // General
+            KeyMapping {
+                sequence: vec!["k".to_string()],
+                action: format!("MoveUp"),
+                context: "general".to_string(),
+            },
+            KeyMapping {
+                sequence: vec!["j".to_string()],
+                action: format!("MoveDown"),
+                context: "general".to_string(),
+            },
+            KeyMapping {
+                sequence: vec!["h".to_string()],
+                action: format!("MoveLeft"),
+                context: "general".to_string(),
+            },
+            KeyMapping {
+                sequence: vec!["l".to_string()],
+                action: format!("MoveRight"),
+                context: "general".to_string(),
             },
         ])
     }

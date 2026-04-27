@@ -1,4 +1,6 @@
-use std::{cell::RefCell, ops::Range, rc::Rc};
+pub mod drag;
+
+use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc};
 
 use gpui::{
     App, Context, ElementId, Entity, FocusHandle, InteractiveElement as _, IntoElement,
@@ -8,8 +10,12 @@ use gpui::{
 };
 
 use gpui_component::{StyledExt, list::ListItem, scroll::ScrollableElement};
+use uuid::Uuid;
 
-const CONTEXT: &str = "Tree";
+use crate::key_mappings::{
+    key_contexts::GENERAL,
+    mappings::{MoveDown, MoveLeft, MoveRight, MoveUp},
+};
 
 /// Create a [`Tree`].
 ///
@@ -168,6 +174,11 @@ pub struct TreeState {
     entries: Vec<TreeEntry>,
     scroll_handle: UniformListScrollHandle,
     render_item: Rc<dyn Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem>,
+
+    selected_index: Option<usize>,
+    pub selected_block: Option<Uuid>,
+    pub selected_blocks: HashSet<Uuid>,
+    pub dragged_target_block: Option<Uuid>,
 }
 
 impl TreeState {
@@ -178,6 +189,10 @@ impl TreeState {
             scroll_handle: UniformListScrollHandle::default(),
             entries: Vec::new(),
             render_item: Rc::new(|_, _, _, _| ListItem::new(0)),
+            selected_index: None,
+            selected_block: None,
+            selected_blocks: HashSet::new(),
+            dragged_target_block: None,
         }
     }
 
@@ -200,6 +215,32 @@ impl TreeState {
         }
         // self.selected_ix = None;
         cx.notify();
+    }
+
+    /// Determine whether the item is single selected.
+    pub fn is_single_selected(&self, item_id: Uuid) -> bool {
+        let mut is_single_selected = false;
+
+        // Check against the single selection
+        if let Some(block) = self.selected_block {
+            if block == item_id {
+                is_single_selected = true;
+            }
+        }
+
+        is_single_selected
+    }
+
+    /// Determine whether the item is multi selected
+    pub fn is_multi_selected(&self, item_id: Uuid) -> bool {
+        let mut is_confirmed = false;
+
+        // Check against the multi-selection
+        if self.selected_blocks.contains(&item_id) {
+            is_confirmed = true;
+        }
+
+        is_confirmed
     }
 
     // /// Get the currently selected index, if any.
@@ -292,34 +333,34 @@ impl TreeState {
     //     }
     // }
 
-    // fn on_action_up(&mut self, _: &SelectUp, _: &mut Window, cx: &mut Context<Self>) {
-    //     let mut selected_ix = self.selected_ix.unwrap_or(0);
+    fn on_action_up(&mut self, _: &MoveUp, _: &mut Window, cx: &mut Context<Self>) {
+        let mut selected_ix = self.selected_index.unwrap_or(0);
 
-    //     if selected_ix > 0 {
-    //         selected_ix = selected_ix - 1;
-    //     } else {
-    //         selected_ix = self.entries.len().saturating_sub(1);
-    //     }
+        if selected_ix > 0 {
+            selected_ix = selected_ix - 1;
+        } else {
+            selected_ix = self.entries.len().saturating_sub(1);
+        }
 
-    //     self.selected_ix = Some(selected_ix);
-    //     self.scroll_handle
-    //         .scroll_to_item(selected_ix, gpui::ScrollStrategy::Top);
-    //     cx.notify();
-    // }
+        self.selected_index = Some(selected_ix);
+        self.scroll_handle
+            .scroll_to_item(selected_ix, gpui::ScrollStrategy::Top);
+        cx.notify();
+    }
 
-    // fn on_action_down(&mut self, _: &SelectDown, _: &mut Window, cx: &mut Context<Self>) {
-    //     let mut selected_ix = self.selected_ix.unwrap_or(0);
-    //     if selected_ix + 1 < self.entries.len() {
-    //         selected_ix = selected_ix + 1;
-    //     } else {
-    //         selected_ix = 0;
-    //     }
+    fn on_action_down(&mut self, _: &MoveDown, _: &mut Window, cx: &mut Context<Self>) {
+        let mut selected_ix = self.selected_index.unwrap_or(0);
+        if selected_ix + 1 < self.entries.len() {
+            selected_ix = selected_ix + 1;
+        } else {
+            selected_ix = 0;
+        }
 
-    //     self.selected_ix = Some(selected_ix);
-    //     self.scroll_handle
-    //         .scroll_to_item(selected_ix, gpui::ScrollStrategy::Bottom);
-    //     cx.notify();
-    // }
+        self.selected_index = Some(selected_ix);
+        self.scroll_handle
+            .scroll_to_item(selected_ix, gpui::ScrollStrategy::Bottom);
+        cx.notify();
+    }
 
     fn on_entry_click(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Self>) {
         // self.selected_ix = Some(ix);
@@ -338,23 +379,28 @@ impl Render for TreeState {
                     let mut items = Vec::with_capacity(visible_range.len());
                     for ix in visible_range {
                         let entry = &state.entries[ix];
-                        let item = (render_item)(ix, entry, window, cx);
+                        let item = (render_item)(ix, entry, window, cx)
+                            .disabled(entry.item().is_disabled());
 
-                        let el = div()
-                            .id(ix)
-                            .child(item.disabled(entry.item().is_disabled()))
-                            .when(!entry.item().is_disabled(), |this| {
-                                this.on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener({
-                                        move |this, _, window, cx| {
-                                            this.on_entry_click(ix, window, cx);
-                                        }
-                                    }),
-                                )
-                            });
+                        let el = div().id(ix).when(!entry.item().is_disabled(), |this| {
+                            this.on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener({
+                                    move |this, _, window, cx| {
+                                        this.on_entry_click(ix, window, cx);
+                                    }
+                                }),
+                            )
+                        });
 
-                        items.push(el)
+                        if let Some(selected) = state.selected_index {
+                            if selected == ix {
+                                items.push(el.child(item.selected(true)));
+                                continue;
+                            }
+                        }
+
+                        items.push(el.child(item));
                     }
 
                     items
@@ -408,13 +454,10 @@ impl RenderOnce for Tree {
 
         div()
             .id(self.id)
-            .key_context(CONTEXT)
+            .key_context(GENERAL)
             .track_focus(&focus_handle)
-            // .on_action(window.listener_for(&self.state, TreeState::on_action_confirm))
-            // .on_action(window.listener_for(&self.state, TreeState::on_action_left))
-            // .on_action(window.listener_for(&self.state, TreeState::on_action_right))
-            // .on_action(window.listener_for(&self.state, TreeState::on_action_up))
-            // .on_action(window.listener_for(&self.state, TreeState::on_action_down))
+            .on_action(window.listener_for(&self.state, TreeState::on_action_up))
+            .on_action(window.listener_for(&self.state, TreeState::on_action_down))
             .size_full()
             .child(self.state)
             .refine_style(&self.style)
