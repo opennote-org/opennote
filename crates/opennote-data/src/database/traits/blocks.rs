@@ -26,5 +26,5 @@ pub trait Blocks {
     ///
     /// In the returned list, the first block is the root, and the last block is
     /// the block_id passed in
-    async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>>;
+    async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>>;    
 }

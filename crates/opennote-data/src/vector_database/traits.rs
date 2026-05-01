@@ -29,8 +29,6 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         payload_ids: &Vec<Uuid>,
     ) -> Result<()>;
 
-    async fn get_entries(&self, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>>;
-
     /// Implement this to get `reindex_documents` automatically implemented
     /// The definition of `index` varies by vector databases
     /// In Qdrant, this is called a `collection` while in LanceDB, this is

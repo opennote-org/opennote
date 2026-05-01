@@ -215,6 +215,24 @@ impl Payloads for SQLiteDatabase {
             .map(|item| Payload::from(item))
             .collect())
     }
+
+    async fn search(&self, query: &str, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>> {
+        use opennote_entities::payloads;
+
+        let result = payloads::Entity::find()
+            .filter(
+                payloads::Column::Id.is_in(
+                    payload_ids
+                        .iter()
+                        .map(|item| sea_orm::Value::Uuid(Some(*item))),
+                ),
+            )
+            .filter(payloads::Column::Texts.like(format!("%{}%", query)))
+            .all(&self.pool)
+            .await?;
+
+        Ok(result.into_iter().map(|item| item.into()).collect())
+    }
 }
 
 #[async_trait]
