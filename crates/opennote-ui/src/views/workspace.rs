@@ -12,7 +12,7 @@ use crate::{
         key_contexts::WORKSPACE,
         mappings::{ToggleSearchBar, ToggleSidebar},
     },
-    widgets::{search_bar::create_search_bar, sidebar::OpenNoteSidebar},
+    widgets::{editor::OpenNoteEditor, search_bar::create_search_bar, sidebar::OpenNoteSidebar},
 };
 
 /// This is the root of all views in this app.
@@ -20,6 +20,8 @@ pub struct Workspace {
     focus_handle: FocusHandle,
 
     sidebar: Entity<OpenNoteSidebar>,
+
+    editor: Entity<OpenNoteEditor>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -65,6 +67,7 @@ impl Workspace {
         Ok(Self {
             focus_handle: cx.focus_handle(),
             sidebar: cx.new(|cx| OpenNoteSidebar::new(cx)),
+            editor: cx.new(|cx| OpenNoteEditor::new(cx, window)),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
@@ -103,11 +106,18 @@ impl Render for Workspace {
             .track_focus(&self.focus_handle) // GPUI needs this to get the focus of this workspace
             .v_flex()
             .h_full()
+            .child(
+                div()
+                    .size_full()
+                    .flex()
+                    .flex_row() // To display items in rows
+                    .child(self.sidebar.clone()) // Left
+                    .child(self.editor.clone()), // Right
+            )
             .child(create_search_bar(
                 &self.search_query,
                 self.is_search_bar_toggled,
             ))
-            .child(self.sidebar.clone())
             .on_action(
                 cx.listener(|workspace, _action: &ToggleSidebar, window, cx| {
                     workspace.sidebar.update(cx, |this, cx| {
