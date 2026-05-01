@@ -6,7 +6,6 @@ use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, div,
-    prelude::FluentBuilder,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
@@ -28,6 +27,7 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
@@ -197,6 +197,14 @@ impl Focusable for OpenNoteSidebar {
 
 impl Render for OpenNoteSidebar {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Return an empty div to toggle it off,
+        // because .is_visible() is just invisible, therefore
+        // it won't really disappear the sidebar, therefore,
+        // the editor can't take up the rest of the space when sidebar is gone.
+        if !self.is_toggled {
+            return div();
+        }
+
         let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
         let states: &States = cx.global();
         let entity_id = cx.entity_id();
@@ -215,9 +223,7 @@ impl Render for OpenNoteSidebar {
         div()
             .key_context(SIDEBAR)
             .track_focus(&self.focus_handle(cx))
-            .size_full()
-            .when(self.is_toggled, |this| this.visible())
-            .when(!self.is_toggled, |this| this.invisible())
+            .h_full() // We need h_full to display the sidebar in full height, but not necessarily size_full
             .child(
                 TreeViewSidebar::new(Side::Left)
                     .child(self.create_sidebar_items(cx, states.blocks.clone()))
