@@ -14,17 +14,18 @@ use lancedb::{
     index::Index,
     query::{ExecutableQuery, QueryBase},
 };
-use opennote_models::content_type::ContentType;
 use serde::{Deserialize, Serialize};
 use serde_arrow::schema::{SchemaLike, TracingOptions};
 use uuid::Uuid;
 
+use crate::search::models::RawSearchResult;
 use crate::{
     database::traits::database::Database,
     search::{keyword::KeywordSearch, models::SearchResult, semantic::SemanticSearch},
     vector_database::traits::VectorDatabase,
 };
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
+use opennote_models::content_type::ContentType;
 use opennote_models::{
     configurations::system::{SystemConfigurations, VectorDatabaseConfig},
     payload::{Payload, create_query},
@@ -181,41 +182,17 @@ impl VectorDatabase for LanceDB {
 
         Ok(())
     }
-
-    async fn get_entries(&self, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>> {
-        let table = self
-            .vector_database
-            .open_table(&self.table_name)
-            .execute()
-            .await?;
-
-        let predicate: String = format!(
-            "payload_id IN ({})",
-            payload_ids
-                .iter()
-                .map(|id| format!("'{}'", id))
-                .collect::<Vec<String>>()
-                .join(", ")
-        );
-
-        let stream = table.query().only_if(&predicate).execute().await?;
-
-        let acquired_chunks = self.convert_record_batch_to_payloads(stream).await?;
-
-        Ok(acquired_chunks)
-    }
 }
 
 #[async_trait]
 impl SemanticSearch for LanceDB {
     async fn search_documents_semantically(
         &self,
-        database: &Arc<dyn Database>,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &Vec<Uuid>, // payload ids
         query: &str,
         _top_n: usize,
         embedder_entry: &EmbedderEntry,
-    ) -> Result<Vec<SearchResult>> {
+    ) -> Result<Vec<RawSearchResult>> {
         // Convert to vec
         let chunks = send_vectorization(vec![create_query(query)], embedder_entry).await?;
 
@@ -239,7 +216,7 @@ impl SemanticSearch for LanceDB {
             .filter(|item| payload_ids.contains(&item.id))
             .collect();
 
-        Ok(build_search_results(database, payloads).await?)
+        Ok(build_raw_search_results(payloads))
     }
 }
 
@@ -247,11 +224,11 @@ impl SemanticSearch for LanceDB {
 impl KeywordSearch for LanceDB {
     async fn search_documents(
         &self,
-        database: &Arc<dyn Database>,
+        _database: &Arc<dyn Database>,
         payload_ids: &Vec<Uuid>,
         query: &str,
         top_n: usize,
-    ) -> Result<Vec<SearchResult>> {
+    ) -> Result<Vec<RawSearchResult>> {
         let table = self
             .vector_database
             .open_table(&self.table_name)
@@ -272,7 +249,7 @@ impl KeywordSearch for LanceDB {
             .filter(|item| payload_ids.contains(&item.id))
             .collect();
 
-        Ok(build_search_results(database, payloads).await?)
+        Ok(build_raw_search_results(payloads))
     }
 }
 
@@ -348,6 +325,20 @@ impl LanceDB {
             .map(|item| item.into())
             .collect())
     }
+}
+
+fn build_raw_search_results(payloads: Vec<Payload>) -> Vec<RawSearchResult> {
+    let total_number_results = payloads.len() as f32;
+
+    payloads
+        .into_iter()
+        .enumerate()
+        .map(|(index, item)| RawSearchResult {
+            block_id: item.block_id,
+            payload_id: item.id,
+            score: 1.0 - (index as f32 / total_number_results),
+        })
+        .collect()
 }
 
 async fn build_search_results(

@@ -1,9 +1,11 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use opennote_models::payload::Payload;
+use uuid::Uuid;
 
 use crate::database::enums::PayloadQuery;
+
+use opennote_models::payload::Payload;
 
 #[async_trait]
 pub trait Payloads {
@@ -27,4 +29,6 @@ pub trait Payloads {
     ) -> Result<()>;
 
     async fn delete_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>>;
+
+    async fn search(&self, query: &str, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>>;
 }

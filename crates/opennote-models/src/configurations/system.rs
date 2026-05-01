@@ -5,7 +5,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME},
+    constants::{
+        APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME, SQLITE_VECTOR_DATABASE_FILE_EXTENSION,
+        VECTOR_DATABASE_FILENAME,
+    },
     providers::{
         database::DatabaseProvider, embedder::EmbedderProvider,
         vector_database::VectorDatabaseProvider,
@@ -144,16 +147,17 @@ impl Default for VectorDatabaseConfig {
         if let Some(config_dir) = dirs::config_dir() {
             // Looks like this but should be an absolute path:
             // ./data
-            let vector_database_path = config_dir
+            let mut vector_database_path = config_dir
                 .join(APP_DATA_FOLDER_NAME)
                 .join(DATA_STORAGE_FOLDER_NAME)
-                .to_string_lossy()
-                .to_string();
+                .join(VECTOR_DATABASE_FILENAME);
+
+            vector_database_path.add_extension(SQLITE_VECTOR_DATABASE_FILE_EXTENSION);
 
             return Self {
-                provider: VectorDatabaseProvider::Local,
+                provider: VectorDatabaseProvider::SQLiteVector,
                 index: "opennote".to_string(),
-                base_url: vector_database_path,
+                base_url: vector_database_path.to_string_lossy().to_string(),
                 api_key: "".to_string(),
             };
         }

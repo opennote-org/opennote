@@ -7,7 +7,7 @@ use opennote_entities::payloads::{ActiveModel, Model};
 
 use crate::content_type::ContentType;
 
-/// Next: do we store dynamic data? like hashmap?
+/// TODO: do we store dynamic data? like hashmap?
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct Payload {
     /// A unique identification of its owner block
