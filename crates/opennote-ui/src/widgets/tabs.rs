@@ -140,7 +140,6 @@ impl Render for EditorTabs {
                 }
             }
 
-            // TODO: can't see the close button icon;
             Tab::new()
                 .label(item.get_title())
                 .selected(selected)
