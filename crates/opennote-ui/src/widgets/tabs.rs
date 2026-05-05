@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::{globals::states::States, widgets::editor::Editor};
 
 pub struct EditorTabs {
-    openned_blocks: Vec<Block>,
+    opened_blocks: Vec<Block>,
     editor: Entity<Editor>,
 
     _subscriptions: Vec<Subscription>,
@@ -32,15 +32,15 @@ impl EditorTabs {
                 // The active block sticks with the global active block
                 if let Some(active_block_id) = &states.active_block_id {
                     // Skip if the block has been openned
-                    for openned_block in this.openned_blocks.iter() {
-                        if openned_block.id == *active_block_id {
+                    for opened_block in this.opened_blocks.iter() {
+                        if opened_block.id == *active_block_id {
                             return;
                         }
                     }
 
                     let block = states.get_active_block();
                     if let Some(block) = block {
-                        this.openned_blocks.push(block.clone());
+                        this.opened_blocks.push(block.clone());
                     }
                 }
             });
@@ -50,7 +50,7 @@ impl EditorTabs {
 
         Self {
             editor: cx.new(|cx| Editor::new(cx, window)),
-            openned_blocks: Vec::new(),
+            opened_blocks: Vec::new(),
             _subscriptions,
         }
     }
@@ -60,31 +60,36 @@ impl EditorTabs {
         let active_block = states.get_active_block();
 
         // if we have multiple tabs openning
-        if self.openned_blocks.len() > 1 {
+        if self.opened_blocks.len() > 1 {
             // Remove the closed block from the openned blocks,
             // while also retain an index for moving the focus to the prevoius one
-            let mut removed_index = 0;
-            for (index, block) in self.openned_blocks.iter().enumerate() {
+            let mut removed_index: isize = 0;
+            for (index, block) in self.opened_blocks.iter().enumerate() {
                 if block.id == block_id && index != 0 {
-                    removed_index = index;
+                    removed_index = index as isize;
                     break;
                 }
             }
 
-            self.openned_blocks.remove(removed_index);
+            self.opened_blocks.remove(removed_index as usize);
 
             // Move the focus to the previous tab / block
             if let Some(active_block) = active_block {
-                let index_to_focus = removed_index - 1;
+                let mut index_to_focus = removed_index - 1;
 
-                let Some(move_to_block) = self.openned_blocks.get(index_to_focus) else {
+                // Handle if the closed tab is the first one with no previous tabs
+                if index_to_focus < 0 {
+                    index_to_focus = 0;
+                }
+
+                let Some(move_to_block) = self.opened_blocks.get(index_to_focus as usize) else {
                     return;
                 };
 
                 // Move the focus only when the active block has been closed
                 if active_block.id == block_id {
                     cx.update_global::<States, ()>(|this, _cx| {
-                        this.active_block_id = Some(move_to_block.id);
+                        this.set_active_block_id(move_to_block.id);
                     });
                 }
             }
@@ -97,8 +102,8 @@ impl EditorTabs {
         }
 
         // if we only have 1 tab openning
-        if self.openned_blocks.len() == 1 {
-            self.openned_blocks.clear();
+        if self.opened_blocks.len() == 1 {
+            self.opened_blocks.clear();
             cx.update_global::<States, ()>(|this, _cx| {
                 this.active_block_id = None;
             });
@@ -118,39 +123,46 @@ impl Render for EditorTabs {
     ) -> impl gpui::IntoElement {
         let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
 
-        if self.openned_blocks.is_empty() {
+        if self.opened_blocks.is_empty() {
             return base_div.child("No documents yet");
         }
 
-        let tabs = TabBar::new("tabs")
-            .children(self.openned_blocks.iter().map(|item| {
-                let id = item.id;
-                let mut selected = false;
+        let tabs = TabBar::new("tabs").children(self.opened_blocks.iter().map(|item| {
+            let id = item.id;
+            let mut selected = false;
 
-                let states: &States = cx.global();
+            let states: &States = cx.global();
 
-                if let Some(active_block_id) = states.active_block_id {
-                    if active_block_id == id {
-                        selected = true;
-                    }
+            // The active block is the focused block
+            if let Some(active_block_id) = states.active_block_id {
+                if active_block_id == id {
+                    selected = true;
                 }
+            }
 
-                // TODO: can't see the close button icon; click to refocus; 
-                Tab::new()
-                    .label(item.get_title())
-                    .selected(selected)
-                    .suffix(
-                        Button::new(ElementId::Name(SharedString::from(format!("close-{}", id))))
-                            .icon(IconName::CircleX)
-                            .ghost()
-                            .xsmall()
-                            .rounded(ButtonRounded::Medium)
-                            .on_click(cx.listener(move |view, _, _, cx| {
-                                view.close_tab(id, cx);
-                            })),
-                    )
-            }))
-            .on_click(|index, window, cx| {});
+            // TODO: can't see the close button icon;
+            Tab::new()
+                .label(item.get_title())
+                .selected(selected)
+                .suffix(
+                    Button::new(ElementId::Name(SharedString::from(format!("close-{}", id))))
+                        .icon(IconName::CircleX)
+                        .ghost()
+                        .xsmall()
+                        .rounded(ButtonRounded::Medium)
+                        .on_click(cx.listener(move |view, _, _, cx| {
+                            view.close_tab(id, cx);
+                            cx.stop_propagation();
+                        })),
+                )
+                .on_click(move |event, _window, cx| {
+                    if !event.is_right_click() {
+                        cx.update_global(|this: &mut States, _cx| {
+                            this.set_active_block_id(id);
+                        });
+                    }
+                })
+        }));
 
         // Open editor only when there is an active block
         let states: &States = cx.global();

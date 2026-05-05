@@ -23,7 +23,7 @@ use crate::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let app = Application::new();
+    let app = Application::new().with_assets(gpui_component_assets::Assets);
     fast_log::init(
         fast_log::Config::new()
             .console()
