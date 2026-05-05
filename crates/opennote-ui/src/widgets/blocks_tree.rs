@@ -1,21 +1,17 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::collections::HashMap;
 
 use uuid::Uuid;
 
-use crate::{globals::states::ProtectedBlock, libs::tree::TreeItem};
+use crate::libs::tree::TreeItem;
+use opennote_models::block::Block;
 
 /// Build a `TreeItem` hierarchy from blocks, ready to pass into `TreeState::items()`.
-pub fn build_blocks_tree(blocks: Arc<RwLock<Vec<ProtectedBlock>>>) -> Vec<TreeItem> {
-    let blocks = blocks.read().unwrap().clone();
-    let mut map: HashMap<Option<Uuid>, Vec<ProtectedBlock>> = HashMap::new();
+pub fn build_blocks_tree(blocks: Vec<Block>) -> Vec<TreeItem> {
+    let mut map: HashMap<Option<Uuid>, Vec<Block>> = HashMap::new();
 
     // We need the root blocks for starting the recursion
     for block in blocks {
-        let parent_id = block.0.read().unwrap().parent_id;
-        map.entry(parent_id).or_default().push(block);
+        map.entry(block.parent_id).or_default().push(block);
     }
 
     let mut tree_items = vec![TreeItem::new(Uuid::new_v4().to_string(), "root")]; // Reserved for being able to drag blocks back to root
@@ -26,7 +22,7 @@ pub fn build_blocks_tree(blocks: Arc<RwLock<Vec<ProtectedBlock>>>) -> Vec<TreeIt
 
 fn build_children(
     parent_id: Option<Uuid>,
-    map: &mut HashMap<Option<Uuid>, Vec<ProtectedBlock>>,
+    map: &mut HashMap<Option<Uuid>, Vec<Block>>,
 ) -> Vec<TreeItem> {
     let Some(siblings) = map.get(&parent_id) else {
         return Vec::new();
@@ -37,10 +33,7 @@ fn build_children(
     siblings
         .iter()
         .map(|block| {
-            let (id, label) = {
-                let block = block.0.read().unwrap();
-                (block.id, block.get_title())
-            };
+            let (id, label) = { (block.id, block.get_title()) };
 
             let children = build_children(Some(id), map);
 

@@ -3,7 +3,7 @@ pub mod drag;
 use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc};
 
 use gpui::{
-    App, Context, ElementId, Entity, FocusHandle, InteractiveElement as _, IntoElement,
+    App, Context, ElementId, Entity, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
     ListSizingBehavior, MouseButton, ParentElement, Render, RenderOnce, SharedString,
     StyleRefinement, Styled, UniformListScrollHandle, Window, div, prelude::FluentBuilder as _,
     uniform_list,
@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::key_mappings::{
     key_contexts::GENERAL,
-    mappings::{MoveDown, MoveLeft, MoveRight, MoveUp},
+    mappings::{MoveDown, MoveUp},
 };
 
 /// Create a [`Tree`].
@@ -366,6 +366,12 @@ impl TreeState {
         // self.selected_ix = Some(ix);
         self.toggle_expand(ix);
         cx.notify();
+    }
+}
+
+impl Focusable for TreeState {
+    fn focus_handle(&self, cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
     }
 }
 
