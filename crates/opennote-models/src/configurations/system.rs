@@ -2,56 +2,43 @@
 //! They are not mutable during the runtime and are loaded when the program starts.
 //! Modifications to these may incur break changes to the existing database.
 
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::fs;
 
-use crate::providers::{database::DatabaseProvider, embedder::EmbedderProvider, vector_database::VectorDatabaseProvider};
+use crate::{
+    constants::{
+        APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME, SQLITE_VECTOR_DATABASE_FILE_EXTENSION,
+        VECTOR_DATABASE_FILENAME,
+    },
+    providers::{
+        database::DatabaseProvider, embedder::EmbedderProvider,
+        vector_database::VectorDatabaseProvider,
+    },
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
+pub struct SystemConfigurations {
+    /// Server related settings. It will be ignored when using in apps
     pub server: ServerConfig,
 
+    /// Logging settings
     pub logging: LoggingConfig,
 
-    #[serde(alias = "archieve_storage")]
-    pub backups_storage: BackupsStorageConfig,
-
-    pub metadata_storage: MetadataStorageConfig,
-
-    #[serde(alias = "user_information_storage")]
-    pub identities_storage: IdentitiesStorageConfig,
-
+    /// Configure the database
     pub database: DatabaseConfig,
 
+    /// Configure the vector database
     pub vector_database: VectorDatabaseConfig,
 
+    /// Configure the embedder to use
     pub embedder: EmbedderConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IdentitiesStorageConfig {
-    pub path: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupsStorageConfig {
-    pub path: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MetadataStorageConfig {
-    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmbedderConfig {
     /// Provider of the embedding model
-    /// Leave it empty if you are using a locally hosted, OpenAI compatible API
     pub provider: EmbedderProvider,
 
     /// base url of your local embedder service.
-    /// Leave it empty if you are using one from a provider.
     pub base_url: String,
 
     /// Model name of the embedding model
@@ -89,53 +76,118 @@ pub struct VectorDatabaseConfig {
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
-    pub workers: Option<usize>,
+    pub workers: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingConfig {
-    pub level: String,
-    pub format: String,
+    pub level: LoggingLevel,
+    pub format: LoggingFormat,
 }
 
-impl Config {
-    pub fn load_from_file(path: &str) -> Result<Self> {
-        let content: String = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read config file: {}", path))?;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoggingFormat {
+    Json,
+}
 
-        let config: Config = serde_json::from_str(&content)
-            .map_err(|e| {
-                eprintln!("JSON parse error: {:#?}", e);
-                e
-            })
-            .with_context(|| format!("Failed to parse config file: {}", path))?;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoggingLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
 
-        Ok(config)
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            level: LoggingLevel::Info,
+            format: LoggingFormat::Json,
+        }
     }
+}
 
-    /// Reserved for future uses
-    #[allow(dead_code)]
-    pub fn save_to_file(&self, path: &str) -> Result<()> {
-        let content = serde_json::to_string_pretty(self).context("Failed to serialize config")?;
-
-        fs::write(path, content)
-            .with_context(|| format!("Failed to write config file: {}", path))?;
-
-        Ok(())
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "localhost".to_string(),
+            port: 8080,
+            workers: 4,
+        }
     }
+}
 
-    pub fn validate(&self) -> Result<()> {
-        if self.server.port == 0 {
-            return Err(anyhow::anyhow!("Server port cannot be 0"));
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        if let Some(config_dir) = dirs::config_dir() {
+            // Looks like this but should be an absolute path:
+            // sqlite://./data/database.sqlite?mode=rwc
+            let path_to_sqlite = config_dir
+                .join(APP_DATA_FOLDER_NAME)
+                .join(DATA_STORAGE_FOLDER_NAME)
+                .join("database.sqlite")
+                .to_string_lossy()
+                .to_string();
+
+            return Self {
+                provider: DatabaseProvider::SQLite,
+                connection_url: format!("sqlite://{}?mode=rwc", path_to_sqlite),
+            };
         }
 
-        if !["trace", "debug", "info", "warn", "error"].contains(&self.logging.level.as_str()) {
-            return Err(anyhow::anyhow!(
-                "Invalid logging level: {}",
-                self.logging.level
-            ));
+        panic!("No config directory was found in this system");
+    }
+}
+
+impl Default for VectorDatabaseConfig {
+    fn default() -> Self {
+        if let Some(config_dir) = dirs::config_dir() {
+            // Looks like this but should be an absolute path:
+            // ./data
+            let mut vector_database_path = config_dir
+                .join(APP_DATA_FOLDER_NAME)
+                .join(DATA_STORAGE_FOLDER_NAME)
+                .join(VECTOR_DATABASE_FILENAME);
+
+            vector_database_path.add_extension(SQLITE_VECTOR_DATABASE_FILE_EXTENSION);
+
+            return Self {
+                provider: VectorDatabaseProvider::SQLiteVector,
+                index: "opennote".to_string(),
+                base_url: vector_database_path.to_string_lossy().to_string(),
+                api_key: "".to_string(),
+            };
         }
 
-        Ok(())
+        panic!("No config directory was found in this system");
+    }
+}
+
+impl Default for EmbedderConfig {
+    fn default() -> Self {
+        Self {
+            provider: EmbedderProvider::Native,
+            base_url: "".to_string(),
+            model: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
+            vectorization_batch_size: 100, // How many vectorization tasks at a time
+            dimensions: 384, // sentence-transformers/all-MiniLM-L6-v2 is a 1024 dimensional model
+            encoding_format: "float".to_string(),
+            api_key: "".to_string(),
+        }
+    }
+}
+
+impl Default for SystemConfigurations {
+    fn default() -> Self {
+        Self {
+            server: ServerConfig::default(),
+            logging: LoggingConfig::default(),
+            database: DatabaseConfig::default(),
+            vector_database: VectorDatabaseConfig::default(),
+            embedder: EmbedderConfig::default(),
+        }
     }
 }

@@ -1,8 +1,9 @@
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
-use embed_anything::embeddings::embed::{Embedder as AnythingEmbedder, EmbeddingResult};
 
-use opennote_models::{configurations::system::Config, payload::Payload};
+use embed::embeddings::embed::{Embedder as AnythingEmbedder, EmbeddingResult};
+
+use opennote_models::{configurations::system::SystemConfigurations, payload::Payload};
 
 use crate::traits::Embedder;
 
@@ -11,8 +12,9 @@ pub struct Native {
 }
 
 impl Native {
-    pub async fn new(config: &Config) -> Result<Self> {
+    pub async fn new(config: &SystemConfigurations) -> Result<Self> {
         Ok(Self {
+            // TODO: investigate whether this supports baai/bge-m3
             anything_embedder: AnythingEmbedder::from_pretrained_hf(
                 &config.embedder.model,
                 None,

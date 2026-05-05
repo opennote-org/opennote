@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use futures::future::join;
 use uuid::Uuid;
 
-use opennote_models::{configurations::system::{Config, VectorDatabaseConfig}, payload::Payload};
+use opennote_models::{configurations::system::{SystemConfigurations, VectorDatabaseConfig}, payload::Payload};
 use opennote_embedder::{entry::EmbedderEntry, vectorization::vectorize};
 
 use crate::{
@@ -29,8 +29,6 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         payload_ids: &Vec<Uuid>,
     ) -> Result<()>;
 
-    async fn get_entries(&self, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>>;
-
     /// Implement this to get `reindex_documents` automatically implemented
     /// The definition of `index` varies by vector databases
     /// In Qdrant, this is called a `collection` while in LanceDB, this is
@@ -40,7 +38,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     /// Required for reindex features
     async fn reindex_documents(
         &self,
-        configuration: &Config,
+        configuration: &SystemConfigurations,
         database: &Arc<dyn Database>,
         embedder_entry: &EmbedderEntry,
     ) -> Result<()> {
