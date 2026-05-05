@@ -1,7 +1,5 @@
 pub mod tree;
 
-use std::sync::{Arc, RwLock};
-
 use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
@@ -11,11 +9,7 @@ use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
 
 use crate::{
-    globals::{
-        actions::create_one_block,
-        helpers::get_language_profile,
-        states::{ProtectedBlock, States},
-    },
+    globals::{actions::create_one_block, helpers::get_language_profile, states::States},
     key_mappings::{key_contexts::SIDEBAR, mappings::CreateOneBlock},
     libs::{
         tree::{Tree, TreeState, drag::DraggedBlocks, tree},
@@ -26,6 +20,7 @@ use crate::{
         sidebar::tree::{create_root_tree_list_item, create_tree_list_item},
     },
 };
+use opennote_models::block::Block;
 
 #[derive(Debug)]
 pub struct OpenNoteSidebar {
@@ -49,25 +44,30 @@ impl OpenNoteSidebar {
         }));
 
         _subscriptions.push(cx.observe(&tree_state, |this, _tree_state, cx| {
-            let Some(uuid) = this.tree_state.read(cx).selected_block else {
-                return;
-            };
+            if let Some(selected) = this.tree_state.read(cx).selected_block {
+                cx.update_global::<States, ()>(|global, _cx| {
+                    let selected_block_id = {
+                        let mut selected_block: Vec<&Block> = global
+                            .blocks
+                            .iter()
+                            .filter_map(|(_id, item)| {
+                                if item.id == selected {
+                                    return Some(item);
+                                }
 
-            cx.update_global::<States, ()>(|global, _cx| {
-                let selected_block = {
-                    let blocks = global.blocks.read().unwrap();
-                    let mut selected_block: Vec<&ProtectedBlock> = blocks
-                        .iter()
-                        .filter(|item| item.0.read().unwrap().id == uuid)
-                        .collect();
-                    selected_block.remove(0).clone()
-                };
+                                None
+                            })
+                            .collect();
+                        selected_block.remove(0).id
+                    };
 
-                global.set_active_block(selected_block.clone());
-                log::debug!(
-                    "Set active block to {}",
-                    selected_block.0.read().unwrap().id
-                );
+                    global.set_active_block_id(selected_block_id);
+                    log::debug!("Set active block to {}", selected_block_id);
+                });
+            }
+
+            this.tree_state.update(cx, |this, cx| {
+                this.selected_block = None;
             });
         }));
 
@@ -88,16 +88,16 @@ impl OpenNoteSidebar {
         cx.notify();
     }
 
+    pub fn get_tree_focus_handle(&self, cx: &mut Context<Self>) -> FocusHandle {
+        self.tree_state.read(cx).focus_handle(cx)
+    }
+
     /// Use .unwrap by default. Make sure the input is a valid uuid string
     fn convert_str_to_uuid(str: &str) -> Result<Uuid> {
         Ok(Uuid::parse_str(str)?)
     }
 
-    fn create_sidebar_items(
-        &self,
-        cx: &mut Context<Self>,
-        blocks: Arc<RwLock<Vec<ProtectedBlock>>>,
-    ) -> Tree {
+    fn create_sidebar_items(&self, cx: &mut Context<Self>, blocks: Vec<Block>) -> Tree {
         log::debug!("Building sidebar items...");
         let tree_items = build_blocks_tree(blocks);
 
@@ -218,7 +218,7 @@ impl Render for OpenNoteSidebar {
             "Multi selected blocks: {:?}",
             self.tree_state.read(cx).selected_blocks
         );
-        log::debug!("Got {} blocks", states.blocks.read().unwrap().len());
+        log::debug!("Got {} blocks", states.blocks.len());
 
         div()
             .key_context(SIDEBAR)
@@ -226,7 +226,16 @@ impl Render for OpenNoteSidebar {
             .h_full() // We need h_full to display the sidebar in full height, but not necessarily size_full
             .child(
                 TreeViewSidebar::new(Side::Left)
-                    .child(self.create_sidebar_items(cx, states.blocks.clone()))
+                    .child(
+                        self.create_sidebar_items(
+                            cx,
+                            states
+                                .blocks
+                                .iter()
+                                .map(|(_id, item)| item.clone())
+                                .collect(),
+                        ),
+                    )
                     .header(
                         h_flex()
                             .w_full()

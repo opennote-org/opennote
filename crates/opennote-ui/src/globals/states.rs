@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::collections::HashMap;
 
 use anyhow::Error;
 
@@ -6,30 +6,22 @@ use gpui::{App, AppContext, Global};
 use opennote_core_logics::block::read_blocks;
 use opennote_data::database::enums::BlockQuery;
 use opennote_models::block::Block;
+use uuid::Uuid;
 
 use crate::globals::bootstrap::GlobalApplicationBootStrap;
-
-#[derive(Debug, Clone)]
-pub struct ProtectedBlock(pub Arc<RwLock<Block>>);
-
-impl From<Block> for ProtectedBlock {
-    fn from(value: Block) -> Self {
-        Self(Arc::new(RwLock::new(value)))
-    }
-}
 
 /// It manages all business logics related data
 pub struct States {
     /*
      * Errors
      */
-    pub errors: Arc<RwLock<Vec<Error>>>,
+    pub errors: Vec<Error>,
 
     /*
      * Blocks relevant data
      */
-    pub active_block: Option<ProtectedBlock>,
-    pub blocks: Arc<RwLock<Vec<ProtectedBlock>>>,
+    pub active_block_id: Option<Uuid>,
+    pub blocks: HashMap<Uuid, Block>,
 }
 
 impl Global for States {}
@@ -37,9 +29,9 @@ impl Global for States {}
 impl States {
     pub fn new() -> Self {
         Self {
-            errors: Arc::new(RwLock::new(Vec::new())),
-            active_block: None,
-            blocks: Arc::new(RwLock::new(Vec::new())),
+            errors: Vec::new(),
+            active_block_id: None,
+            blocks: HashMap::new(),
         }
     }
 
@@ -48,16 +40,26 @@ impl States {
     }
 
     /// Set the block for user operations
-    pub fn set_active_block(&mut self, block: ProtectedBlock) {
-        self.active_block = Some(block)
+    pub fn set_active_block_id(&mut self, block_id: Uuid) {
+        self.active_block_id = Some(block_id)
     }
 
     /// Overwrite the existing blocks in the states with the new blocks
     pub fn hard_update_blocks(&mut self, blocks: Vec<Block>) {
-        let items: Vec<ProtectedBlock> = blocks.into_iter().map(|item| item.into()).collect();
-        self.blocks = Arc::new(RwLock::new(items));
+        self.blocks = HashMap::from_iter(blocks.into_iter().map(|item| (item.id, item)));
     }
-     
+
+    /// Get the active block as a Block type
+    pub fn get_active_block(&self) -> Option<&Block> {
+        if let Some(active_block_id) = &self.active_block_id {
+            if let Some(active_block) = self.blocks.get(active_block_id) {
+                return Some(active_block);
+            }
+        }
+
+        return None;
+    }
+
     pub fn refresh_blocks_list(cx: &mut App) {
         log::debug!("Refreshing blocks...");
 
@@ -75,10 +77,6 @@ impl States {
                         }
                     }
                     Err(error) => {
-                        // cx.read_global::<States, ()>(|this, _cx| {
-                        //     this.errors.write().unwrap().push(error);
-                        // })
-                        // .unwrap();
                         log::error!("{}", error);
                     }
                 };

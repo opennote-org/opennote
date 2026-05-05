@@ -106,7 +106,7 @@ pub fn create_tree_list_item(
                             return;
                         }
 
-                        this.tree_state.update(cx, |this, cx| {
+                        this.tree_state.update(cx, |this, _cx| {
                             this.dragged_target_block = None;
                             this.selected_block = None;
                             this.selected_blocks.clear();

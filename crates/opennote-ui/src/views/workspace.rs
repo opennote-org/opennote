@@ -12,7 +12,7 @@ use crate::{
         key_contexts::WORKSPACE,
         mappings::{ToggleSearchBar, ToggleSidebar},
     },
-    widgets::{editor::OpenNoteEditor, search_bar::create_search_bar, sidebar::OpenNoteSidebar},
+    widgets::{search_bar::create_search_bar, sidebar::OpenNoteSidebar, tabs::EditorTabs},
 };
 
 /// This is the root of all views in this app.
@@ -20,8 +20,7 @@ pub struct Workspace {
     focus_handle: FocusHandle,
 
     sidebar: Entity<OpenNoteSidebar>,
-
-    editor: Entity<OpenNoteEditor>,
+    editor_tabs: Entity<EditorTabs>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -67,7 +66,7 @@ impl Workspace {
         Ok(Self {
             focus_handle: cx.focus_handle(),
             sidebar: cx.new(|cx| OpenNoteSidebar::new(cx)),
-            editor: cx.new(|cx| OpenNoteEditor::new(cx, window)),
+            editor_tabs: cx.new(|cx| EditorTabs::new(cx, window)),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
@@ -112,7 +111,7 @@ impl Render for Workspace {
                     .flex()
                     .flex_row() // To display items in rows
                     .child(self.sidebar.clone()) // Left
-                    .child(self.editor.clone()), // Right
+                    .child(self.editor_tabs.clone()), // Right
             )
             .child(create_search_bar(
                 &self.search_query,
@@ -122,21 +121,23 @@ impl Render for Workspace {
                 cx.listener(|workspace, _action: &ToggleSidebar, window, cx| {
                     workspace.sidebar.update(cx, |this, cx| {
                         this.toggle(cx);
+
+                        if !this.is_toggled() {
+                            window.focus(&workspace.focus_handle(cx));
+                        }
+
+                        if this.is_toggled() {
+                            window.focus(&this.get_tree_focus_handle(cx));
+                        }
                     });
 
-                    let sidebar = workspace.sidebar.read(cx);
-
-                    if !sidebar.is_toggled() {
-                        window.focus(&workspace.focus_handle(cx));
-                    }
-
-                    if sidebar.is_toggled() {
-                        window.focus(&sidebar.focus_handle(cx));
-                    }
+                    cx.notify();
                 }),
             )
             .on_action(
                 cx.listener(|workspace, _action: &ToggleSearchBar, _window, cx| {
+                    // TODO: make an independent widget for search bar
+                    // TODO: make search bar focus right
                     workspace.is_search_bar_toggled = !workspace.is_search_bar_toggled;
                     cx.notify();
                 }),
