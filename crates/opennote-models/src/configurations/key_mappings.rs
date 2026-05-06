@@ -81,6 +81,11 @@ impl Default for KeyMappings {
                 action: format!("MoveRight"),
                 context: "general".to_string(),
             },
+            KeyMapping {
+                sequence: vec!["cmd".to_string(), "-".to_string(), "s".to_string()],
+                action: format!("SaveDocument"),
+                context: "editor".to_string(),
+            },
         ])
     }
 }

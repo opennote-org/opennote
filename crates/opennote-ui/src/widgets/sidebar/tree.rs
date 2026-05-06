@@ -38,27 +38,27 @@ pub fn create_root_tree_list_item(
                 .when(is_dragged_over, |this| {
                     this.border_b_2().border_color(gpui::blue())
                 })
-                .on_drag_move::<DraggedBlocks>(move |event, window, app| {
+                .on_drag_move::<DraggedBlocks>(move |event, _window, app| {
                     sidebar_entity_on_drag_move.update(app, |this, cx| {
                         // Update the dragged block when the mouse moves into a bound of list item
                         if event.bounds.contains(&event.event.position) {
-                            this.tree_state.update(cx, |this, cx| {
+                            this.tree_state.update(cx, |this, _cx| {
                                 this.dragged_target_block = Some(uuid);
                             });
                             cx.notify();
                         }
                     });
                 })
-                .on_drop(move |dragged: &DraggedBlocks, window, app| {
+                .on_drop(move |dragged: &DraggedBlocks, _window, app| {
                     sidebar_entity_on_drop.update(app, |this, cx| {
-                        this.tree_state.update(cx, |this, cx| {
+                        this.tree_state.update(cx, |this, _cx| {
                             this.dragged_target_block = None;
 
                             this.selected_block = None;
                             this.selected_blocks.clear();
                         });
 
-                        cx.update_global::<States, ()>(|global, cx| {
+                        cx.update_global::<States, ()>(|_global, cx| {
                             update_parent(cx, None, dragged.current_selections.clone());
                         });
 

@@ -1,4 +1,7 @@
+use std::io::Read;
+
 use anyhow::{Result, anyhow};
+use chunk::chunk;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -75,4 +78,57 @@ pub fn build_payload(block_id: Uuid, parameters: PayloadContentParameters) -> Re
     Err(anyhow!(
         "No payload creation case matches the input. Please check the payload creation inputs"
     ))
+}
+
+/// Convert a string to payloads but without vectors.
+///
+/// TODO: need to consider multi-modal support
+pub fn convert_string_to_payloads(
+    block_id: Uuid,
+    text_chunk_size: Option<usize>,
+    string: String,
+) -> Result<Vec<Payload>> {
+    let mut payloads: Vec<Payload> = Vec::new();
+
+    let mut chunker = chunk(string.as_bytes())
+        .consecutive()
+        .patterns(&["。", "！", "，", "？"])
+        .delimiters("\n.?!".as_bytes());
+
+    // Limit chunk size when specified
+    if let Some(text_chunk_size) = text_chunk_size {
+        chunker = chunker.size(text_chunk_size);
+    }
+
+    let raw_chunks: Vec<&[u8]> = chunker.collect();
+
+    for (index, mut chunk) in raw_chunks.into_iter().enumerate() {
+        let mut bytes = Vec::new();
+        match chunk.read_to_end(&mut bytes) {
+            Ok(_) => {
+                // The first chunk is always the title
+                if index == 0 {
+                    payloads.push(build_payload(
+                        block_id,
+                        PayloadContentParameters {
+                            title: Some(String::from_utf8_lossy(&bytes).to_string()),
+                            ..Default::default()
+                        },
+                    )?);
+                    continue;
+                }
+
+                payloads.push(build_payload(
+                    block_id,
+                    PayloadContentParameters {
+                        markdown: Some(String::from_utf8_lossy(&bytes).to_string()),
+                        ..Default::default()
+                    },
+                )?);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+
+    Ok(payloads)
 }

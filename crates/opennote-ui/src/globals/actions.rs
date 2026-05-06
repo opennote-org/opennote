@@ -120,6 +120,29 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
         .detach();
 }
 
+pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>) {
+    log::debug!("Updating blocks: {:?}", blocks);
+
+    app_cx.read_global::<GlobalApplicationBootStrap, ()>(|this, app| {
+        let databases = this.0.databases.clone();
+        let vector_database_config = this.0.configurations.system.vector_database.clone();
+
+        app.spawn(async move |app| {
+            match update_blocks(&vector_database_config, &databases, blocks).await {
+                Ok(_) => {}
+                Err(error) => log::error!("{}", error),
+            };
+
+            log::debug!("Blocks update finished, preceed to refreshing the block list...");
+
+            let _ = app.update_global::<States, ()>(|_this, cx| {
+                States::refresh_blocks_list(cx);
+            });
+        })
+        .detach();
+    });
+}
+
 pub fn update_parent(
     app_cx: &mut gpui::App,
     new_parent_block_id: Option<Uuid>,

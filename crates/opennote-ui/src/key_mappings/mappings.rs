@@ -4,11 +4,12 @@
 use anyhow::Result;
 use gpui::{Action, actions};
 
-use crate::key_mappings::key_contexts::{GENERAL, SIDEBAR, WORKSPACE};
+use crate::key_mappings::key_contexts::{EDITOR, GENERAL, SIDEBAR, WORKSPACE};
 
 actions!(workspace, [ToggleSidebar, ToggleSearchBar]);
 actions!(sidebar, [CreateOneBlock, DeleteBlocks]);
 actions!(general, [MoveUp, MoveDown, MoveLeft, MoveRight]);
+actions!(editor, [SaveDocument]);
 
 pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
     match context {
@@ -35,6 +36,14 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
             "MoveDown" => Ok(Box::new(MoveDown)),
             "MoveLeft" => Ok(Box::new(MoveLeft)),
             "MoveRight" => Ok(Box::new(MoveRight)),
+            _ => Err(anyhow::anyhow!(
+                "Unknown action for context '{}': {}",
+                context,
+                action
+            )),
+        },
+        EDITOR => match action {
+            "SaveDocument" => Ok(Box::new(SaveDocument)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,

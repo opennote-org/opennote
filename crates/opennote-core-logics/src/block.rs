@@ -65,7 +65,7 @@ pub async fn update_blocks(
 
     create_entries?;
     update_blocks?;
-    
+
     Ok(())
 }
 
