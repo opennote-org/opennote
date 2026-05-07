@@ -5,11 +5,17 @@ use async_trait::async_trait;
 use futures::future::join;
 use uuid::Uuid;
 
-use opennote_models::{configurations::system::{SystemConfigurations, VectorDatabaseConfig}, payload::Payload};
 use opennote_embedder::{entry::EmbedderEntry, vectorization::vectorize};
+use opennote_models::{
+    configurations::system::{SystemConfigurations, VectorDatabaseConfig},
+    payload::Payload,
+};
 
 use crate::{
-    database::{enums::BlockQuery, traits::database::Database},
+    database::{
+        enums::{BlockQuery, PayloadQuery},
+        traits::database::Database,
+    },
     search::{keyword::KeywordSearch, semantic::SemanticSearch},
 };
 
@@ -43,7 +49,14 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         embedder_entry: &EmbedderEntry,
     ) -> Result<()> {
         let blocks = database.read_blocks(&BlockQuery::All).await?;
-        let payloads: Vec<Payload> = blocks.into_iter().flat_map(|item| item.payloads).collect();
+        let mut block_ids = Vec::new();
+        let payloads: Vec<Payload> = blocks
+            .into_iter()
+            .flat_map(|item| {
+                block_ids.push(item.id);
+                item.payloads
+            })
+            .collect();
 
         let results = join(
             self.reset_index(
@@ -58,13 +71,18 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         let payloads_with_vectors = results.1?;
 
         let results = join(
-            database.update_payloads(payloads_with_vectors.clone()),
-            self.create_entries(&configuration.vector_database.index, payloads_with_vectors),
+            database.delete_payloads(&PayloadQuery::ByBlockIds(block_ids)),
+            self.create_entries(
+                &configuration.vector_database.index,
+                payloads_with_vectors.clone(),
+            ),
         )
         .await;
 
         results.0?;
         results.1?;
+
+        database.create_payloads(payloads_with_vectors).await?;
 
         Ok(())
     }

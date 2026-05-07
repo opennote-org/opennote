@@ -18,7 +18,7 @@ pub struct States {
     pub errors: Vec<Error>,
 
     /*
-     * Blocks relevant data
+     * Blocks
      */
     pub active_block_id: Option<Uuid>,
     pub blocks: HashMap<Uuid, Block>,

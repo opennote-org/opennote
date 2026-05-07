@@ -83,8 +83,6 @@ impl SQLiteDatabase {
         for block in blocks.iter() {
             block_ids.push(block.id);
 
-            // Validate before performing an update.
-            // Prevent potential polluted data.
             if let Some(parent_id) = block.parent_id {
                 if block.id == parent_id {
                     return Err(anyhow!(
@@ -152,49 +150,6 @@ impl Payloads for SQLiteDatabase {
             .into_iter()
             .map(|item| Payload::from(item))
             .collect())
-    }
-
-    async fn update_payloads(&self, payloads: Vec<Payload>) -> Result<()> {
-        let mut active_models = Vec::new();
-
-        for payload in payloads {
-            active_models.push(payload.to_active_model());
-        }
-
-        match self
-            .update_payloads_with_active_models(active_models.clone())
-            .await
-        {
-            Ok(_) => Ok(()),
-            Err(_) => {
-                // for now, we are assuming the update fails because no entries need
-                // to update. Hence, we will create the entries instead
-                self.create_payloads_with_active_models(active_models)
-                    .await?;
-                Ok(())
-            }
-        }
-    }
-
-    async fn update_payloads_with_active_models(
-        &self,
-        active_models: Vec<opennote_entities::payloads::ActiveModel>,
-    ) -> Result<()> {
-        use opennote_entities::payloads;
-
-        let mut update_tasks = Vec::new();
-
-        for active_model in active_models {
-            update_tasks.push(payloads::Entity::update(active_model).exec(&self.pool));
-        }
-
-        let results = join_all(update_tasks).await;
-
-        for result in results {
-            result?;
-        }
-
-        Ok(())
     }
 
     async fn delete_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>> {
@@ -364,7 +319,7 @@ impl Blocks for SQLiteDatabase {
             return Ok(());
         }
 
-        Self::check_blocks(&blocks)?;
+        let block_ids = Self::check_blocks(&blocks)?;
 
         let active_blocks_payloads_pairs = Block::to_active_models(blocks);
         let mut update_blocks_tasks = Vec::new();
@@ -375,19 +330,16 @@ impl Blocks for SQLiteDatabase {
             update_blocks_tasks.push(blocks::Entity::update(active_block_model).exec(&self.pool));
         }
 
-        let (payload_update_result, block_update_results) = join(
-            self.update_payloads_with_active_models(payloads_to_update.clone()),
+        let (payload_deletion_result, block_update_results) = join(
+            self.delete_payloads(&PayloadQuery::ByBlockIds(block_ids)),
             join_all(update_blocks_tasks),
         )
         .await;
 
-        match payload_update_result {
-            Ok(_) => {}
-            Err(_) => {
-                self.create_payloads_with_active_models(payloads_to_update)
-                    .await?
-            }
-        }
+        payload_deletion_result?;
+
+        self.create_payloads_with_active_models(payloads_to_update)
+            .await?;
 
         for result in block_update_results {
             result?;

@@ -85,7 +85,6 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
         .detach();
 }
 
-/// It will create one new block with a default title payload
 pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
     app_cx
         .spawn(async move |cx| {

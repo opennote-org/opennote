@@ -3,12 +3,14 @@ use gpui::{
     Styled, Subscription, div,
 };
 use gpui_component::input::{Input, InputState};
+use opennote_embedder::vectorization::vectorize;
+use uuid::Uuid;
 
 use opennote_core_logics::payload::convert_string_to_payloads;
 use opennote_models::block::Block;
 
 use crate::{
-    globals::{actions::update_n_blocks, bootstrap::GlobalApplicationBootStrap, states::States},
+    globals::{actions::update_n_blocks, bootstrap::GlobalApplicationBootStrap},
     key_mappings::{key_contexts::EDITOR, mappings::SaveDocument},
 };
 
@@ -19,9 +21,7 @@ pub struct Editor {
     focus_handle: FocusHandle,
     state: Entity<InputState>,
     block: Option<Block>,
-
-    /// Whether this payload has been loaded into texts already
-    is_text_preloaded: bool,
+    loaded_block_id: Option<Uuid>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -39,13 +39,35 @@ impl Editor {
                     .searchable(false)
             }),
             block: None,
-            is_text_preloaded: false,
+            loaded_block_id: None,
             _subscriptions,
         }
     }
 
     pub fn register_block(&mut self, block: Block) {
         self.block = Some(block);
+    }
+
+    /// Update the editor content with the new openned block's content
+    pub fn update_editor_content(
+        &self,
+        cx: &mut Context<Self>,
+        window: &mut gpui::Window,
+        block: &Block,
+    ) {
+        // Editing is exerted directly on texts, not payloads.
+        let texts: Vec<String> = block
+            .payloads
+            .iter()
+            .map(|item| item.texts.clone())
+            .collect();
+        let texts: String = texts.concat();
+
+        let current_value = self.state.read(cx).value();
+        if current_value.as_ref() != texts.as_str() {
+            self.state
+                .update(cx, |this, cx| this.set_value(texts, window, cx));
+        }
     }
 }
 
@@ -61,25 +83,20 @@ impl Render for Editor {
         window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        // We only load the payload for once.
-        // Editing is exerted directly on texts, not payloads.
-        if !self.is_text_preloaded {
-            if let Some(block) = &self.block {
-                let texts: Vec<String> = block
-                    .payloads
-                    .iter()
-                    .map(|item| item.texts.clone())
-                    .collect();
-                let texts: String = texts.concat();
-
-                let current_value = self.state.read(cx).value();
-                if current_value.as_ref() != texts.as_str() {
-                    self.state
-                        .update(cx, |this, cx| this.set_value(texts, window, cx));
+        match &self.block {
+            Some(block) => match self.loaded_block_id {
+                Some(loaded_block_id) => {
+                    if loaded_block_id != block.id {
+                        self.update_editor_content(cx, window, block);
+                        self.loaded_block_id = Some(block.id);
+                    }
                 }
-
-                self.is_text_preloaded = true;
-            }
+                None => {
+                    self.update_editor_content(cx, window, block);
+                    self.loaded_block_id = Some(block.id);
+                }
+            },
+            None => {}
         }
 
         div()
@@ -106,6 +123,8 @@ impl Render for Editor {
                             return;
                         }
                     };
+
+                    // TODO: vectorize the payloads
 
                     // 2. swap the payloads into the block
                     block.payloads = payloads;

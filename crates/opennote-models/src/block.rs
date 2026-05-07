@@ -96,7 +96,9 @@ impl Block {
     /// have any payload.
     pub fn get_title(&self) -> String {
         if self.payloads.len() != 0 {
-            return self.payloads[0].texts.clone();
+            let string = self.payloads[0].texts.clone();
+            let splitted: Vec<&str> = string.split("\n").collect();
+            return splitted[0].to_string();
         }
 
         return String::new();
