@@ -12,7 +12,11 @@ use crate::{
         key_contexts::WORKSPACE,
         mappings::{ToggleSearchBar, ToggleSidebar},
     },
-    widgets::{search_bar::create_search_bar, sidebar::OpenNoteSidebar, tabs::EditorTabs},
+    widgets::{
+        pane::{pane::Pane, pane_group::PaneGroup},
+        search_bar::create_search_bar,
+        sidebar::OpenNoteSidebar,
+    },
 };
 
 /// This is the root of all views in this app.
@@ -20,7 +24,7 @@ pub struct Workspace {
     focus_handle: FocusHandle,
 
     sidebar: Entity<OpenNoteSidebar>,
-    editor_tabs: Entity<EditorTabs>,
+    pane_groups: Entity<PaneGroup>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -66,7 +70,7 @@ impl Workspace {
         Ok(Self {
             focus_handle: cx.focus_handle(),
             sidebar: cx.new(|cx| OpenNoteSidebar::new(cx)),
-            editor_tabs: cx.new(|cx| EditorTabs::new(cx, window)),
+            pane_groups: cx.new(|cx| PaneGroup::new(cx.new(|cx| Pane::new(cx, window)))),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
@@ -111,7 +115,7 @@ impl Render for Workspace {
                     .flex()
                     .flex_row() // To display items in rows
                     .child(self.sidebar.clone()) // Left
-                    .child(self.editor_tabs.clone()), // Right
+                    .child(self.pane_groups.clone()), // Right
             )
             .child(create_search_bar(
                 &self.search_query,

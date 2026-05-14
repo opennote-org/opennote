@@ -3,7 +3,6 @@ use gpui::{
     Styled, Subscription, div,
 };
 use gpui_component::input::{Input, InputState};
-use opennote_embedder::vectorization::vectorize;
 use uuid::Uuid;
 
 use opennote_core_logics::payload::convert_string_to_payloads;
@@ -124,13 +123,11 @@ impl Render for Editor {
                         }
                     };
 
-                    // TODO: vectorize the payloads
-
                     // 2. swap the payloads into the block
                     block.payloads = payloads;
 
                     // 3. update blocks
-                    update_n_blocks(cx, vec![block.clone()]);
+                    update_n_blocks(cx, vec![block.clone()], true);
                     cx.notify();
                 }
             }))

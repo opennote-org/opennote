@@ -119,14 +119,52 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
         .detach();
 }
 
-pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>) {
+pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_changes: bool) {
     log::debug!("Updating blocks: {:?}", blocks);
 
-    app_cx.read_global::<GlobalApplicationBootStrap, ()>(|this, app| {
-        let databases = this.0.databases.clone();
-        let vector_database_config = this.0.configurations.system.vector_database.clone();
+    app_cx
+        .spawn(async move |cx| {
+            let mut blocks = blocks;
 
-        app.spawn(async move |app| {
+            let (databases, embedders, vector_database_config) = cx
+                .read_global::<GlobalApplicationBootStrap, (
+                    Databases,
+                    Option<EmbedderEntry>,
+                    VectorDatabaseConfig,
+                )>(|this, cx| {
+                    (
+                        this.0.databases.clone(),
+                        this.0.embedders.clone(),
+                        this.0.configurations.system.vector_database.clone(),
+                    )
+                })?;
+
+            if with_payload_changes {
+                match &embedders {
+                    Some(embedders) => {
+                        // TODO: make this concurrent
+                        for block in blocks.iter_mut() {
+                            // Take the payloads out, and swap in a default value temporarily
+                            let payloads = std::mem::take(&mut block.payloads);
+
+                            let mut vectorized_payloads =
+                                send_vectorization(payloads, &embedders).await?;
+
+                            if let Some(vectorized_payload) = vectorized_payloads.pop() {
+                                // Put the payload value back
+                                block.payloads.push(vectorized_payload);
+                            }
+                        }
+                    }
+                    None => {
+                        log::error!(
+                            "No embedders available. Please load an embedder before proceeding"
+                        );
+                        return Err(anyhow::anyhow!("No embedders available"));
+                    }
+                }
+            }
+
             match update_blocks(&vector_database_config, &databases, blocks).await {
                 Ok(_) => {}
                 Err(error) => log::error!("{}", error),
@@ -134,12 +172,13 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>) {
 
             log::debug!("Blocks update finished, preceed to refreshing the block list...");
 
-            let _ = app.update_global::<States, ()>(|_this, cx| {
+            let _ = cx.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
             });
+
+            Ok::<(), anyhow::Error>(())
         })
         .detach();
-    });
 }
 
 pub fn update_parent(

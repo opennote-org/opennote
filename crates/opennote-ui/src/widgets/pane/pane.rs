@@ -1,26 +1,73 @@
-use gpui::{
-    AppContext, BorrowAppContext, Context, ElementId, Entity, ParentElement, Render, SharedString,
-    Styled, Subscription, div,
-};
-use gpui_component::{
-    IconName, Selectable, Sizable,
-    button::{Button, ButtonRounded, ButtonVariants},
-    tab::{Tab, TabBar},
-};
-
-use opennote_models::block::Block;
+use gpui::{Action, DragMoveEvent, ElementId, Entity, Point, SharedString, Subscription, div};
+use gpui::{App, Context, FocusHandle, Focusable, Render, Window, prelude::*};
+use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
+use gpui_component::{IconName, Selectable, Sizable};
+use schemars::JsonSchema;
+use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::{globals::states::States, widgets::editor::Editor};
+use opennote_models::block::Block;
 
-pub struct EditorTabs {
+use crate::globals::states::States;
+use crate::libs::tabs::drag::DraggedItem;
+use crate::libs::tabs::tab::Tab;
+use crate::libs::tabs::tab_bar::TabBar;
+use crate::widgets::editor::Editor;
+use crate::widgets::pane::pane_group::SplitDirection;
+
+macro_rules! split_structs {
+    ($($name:ident => $doc:literal),* $(,)?) => {
+        $(
+            #[doc = $doc]
+            #[derive(Clone, PartialEq, Debug, Deserialize, Default, Action, JsonSchema)]
+            #[action(namespace = pane)]
+            #[serde(deny_unknown_fields, default)]
+            pub struct $name {
+                pub mode: SplitMode,
+            }
+        )*
+    };
+}
+
+split_structs!(
+    SplitLeft => "Splits the pane to the left.",
+    SplitRight => "Splits the pane to the right.",
+    SplitUp => "Splits the pane upward.",
+    SplitDown => "Splits the pane downward.",
+    SplitHorizontal => "Splits the pane horizontally.",
+    SplitVertical => "Splits the pane vertically."
+);
+
+const MAX_NAVIGATION_HISTORY_LEN: usize = 1024;
+const DROP_TARGET_SIZE: f32 = 0.2;
+
+#[derive(Clone, Copy, PartialEq, Debug, Deserialize, Default, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub enum SplitMode {
+    /// Clone the current pane.
+    #[default]
+    ClonePane,
+    /// Create an empty new pane.
+    EmptyPane,
+    /// Move the item into a new pane. This will map to nop if only one pane exists.
+    MovePane,
+}
+
+/// A container for 0 to many items that are open in the workspace.
+/// Treats all items uniformly via the [`ItemHandle`] trait, whether it's an editor, search results multibuffer, terminal or something else,
+/// responsible for managing item tabs, focus and zoom states and drag and drop features.
+/// Can be split, see `PaneGroup` for more details.
+pub struct Pane {
     opened_blocks: Vec<Block>,
     editor: Entity<Editor>,
-
+    drag_split_direction: Option<SplitDirection>,
+    // focus_handle: FocusHandle,
+    // active_item_index: usize,
+    // pub drag_split_direction: Option<SplitDirection>,
     _subscriptions: Vec<Subscription>,
 }
 
-impl EditorTabs {
+impl Pane {
     pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window) -> Self {
         let mut _subscriptions = Vec::new();
 
@@ -49,6 +96,7 @@ impl EditorTabs {
         }));
 
         Self {
+            drag_split_direction: None,
             editor: cx.new(|cx| Editor::new(cx, window)),
             opened_blocks: Vec::new(),
             _subscriptions,
@@ -113,14 +161,64 @@ impl EditorTabs {
 
         // no tab closing for 0 tabs
     }
+
+    fn handle_drag_move<T: 'static>(
+        &mut self,
+        event: &DragMoveEvent<T>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
+        let pane_area = event.bounds.size;
+
+        let relative_cursor = Point::new(
+            event.event.position.x - event.bounds.left(),
+            event.event.position.y - event.bounds.top(),
+        );
+
+        // Relative size of the drop target in the editor that will open dropped file as a split pane (0-0.5)
+        // E.g. 0.25 == If you drop onto the top/bottom quarter of the pane a new vertical split will be used
+        //              If you drop onto the left/right quarter of the pane a new horizontal split will be used
+        //
+        // Referenced from Zed editor's default.json
+        let size = event.bounds.size.width.min(event.bounds.size.height) * DROP_TARGET_SIZE;
+
+        let direction = if relative_cursor.x < size
+            || relative_cursor.x > pane_area.width - size
+            || relative_cursor.y < size
+            || relative_cursor.y > pane_area.height - size
+        {
+            [
+                SplitDirection::Up,
+                SplitDirection::Right,
+                SplitDirection::Down,
+                SplitDirection::Left,
+            ]
+            .iter()
+            .min_by_key(|side| match side {
+                SplitDirection::Up => relative_cursor.y,
+                SplitDirection::Right => pane_area.width - relative_cursor.x,
+                SplitDirection::Down => pane_area.height - relative_cursor.y,
+                SplitDirection::Left => relative_cursor.x,
+            })
+            .cloned()
+        } else {
+            None
+        };
+
+        if direction != self.drag_split_direction {
+            self.drag_split_direction = direction;
+        }
+    }
 }
 
-impl Render for EditorTabs {
-    fn render(
-        &mut self,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) -> impl gpui::IntoElement {
+// impl Focusable for Pane {
+//     fn focus_handle(&self, _cx: &App) -> FocusHandle {
+//         self.focus_handle.clone()
+//     }
+// }
+
+impl Render for Pane {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
 
         if self.opened_blocks.is_empty() {
@@ -132,7 +230,6 @@ impl Render for EditorTabs {
             let mut selected = false;
 
             let states: &States = cx.global();
-
             // The active block is the focused block
             if let Some(active_block_id) = states.active_block_id {
                 if active_block_id == id {
@@ -183,6 +280,10 @@ impl Render for EditorTabs {
             }
         });
 
-        base_div.h_full().child(tabs).child(editor)
+        base_div
+            .h_full()
+            .child(tabs)
+            .child(editor)
+            .on_drag_move::<DraggedItem>(cx.listener(Self::handle_drag_move)) // TODO: render the split preview
     }
 }

@@ -41,6 +41,7 @@ pub async fn vectorize(
     Ok(chunks)
 }
 
+/// It will parallelize the vectorization. 
 pub async fn send_vectorization(
     mut queries: Vec<Payload>,
     embedder_entry: &EmbedderEntry,

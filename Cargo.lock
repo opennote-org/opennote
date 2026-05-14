@@ -8320,8 +8320,10 @@ dependencies = [
  "opennote-embedder",
  "opennote-models",
  "rust-embed",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
+ "smallvec 1.15.1",
  "tokio",
  "uuid",
 ]

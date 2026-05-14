@@ -1,4 +1,4 @@
-use sea_orm::ActiveValue::{Set, Unchanged};
+use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
