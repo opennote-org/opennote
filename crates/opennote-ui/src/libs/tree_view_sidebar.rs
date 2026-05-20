@@ -102,16 +102,7 @@ impl RenderOnce for TreeViewSidebar {
                     v_flex()
                         .id("inner")
                         .p_3()
-                        .children(
-                            // self.content
-                            //     .into_iter()
-                            //     .enumerate()
-                            //     .map(|(ix, c)| {
-                            //         dbg!("Rendering", ix);
-                            //         div().id(ix).mt_3().child(c)
-                            //     }),
-                            self.content,
-                        )
+                        .children(self.content)
                         .overflow_y_scrollbar(),
                 ),
             )

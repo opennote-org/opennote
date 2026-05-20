@@ -20,8 +20,12 @@ pub struct States {
     /*
      * Blocks
      */
-    pub active_block_id: Option<Uuid>,
     pub blocks: HashMap<Uuid, Block>,
+
+    /*
+     * Panes
+     */
+    pub active_pane_id: Option<Uuid>,
 }
 
 impl Global for States {}
@@ -30,8 +34,8 @@ impl States {
     pub fn new() -> Self {
         Self {
             errors: Vec::new(),
-            active_block_id: None,
             blocks: HashMap::new(),
+            active_pane_id: None,
         }
     }
 
@@ -39,26 +43,26 @@ impl States {
         cx.set_global(States::new());
     }
 
-    /// Set the block for user operations
-    pub fn set_active_block_id(&mut self, block_id: Uuid) {
-        self.active_block_id = Some(block_id)
-    }
+    // /// Set the block for user operations
+    // pub fn set_active_block_id(&mut self, block_id: Uuid) {
+    //     self.active_block_id = Some(block_id)
+    // }
 
     /// Overwrite the existing blocks in the states with the new blocks
     pub fn hard_update_blocks(&mut self, blocks: Vec<Block>) {
         self.blocks = HashMap::from_iter(blocks.into_iter().map(|item| (item.id, item)));
     }
 
-    /// Get the active block as a Block type
-    pub fn get_active_block(&self) -> Option<&Block> {
-        if let Some(active_block_id) = &self.active_block_id {
-            if let Some(active_block) = self.blocks.get(active_block_id) {
-                return Some(active_block);
-            }
-        }
+    // /// Get the active block as a Block type
+    // pub fn get_active_block(&self) -> Option<&Block> {
+    //     if let Some(active_block_id) = &self.active_block_id {
+    //         if let Some(active_block) = self.blocks.get(active_block_id) {
+    //             return Some(active_block);
+    //         }
+    //     }
 
-        return None;
-    }
+    //     return None;
+    // }
 
     pub fn refresh_blocks_list(cx: &mut App) {
         log::debug!("Refreshing blocks...");

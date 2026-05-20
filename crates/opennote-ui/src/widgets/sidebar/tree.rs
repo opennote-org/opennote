@@ -68,6 +68,9 @@ pub fn create_root_tree_list_item(
         )
 }
 
+// TODO: 
+// - Dropping items on another one won't create tree any more!
+// - Dragging items only show 0 items now!
 pub fn create_tree_list_item(
     index: usize,
     entry: &crate::libs::tree::TreeEntry,

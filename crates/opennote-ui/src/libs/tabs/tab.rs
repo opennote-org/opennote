@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, AppContext, ClickEvent, Div, ElementId, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div,
+    AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement, IntoElement, ParentElement,
+    RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, relative,
 };
 use gpui_component::{Icon, IconName, Selectable, Sizable, Size, StyledExt, h_flex};
 
-use crate::libs::tabs::{drag::DraggedItem, tab_variant::TabVariant};
+use crate::libs::tabs::tab_variant::TabVariant;
 
 /// A Tab element for the [`super::TabBar`].
 #[derive(IntoElement)]
@@ -212,11 +212,6 @@ impl RenderOnce for Tab {
         let inner_height = self.variant.inner_height(self.size);
         let height = self.variant.height(self.size);
 
-        let dragged_tab = DraggedItem {
-            element_id: self.id.clone(),
-            label: self.label.clone(),
-        };
-
         self.base
             .id(self.id)
             .flex()
@@ -295,20 +290,5 @@ impl RenderOnce for Tab {
                     this.on_click(move |event, window, cx| on_click(event, window, cx))
                 })
             })
-            .on_drag(
-                dragged_tab.clone(),
-                move |value: &DraggedItem, point, window, app| app.new(|_| dragged_tab.clone()),
-            )
-        // .drag_over::<DraggedTab>(move |tab, dragged_tab: &DraggedTab, _, cx| {
-        //     let styled_tab = tab
-        //         .bg(cx.theme().blue)
-        //         .border_color(cx.theme().blue)
-        //         .border_0();
-
-        //     styled_tab.border_r_2()
-        // })
-        // .on_drop(move |dragged: &DraggedTab, window, app| {
-
-        // })
     }
 }

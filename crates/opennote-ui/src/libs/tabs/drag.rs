@@ -1,5 +1,10 @@
-use gpui::{Context, ElementId, IntoElement, ParentElement, Render, SharedString, Styled, div};
+use gpui::{
+    Context, ElementId, Entity, IntoElement, ParentElement, Render, SharedString, Styled, div,
+};
 use gpui_component::ActiveTheme;
+use uuid::Uuid;
+
+use crate::{libs::tabs::tab::Tab, widgets::pane::pane::Pane};
 
 // TODO:
 // - create a single DraggedItem for dragging operations on the same layer
@@ -7,11 +12,10 @@ use gpui_component::ActiveTheme;
 // - sidebar tabs can be dragged to re-order
 // - sidebar tabs can be dragged to open and split
 
-
 #[derive(Debug, Clone)]
 pub struct DraggedItem {
-    pub element_id: ElementId,
     pub label: Option<SharedString>,
+    pub block_id: Option<Uuid>
 }
 
 impl Render for DraggedItem {

@@ -1,14 +1,17 @@
+//! TODO:
+//! - Might need to introduce `basis` to renders to avoid fast drag issues
+
 use gpui::{
-    AnyElement, App, Axis, Bounds, Element, Entity, IntoElement, ParentElement, Pixels, Render,
-    Window, div, point, size,
+    AnyElement, App, Axis, Bounds, Element, Entity, IntoElement, ParentElement,
+    Pixels, Render, Styled, Window, div, point, relative, size,
 };
+use gpui_component::{h_flex, v_flex};
 use serde::Deserialize;
+use uuid::Uuid;
 
 use crate::widgets::pane::pane::Pane;
 
 pub const HANDLE_HITBOX_SIZE: f32 = 4.0;
-const HORIZONTAL_MIN_SIZE: f32 = 80.;
-const VERTICAL_MIN_SIZE: f32 = 100.;
 
 /// One or many panes, arranged in a horizontal or vertical axis due to a split.
 /// Panes have all their tabs and capabilities preserved, and can be split again or resized.
@@ -25,6 +28,49 @@ impl PaneGroup {
             root: Member::Pane(pane),
             is_center: false,
         }
+    }
+
+    fn get_pane_recursively(cx: &mut App, member: &Member, pane_id: Uuid) -> Option<Entity<Pane>> {
+        match member {
+            Member::Axis(axis) => {
+                for member in axis.members.iter() {
+                    if let Some(pane) = Self::get_pane_recursively(cx, member, pane_id) {
+                        return Some(pane);
+                    }
+                }
+
+                None
+            }
+            Member::Pane(pane) => {
+                let pane_reference = pane.read(cx);
+                if pane_reference.id == pane_id {
+                    return Some(pane.clone());
+                }
+
+                None
+            }
+        }
+    }
+
+    pub fn get_pane_by_id(&self, cx: &mut App, pane_id: Uuid) -> Option<Entity<Pane>> {
+        Self::get_pane_recursively(cx, &self.root, pane_id)
+    }
+
+    pub fn split(
+        &mut self,
+        old_pane: &Entity<Pane>,
+        new_pane: &Entity<Pane>,
+        direction: SplitDirection,
+        _cx: &mut App,
+    ) {
+        match &mut self.root {
+            Member::Pane(_pane) => {
+                self.root = Member::new_axis(old_pane.clone(), new_pane.clone(), direction);
+            }
+            Member::Axis(axis) => {
+                let _ = axis.split(old_pane, new_pane, direction);
+            }
+        };
     }
 }
 
@@ -52,9 +98,9 @@ impl Member {
         Member::Axis(PaneAxis::new(axis, members))
     }
 
-    pub fn render(&self, basis: usize, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    pub fn render(&self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         match self {
-            Member::Axis(axis) => axis.render(basis, window, cx),
+            Member::Axis(axis) => axis.render(window, cx),
             Member::Pane(pane) => pane.clone().into_any_element(),
         }
     }
@@ -71,8 +117,73 @@ impl PaneAxis {
         Self { axis, members }
     }
 
-    pub fn render(&self, basis: usize, window: &mut Window, cx: &mut App) -> AnyElement {
-        div().into_any()
+    pub fn render(&self, window: &mut Window, cx: &mut App) -> AnyElement {
+        // What is the use of axis variable of PaneAxis?
+        // Determine the direction of the Panes in this PaneAxis
+        let mut div = match self.axis {
+            Axis::Horizontal => h_flex().size_full(),
+            Axis::Vertical => v_flex().size_full(),
+        };
+
+        let num_members = self.members.len();
+
+        for member in self.members.iter() {
+            match member {
+                // But how we are going to display the PaneAxis?
+                // Recurse into it
+                Member::Axis(axis) => {
+                    div = div
+                        .child(axis.render(window, cx))
+                        .flex_basis(relative(1.0 / num_members as f32)) // Make each pane displayed in equal ratio
+                }
+                Member::Pane(pane) => {
+                    div = div
+                        // .flex_shrink()
+                        // .min_w_0()
+                        .child(pane.clone().into_any_element())
+                        .flex_basis(relative(1.0 / num_members as f32)) // Same as the one above
+                }
+            }
+        }
+
+        div.into_any()
+    }
+
+    fn split(
+        &mut self,
+        old_pane: &Entity<Pane>,
+        new_pane: &Entity<Pane>,
+        direction: SplitDirection,
+    ) -> bool {
+        for (mut idx, member) in self.members.iter_mut().enumerate() {
+            match member {
+                Member::Axis(axis) => {
+                    if axis.split(old_pane, new_pane, direction) {
+                        return true;
+                    }
+                }
+                Member::Pane(pane) => {
+                    if pane == old_pane {
+                        if direction.axis() == self.axis {
+                            if direction.increasing() {
+                                idx += 1;
+                            }
+                            self.insert_pane(idx, new_pane);
+                        } else {
+                            *member =
+                                Member::new_axis(old_pane.clone(), new_pane.clone(), direction);
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    fn insert_pane(&mut self, idx: usize, new_pane: &Entity<Pane>) {
+        self.members.insert(idx, Member::Pane(new_pane.clone()));
+        // *self.flexes.lock() = vec![1.; self.members.len()];
     }
 }
 
@@ -157,6 +268,10 @@ impl SplitDirection {
 
 impl Render for PaneGroup {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
-        self.root.render(0, window, cx)
+        div()
+            .flex_1()
+            .flex_col()
+            .size_full()
+            .child(self.root.render(window, cx)) // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
     }
 }

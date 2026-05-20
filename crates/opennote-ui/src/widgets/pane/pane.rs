@@ -1,19 +1,23 @@
-use gpui::{Action, DragMoveEvent, ElementId, Entity, Point, SharedString, Subscription, div};
-use gpui::{App, Context, FocusHandle, Focusable, Render, Window, prelude::*};
+//! TODO:
+//! - After dropping, the new pane is not focused
+
+use gpui::{
+    Action, DefiniteLength, DragMoveEvent, ElementId, Entity, Point, SharedString, Subscription,
+    WeakEntity, div,
+};
+use gpui::{Context, FocusHandle, Render, Window, prelude::*};
 use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
-use gpui_component::{IconName, Selectable, Sizable};
+use gpui_component::{ActiveTheme, IconName, Selectable, Sizable};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use uuid::Uuid;
-
-use opennote_models::block::Block;
 
 use crate::globals::states::States;
 use crate::libs::tabs::drag::DraggedItem;
 use crate::libs::tabs::tab::Tab;
 use crate::libs::tabs::tab_bar::TabBar;
 use crate::widgets::editor::Editor;
-use crate::widgets::pane::pane_group::SplitDirection;
+use crate::widgets::pane::pane_group::{PaneGroup, SplitDirection};
 
 macro_rules! split_structs {
     ($($name:ident => $doc:literal),* $(,)?) => {
@@ -38,7 +42,6 @@ split_structs!(
     SplitVertical => "Splits the pane vertically."
 );
 
-const MAX_NAVIGATION_HISTORY_LEN: usize = 1024;
 const DROP_TARGET_SIZE: f32 = 0.2;
 
 #[derive(Clone, Copy, PartialEq, Debug, Deserialize, Default, JsonSchema)]
@@ -58,71 +61,54 @@ pub enum SplitMode {
 /// responsible for managing item tabs, focus and zoom states and drag and drop features.
 /// Can be split, see `PaneGroup` for more details.
 pub struct Pane {
-    opened_blocks: Vec<Block>,
+    pub id: Uuid,
+    focus_handle: FocusHandle,
+    selected_block_id: Option<Uuid>,
+    opened_block_ids: Vec<Uuid>,
     editor: Entity<Editor>,
     drag_split_direction: Option<SplitDirection>,
-    // focus_handle: FocusHandle,
-    // active_item_index: usize,
-    // pub drag_split_direction: Option<SplitDirection>,
+    pane_group: WeakEntity<PaneGroup>,
+
     _subscriptions: Vec<Subscription>,
 }
 
 impl Pane {
-    pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window) -> Self {
+    pub fn new(
+        cx: &mut Context<Self>,
+        window: &mut gpui::Window,
+        pane_group: WeakEntity<PaneGroup>,
+    ) -> Self {
         let mut _subscriptions = Vec::new();
 
-        // However, we can use observe_global_in to use `window`, if needed
-        _subscriptions.push(cx.observe_global::<States>(|this, cx| {
-            log::debug!("Editor refreshes because the global state had changed");
-
-            cx.read_global::<States, ()>(|states, _cx| {
-                // The active block sticks with the global active block
-                if let Some(active_block_id) = &states.active_block_id {
-                    // Skip if the block has been openned
-                    for opened_block in this.opened_blocks.iter() {
-                        if opened_block.id == *active_block_id {
-                            return;
-                        }
-                    }
-
-                    let block = states.get_active_block();
-                    if let Some(block) = block {
-                        this.opened_blocks.push(block.clone());
-                    }
-                }
-            });
-
-            cx.notify();
-        }));
-
         Self {
+            id: Uuid::new_v4(),
+            focus_handle: cx.focus_handle(),
+            selected_block_id: None,
             drag_split_direction: None,
             editor: cx.new(|cx| Editor::new(cx, window)),
-            opened_blocks: Vec::new(),
+            opened_block_ids: Vec::new(),
+            pane_group,
             _subscriptions,
         }
     }
 
-    fn close_tab(&mut self, block_id: Uuid, cx: &mut Context<Self>) {
-        let states: &States = cx.global();
-        let active_block = states.get_active_block();
-
+    fn close_tab(&mut self, block_id: &Uuid, cx: &mut Context<Self>) {
         // if we have multiple tabs openning
-        if self.opened_blocks.len() > 1 {
+        if self.opened_block_ids.len() > 1 {
             // Remove the closed block from the openned blocks,
             // while also retain an index for moving the focus to the prevoius one
             let mut removed_index: isize = 0;
-            for (index, block) in self.opened_blocks.iter().enumerate() {
-                if block.id == block_id && index != 0 {
+            for (index, opened_block_id) in self.opened_block_ids.iter().enumerate() {
+                if opened_block_id == block_id && index != 0 {
                     removed_index = index as isize;
                     break;
                 }
             }
 
-            self.opened_blocks.remove(removed_index as usize);
+            self.opened_block_ids.remove(removed_index as usize);
 
             // Move the focus to the previous tab / block
-            if let Some(active_block) = active_block {
+            if let Some(selected_block_id) = &self.selected_block_id {
                 let mut index_to_focus = removed_index - 1;
 
                 // Handle if the closed tab is the first one with no previous tabs
@@ -130,15 +116,14 @@ impl Pane {
                     index_to_focus = 0;
                 }
 
-                let Some(move_to_block) = self.opened_blocks.get(index_to_focus as usize) else {
+                let Some(block_to_be_selected) = self.opened_block_ids.get(index_to_focus as usize)
+                else {
                     return;
                 };
 
                 // Move the focus only when the active block has been closed
-                if active_block.id == block_id {
-                    cx.update_global::<States, ()>(|this, _cx| {
-                        this.set_active_block_id(move_to_block.id);
-                    });
+                if selected_block_id == block_id {
+                    self.selected_block_id = Some(block_to_be_selected.clone())
                 }
             }
 
@@ -150,11 +135,9 @@ impl Pane {
         }
 
         // if we only have 1 tab openning
-        if self.opened_blocks.len() == 1 {
-            self.opened_blocks.clear();
-            cx.update_global::<States, ()>(|this, _cx| {
-                this.active_block_id = None;
-            });
+        if self.opened_block_ids.len() == 1 {
+            self.opened_block_ids.clear();
+            self.selected_block_id = None;
 
             cx.notify();
         }
@@ -166,9 +149,10 @@ impl Pane {
         &mut self,
         event: &DragMoveEvent<T>,
         _window: &mut Window,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) {
         let pane_area = event.bounds.size;
+        let cursor_position = event.event.position;
 
         let relative_cursor = Point::new(
             event.event.position.x - event.bounds.left(),
@@ -181,6 +165,13 @@ impl Pane {
         //
         // Referenced from Zed editor's default.json
         let size = event.bounds.size.width.min(event.bounds.size.height) * DROP_TARGET_SIZE;
+
+        // Reset the drag split direction when the mouse is no longer in this pane
+        if !event.bounds.contains(&cursor_position) {
+            self.drag_split_direction = None;
+            cx.notify();
+            return;
+        }
 
         let direction = if relative_cursor.x < size
             || relative_cursor.x > pane_area.width - size
@@ -208,6 +199,55 @@ impl Pane {
         if direction != self.drag_split_direction {
             self.drag_split_direction = direction;
         }
+
+        cx.notify();
+    }
+
+    fn handle_item_drop(
+        &mut self,
+        dragged_item: &DraggedItem,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let current_pane = cx.entity();
+        let split_direction = self.drag_split_direction.take();
+        let Some(dragged_block_id) = dragged_item.block_id else {
+            return;
+        };
+
+        // Close the dragged tab to create the `move tab` effect
+        self.close_tab(&dragged_block_id, cx);
+
+        // Will recursively split
+        let _ = self.pane_group.update(cx, |this, cx| {
+            let pane_group_reference = cx.weak_entity();
+            let new_pane = cx.new(|cx| Pane::new(cx, window, pane_group_reference));
+            new_pane.update(cx, |this, cx| {
+                this.set_selected_block_by_block_id(dragged_block_id, cx);
+            });
+
+            if let Some(direction) = split_direction {
+                this.split(&current_pane, &new_pane, direction, cx);
+            }
+
+            cx.notify();
+        });
+
+        cx.notify();
+    }
+
+    pub fn set_selected_block_by_block_id(&mut self, block_id: Uuid, cx: &mut Context<Self>) {
+        for opened_block_id in self.opened_block_ids.iter() {
+            if *opened_block_id == block_id {
+                self.selected_block_id = Some(*opened_block_id);
+                cx.notify();
+                return;
+            }
+        }
+
+        self.opened_block_ids.push(block_id);
+        self.selected_block_id = Some(block_id);
+        cx.notify();
     }
 }
 
@@ -218,27 +258,37 @@ impl Pane {
 // }
 
 impl Render for Pane {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
 
-        if self.opened_blocks.is_empty() {
+        if self.opened_block_ids.is_empty() {
             return base_div.child("No documents yet");
         }
 
-        let tabs = TabBar::new("tabs").children(self.opened_blocks.iter().map(|item| {
-            let id = item.id;
+        let tabs = TabBar::new("tabs").children(self.opened_block_ids.iter().map(|id| {
+            let id = id.clone();
             let mut selected = false;
 
-            let states: &States = cx.global();
             // The active block is the focused block
-            if let Some(active_block_id) = states.active_block_id {
-                if active_block_id == id {
+            if let Some(selected_block_id) = &self.selected_block_id {
+                if *selected_block_id == id {
                     selected = true;
                 }
             }
 
+            let states: &States = cx.global();
+            let mut title = String::new();
+            if let Some(block) = states.blocks.get(&id) {
+                title = block.get_title();
+            }
+
+            let dragged_item = DraggedItem {
+                label: Some(SharedString::from(title.clone())),
+                block_id: Some(id),
+            };
+
             Tab::new()
-                .label(item.get_title())
+                .label(title)
                 .selected(selected)
                 .suffix(
                     Button::new(ElementId::Name(SharedString::from(format!("close-{}", id))))
@@ -247,22 +297,39 @@ impl Render for Pane {
                         .xsmall()
                         .rounded(ButtonRounded::Medium)
                         .on_click(cx.listener(move |view, _, _, cx| {
-                            view.close_tab(id, cx);
+                            view.close_tab(&id, cx);
                             cx.stop_propagation();
                         })),
                 )
-                .on_click(move |event, _window, cx| {
-                    if !event.is_right_click() {
-                        cx.update_global(|this: &mut States, _cx| {
-                            this.set_active_block_id(id);
-                        });
-                    }
-                })
+                .on_click(
+                    cx.listener(move |view, event: &gpui::ClickEvent, _window, _cx| {
+                        if !event.is_right_click() {
+                            // cx.update_global(|this: &mut States, _cx| {
+                            //     this.set_active_block_id(id);
+                            // });
+                            view.selected_block_id = Some(id)
+                        }
+                    }),
+                )
+                .on_drag(
+                    dragged_item.clone(),
+                    move |value: &DraggedItem, _point, _window, app| app.new(|_| value.clone()),
+                )
+            // .drag_over::<DraggedTab>(move |tab, dragged_tab: &DraggedTab, _, cx| {
+            //     let styled_tab = tab
+            //         .bg(cx.theme().blue)
+            //         .border_color(cx.theme().blue)
+            //         .border_0();
+
+            //     styled_tab.border_r_2()
+            // })
+            // .on_drop(move |dragged: &DraggedTab, window, app| {
+
+            // })
         }));
 
         // Open editor only when there is an active block
-        let states: &States = cx.global();
-        let Some(_) = states.active_block_id.clone() else {
+        if self.selected_block_id.is_none() {
             return base_div.child(tabs);
         };
 
@@ -271,19 +338,53 @@ impl Render for Pane {
             // The backend is always the source of truth.
             // We fetch the block from the backend with the current uuid.
 
-            let states: &States = cx.global();
-
-            let block = states.get_active_block();
-
-            if let Some(block) = block {
-                this.register_block(block.clone());
+            if let Some(selected_block_id) = self.selected_block_id {
+                let states: &States = cx.global();
+                if let Some(block) = states.blocks.get(&selected_block_id) {
+                    this.register_block(block.clone());
+                }
             }
         });
 
-        base_div
-            .h_full()
-            .child(tabs)
-            .child(editor)
-            .on_drag_move::<DraggedItem>(cx.listener(Self::handle_drag_move)) // TODO: render the split preview
+        log::debug!("Rendering the pane... {:?}", self.drag_split_direction);
+        base_div.h_full().child(tabs).child(
+            div()
+                .h_full()
+                .on_drag_move::<DraggedItem>(cx.listener(Self::handle_drag_move)) // Calculate the split preview area
+                .child(editor)
+                .child(
+                    div()
+                        .absolute()
+                        .bg(cx.theme().blue.opacity(0.3)) // Split preview style
+                        .invisible()
+                        .on_drop(cx.listener(
+                            move |this, dragged_item: &DraggedItem, window, cx| {
+                                this.handle_item_drop(dragged_item, window, cx);
+                            },
+                        ))
+                        .map(|div| {
+                            // Note that we didn't use group drag over like Zed,
+                            // because it didn't work here after several tries.
+                            // Might need to look into this further if there are further issues.
+                            log::debug!("Render split previews...");
+                            let size = DefiniteLength::Fraction(0.5);
+                            match self.drag_split_direction {
+                                None => div.top_0().right_0().bottom_0().left_0(),
+                                Some(SplitDirection::Up) => {
+                                    div.top_0().left_0().right_0().h(size).visible() // Set to visible when dragged over this area
+                                }
+                                Some(SplitDirection::Down) => {
+                                    div.left_0().bottom_0().right_0().h(size).visible()
+                                }
+                                Some(SplitDirection::Left) => {
+                                    div.top_0().left_0().bottom_0().w(size).visible()
+                                }
+                                Some(SplitDirection::Right) => {
+                                    div.top_0().bottom_0().right_0().w(size).visible()
+                                }
+                            }
+                        }),
+                ),
+        )
     }
 }

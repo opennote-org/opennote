@@ -3,7 +3,7 @@ pub mod tree;
 use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, div,
+    InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, WeakEntity, div,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
@@ -15,6 +15,7 @@ use crate::{
         tree::{Tree, TreeState, drag::DraggedBlocks, tree},
         tree_view_sidebar::TreeViewSidebar,
     },
+    views::workspace::Workspace,
     widgets::{
         blocks_tree::build_blocks_tree,
         sidebar::tree::{create_root_tree_list_item, create_tree_list_item},
@@ -24,6 +25,7 @@ use opennote_models::block::Block;
 
 #[derive(Debug)]
 pub struct OpenNoteSidebar {
+    workspace: WeakEntity<Workspace>,
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
@@ -32,7 +34,7 @@ pub struct OpenNoteSidebar {
 }
 
 impl OpenNoteSidebar {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(cx: &mut Context<Self>, workspace: WeakEntity<Workspace>) -> Self {
         let mut _subscriptions = Vec::new();
 
         let tree_state = cx.new(|cx| TreeState::new(cx));
@@ -44,8 +46,9 @@ impl OpenNoteSidebar {
         }));
 
         _subscriptions.push(cx.observe(&tree_state, |this, _tree_state, cx| {
+            let workspace = this.workspace.clone();
             if let Some(selected) = this.tree_state.read(cx).selected_block {
-                cx.update_global::<States, ()>(|global, _cx| {
+                cx.update_global::<States, ()>(|global, cx| {
                     let selected_block_id = {
                         let mut selected_block: Vec<&Block> = global
                             .blocks
@@ -61,17 +64,32 @@ impl OpenNoteSidebar {
                         selected_block.remove(0).id
                     };
 
-                    global.set_active_block_id(selected_block_id);
+                    // Get the active pane id
+                    if let Some(active_pane_id) = global.active_pane_id {
+                        let _ = workspace.update(cx, |this, cx| {
+                            // Get the active pane from PaneGroup with the active pane id
+                            this.pane_group.update(cx, |this, cx| {
+                                if let Some(pane) = this.get_pane_by_id(cx, active_pane_id) {
+                                    pane.update(cx, |this, cx| {
+                                        // Set the selected block in the active pane
+                                        this.set_selected_block_by_block_id(selected_block_id, cx);
+                                    });
+                                }
+                            });
+                        });
+                    }
+
                     log::debug!("Set active block to {}", selected_block_id);
                 });
             }
 
-            this.tree_state.update(cx, |this, cx| {
+            this.tree_state.update(cx, |this, _cx| {
                 this.selected_block = None;
             });
         }));
 
         Self {
+            workspace,
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
             tree_state,

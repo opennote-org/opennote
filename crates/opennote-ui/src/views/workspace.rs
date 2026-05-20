@@ -5,9 +5,10 @@ use gpui_component::{
     input::{InputEvent, InputState},
     notification::NotificationType,
 };
+use uuid::Uuid;
 
 use crate::{
-    globals::helpers::get_language_profile,
+    globals::{helpers::get_language_profile, states::States},
     key_mappings::{
         key_contexts::WORKSPACE,
         mappings::{ToggleSearchBar, ToggleSidebar},
@@ -23,8 +24,8 @@ use crate::{
 pub struct Workspace {
     focus_handle: FocusHandle,
 
-    sidebar: Entity<OpenNoteSidebar>,
-    pane_groups: Entity<PaneGroup>,
+    pub sidebar: Entity<OpenNoteSidebar>,
+    pub pane_group: Entity<PaneGroup>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -67,10 +68,24 @@ impl Workspace {
             }
         }));
 
+        let workspace_weak_entity = cx.weak_entity();
+
         Ok(Self {
             focus_handle: cx.focus_handle(),
-            sidebar: cx.new(|cx| OpenNoteSidebar::new(cx)),
-            pane_groups: cx.new(|cx| PaneGroup::new(cx.new(|cx| Pane::new(cx, window)))),
+            sidebar: cx.new(|cx| OpenNoteSidebar::new(cx, workspace_weak_entity)),
+            pane_group: cx.new(|pane_group_cx| {
+                let pane_group = pane_group_cx.weak_entity();
+                let pane_entity = pane_group_cx.new(|cx| Pane::new(cx, window, pane_group));
+                let pane_id = pane_entity.read(pane_group_cx).id;
+
+                // Set the active pane to be the one we have just created,
+                // so we don't have empty PaneGroup
+                pane_group_cx.update_global::<States, ()>(|this, _cx| {
+                    this.active_pane_id = Some(pane_id);
+                });
+
+                PaneGroup::new(pane_entity)
+            }),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
@@ -115,7 +130,7 @@ impl Render for Workspace {
                     .flex()
                     .flex_row() // To display items in rows
                     .child(self.sidebar.clone()) // Left
-                    .child(self.pane_groups.clone()), // Right
+                    .child(self.pane_group.clone()), // Right
             )
             .child(create_search_bar(
                 &self.search_query,
