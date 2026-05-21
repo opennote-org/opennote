@@ -43,26 +43,10 @@ impl States {
         cx.set_global(States::new());
     }
 
-    // /// Set the block for user operations
-    // pub fn set_active_block_id(&mut self, block_id: Uuid) {
-    //     self.active_block_id = Some(block_id)
-    // }
-
     /// Overwrite the existing blocks in the states with the new blocks
     pub fn hard_update_blocks(&mut self, blocks: Vec<Block>) {
         self.blocks = HashMap::from_iter(blocks.into_iter().map(|item| (item.id, item)));
     }
-
-    // /// Get the active block as a Block type
-    // pub fn get_active_block(&self) -> Option<&Block> {
-    //     if let Some(active_block_id) = &self.active_block_id {
-    //         if let Some(active_block) = self.blocks.get(active_block_id) {
-    //             return Some(active_block);
-    //         }
-    //     }
-
-    //     return None;
-    // }
 
     pub fn refresh_blocks_list(cx: &mut App) {
         log::debug!("Refreshing blocks...");

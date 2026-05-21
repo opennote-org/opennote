@@ -1,9 +1,9 @@
 //! TODO:
-//! - After dropping, the new pane is not focused
+//! - When a pane has no tabs, it must be closed
 
 use gpui::{
-    Action, DefiniteLength, DragMoveEvent, ElementId, Entity, Point, SharedString, Subscription,
-    WeakEntity, div,
+    Action, DefiniteLength, DragMoveEvent, ElementId, Entity, Focusable, Point, SharedString,
+    Subscription, WeakEntity, div,
 };
 use gpui::{Context, FocusHandle, Render, Window, prelude::*};
 use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
@@ -209,25 +209,58 @@ impl Pane {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let current_pane = cx.entity();
+        let Some(source_pane_id) = dragged_item.pane_id else {
+            return;
+        };
+
         let split_direction = self.drag_split_direction.take();
         let Some(dragged_block_id) = dragged_item.block_id else {
             return;
         };
 
-        // Close the dragged tab to create the `move tab` effect
-        self.close_tab(&dragged_block_id, cx);
+        let old_pane = cx.entity();
+
+        let mut old_pane_has_opened_tabs = false;
+
+        // This means the tab is dragged to the same pane but need to split
+        if source_pane_id == self.id {
+            // Close the dragged tab to create the `move tab` effect
+            self.close_tab(&dragged_block_id, cx);
+
+            old_pane_has_opened_tabs = self.has_opened_blocks();
+        }
+
+        // Else, it means the tab is dragged to a different pane but need to split
+        if source_pane_id != self.id {
+            let Some(source_pane) = self
+                .pane_group
+                .read_with(cx, |this, cx| this.get_pane_by_id(cx, source_pane_id))
+                .unwrap()
+            else {
+                return;
+            };
+
+            old_pane_has_opened_tabs = source_pane.update(cx, |source, cx| {
+                source.close_tab(&dragged_block_id, cx);
+                source.has_opened_blocks()
+            });
+        }
 
         // Will recursively split
+        // TODO: move the focus to the corresponding pane too
         let _ = self.pane_group.update(cx, |this, cx| {
             let pane_group_reference = cx.weak_entity();
             let new_pane = cx.new(|cx| Pane::new(cx, window, pane_group_reference));
             new_pane.update(cx, |this, cx| {
+                let pane_id = this.id;
                 this.set_selected_block_by_block_id(dragged_block_id, cx);
+                cx.update_global::<States, ()>(|this, _cx| {
+                    this.active_pane_id = Some(pane_id);
+                });
             });
 
             if let Some(direction) = split_direction {
-                this.split(&current_pane, &new_pane, direction, cx);
+                this.split(&old_pane, &new_pane, direction, old_pane_has_opened_tabs);
             }
 
             cx.notify();
@@ -249,13 +282,17 @@ impl Pane {
         self.selected_block_id = Some(block_id);
         cx.notify();
     }
+
+    pub fn has_opened_blocks(&self) -> bool {
+        !self.opened_block_ids.is_empty()
+    }
 }
 
-// impl Focusable for Pane {
-//     fn focus_handle(&self, _cx: &App) -> FocusHandle {
-//         self.focus_handle.clone()
-//     }
-// }
+impl Focusable for Pane {
+    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
 
 impl Render for Pane {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -264,6 +301,8 @@ impl Render for Pane {
         if self.opened_block_ids.is_empty() {
             return base_div.child("No documents yet");
         }
+
+        let pane_id = self.id;
 
         let tabs = TabBar::new("tabs").children(self.opened_block_ids.iter().map(|id| {
             let id = id.clone();
@@ -284,6 +323,7 @@ impl Render for Pane {
 
             let dragged_item = DraggedItem {
                 label: Some(SharedString::from(title.clone())),
+                pane_id: Some(pane_id),
                 block_id: Some(id),
             };
 
@@ -298,15 +338,18 @@ impl Render for Pane {
                         .rounded(ButtonRounded::Medium)
                         .on_click(cx.listener(move |view, _, _, cx| {
                             view.close_tab(&id, cx);
+                            if !view.has_opened_blocks() {
+                                let pane = cx.entity();
+                                let _ = view.pane_group.update(cx, |this, _cx| {
+                                    this.remove_panes(&pane);
+                                });
+                            }
                             cx.stop_propagation();
                         })),
                 )
                 .on_click(
                     cx.listener(move |view, event: &gpui::ClickEvent, _window, _cx| {
                         if !event.is_right_click() {
-                            // cx.update_global(|this: &mut States, _cx| {
-                            //     this.set_active_block_id(id);
-                            // });
                             view.selected_block_id = Some(id)
                         }
                     }),

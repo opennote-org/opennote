@@ -15,6 +15,7 @@ use crate::{libs::tabs::tab::Tab, widgets::pane::pane::Pane};
 #[derive(Debug, Clone)]
 pub struct DraggedItem {
     pub label: Option<SharedString>,
+    pub pane_id: Option<Uuid>,
     pub block_id: Option<Uuid>
 }
 

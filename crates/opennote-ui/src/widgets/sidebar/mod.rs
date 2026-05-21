@@ -66,17 +66,24 @@ impl OpenNoteSidebar {
 
                     // Get the active pane id
                     if let Some(active_pane_id) = global.active_pane_id {
-                        let _ = workspace.update(cx, |this, cx| {
+                        let mut pane_group = None;
+                        let mut pane = None;
+
+                        let _ = workspace.read_with(cx, |this, _cx| {
                             // Get the active pane from PaneGroup with the active pane id
-                            this.pane_group.update(cx, |this, cx| {
-                                if let Some(pane) = this.get_pane_by_id(cx, active_pane_id) {
-                                    pane.update(cx, |this, cx| {
-                                        // Set the selected block in the active pane
-                                        this.set_selected_block_by_block_id(selected_block_id, cx);
-                                    });
-                                }
-                            });
+                            pane_group = Some(this.pane_group.clone());
                         });
+
+                        if let Some(pane_group) = pane_group {
+                            pane = pane_group.read(cx).get_pane_by_id(cx, active_pane_id);
+                        }
+
+                        if let Some(pane) = pane {
+                            pane.update(cx, |this, cx| {
+                                // Set the selected block in the active pane
+                                this.set_selected_block_by_block_id(selected_block_id, cx);
+                            });
+                        }
                     }
 
                     log::debug!("Set active block to {}", selected_block_id);

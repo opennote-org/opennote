@@ -2,8 +2,8 @@
 //! - Might need to introduce `basis` to renders to avoid fast drag issues
 
 use gpui::{
-    AnyElement, App, Axis, Bounds, Element, Entity, IntoElement, ParentElement,
-    Pixels, Render, Styled, Window, div, point, relative, size,
+    AnyElement, App, Axis, Bounds, Element, Entity, IntoElement, ParentElement, Pixels, Render,
+    Styled, Window, div, point, relative, size,
 };
 use gpui_component::{h_flex, v_flex};
 use serde::Deserialize;
@@ -30,7 +30,7 @@ impl PaneGroup {
         }
     }
 
-    fn get_pane_recursively(cx: &mut App, member: &Member, pane_id: Uuid) -> Option<Entity<Pane>> {
+    fn get_pane_recursively(cx: &App, member: &Member, pane_id: Uuid) -> Option<Entity<Pane>> {
         match member {
             Member::Axis(axis) => {
                 for member in axis.members.iter() {
@@ -52,8 +52,24 @@ impl PaneGroup {
         }
     }
 
-    pub fn get_pane_by_id(&self, cx: &mut App, pane_id: Uuid) -> Option<Entity<Pane>> {
+    pub fn get_pane_by_id(&self, cx: &App, pane_id: Uuid) -> Option<Entity<Pane>> {
         Self::get_pane_recursively(cx, &self.root, pane_id)
+    }
+
+    fn remove_pane(member: &mut Member, pane: &Entity<Pane>) {
+        // Recursively find the pane to remove
+        match member {
+            Member::Axis(axis) => {
+                if let Some(pane_left) = axis.remove_pane(pane) {
+                    *member = pane_left;
+                }
+            }
+            Member::Pane(_member_pane) => {}
+        };
+    }
+
+    pub fn remove_panes(&mut self, pane: &Entity<Pane>) {
+        Self::remove_pane(&mut self.root, pane);
     }
 
     pub fn split(
@@ -61,7 +77,7 @@ impl PaneGroup {
         old_pane: &Entity<Pane>,
         new_pane: &Entity<Pane>,
         direction: SplitDirection,
-        _cx: &mut App,
+        old_pane_has_opened_blocks: bool,
     ) {
         match &mut self.root {
             Member::Pane(_pane) => {
@@ -71,6 +87,11 @@ impl PaneGroup {
                 let _ = axis.split(old_pane, new_pane, direction);
             }
         };
+
+        // Remove the old pane if it has no tabs left
+        if !old_pane_has_opened_blocks {
+            Self::remove_pane(&mut self.root, old_pane);
+        }
     }
 }
 
@@ -184,6 +205,36 @@ impl PaneAxis {
     fn insert_pane(&mut self, idx: usize, new_pane: &Entity<Pane>) {
         self.members.insert(idx, Member::Pane(new_pane.clone()));
         // *self.flexes.lock() = vec![1.; self.members.len()];
+    }
+
+    // Remove the given pane.
+    // Return the member if it only has 1 pane left after removal.
+    fn remove_pane(&mut self, pane: &Entity<Pane>) -> Option<Member> {
+        let mut pane_to_remove = None;
+        for (index, member) in self.members.iter_mut().enumerate() {
+            match member {
+                Member::Axis(axis) => {
+                    if let Some(pane) = axis.remove_pane(pane) {
+                        *member = pane;
+                    }
+                }
+                Member::Pane(member_pane) => {
+                    if member_pane == pane {
+                        pane_to_remove = Some(index);
+                    }
+                }
+            }
+        }
+
+        if let Some(index) = pane_to_remove {
+            self.members.remove(index);
+        }
+
+        if self.members.len() == 1 {
+            return self.members.pop();
+        }
+
+        None
     }
 }
 
