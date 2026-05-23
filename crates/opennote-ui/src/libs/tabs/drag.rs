@@ -1,10 +1,8 @@
-use gpui::{
-    Context, ElementId, Entity, IntoElement, ParentElement, Render, SharedString, Styled, div,
-};
+use gpui::{Context, IntoElement, ParentElement, Render, SharedString, Styled, WeakEntity, div};
 use gpui_component::ActiveTheme;
 use uuid::Uuid;
 
-use crate::{libs::tabs::tab::Tab, widgets::pane::pane::Pane};
+use crate::widgets::pane::pane::Pane;
 
 // TODO:
 // - create a single DraggedItem for dragging operations on the same layer
@@ -14,9 +12,19 @@ use crate::{libs::tabs::tab::Tab, widgets::pane::pane::Pane};
 
 #[derive(Debug, Clone)]
 pub struct DraggedItem {
+    /// A semantic label of this item
     pub label: Option<SharedString>,
-    pub pane_id: Option<Uuid>,
-    pub block_id: Option<Uuid>
+
+    /// The pane who owns this item.
+    /// None means no pane owns this item.
+    pub owner_pane: Option<WeakEntity<Pane>>,
+
+    /// Owner pane's uuid, for convenience access. 
+    pub owner_pane_id: Option<Uuid>,
+
+    /// The block id this item may carry. 
+    /// None means no block id is carried. 
+    pub block_id: Option<Uuid>,
 }
 
 impl Render for DraggedItem {

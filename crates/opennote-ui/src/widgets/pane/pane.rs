@@ -1,6 +1,3 @@
-//! TODO:
-//! - When a pane has no tabs, it must be closed
-
 use gpui::{
     Action, DefiniteLength, DragMoveEvent, ElementId, Entity, Focusable, Point, SharedString,
     Subscription, WeakEntity, div,
@@ -203,47 +200,53 @@ impl Pane {
         cx.notify();
     }
 
+    // TODO:
+    // - after splitted, dragging left to right's right should make the pane appears to the right
+    // - active pane should turn to the focused editor's
+    // - after closing all tabs, click sidebar items won't open new one
     fn handle_item_drop(
         &mut self,
         dragged_item: &DraggedItem,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(source_pane_id) = dragged_item.pane_id else {
+        let Some(owner_pane) = dragged_item.owner_pane.clone() else {
             return;
         };
 
-        let split_direction = self.drag_split_direction.take();
+        let Some(owner_pane_id) = dragged_item.owner_pane_id else {
+            return;
+        };
+
         let Some(dragged_block_id) = dragged_item.block_id else {
             return;
         };
 
-        let old_pane = cx.entity();
-
+        let split_direction = self.drag_split_direction.take();
+        let mut target_pane = cx.entity();
         let mut old_pane_has_opened_tabs = false;
 
         // This means the tab is dragged to the same pane but need to split
-        if source_pane_id == self.id {
+        if owner_pane_id == self.id {
             // Close the dragged tab to create the `move tab` effect
             self.close_tab(&dragged_block_id, cx);
-
             old_pane_has_opened_tabs = self.has_opened_blocks();
         }
 
         // Else, it means the tab is dragged to a different pane but need to split
-        if source_pane_id != self.id {
-            let Some(source_pane) = self
-                .pane_group
-                .read_with(cx, |this, cx| this.get_pane_by_id(cx, source_pane_id))
-                .unwrap()
-            else {
-                return;
-            };
+        if owner_pane_id != self.id {
+            dbg!("start updating owner pane!");
+            old_pane_has_opened_tabs = owner_pane
+                .update(cx, |this, cx| {
+                    this.close_tab(&dragged_block_id, cx);
+                    this.has_opened_blocks()
+                })
+                .unwrap();
+            dbg!("owner pane updated!");
 
-            old_pane_has_opened_tabs = source_pane.update(cx, |source, cx| {
-                source.close_tab(&dragged_block_id, cx);
-                source.has_opened_blocks()
-            });
+            if let Some(entity) = owner_pane.upgrade() {
+                target_pane = entity;
+            }
         }
 
         // Will recursively split
@@ -260,7 +263,7 @@ impl Pane {
             });
 
             if let Some(direction) = split_direction {
-                this.split(&old_pane, &new_pane, direction, old_pane_has_opened_tabs);
+                this.split(&target_pane, &new_pane, direction, old_pane_has_opened_tabs);
             }
 
             cx.notify();
@@ -302,6 +305,7 @@ impl Render for Pane {
             return base_div.child("No documents yet");
         }
 
+        let pane_reference = cx.weak_entity();
         let pane_id = self.id;
 
         let tabs = TabBar::new("tabs").children(self.opened_block_ids.iter().map(|id| {
@@ -323,7 +327,8 @@ impl Render for Pane {
 
             let dragged_item = DraggedItem {
                 label: Some(SharedString::from(title.clone())),
-                pane_id: Some(pane_id),
+                owner_pane: Some(pane_reference.clone()),
+                owner_pane_id: Some(pane_id),
                 block_id: Some(id),
             };
 
