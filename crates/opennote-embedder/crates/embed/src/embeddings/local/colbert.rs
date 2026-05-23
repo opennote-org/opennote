@@ -7,11 +7,11 @@ extern crate accelerate_src;
 use std::{ops::Mul, sync::RwLock};
 
 use anyhow::{Error as E, Result};
-use hf_hub::{api::sync::Api, Repo};
+use hf_hub::{Repo, api::sync::Api};
 use ndarray::{Array2, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
-    session::{builder::GraphOptimizationLevel, Session},
+    session::{Session, builder::GraphOptimizationLevel},
     value::Value,
 };
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};

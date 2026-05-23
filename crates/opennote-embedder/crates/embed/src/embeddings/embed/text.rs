@@ -1,3 +1,4 @@
+use crate::Dtype;
 use crate::embeddings::cloud::cohere::CohereEmbedder;
 use crate::embeddings::cloud::gemini::GeminiEmbedder;
 use crate::embeddings::cloud::openai::OpenAIEmbedder;
@@ -6,8 +7,7 @@ use crate::embeddings::local::jina::{JinaEmbed, JinaEmbedder};
 use crate::embeddings::local::model2vec::Model2VecEmbedder;
 use crate::embeddings::local::modernbert::ModernBertEmbedder;
 use crate::embeddings::local::qwen3::{Qwen3Embed, Qwen3Embedder};
-use crate::Dtype;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::future::Future;
 
 use super::types::EmbeddingResult;
@@ -19,7 +19,6 @@ use crate::embeddings::local::{
     ort_jina::OrtJinaEmbedder,
     text_embedding::ONNXModel,
 };
-
 
 pub enum TextEmbedder {
     OpenAI(OpenAIEmbedder),

@@ -9,12 +9,12 @@ use crate::embeddings::utils::{get_type_ids_ndarray, tokenize_batch_ndarray};
 
 use crate::Dtype;
 use anyhow::Error as E;
-use hf_hub::api::sync::Api;
 use hf_hub::Repo;
+use hf_hub::api::sync::Api;
 use ndarray::prelude::*;
 use ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider};
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
+use ort::session::builder::GraphOptimizationLevel;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 #[derive(Debug)]
@@ -39,7 +39,7 @@ impl OrtBertEmbedder {
                 None => {
                     return Err(anyhow::anyhow!(
                         "Please provide either model_name or model_id"
-                    ))
+                    ));
                 }
             },
         };
@@ -103,7 +103,10 @@ impl OrtBertEmbedder {
         let weights_filename = match weights_filename {
             Ok(weights) => weights,
             Err(e) => {
-                return Err(anyhow::anyhow!("ONNX weights not found for the model. Please check if the weights for the specified dtype exists. {}", e));
+                return Err(anyhow::anyhow!(
+                    "ONNX weights not found for the model. Please check if the weights for the specified dtype exists. {}",
+                    e
+                ));
             }
         };
 
@@ -404,7 +407,7 @@ impl OrtSparseBertEmbedder {
                 None => {
                     return Err(anyhow::anyhow!(
                         "Please provide either model_name or model_id"
-                    ))
+                    ));
                 }
             },
         };

@@ -1,21 +1,21 @@
 use super::bert::TokenizerConfig;
 use super::jina::JinaEmbed;
 use super::pooling::{ModelOutput, PooledOutputType, Pooling};
-use super::text_embedding::{models_map, ONNXModel};
+use super::text_embedding::{ONNXModel, models_map};
+use crate::Dtype;
 use crate::embeddings::embed::EmbeddingResult;
 use crate::embeddings::utils::tokenize_batch_ndarray;
-use crate::Dtype;
 use anyhow::Error as E;
-use hf_hub::api::sync::Api;
 use hf_hub::Repo;
+use hf_hub::api::sync::Api;
 use ndarray::prelude::*;
 use std::sync::RwLock;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use {
     ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
-    ort::session::builder::GraphOptimizationLevel,
     ort::session::Session,
+    ort::session::builder::GraphOptimizationLevel,
 };
 #[derive(Debug)]
 pub struct OrtJinaEmbedder {
@@ -40,7 +40,7 @@ impl OrtJinaEmbedder {
                 None => {
                     return Err(anyhow::anyhow!(
                         "Please provide either model_name or model_id"
-                    ))
+                    ));
                 }
             },
         };
@@ -106,7 +106,10 @@ impl OrtJinaEmbedder {
         let weights_filename = match weights_filename {
             Ok(weights) => weights,
             Err(e) => {
-                return Err(anyhow::anyhow!("ONNX weights not found for the model. Please check if the weights for the specified dtype exists. {}", e));
+                return Err(anyhow::anyhow!(
+                    "ONNX weights not found for the model. Please check if the weights for the specified dtype exists. {}",
+                    e
+                ));
             }
         };
 

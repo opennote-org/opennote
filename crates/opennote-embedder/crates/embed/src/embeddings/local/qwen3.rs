@@ -11,7 +11,7 @@ use crate::{
 use anyhow::Error;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
-use hf_hub::{api::sync::ApiBuilder, Repo};
+use hf_hub::{Repo, api::sync::ApiBuilder};
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use super::{

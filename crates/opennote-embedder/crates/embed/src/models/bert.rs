@@ -1,6 +1,6 @@
-use super::with_tracing::{layer_norm, linear, LayerNorm, Linear};
+use super::with_tracing::{LayerNorm, Linear, layer_norm, linear};
 use candle_core::{DType, Device, Result, Tensor};
-use candle_nn::{embedding, Embedding, Module, VarBuilder};
+use candle_nn::{Embedding, Module, VarBuilder, embedding};
 use serde::Deserialize;
 
 pub const DTYPE: DType = DType::F32;

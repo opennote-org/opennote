@@ -1,6 +1,6 @@
 use crate::models::llama::{self, Cache, LlamaBase};
-use crate::models::with_tracing::{linear, linear_no_bias, Embedding, Linear};
-use candle_core::{CpuStorage, CustomOp1, DType, Device, Layout, Module, Shape, WithDType, D};
+use crate::models::with_tracing::{Embedding, Linear, linear, linear_no_bias};
+use candle_core::{CpuStorage, CustomOp1, D, DType, Device, Layout, Module, Shape, WithDType};
 use candle_core::{Result, Tensor};
 use candle_nn::{Conv2dConfig, LayerNorm, LayerNormConfig};
 use serde::{Deserialize, Serialize};
@@ -61,7 +61,7 @@ impl CustomOp1 for NonZero {
             CpuStorage::F6E2M3(vs) => self.nonzero(vs, layout),
             CpuStorage::F6E3M2(vs) => self.nonzero(vs, layout),
             CpuStorage::F4(vs) => self.nonzero(vs, layout),
-            CpuStorage::F8E8M0(vs) => self.nonzero(vs, layout)
+            CpuStorage::F8E8M0(vs) => self.nonzero(vs, layout),
         };
         let index_len = layout.dims().len();
         let result_len = result.len() / index_len;

@@ -8,14 +8,14 @@ use half::f16;
 use image::{DynamicImage, ImageFormat};
 use ndarray::prelude::*;
 use ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider};
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
+use ort::session::builder::GraphOptimizationLevel;
 use rayon::prelude::*;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use crate::embeddings::embed::{EmbedData, EmbeddingResult};
 
-use super::colpali::{get_images_from_pdf, ColPaliEmbed};
+use super::colpali::{ColPaliEmbed, get_images_from_pdf};
 
 pub struct OrtColPaliEmbedder {
     pub model: RwLock<Session>,

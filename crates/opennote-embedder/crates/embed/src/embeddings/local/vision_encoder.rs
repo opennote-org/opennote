@@ -168,7 +168,7 @@ impl VisionEncoderEmbedder {
             .permute((2, 0, 1))?
             .to_dtype(DType::F32)?
             .affine(0.00392156862745098, 0.)?; // Rescale factor: 1/255
-                                               // ImageNet normalization: (image - mean) / std
+        // ImageNet normalization: (image - mean) / std
         let mean = Tensor::new(&[0.485f32, 0.456f32, 0.406f32], &self.device)?
             .unsqueeze(1)?
             .unsqueeze(2)?; // Shape: [3, 1, 1]

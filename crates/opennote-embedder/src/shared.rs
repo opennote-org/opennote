@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use opennote_models::{configurations::system::SystemConfigurations, providers::embedder::EmbedderProvider};
+use opennote_models::{
+    configurations::system::SystemConfigurations, providers::embedder::EmbedderProvider,
+};
 
 use crate::{native::Native, other::Other, remote::Remote, traits::Embedder};
 

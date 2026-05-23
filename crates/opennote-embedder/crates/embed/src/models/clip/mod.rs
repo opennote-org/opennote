@@ -9,7 +9,7 @@ use self::{
     text_model::{Activation, ClipTextTransformer},
     vision_model::ClipVisionTransformer,
 };
-use candle_core::{Result, Tensor, D};
+use candle_core::{D, Result, Tensor};
 use serde::Deserialize;
 
 pub mod text_model;

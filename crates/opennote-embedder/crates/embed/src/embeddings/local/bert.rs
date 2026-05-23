@@ -14,8 +14,8 @@ use anyhow::Error as E;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertForMaskedLM, BertModel, Config, DTYPE};
-use hf_hub::api::sync::ApiBuilder;
 use hf_hub::Repo;
+use hf_hub::api::sync::ApiBuilder;
 
 use serde::Deserialize;
 use tokenizers::{AddedToken, PaddingParams, Tokenizer, TruncationParams};

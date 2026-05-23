@@ -2,11 +2,11 @@ use std::sync::RwLock;
 
 use anyhow::{Error as E, Result};
 use candle_core::{Device, Tensor};
-use hf_hub::{api::sync::Api, Repo};
+use hf_hub::{Repo, api::sync::Api};
 use ndarray::Array2;
 use ort::{
     execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
-    session::{builder::GraphOptimizationLevel, Session},
+    session::{Session, builder::GraphOptimizationLevel},
 };
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 

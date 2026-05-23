@@ -12,8 +12,6 @@ pub fn parse_timestamp(s: &str) -> i64 {
     // - " +00" : literal space and "+00"
     match NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f +00") {
         Ok(result) => result.and_utc().timestamp(),
-        Err(_) => {
-            0
-        }
+        Err(_) => 0,
     }
 }

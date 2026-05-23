@@ -11,7 +11,7 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use image::{DynamicImage, ImageFormat};
 
-use pdf2image::{Pages, RenderOptionsBuilder, PDF};
+use pdf2image::{PDF, Pages, RenderOptionsBuilder};
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 pub trait ColPaliEmbed {

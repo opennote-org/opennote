@@ -19,11 +19,11 @@ pub struct DraggedItem {
     /// None means no pane owns this item.
     pub owner_pane: Option<WeakEntity<Pane>>,
 
-    /// Owner pane's uuid, for convenience access. 
+    /// Owner pane's uuid, for convenience access.
     pub owner_pane_id: Option<Uuid>,
 
-    /// The block id this item may carry. 
-    /// None means no block id is carried. 
+    /// The block id this item may carry.
+    /// None means no block id is carried.
     pub block_id: Option<Uuid>,
 }
 

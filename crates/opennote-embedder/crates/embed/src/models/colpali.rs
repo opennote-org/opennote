@@ -2,7 +2,7 @@ use candle_core::{Module, Result, Tensor};
 use candle_nn::VarBuilder;
 
 use super::paligemma;
-use candle_nn::{linear, Linear};
+use candle_nn::{Linear, linear};
 
 pub struct Model {
     pub model: paligemma::Model,

@@ -1,6 +1,6 @@
 use candle_core::{DType, Device, Tensor};
-use hf_hub::{api::sync::Api, Repo, RepoType};
-use image::{imageops::FilterType, DynamicImage, GenericImageView, RgbImage};
+use hf_hub::{Repo, RepoType, api::sync::Api};
+use image::{DynamicImage, GenericImageView, RgbImage, imageops::FilterType};
 use serde::Deserialize;
 use std::collections::HashMap;
 use tokenizers::{AddedToken, Tokenizer};

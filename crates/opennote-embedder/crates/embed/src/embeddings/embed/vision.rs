@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::embeddings::cloud::cohere::CohereEmbedder;
 use crate::embeddings::local::clip::ClipEmbedder;

@@ -1,7 +1,7 @@
 use anyhow::{Error as E, Result};
 use candle_core::{Device, IndexOp, Tensor};
 use half::f16;
-use ndarray::{s, Array2};
+use ndarray::{Array2, s};
 use ort::session::Session;
 
 pub fn compute_scores(

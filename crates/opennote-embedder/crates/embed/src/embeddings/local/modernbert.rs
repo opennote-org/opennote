@@ -1,12 +1,12 @@
 use crate::{
+    Dtype,
     embeddings::{normalize_l2, utils::tokenize_batch},
     models::modernbert::{Config, ModernBert},
-    Dtype,
 };
 use anyhow::Error as E;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
-use hf_hub::{api::sync::ApiBuilder, Repo};
+use hf_hub::{Repo, api::sync::ApiBuilder};
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use crate::embeddings::{embed::EmbeddingResult, select_device};

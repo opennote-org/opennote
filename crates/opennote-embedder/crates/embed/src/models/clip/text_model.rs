@@ -6,7 +6,7 @@
 //! <https://github.com/openai/CLIP>
 //! <https://github.com/huggingface/transformers/tree/f6fa0f0bf0796ac66f201f23bdb8585de1609add/src/transformers/models/clip>
 
-use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
+use candle_core::{D, DType, Device, IndexOp, Result, Tensor};
 use candle_nn as nn;
 use candle_nn::Module;
 use serde::Deserialize;

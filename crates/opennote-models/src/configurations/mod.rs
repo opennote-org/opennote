@@ -1,8 +1,8 @@
 pub mod key_mappings;
+pub mod language;
 pub mod search;
 pub mod system;
 pub mod user;
-pub mod language;
 
 use std::path::Path;
 

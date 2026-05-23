@@ -6,15 +6,15 @@
 //! <https://github.com/openai/CLIP>
 //! <https://github.com/huggingface/transformers/tree/f6fa0f0bf0796ac66f201f23bdb8585de1609add/src/transformers/models/clip>
 
-use candle_core::{IndexOp, Result, Shape, Tensor, D};
+use candle_core::{D, IndexOp, Result, Shape, Tensor};
 use candle_nn as nn;
 use candle_nn::Module;
 use nn::Conv2dConfig;
 use serde::Deserialize;
 
 use super::{
-    text_model::{Activation, ClipEncoder},
     EncoderConfig,
+    text_model::{Activation, ClipEncoder},
 };
 
 fn default_channels() -> usize {

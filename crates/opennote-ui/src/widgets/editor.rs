@@ -76,9 +76,9 @@ impl Focusable for Editor {
     }
 }
 
-// TODO: 
+// TODO:
 // - Large text won't save intactfully at the moment!
-// - Should we make the Block object a reference? 
+// - Should we make the Block object a reference?
 impl Render for Editor {
     fn render(
         &mut self,

@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use super::embedder::Embedder;
-use crate::embeddings::local::text_embedding::ONNXModel;
 use crate::Dtype;
+use crate::embeddings::local::text_embedding::ONNXModel;
 
 #[derive(Default)]
 pub struct EmbedderBuilder {

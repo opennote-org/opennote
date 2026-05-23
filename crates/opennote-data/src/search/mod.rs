@@ -1,5 +1,5 @@
-pub mod models;
 pub mod keyword;
+pub mod models;
 pub mod semantic;
 
 use schemars::JsonSchema;

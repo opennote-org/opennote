@@ -7,8 +7,8 @@
 //!
 
 use crate::models::clip::div_l2_norm;
-use candle_core::{IndexOp, Module, Result, Tensor, D};
-use candle_nn::{layer_norm, linear, LayerNorm, Linear, VarBuilder};
+use candle_core::{D, IndexOp, Module, Result, Tensor};
+use candle_nn::{LayerNorm, Linear, VarBuilder, layer_norm, linear};
 
 fn default_text_vocab_size() -> usize {
     32000

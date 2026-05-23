@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use candle_core::{DType, Device, Module, Result, Tensor, D};
-use candle_nn::{linear_b as linear, Activation, Linear, VarBuilder};
+use candle_core::{D, DType, Device, Module, Result, Tensor};
+use candle_nn::{Activation, Linear, VarBuilder, linear_b as linear};
 
 fn default_max_position_embeddings() -> usize {
     4096

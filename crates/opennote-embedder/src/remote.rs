@@ -4,7 +4,10 @@ use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
-use opennote_models::{configurations::system::{SystemConfigurations, EmbedderConfig}, payload::Payload};
+use opennote_models::{
+    configurations::system::{EmbedderConfig, SystemConfigurations},
+    payload::Payload,
+};
 
 use crate::traits::Embedder;
 

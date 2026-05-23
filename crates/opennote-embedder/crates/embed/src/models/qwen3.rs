@@ -1,6 +1,6 @@
-use crate::models::with_tracing::{linear_b, linear_no_bias, Linear, RmsNorm};
+use crate::models::with_tracing::{Linear, RmsNorm, linear_b, linear_no_bias};
 use candle_core::{DType, Device, Module, Result, Tensor};
-use candle_nn::{kv_cache::KvCache, Activation, VarBuilder};
+use candle_nn::{Activation, VarBuilder, kv_cache::KvCache};
 use std::sync::Arc;
 
 /// Repeats a key or value tensor for grouped query attention
@@ -342,11 +342,7 @@ impl Model {
                         None => true,
                     };
 
-                    if past_ok && sw_ok {
-                        0.
-                    } else {
-                        minf
-                    }
+                    if past_ok && sw_ok { 0. } else { minf }
                 })
             })
             .collect();

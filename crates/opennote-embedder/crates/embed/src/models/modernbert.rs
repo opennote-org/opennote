@@ -6,10 +6,10 @@
 //! - See modernbert in [candle-examples](https://github.com/huggingface/candle/tree/main/candle-examples/) for runnable code
 //!
 
-use candle_core::{DType, Device, Result, Tensor, D};
+use candle_core::{D, DType, Device, Result, Tensor};
 use candle_nn::{
-    embedding, layer_norm_no_bias, linear_no_bias, ops::softmax, Embedding, LayerNorm, Linear,
-    Module, VarBuilder,
+    Embedding, LayerNorm, Linear, Module, VarBuilder, embedding, layer_norm_no_bias,
+    linear_no_bias, ops::softmax,
 };
 use serde::Deserialize;
 

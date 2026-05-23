@@ -8,7 +8,7 @@ use candle_nn::VarBuilder;
 use image::ImageFormat;
 
 use crate::embeddings::embed::{EmbedData, EmbeddingResult};
-use crate::embeddings::local::colpali::{get_images_from_pdf, ColPaliEmbed};
+use crate::embeddings::local::colpali::{ColPaliEmbed, get_images_from_pdf};
 use crate::embeddings::select_device;
 use crate::models::idefics3::model::{ColIdefics3Model, Idefics3Config};
 use crate::models::idefics3::tensor_processing::Idefics3Processor;

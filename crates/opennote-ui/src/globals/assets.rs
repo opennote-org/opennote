@@ -56,14 +56,14 @@ pub struct LanguageProfile {
     pub sidebar_title: String,
     pub delete_blocks: String,
     pub create_one_block: String,
-    
+
     /*
      * Search Bar
      */
     pub search_bar_placeholder: String,
-    
+
     /*
      * Notes / Blocks
      */
-     pub default_block_title: String,
+    pub default_block_title: String,
 }

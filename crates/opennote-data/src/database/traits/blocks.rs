@@ -8,8 +8,8 @@ use crate::database::enums::BlockQuery;
 
 #[async_trait]
 pub trait Blocks {
-    /// Create blocks in the database. 
-    /// It will also create their belonging payloads. 
+    /// Create blocks in the database.
+    /// It will also create their belonging payloads.
     async fn create_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>>;
 
     /// Get blocks with a query filter
@@ -26,5 +26,5 @@ pub trait Blocks {
     ///
     /// In the returned list, the first block is the root, and the last block is
     /// the block_id passed in
-    async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>>;    
+    async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>>;
 }
