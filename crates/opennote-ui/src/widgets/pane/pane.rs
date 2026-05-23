@@ -330,6 +330,7 @@ impl Render for Pane {
                 owner_pane: Some(pane_reference.clone()),
                 owner_pane_id: Some(pane_id),
                 block_id: Some(id),
+                ..Default::default()
             };
 
             Tab::new()

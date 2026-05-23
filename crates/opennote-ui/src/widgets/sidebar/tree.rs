@@ -1,6 +1,6 @@
 use gpui::{
-    AppContext, BorrowAppContext, Entity, InteractiveElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
+    AppContext, BorrowAppContext, ClickEvent, Entity, InteractiveElement, ParentElement,
+    SharedString, StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
 };
 use gpui_component::{IconName, h_flex, list::ListItem, menu::ContextMenuExt};
 use uuid::Uuid;
@@ -11,9 +11,40 @@ use crate::{
         states::States,
     },
     key_mappings::mappings::{CreateOneBlock, DeleteBlocks},
-    libs::tree::drag::DraggedBlocks,
+    libs::tabs::drag::DraggedItem,
     widgets::sidebar::OpenNoteSidebar,
 };
+
+// Collect blocks to drag from both the single selection and the multi-selection.
+fn collect_selections(dragged: &DraggedItem) -> Vec<Uuid> {
+    let mut blocks_to_drag = vec![];
+
+    // Collect from single selection
+    if let Some(dragged_block) = dragged.block_id {
+        blocks_to_drag.push(dragged_block);
+    }
+
+    // Collection from multi-selection
+    blocks_to_drag.extend(dragged.selections.clone());
+
+    blocks_to_drag
+}
+
+fn has_mouse_moved(event: &ClickEvent, this: &mut OpenNoteSidebar) -> bool {
+    // Determine if the mouse has been dragged or clicked
+    if let Some(position) = event.mouse_position() {
+        let Some(mouse_position) = this.mouse_position.take() else {
+            return true;
+        };
+
+        // If the mouse has not moved, we continue to on click
+        if position != mouse_position {
+            return true;
+        }
+    }
+
+    false
+}
 
 // This is for creating the root block that allows other blocks to be able to
 // drag back to root
@@ -38,7 +69,7 @@ pub fn create_root_tree_list_item(
                 .when(is_dragged_over, |this| {
                     this.border_b_2().border_color(gpui::blue())
                 })
-                .on_drag_move::<DraggedBlocks>(move |event, _window, app| {
+                .on_drag_move::<DraggedItem>(move |event, _window, app| {
                     sidebar_entity_on_drag_move.update(app, |this, cx| {
                         // Update the dragged block when the mouse moves into a bound of list item
                         if event.bounds.contains(&event.event.position) {
@@ -49,8 +80,12 @@ pub fn create_root_tree_list_item(
                         }
                     });
                 })
-                .on_drop(move |dragged: &DraggedBlocks, _window, app| {
+                .on_drop(move |dragged: &DraggedItem, _window, app| {
                     sidebar_entity_on_drop.update(app, |this, cx| {
+                        this.mouse_position = None;
+
+                        let blocks_to_drag: Vec<Uuid> = collect_selections(dragged);
+
                         this.tree_state.update(cx, |this, _cx| {
                             this.dragged_target_block = None;
 
@@ -59,7 +94,7 @@ pub fn create_root_tree_list_item(
                         });
 
                         cx.update_global::<States, ()>(|_global, cx| {
-                            update_parent(cx, None, dragged.current_selections.clone());
+                            update_parent(cx, None, blocks_to_drag);
                         });
 
                         cx.notify();
@@ -68,9 +103,6 @@ pub fn create_root_tree_list_item(
         )
 }
 
-// TODO:
-// - Dropping items on another one won't create tree any more!
-// - Dragging items only show 0 items now!
 pub fn create_tree_list_item(
     index: usize,
     entry: &crate::libs::tree::TreeEntry,
@@ -79,13 +111,14 @@ pub fn create_tree_list_item(
     uuid: Uuid,          // The uuid/id of the block
     language_profile: crate::globals::assets::LanguageProfile,
     sidebar_entity_delete_blocks: Entity<OpenNoteSidebar>,
-    sidebar_entity_on_mouse_down: Entity<OpenNoteSidebar>,
     sidebar_entity_on_drop: Entity<OpenNoteSidebar>,
     sidebar_entity_on_drag_move: Entity<OpenNoteSidebar>,
+    sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
+    sidebar_entity_on_mouse_down: Entity<OpenNoteSidebar>,
     is_selected: bool,
     is_multi_selected: bool,
     is_dragged_over: bool,
-    dragged_block: DraggedBlocks,
+    dragged_block: DraggedItem,
 ) -> ListItem {
     ListItem::new(index)
         .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
@@ -100,14 +133,25 @@ pub fn create_tree_list_item(
                     this.border_b_2().border_color(gpui::blue())
                 })
                 .child(label)
+                .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
+                    // This is to prevent the dragging operations being covered up by on clicks.
+                    // We use the mouse position to determine if the item is dragged or clicked.
+                    sidebar_entity_on_mouse_down.update(cx, |this, _cx| {
+                        this.mouse_position = Some(event.position);
+                    });
+                })
                 .on_drag(dragged_block.clone(), |value, _point, _window, app| {
                     app.new(|_| value.clone())
                 })
-                .on_drop(move |dragged: &DraggedBlocks, _window, app| {
+                .on_drop(move |dragged: &DraggedItem, _window, app| {
                     sidebar_entity_on_drop.update(app, |this, cx| {
-                        if dragged.block_id == uuid {
+                        this.mouse_position = None;
+
+                        if dragged.block_id == Some(uuid) {
                             return;
                         }
+
+                        let blocks_to_drag: Vec<Uuid> = collect_selections(dragged);
 
                         this.tree_state.update(cx, |this, _cx| {
                             this.dragged_target_block = None;
@@ -115,18 +159,18 @@ pub fn create_tree_list_item(
                             this.selected_blocks.clear();
                         });
 
-                        cx.update_global::<States, ()>(|global, cx| {
-                            update_parent(cx, Some(uuid), dragged.current_selections.clone());
+                        cx.update_global::<States, ()>(|_global, cx| {
+                            update_parent(cx, Some(uuid), blocks_to_drag);
                         });
 
                         cx.notify();
                     });
                 })
-                .on_drag_move::<DraggedBlocks>(move |event, window, app| {
+                .on_drag_move::<DraggedItem>(move |event, _window, app| {
                     sidebar_entity_on_drag_move.update(app, |this, cx| {
                         // Update the dragged block when the mouse moves into a bound of list item
                         if event.bounds.contains(&event.event.position) {
-                            this.tree_state.update(cx, |this, cx| {
+                            this.tree_state.update(cx, |this, _cx| {
                                 this.dragged_target_block = Some(uuid);
                             });
                             cx.notify();
@@ -137,7 +181,7 @@ pub fn create_tree_list_item(
                     sidebar_entity_delete_blocks.update(cx, |this, cx| {
                         let mut to_delete = Vec::new();
 
-                        this.tree_state.update(cx, |this, cx| {
+                        this.tree_state.update(cx, |this, _cx| {
                             let is_multi_selected = !this.selected_blocks.is_empty();
 
                             if is_multi_selected {
@@ -158,12 +202,19 @@ pub fn create_tree_list_item(
                     });
                 })
                 .on_click(move |event, _window, app| {
-                    sidebar_entity_on_mouse_down.update(app, |this, cx| {
+                    sidebar_entity_on_mouse_click.update(app, |this, cx| {
+                        if has_mouse_moved(event, this) {
+                            return;
+                        }
+
+                        // Reset the mouse position
+                        this.mouse_position = None;
+
                         let id = OpenNoteSidebar::convert_str_to_uuid(&id.clone()).unwrap();
 
                         // Multi-selection only happens when the platform key is pressed
                         if event.modifiers().platform {
-                            this.tree_state.update(cx, |this, cx| {
+                            this.tree_state.update(cx, |this, _cx| {
                                 // Single selection should be converted to multi-selection
                                 if let Some(selected) = this.selected_block {
                                     let has_single_selected = selected == id;
@@ -184,7 +235,8 @@ pub fn create_tree_list_item(
                         }
 
                         if !event.modifiers().platform {
-                            this.tree_state.update(cx, |this, cx| {
+                            // Select the block
+                            this.tree_state.update(cx, |this, _cx| {
                                 this.selected_blocks.clear();
                                 this.selected_block = Some(id)
                             });

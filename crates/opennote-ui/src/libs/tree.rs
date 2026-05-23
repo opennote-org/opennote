@@ -1,5 +1,3 @@
-pub mod drag;
-
 use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc};
 
 use gpui::{

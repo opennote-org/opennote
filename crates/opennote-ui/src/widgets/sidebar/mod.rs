@@ -3,7 +3,8 @@ pub mod tree;
 use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, ParentElement, Render, Styled, Subscription, WeakEntity, div,
+    InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, Styled, Subscription,
+    WeakEntity, div,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
@@ -12,7 +13,8 @@ use crate::{
     globals::{actions::create_one_block, helpers::get_language_profile, states::States},
     key_mappings::{key_contexts::SIDEBAR, mappings::CreateOneBlock},
     libs::{
-        tree::{Tree, TreeState, drag::DraggedBlocks, tree},
+        tabs::drag::DraggedItem,
+        tree::{Tree, TreeState, tree},
         tree_view_sidebar::TreeViewSidebar,
     },
     views::workspace::Workspace,
@@ -29,6 +31,7 @@ pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
+    mouse_position: Option<Point<Pixels>>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -100,6 +103,7 @@ impl OpenNoteSidebar {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
             tree_state,
+            mouse_position: None,
             _subscriptions,
         }
     }
@@ -144,6 +148,7 @@ impl OpenNoteSidebar {
             let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
             let sidebar_entity_delete_blocks = sidebar.clone();
             let sidebar_entity_on_mouse_down = sidebar.clone();
+            let sidebar_entity_on_mouse_click = sidebar.clone();
             let sidebar_entity_on_drop = sidebar.clone();
             let sidebar_entity_on_drag_move = sidebar.clone();
 
@@ -174,10 +179,11 @@ impl OpenNoteSidebar {
                 selected_blocks.iter().copied().collect()
             };
 
-            let dragged_block = DraggedBlocks {
-                block_id: uuid,
-                label: label.clone(),
-                current_selections,
+            let dragged_block = DraggedItem {
+                block_id: Some(uuid),
+                label: Some(label.clone()),
+                selections: current_selections,
+                ..Default::default()
             };
 
             create_tree_list_item(
@@ -188,9 +194,10 @@ impl OpenNoteSidebar {
                 uuid,
                 language_profile,
                 sidebar_entity_delete_blocks,
-                sidebar_entity_on_mouse_down,
                 sidebar_entity_on_drop,
                 sidebar_entity_on_drag_move,
+                sidebar_entity_on_mouse_click,
+                sidebar_entity_on_mouse_down,
                 is_selected,
                 is_multi_selected,
                 is_dragged_over,

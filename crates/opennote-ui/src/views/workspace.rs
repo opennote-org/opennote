@@ -5,7 +5,6 @@ use gpui_component::{
     input::{InputEvent, InputState},
     notification::NotificationType,
 };
-use uuid::Uuid;
 
 use crate::{
     globals::{helpers::get_language_profile, states::States},
