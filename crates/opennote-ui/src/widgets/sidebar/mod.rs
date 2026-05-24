@@ -49,7 +49,6 @@ impl OpenNoteSidebar {
         }));
 
         _subscriptions.push(cx.observe(&tree_state, |this, _tree_state, cx| {
-            let workspace = this.workspace.clone();
             if let Some(selected) = this.tree_state.read(cx).selected_block {
                 cx.update_global::<States, ()>(|global, cx| {
                     let selected_block_id = {
@@ -67,26 +66,11 @@ impl OpenNoteSidebar {
                         selected_block.remove(0).id
                     };
 
-                    // Get the active pane id
-                    if let Some(active_pane_id) = global.active_pane_id {
-                        let mut pane_group = None;
-                        let mut pane = None;
-
-                        let _ = workspace.read_with(cx, |this, _cx| {
-                            // Get the active pane from PaneGroup with the active pane id
-                            pane_group = Some(this.pane_group.clone());
+                    // Set the selected block in the active pane
+                    if let Some(active_pane) = &global.active_pane {
+                        active_pane.update(cx, |this, cx| {
+                            this.set_selected_block_by_block_id(selected_block_id, cx);
                         });
-
-                        if let Some(pane_group) = pane_group {
-                            pane = pane_group.read(cx).get_pane_by_id(cx, active_pane_id);
-                        }
-
-                        if let Some(pane) = pane {
-                            pane.update(cx, |this, cx| {
-                                // Set the selected block in the active pane
-                                this.set_selected_block_by_block_id(selected_block_id, cx);
-                            });
-                        }
                     }
 
                     log::debug!("Set active block to {}", selected_block_id);

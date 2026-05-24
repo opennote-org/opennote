@@ -75,12 +75,11 @@ impl Workspace {
             pane_group: cx.new(|pane_group_cx| {
                 let pane_group = pane_group_cx.weak_entity();
                 let pane_entity = pane_group_cx.new(|cx| Pane::new(cx, window, pane_group));
-                let pane_id = pane_entity.read(pane_group_cx).id;
 
                 // Set the active pane to be the one we have just created,
                 // so we don't have empty PaneGroup
                 pane_group_cx.update_global::<States, ()>(|this, _cx| {
-                    this.active_pane_id = Some(pane_id);
+                    this.active_pane = Some(pane_entity.downgrade());
                 });
 
                 PaneGroup::new(pane_entity)

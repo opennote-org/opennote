@@ -203,7 +203,6 @@ impl Pane {
     // TODO:
     // - after splitted, dragging left to right's right should make the pane appears to the right
     // - active pane should turn to the focused editor's
-    // - after closing all tabs, click sidebar items won't open new one
     fn handle_item_drop(
         &mut self,
         dragged_item: &DraggedItem,
@@ -235,14 +234,12 @@ impl Pane {
 
         // Else, it means the tab is dragged to a different pane but need to split
         if owner_pane_id != self.id {
-            dbg!("start updating owner pane!");
             old_pane_has_opened_tabs = owner_pane
                 .update(cx, |this, cx| {
                     this.close_tab(&dragged_block_id, cx);
                     this.has_opened_blocks()
                 })
                 .unwrap();
-            dbg!("owner pane updated!");
 
             if let Some(entity) = owner_pane.upgrade() {
                 target_pane = entity;
@@ -255,15 +252,17 @@ impl Pane {
             let pane_group_reference = cx.weak_entity();
             let new_pane = cx.new(|cx| Pane::new(cx, window, pane_group_reference));
             new_pane.update(cx, |this, cx| {
-                let pane_id = this.id;
+                let weak_reference = cx.weak_entity();
                 this.set_selected_block_by_block_id(dragged_block_id, cx);
                 cx.update_global::<States, ()>(|this, _cx| {
-                    this.active_pane_id = Some(pane_id);
+                    this.active_pane = Some(weak_reference);
                 });
             });
 
             if let Some(direction) = split_direction {
-                this.split(&target_pane, &new_pane, direction, old_pane_has_opened_tabs);
+                // We had updated the active when creating new pane,
+                // therefore this can be ignored.
+                let _ = this.split(&target_pane, &new_pane, direction, old_pane_has_opened_tabs);
             }
 
             cx.notify();
@@ -346,9 +345,18 @@ impl Render for Pane {
                             view.close_tab(&id, cx);
                             if !view.has_opened_blocks() {
                                 let pane = cx.entity();
+                                let mut pane_to_select = None;
+
                                 let _ = view.pane_group.update(cx, |this, _cx| {
-                                    this.remove_panes(&pane);
+                                    pane_to_select = this.remove_panes(&pane);
                                 });
+
+                                // Set the active pane to a survived pane
+                                if let Some(pane_to_select) = pane_to_select {
+                                    cx.update_global::<States, ()>(|this, _cx| {
+                                        this.active_pane = Some(pane_to_select.downgrade());
+                                    });
+                                }
                             }
                             cx.stop_propagation();
                         })),

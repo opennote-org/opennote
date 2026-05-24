@@ -56,29 +56,46 @@ impl PaneGroup {
         Self::get_pane_recursively(cx, &self.root, pane_id)
     }
 
-    fn remove_pane(member: &mut Member, pane: &Entity<Pane>) {
+    /// Only return an Entity<Pane> when the member is a pane.
+    /// Otherwise, it will return a None.
+    fn get_pane_from_member(pane_member: &Member) -> Option<Entity<Pane>> {
+        match pane_member {
+            Member::Axis(_) => None,
+            Member::Pane(pane) => Some(pane.clone()),
+        }
+    }
+
+    /// Return a pane for refocus after removal
+    fn remove_pane(member: &mut Member, pane: &Entity<Pane>) -> Option<Entity<Pane>> {
         // Recursively find the pane to remove
         match member {
             Member::Axis(axis) => {
                 if let Some(pane_left) = axis.remove_pane(pane) {
                     *member = pane_left;
+                    return Self::get_pane_from_member(member);
                 }
             }
-            Member::Pane(_member_pane) => {}
+            Member::Pane(member_pane) => {
+                return Some(member_pane.clone());
+            }
         };
+
+        None
     }
 
-    pub fn remove_panes(&mut self, pane: &Entity<Pane>) {
-        Self::remove_pane(&mut self.root, pane);
+    /// It will return a pane for refocus
+    pub fn remove_panes(&mut self, pane: &Entity<Pane>) -> Option<Entity<Pane>> {
+        Self::remove_pane(&mut self.root, pane)
     }
 
+    /// It will return the a pane for refocus
     pub fn split(
         &mut self,
         old_pane: &Entity<Pane>,
         new_pane: &Entity<Pane>,
         direction: SplitDirection,
         old_pane_has_opened_blocks: bool,
-    ) {
+    ) -> Option<Entity<Pane>> {
         match &mut self.root {
             Member::Pane(_pane) => {
                 self.root = Member::new_axis(old_pane.clone(), new_pane.clone(), direction);
@@ -90,8 +107,10 @@ impl PaneGroup {
 
         // Remove the old pane if it has no tabs left
         if !old_pane_has_opened_blocks {
-            Self::remove_pane(&mut self.root, old_pane);
+            return Self::remove_pane(&mut self.root, old_pane);
         }
+
+        None
     }
 }
 
@@ -207,8 +226,8 @@ impl PaneAxis {
         // *self.flexes.lock() = vec![1.; self.members.len()];
     }
 
-    // Remove the given pane.
-    // Return the member if it only has 1 pane left after removal.
+    /// Remove the given pane.
+    /// Return the member if it only has 1 pane left after removal.
     fn remove_pane(&mut self, pane: &Entity<Pane>) -> Option<Member> {
         let mut pane_to_remove = None;
         for (index, member) in self.members.iter_mut().enumerate() {

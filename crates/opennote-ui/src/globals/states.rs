@@ -2,30 +2,25 @@ use std::collections::HashMap;
 
 use anyhow::Error;
 
-use gpui::{App, AppContext, Global};
+use gpui::{App, AppContext, Global, WeakEntity};
 use opennote_core_logics::block::read_blocks;
 use opennote_data::database::enums::BlockQuery;
 use opennote_models::block::Block;
 use uuid::Uuid;
 
-use crate::globals::bootstrap::GlobalApplicationBootStrap;
+use crate::{globals::bootstrap::GlobalApplicationBootStrap, widgets::pane::pane::Pane};
 
 /// It manages all business logics related data
 pub struct States {
-    /*
-     * Errors
-     */
+    /// ongoing errors
     pub errors: Vec<Error>,
 
-    /*
-     * Blocks
-     */
+    /// Blocks in hash map
     pub blocks: HashMap<Uuid, Block>,
 
-    /*
-     * Panes
-     */
-    pub active_pane_id: Option<Uuid>,
+    /// The pane that is active.
+    /// It is optional because we can't create a pane when new.
+    pub active_pane: Option<WeakEntity<Pane>>,
 }
 
 impl Global for States {}
@@ -35,7 +30,7 @@ impl States {
         Self {
             errors: Vec::new(),
             blocks: HashMap::new(),
-            active_pane_id: None,
+            active_pane: None,
         }
     }
 
