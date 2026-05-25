@@ -13,9 +13,9 @@ use crate::{
     key_mappings::{key_contexts::EDITOR, mappings::SaveDocument},
 };
 
-// Payload -> Text -> Payload
-// Users can edit text then send it back as payloads
-// Text is always text in the editor
+/// Payload -> Text -> Payload
+/// Users can edit text then send it back as payloads
+/// Text is always text in the editor
 pub struct Editor {
     focus_handle: FocusHandle,
     state: Entity<InputState>,
@@ -76,9 +76,9 @@ impl Focusable for Editor {
     }
 }
 
-// TODO:
-// - Large text won't save intactfully at the moment!
-// - Should we make the Block object a reference?
+/// TODO:
+/// - Large text won't save intactfully at the moment!
+/// - Should we make the Block object a reference?
 impl Render for Editor {
     fn render(
         &mut self,
