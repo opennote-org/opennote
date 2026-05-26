@@ -68,7 +68,7 @@ impl OpenNoteSidebar {
 
                     // Set the selected block in the active pane
                     if let Some(active_pane) = &global.active_pane {
-                        active_pane.update(cx, |this, cx| {
+                        let _ = active_pane.update(cx, |this, cx| {
                             this.set_selected_block_by_block_id(selected_block_id, cx);
                         });
                     }

@@ -16,11 +16,16 @@ pub struct TaskResult {
     pub message: SharedString,
 
     /// Task results packed in a serde_json::Value
-    pub data: Value,
+    pub data: Option<Value>,
 }
 
 impl TaskResult {
-    pub fn new(id: Uuid, status: bool, message: impl Into<SharedString>, data: Value) -> Self {
+    pub fn new(
+        id: Uuid,
+        status: bool,
+        message: impl Into<SharedString>,
+        data: Option<Value>,
+    ) -> Self {
         Self {
             id,
             status,

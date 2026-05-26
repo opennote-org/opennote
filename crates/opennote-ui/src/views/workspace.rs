@@ -13,6 +13,7 @@ use crate::{
         mappings::{ToggleSearchBar, ToggleSidebar},
     },
     widgets::{
+        notifications::NotificationCenter,
         pane::{pane::Pane, pane_group::PaneGroup},
         search_bar::create_search_bar,
         sidebar::OpenNoteSidebar,
@@ -25,6 +26,7 @@ pub struct Workspace {
 
     pub sidebar: Entity<OpenNoteSidebar>,
     pub pane_group: Entity<PaneGroup>,
+    pub notification_center: Entity<NotificationCenter>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -84,6 +86,7 @@ impl Workspace {
 
                 PaneGroup::new(pane_entity)
             }),
+            notification_center: cx.new(|cx| NotificationCenter::new(cx, window)),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,

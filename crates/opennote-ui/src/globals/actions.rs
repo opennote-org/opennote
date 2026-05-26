@@ -9,14 +9,32 @@ use opennote_models::{block::Block, configurations::system::VectorDatabaseConfig
 use uuid::Uuid;
 
 use crate::globals::{
-    bootstrap::GlobalApplicationBootStrap, helpers::get_language_profile, states::States,
+    bootstrap::GlobalApplicationBootStrap,
+    helpers::get_language_profile,
+    schedulers::{
+        normal::{register_result, register_task},
+        task_information::TaskInformation,
+        task_result::TaskResult,
+    },
+    states::States,
 };
 
-/// It will create one new block with a default title payload
+/// TODO:
+/// - Use locale for the messages
+///
+/// It will create one new block with a default title payload.
+/// This is a normal task that will only show up in the notification center on finish.
 pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
     app_cx
         .spawn(async move |cx| {
             log::debug!("Creating 1 block...");
+
+            let task = TaskInformation::new("Creating 1 block");
+
+            let task_id = task.id;
+
+            // Register task in the scheduler.
+            register_task(cx, task);
 
             let (default_block_title, databases, embedders, vector_database_config) =
                 cx.read_global::<GlobalApplicationBootStrap, (
@@ -58,6 +76,15 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                     log::error!(
                         "No embedders available. Please load an embedder before proceeding"
                     );
+                    register_result(
+                        cx,
+                        TaskResult::new(
+                            task_id,
+                            false,
+                            "No embedders available. Please load an embedder before proceeding",
+                            None,
+                        ),
+                    );
                     return Err(anyhow::anyhow!("No embedders available"));
                 }
             }
@@ -67,6 +94,15 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                     Ok(result) => result.len(),
                     Err(error) => {
                         log::error!("{}", error);
+                        register_result(
+                            cx,
+                            TaskResult::new(
+                                task_id,
+                                false,
+                                format!("Block creation failed due to {}", error),
+                                None,
+                            ),
+                        );
                         return Err(error);
                     }
                 };
@@ -75,6 +111,8 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                 "Block creation finished for {} blocks, preceed to refreshing the block list...",
                 num_blocks
             );
+
+            register_result(cx, TaskResult::new(task_id, true, "Created 1 block", None));
 
             let _ = cx.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
@@ -85,10 +123,20 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
         .detach();
 }
 
+/// Delete n blocks specified by their ids.
+/// This is a normal task that will only show up in the notification center on finish.
 pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
     app_cx
         .spawn(async move |cx| {
             log::debug!("Deleting {} blocks...", block_ids.len());
+
+            let task = TaskInformation::new(format!("Deleting {} blocks", block_ids.len()));
+
+            let task_id = task.id;
+            let num_blocks = block_ids.len();
+
+            // Register task in the scheduler.
+            register_task(cx, task);
 
             let (databases, vector_database_config) = cx
                 .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
@@ -104,11 +152,30 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
                 Ok(_) => {}
                 Err(error) => {
                     log::error!("{}", error);
+                    register_result(
+                        cx,
+                        TaskResult::new(
+                            task_id,
+                            false,
+                            format!("Block deletion failed due to {}", error),
+                            None,
+                        ),
+                    );
                     return Err(error);
                 }
             }
 
             log::debug!("Blocks deletion finished, preceed to refreshing the block list...");
+
+            register_result(
+                cx,
+                TaskResult::new(
+                    task_id,
+                    true,
+                    format!("Deleted {} blocks", num_blocks),
+                    None,
+                ),
+            );
 
             let _ = cx.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
@@ -119,19 +186,28 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
         .detach();
 }
 
+/// Update n blocks supplied in the parameter.
+/// This is a normal task that will only show up in the notification center on finish.
 pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_changes: bool) {
     log::debug!("Updating blocks: {:?}", blocks);
 
     app_cx
         .spawn(async move |cx| {
+            let task = TaskInformation::new(format!("Updating {} blocks", blocks.len()));
+            let task_id = task.id;
+
+            // Register task in the scheduler.
+            register_task(cx, task);
+
             let mut blocks = blocks;
+            let num_blocks = blocks.len();
 
             let (databases, embedders, vector_database_config) = cx
                 .read_global::<GlobalApplicationBootStrap, (
                     Databases,
                     Option<EmbedderEntry>,
                     VectorDatabaseConfig,
-                )>(|this, cx| {
+                )>(|this, _cx| {
                     (
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
@@ -160,6 +236,15 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                         log::error!(
                             "No embedders available. Please load an embedder before proceeding"
                         );
+                        register_result(
+                            cx,
+                            TaskResult::new(
+                                task_id,
+                                false,
+                                "No embedders available. Please load an embedder before proceeding",
+                                None,
+                            ),
+                        );
                         return Err(anyhow::anyhow!("No embedders available"));
                     }
                 }
@@ -167,10 +252,32 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
 
             match update_blocks(&vector_database_config, &databases, blocks).await {
                 Ok(_) => {}
-                Err(error) => log::error!("{}", error),
-            };
+                Err(error) => {
+                    log::error!("{}", error);
+                    register_result(
+                        cx,
+                        TaskResult::new(
+                            task_id,
+                            false,
+                            format!("Block update failed due to {}", error),
+                            None,
+                        ),
+                    );
+                    return Err(error);
+                }
+            }
 
             log::debug!("Blocks update finished, preceed to refreshing the block list...");
+
+            register_result(
+                cx,
+                TaskResult::new(
+                    task_id,
+                    true,
+                    format!("Updated {} blocks", num_blocks),
+                    None,
+                ),
+            );
 
             let _ = cx.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
@@ -181,6 +288,8 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
         .detach();
 }
 
+/// Update parent-children relationship.
+/// This is a normal task that will only show up in the notification center on finish.
 pub fn update_parent(
     app_cx: &mut gpui::App,
     new_parent_block_id: Option<Uuid>,
@@ -188,14 +297,31 @@ pub fn update_parent(
 ) {
     log::debug!("Updating blocks' parent...");
 
-    app_cx.read_global::<GlobalApplicationBootStrap, ()>(|this, app| {
-        let databases = this.0.databases.clone();
-        let vector_database_config = this.0.configurations.system.vector_database.clone();
+    app_cx
+        .spawn(async move |app| {
+            let (databases, vector_database_config) = app
+                .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
+                    |this, _app| {
+                        let databases = this.0.databases.clone();
+                        let vector_database_config =
+                            this.0.configurations.system.vector_database.clone();
 
-        app.spawn(async move |app| {
+                        (databases, vector_database_config)
+                    },
+                )
+                .unwrap();
+
+            let task = TaskInformation::new("Updating blocks' parent");
+            let task_id = task.id;
+
+            // Register task in the scheduler.
+            register_task(app, task);
+
+            let num_blocks = block_ids.len();
+
             match read_blocks(&databases, &BlockQuery::ByIds(block_ids)).await {
                 Ok(blocks) => {
-                    let blocks = blocks
+                    let blocks: Vec<Block> = blocks
                         .into_iter()
                         .map(|mut item| {
                             item.parent_id = new_parent_block_id;
@@ -205,14 +331,46 @@ pub fn update_parent(
 
                     match update_blocks(&vector_database_config, &databases, blocks).await {
                         Ok(_) => {}
-                        Err(error) => log::error!("{}", error),
+                        Err(error) => {
+                            log::error!("{}", error);
+                            register_result(
+                                app,
+                                TaskResult::new(
+                                    task_id,
+                                    false,
+                                    format!("Block parent update failed due to {}", error),
+                                    None,
+                                ),
+                            );
+                        }
                     }
                 }
-                Err(error) => log::error!("{}", error),
+                Err(error) => {
+                    log::error!("{}", error);
+                    register_result(
+                        app,
+                        TaskResult::new(
+                            task_id,
+                            false,
+                            format!("Block parent update failed due to {}", error),
+                            None,
+                        ),
+                    );
+                }
             };
 
             log::debug!(
                 "Blocks parent id update finished, preceed to refreshing the block list..."
+            );
+
+            register_result(
+                app,
+                TaskResult::new(
+                    task_id,
+                    true,
+                    format!("Updated parent for {} blocks", num_blocks),
+                    None,
+                ),
             );
 
             let _ = app.update_global::<States, ()>(|_this, cx| {
@@ -220,5 +378,4 @@ pub fn update_parent(
             });
         })
         .detach();
-    });
 }

@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use anyhow::Error;
-
 use gpui::{App, AppContext, Global, WeakEntity};
 use opennote_core_logics::block::read_blocks;
 use opennote_data::database::enums::BlockQuery;
@@ -10,11 +8,8 @@ use uuid::Uuid;
 
 use crate::{globals::bootstrap::GlobalApplicationBootStrap, widgets::pane::pane::Pane};
 
-/// It manages all business logics related data
+/// It manages general global states
 pub struct States {
-    /// ongoing errors
-    pub errors: Vec<Error>,
-
     /// Blocks in hash map
     pub blocks: HashMap<Uuid, Block>,
 
@@ -28,7 +23,6 @@ impl Global for States {}
 impl States {
     pub fn new() -> Self {
         Self {
-            errors: Vec::new(),
             blocks: HashMap::new(),
             active_pane: None,
         }
