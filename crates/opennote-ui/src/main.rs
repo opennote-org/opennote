@@ -15,7 +15,7 @@ use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER
 use crate::{
     globals::{
         assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap,
-        helpers::create_required_folders, schedulers::normal::NormalTaskScheduler, states::States,
+        helpers::create_required_folders, schedulers::{debounce::DebounceTaskScheduler, normal::NormalTaskScheduler}, states::States,
     },
     logs::UICustomLog,
     views::workspace::Workspace,
@@ -62,6 +62,7 @@ async fn main() -> Result<()> {
         // Initialize the necessary services and resources for the app
         States::init(cx);
         NormalTaskScheduler::init(cx);
+        DebounceTaskScheduler::init(cx);
         GlobalApplicationBootStrap::init(cx, bootstrap);
         AssetsCollection::init(cx)
             .context("Failed to load the assets on application start")

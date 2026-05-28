@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use gpui::Global;
+use gpui::{App, AsyncApp, BorrowAppContext, Global};
 
 use crate::globals::schedulers::{
     task_information::DebounceTaskInformation, task_result::TaskResult,
@@ -20,6 +20,19 @@ pub struct DebounceTaskScheduler {
 impl Global for DebounceTaskScheduler {}
 
 impl DebounceTaskScheduler {
+    pub fn new() -> Self {
+        Self {
+            tasks: Vec::new(),
+            results: Vec::new(),
+            timer: None,
+            debounce: Duration::from_millis(500), // TODO: should be configured
+        }
+    }
+
+    pub fn init(cx: &mut App) {
+        cx.set_global(DebounceTaskScheduler::new());
+    }
+
     /// Once called, the scheduler will check if the debounce has hit.
     /// If hit, it will execute the tasks.
     ///
@@ -73,7 +86,23 @@ impl DebounceTaskScheduler {
         self.tasks.push(task_information);
     }
 
+    pub fn register_result(&mut self, task_result: TaskResult) {
+        self.results.push(task_result);
+    }
+
     pub fn get_all_task_results(&mut self) -> Vec<TaskResult> {
         std::mem::take(&mut self.results)
     }
+}
+
+pub fn register_task(cx: &mut App, task: DebounceTaskInformation) {
+    let _ = cx.update_global::<DebounceTaskScheduler, ()>(|this, _cx| {
+        this.register(task);
+    });
+}
+
+pub fn register_result(cx: &mut AsyncApp, task_result: TaskResult) {
+    let _ = cx.update_global::<DebounceTaskScheduler, ()>(|this, cx| {
+        this.register_result(task_result);
+    });
 }

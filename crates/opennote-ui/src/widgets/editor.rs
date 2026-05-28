@@ -1,6 +1,6 @@
 use gpui::{
-    AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, ParentElement, Render,
-    Styled, Subscription, div,
+    AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
+    ParentElement, Render, Styled, Subscription, div,
 };
 use gpui_component::input::{Input, InputState};
 use uuid::Uuid;
@@ -9,7 +9,14 @@ use opennote_core_logics::payload::convert_string_to_payloads;
 use opennote_models::block::Block;
 
 use crate::{
-    globals::{actions::update_n_blocks, bootstrap::GlobalApplicationBootStrap},
+    globals::{
+        actions::update_n_blocks,
+        bootstrap::GlobalApplicationBootStrap,
+        schedulers::{
+            normal::NormalTaskScheduler,
+            task_result::{TaskResult, TaskType},
+        },
+    },
     key_mappings::{key_contexts::EDITOR, mappings::SaveDocument},
 };
 
@@ -28,6 +35,40 @@ pub struct Editor {
 impl Editor {
     pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window) -> Self {
         let mut _subscriptions = Vec::new();
+
+        // Get updates from the normal task scheduler
+        _subscriptions.push(cx.observe_global::<NormalTaskScheduler>(|this, cx| {
+            let scheduler: &NormalTaskScheduler = cx.global();
+            if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock)) {
+                return;
+            }
+
+            // TODO: 
+            // - We need to be sure that we are getting this editor's block, not other editor's
+            // - Make sure notification center does not empty results beforehand
+            let task_results =
+                cx.update_global::<NormalTaskScheduler, Vec<TaskResult>>(|this, _cx| {
+                    this.get_all_task_results(Some(TaskType::ChunkBlock))
+                });
+
+            if !task_results.is_empty() {
+                for result in task_results {
+                    let block: Block = if let Some(data) = result.data {
+                        serde_json::from_value(data).unwrap()
+                    } else {
+                        return;
+                    };
+
+                    if let Some(current_block) = &this.block {
+                        if block.id != current_block.id {
+                            return;
+                        }
+                        update_n_blocks(cx, vec![block.clone()], true);
+                        cx.notify();
+                    }
+                }
+            }
+        }));
 
         Self {
             focus_handle: cx.focus_handle(),

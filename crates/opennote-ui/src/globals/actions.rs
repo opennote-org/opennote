@@ -1,12 +1,14 @@
-use gpui::AppContext;
+use uuid::Uuid;
+
 use opennote_core_logics::{
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
-    payload::{PayloadContentParameters, build_payload},
+    payload::{PayloadContentParameters, build_payload, convert_string_to_payloads},
 };
 use opennote_data::{Databases, database::enums::BlockQuery};
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
-use opennote_models::{block::Block, configurations::system::VectorDatabaseConfig};
-use uuid::Uuid;
+use opennote_models::{
+    block::Block, configurations::system::VectorDatabaseConfig, payload::Payload,
+};
 
 use crate::globals::{
     bootstrap::GlobalApplicationBootStrap,
@@ -14,7 +16,7 @@ use crate::globals::{
     schedulers::{
         normal::{register_result, register_task},
         task_information::TaskInformation,
-        task_result::TaskResult,
+        task_result::{TaskResult, TaskType},
     },
     states::States,
 };
@@ -82,6 +84,7 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                             task_id,
                             false,
                             "No embedders available. Please load an embedder before proceeding",
+                            TaskType::Uncategorized,
                             None,
                         ),
                     );
@@ -100,6 +103,7 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                                 task_id,
                                 false,
                                 format!("Block creation failed due to {}", error),
+                                TaskType::Uncategorized,
                                 None,
                             ),
                         );
@@ -112,7 +116,16 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                 num_blocks
             );
 
-            register_result(cx, TaskResult::new(task_id, true, "Created 1 block", None));
+            register_result(
+                cx,
+                TaskResult::new(
+                    task_id,
+                    true,
+                    "Created 1 block",
+                    TaskType::Uncategorized,
+                    None,
+                ),
+            );
 
             let _ = cx.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
@@ -158,6 +171,7 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
                             task_id,
                             false,
                             format!("Block deletion failed due to {}", error),
+                            TaskType::Uncategorized,
                             None,
                         ),
                     );
@@ -173,6 +187,7 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
                     task_id,
                     true,
                     format!("Deleted {} blocks", num_blocks),
+                    TaskType::Uncategorized,
                     None,
                 ),
             );
@@ -242,6 +257,7 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                                 task_id,
                                 false,
                                 "No embedders available. Please load an embedder before proceeding",
+                                TaskType::Uncategorized,
                                 None,
                             ),
                         );
@@ -260,6 +276,7 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                             task_id,
                             false,
                             format!("Block update failed due to {}", error),
+                            TaskType::Uncategorized,
                             None,
                         ),
                     );
@@ -275,6 +292,7 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                     task_id,
                     true,
                     format!("Updated {} blocks", num_blocks),
+                    TaskType::Uncategorized,
                     None,
                 ),
             );
@@ -339,6 +357,7 @@ pub fn update_parent(
                                     task_id,
                                     false,
                                     format!("Block parent update failed due to {}", error),
+                                    TaskType::Uncategorized,
                                     None,
                                 ),
                             );
@@ -353,6 +372,7 @@ pub fn update_parent(
                             task_id,
                             false,
                             format!("Block parent update failed due to {}", error),
+                            TaskType::Uncategorized,
                             None,
                         ),
                     );
@@ -369,6 +389,7 @@ pub fn update_parent(
                     task_id,
                     true,
                     format!("Updated parent for {} blocks", num_blocks),
+                    TaskType::Uncategorized,
                     None,
                 ),
             );
@@ -376,6 +397,73 @@ pub fn update_parent(
             let _ = app.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
             });
+        })
+        .detach();
+}
+
+/// TODO:
+/// - Editor pulls the chunks for updating
+/// - cx.notify
+pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
+    log::debug!("Chunking block: {:?}", block.id);
+
+    let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
+    let text_chunk_size = bootstrap.0.configurations.user.search.document_chunk_size;
+
+    app_cx
+        .spawn(async move |cx| {
+            let task = TaskInformation::new("Chunking a block");
+            let task_id = task.id;
+
+            // Register task in the scheduler.
+            register_task(cx, task);
+
+            // Chunk in the background
+            let payloads: Vec<Payload> = match cx
+                .background_executor()
+                .spawn(async move {
+                    let payloads =
+                        match convert_string_to_payloads(block.id, Some(text_chunk_size), text) {
+                            Ok(results) => results,
+                            Err(error) => {
+                                log::error!("Error when trying to save a document: {}", error);
+                                return Ok(vec![]);
+                            }
+                        };
+
+                    Ok::<Vec<Payload>, anyhow::Error>(payloads)
+                })
+                .await
+            {
+                Ok(result) => result,
+                Err(error) => {
+                    register_result(
+                        cx,
+                        TaskResult::new(
+                            task_id,
+                            false,
+                            format!("Chunking failed: {}", error),
+                            TaskType::ChunkBlock,
+                            None,
+                        ),
+                    );
+                    return;
+                }
+            };
+
+            block.payloads = payloads;
+
+            // Scheduler should receive the result at this point
+            register_result(
+                cx,
+                TaskResult::new(
+                    task_id,
+                    true,
+                    "Chunking completed",
+                    TaskType::ChunkBlock,
+                    Some(serde_json::to_value(block).unwrap()),
+                ),
+            );
         })
         .detach();
 }
