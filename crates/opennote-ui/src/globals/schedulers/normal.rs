@@ -32,10 +32,6 @@ impl NormalTaskScheduler {
     /// Specify a task type to check if that kind of task has pending results.
     /// Input None to get task results of all kinds.
     pub fn has_pending_task_results(&self, task_type: Option<TaskType>) -> bool {
-        if task_type.is_none() {
-            return !self.results.is_empty();
-        }
-
         if let Some(task_type) = task_type {
             for result in self.results.iter() {
                 if result.task_type == task_type {
@@ -61,26 +57,43 @@ impl NormalTaskScheduler {
         std::mem::take(&mut self.tasks)
     }
 
-    /// Get all task results and then deplete, if inputting None.
-    /// Otherwise, only depletes the specified kind of task results.
-    pub fn get_all_task_results(&mut self, task_type: Option<TaskType>) -> Vec<TaskResult> {
-        if let Some(task_type) = task_type {
-            let mut indexes = Vec::new();
-            for (index, result) in self.results.iter().enumerate() {
-                if task_type == result.task_type {
-                    indexes.push(index);
+    /// Get all uncategorized task results and then deplete
+    pub fn get_uncategorized_task_results(&mut self) -> Vec<TaskResult> {
+        let mut uncategorized = Vec::new();
+        let mut pointer = 0;
+
+        while pointer < self.results.len() {
+            // Remove the matched result
+            match self.results[pointer].task_type {
+                TaskType::Uncategorized => {
+                    uncategorized.push(self.results.remove(pointer));
+                    // No increment here.
+                    // Index has shifted after remove.
                 }
-            }
-
-            let mut results = Vec::new();
-            for index in indexes {
-                results.push(self.results.remove(index));
-            }
-
-            return results;
+                _ => {
+                    // Increment the pointer number when it is not matched
+                    pointer += 1;
+                }
+            };
         }
 
-        std::mem::take(&mut self.results)
+        uncategorized
+    }
+
+    /// Get a specific task
+    pub fn get_task_result(&mut self, task_type: TaskType) -> Option<TaskResult> {
+        let mut result_index = None;
+        for (index, result) in self.results.iter().enumerate() {
+            if result.task_type == task_type {
+                result_index = Some(index);
+            }
+        }
+
+        if let Some(index) = result_index {
+            return Some(self.results.remove(index));
+        }
+
+        None
     }
 }
 
@@ -91,7 +104,7 @@ pub fn register_task(cx: &mut AsyncApp, task: TaskInformation) {
 }
 
 pub fn register_result(cx: &mut AsyncApp, task_result: TaskResult) {
-    let _ = cx.update_global::<NormalTaskScheduler, ()>(|this, cx| {
+    let _ = cx.update_global::<NormalTaskScheduler, ()>(|this, _cx| {
         this.register_result(task_result);
     });
 }

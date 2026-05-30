@@ -6,8 +6,7 @@ use crate::globals::schedulers::{
 };
 
 /// TODO:
-/// - Integrate debounce scheduler
-/// - Fix the large text issue
+/// - Add debounce to ChunkBlock and upate block tasks
 pub struct NotificationCenter {
     _subscriptions: Vec<Subscription>,
 }
@@ -27,7 +26,7 @@ impl NotificationCenter {
 
                 let (task_results, task_information) = cx
                     .update_global::<NormalTaskScheduler, (Vec<TaskResult>, Vec<TaskInformation>)>(
-                        |this, _cx| (this.get_all_task_results(None), this.get_all_tasks()),
+                        |this, _cx| (this.get_uncategorized_task_results(), this.get_all_tasks()),
                     );
 
                 if !task_results.is_empty() {

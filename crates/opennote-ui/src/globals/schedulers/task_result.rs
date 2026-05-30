@@ -8,11 +8,11 @@ pub enum TaskType {
     /// Tasks that haven't yet been categorized
     Uncategorized,
     /// Chunk block
-    ChunkBlock,
+    ChunkBlock(Uuid),
 }
 
 /// It stores the task results
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct TaskResult {
     /// An id that can be corresponded to the TaskInformation
     pub id: Uuid,

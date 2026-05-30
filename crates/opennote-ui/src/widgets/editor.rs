@@ -5,13 +5,11 @@ use gpui::{
 use gpui_component::input::{Input, InputState};
 use uuid::Uuid;
 
-use opennote_core_logics::payload::convert_string_to_payloads;
 use opennote_models::block::Block;
 
 use crate::{
     globals::{
-        actions::update_n_blocks,
-        bootstrap::GlobalApplicationBootStrap,
+        actions::{chunk_block, update_n_blocks},
         schedulers::{
             normal::NormalTaskScheduler,
             task_result::{TaskResult, TaskType},
@@ -38,35 +36,29 @@ impl Editor {
 
         // Get updates from the normal task scheduler
         _subscriptions.push(cx.observe_global::<NormalTaskScheduler>(|this, cx| {
+            let Some(block) = &this.block else {
+                return;
+            };
+
             let scheduler: &NormalTaskScheduler = cx.global();
-            if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock)) {
+            if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock(block.id))) {
                 return;
             }
 
-            // TODO: 
-            // - We need to be sure that we are getting this editor's block, not other editor's
-            // - Make sure notification center does not empty results beforehand
-            let task_results =
-                cx.update_global::<NormalTaskScheduler, Vec<TaskResult>>(|this, _cx| {
-                    this.get_all_task_results(Some(TaskType::ChunkBlock))
+            let task_result =
+                cx.update_global::<NormalTaskScheduler, Option<TaskResult>>(|this, _cx| {
+                    this.get_task_result(TaskType::ChunkBlock(block.id))
                 });
 
-            if !task_results.is_empty() {
-                for result in task_results {
-                    let block: Block = if let Some(data) = result.data {
-                        serde_json::from_value(data).unwrap()
-                    } else {
-                        return;
-                    };
+            if let Some(result) = task_result {
+                let block: Block = if let Some(data) = result.data {
+                    serde_json::from_value(data).unwrap()
+                } else {
+                    return;
+                };
 
-                    if let Some(current_block) = &this.block {
-                        if block.id != current_block.id {
-                            return;
-                        }
-                        update_n_blocks(cx, vec![block.clone()], true);
-                        cx.notify();
-                    }
-                }
+                update_n_blocks(cx, vec![block.clone()], true);
+                cx.notify();
             }
         }));
 
@@ -118,7 +110,9 @@ impl Focusable for Editor {
 }
 
 /// TODO:
-/// - Large text won't save intactfully at the moment!
+/// - Should have a notification center with in-progress tasks
+/// - Should block the user from closing the window when tasks are in progress
+/// - Should indicate the saving status in the tabs
 /// - Should we make the Block object a reference?
 impl Render for Editor {
     fn render(
@@ -150,29 +144,11 @@ impl Render for Editor {
                 Input::new(&self.state).h_full(), // We need the input to display in full height
             )
             .on_action(cx.listener(|this, _action: &SaveDocument, _window, cx| {
-                // 1. slice the string into payloads
                 if let Some(block) = &mut this.block {
-                    let input_state = this.state.read(cx);
-                    let bootstrap: &GlobalApplicationBootStrap = cx.global();
-
-                    let payloads = match convert_string_to_payloads(
-                        block.id,
-                        Some(bootstrap.0.configurations.system.embedder.dimensions),
-                        input_state.value().to_string(),
-                    ) {
-                        Ok(results) => results,
-                        Err(error) => {
-                            log::error!("Error when trying to save a document: {}", error);
-                            return;
-                        }
-                    };
-
-                    // 2. swap the payloads into the block
-                    block.payloads = payloads;
-
-                    // 3. update blocks
-                    update_n_blocks(cx, vec![block.clone()], true);
-                    cx.notify();
+                    let text = this.state.read(cx).value().to_string();
+                    // Send the chunking task to the background.
+                    // Once finished, editors will pull the results and do the saving.
+                    chunk_block(cx, block.clone(), text);
                 }
             }))
     }

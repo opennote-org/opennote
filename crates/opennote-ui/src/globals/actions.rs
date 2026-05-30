@@ -233,17 +233,39 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
             if with_payload_changes {
                 match &embedders {
                     Some(embedders) => {
+                        let executor = cx.background_executor();
                         // TODO: make this concurrent
                         for block in blocks.iter_mut() {
                             // Take the payloads out, and swap in a default value temporarily
                             let payloads = std::mem::take(&mut block.payloads);
 
-                            let mut vectorized_payloads =
-                                send_vectorization(payloads, &embedders).await?;
+                            // Cheap clone
+                            let embedders = embedders.clone();
 
-                            if let Some(vectorized_payload) = vectorized_payloads.pop() {
-                                // Put the payload value back
-                                block.payloads.push(vectorized_payload);
+                            let vectorized_payloads = executor
+                                .spawn(
+                                    async move { send_vectorization(payloads, &embedders).await },
+                                )
+                                .await;
+
+                            match vectorized_payloads {
+                                Ok(payloads) => block.payloads = payloads,
+                                Err(error) => {
+                                    register_result(
+                                        cx,
+                                        TaskResult::new(
+                                            task_id,
+                                            false,
+                                            format!(
+                                                "Error has occurred when embedding textsL {}",
+                                                error
+                                            ),
+                                            TaskType::Uncategorized,
+                                            None,
+                                        ),
+                                    );
+                                    return Err(anyhow::anyhow!("No embedders available"));
+                                }
                             }
                         }
                     }
@@ -401,9 +423,6 @@ pub fn update_parent(
         .detach();
 }
 
-/// TODO:
-/// - Editor pulls the chunks for updating
-/// - cx.notify
 pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
     log::debug!("Chunking block: {:?}", block.id);
 
@@ -443,7 +462,7 @@ pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
                             task_id,
                             false,
                             format!("Chunking failed: {}", error),
-                            TaskType::ChunkBlock,
+                            TaskType::ChunkBlock(block.id),
                             None,
                         ),
                     );
@@ -460,7 +479,7 @@ pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
                     task_id,
                     true,
                     "Chunking completed",
-                    TaskType::ChunkBlock,
+                    TaskType::ChunkBlock(block.id),
                     Some(serde_json::to_value(block).unwrap()),
                 ),
             );
