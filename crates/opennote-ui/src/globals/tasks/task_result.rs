@@ -9,6 +9,8 @@ pub enum TaskType {
     Uncategorized,
     /// Chunk block
     ChunkBlock(Uuid),
+    /// Update n blocks
+    UpdateNBlocks,
 }
 
 /// It stores the task results

@@ -2,7 +2,10 @@ use gpui::{
     AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
     ParentElement, Render, Styled, Subscription, div,
 };
-use gpui_component::input::{Input, InputState};
+use gpui_component::{
+    WindowExt,
+    input::{Input, InputState},
+};
 use uuid::Uuid;
 
 use opennote_models::block::Block;
@@ -10,9 +13,10 @@ use opennote_models::block::Block;
 use crate::{
     globals::{
         actions::{chunk_block, update_n_blocks},
-        schedulers::{
-            normal::NormalTaskScheduler,
+        tasks::{
             task_result::{TaskResult, TaskType},
+            tracker::TaskTracker,
+            unique_notifications::ChunkBlockNotification,
         },
     },
     key_mappings::{key_contexts::EDITOR, mappings::SaveDocument},
@@ -35,32 +39,36 @@ impl Editor {
         let mut _subscriptions = Vec::new();
 
         // Get updates from the normal task scheduler
-        _subscriptions.push(cx.observe_global::<NormalTaskScheduler>(|this, cx| {
-            let Some(block) = &this.block else {
-                return;
-            };
-
-            let scheduler: &NormalTaskScheduler = cx.global();
-            if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock(block.id))) {
-                return;
-            }
-
-            let task_result =
-                cx.update_global::<NormalTaskScheduler, Option<TaskResult>>(|this, _cx| {
-                    this.get_task_result(TaskType::ChunkBlock(block.id))
-                });
-
-            if let Some(result) = task_result {
-                let block: Block = if let Some(data) = result.data {
-                    serde_json::from_value(data).unwrap()
-                } else {
+        _subscriptions.push(
+            cx.observe_global_in::<TaskTracker>(window, |this, window, cx| {
+                let Some(block) = &this.block else {
                     return;
                 };
 
-                update_n_blocks(cx, vec![block.clone()], true);
-                cx.notify();
-            }
-        }));
+                let scheduler: &TaskTracker = cx.global();
+                if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock(block.id))) {
+                    return;
+                }
+
+                let task_result =
+                    cx.update_global::<TaskTracker, Option<TaskResult>>(|this, _cx| {
+                        this.get_task_result(TaskType::ChunkBlock(block.id))
+                    });
+
+                if let Some(result) = task_result {
+                    window.remove_notification::<ChunkBlockNotification>(cx);
+
+                    let block: Block = if let Some(data) = result.data {
+                        serde_json::from_value(data).unwrap()
+                    } else {
+                        return;
+                    };
+
+                    update_n_blocks(cx, vec![block.clone()], true);
+                    cx.notify();
+                }
+            }),
+        );
 
         Self {
             focus_handle: cx.focus_handle(),
@@ -110,9 +118,10 @@ impl Focusable for Editor {
 }
 
 /// TODO:
-/// - Should have a notification center with in-progress tasks
+/// - Should have in-progress tasks' notifications staying until finished
 /// - Should block the user from closing the window when tasks are in progress
 /// - Should indicate the saving status in the tabs
+/// - Should debounce the saving tasks
 /// - Should we make the Block object a reference?
 impl Render for Editor {
     fn render(

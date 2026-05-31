@@ -1,19 +1,19 @@
 use gpui::{App, AsyncApp, Global};
 
-use crate::globals::schedulers::{
+use crate::globals::tasks::{
     task_information::TaskInformation,
     task_result::{TaskResult, TaskType},
 };
 
 /// It tracks the execution results of async tasks
-pub struct NormalTaskScheduler {
+pub struct TaskTracker {
     pub tasks: Vec<TaskInformation>,
     pub results: Vec<TaskResult>,
 }
 
-impl Global for NormalTaskScheduler {}
+impl Global for TaskTracker {}
 
-impl NormalTaskScheduler {
+impl TaskTracker {
     pub fn new() -> Self {
         Self {
             tasks: Vec::new(),
@@ -22,7 +22,7 @@ impl NormalTaskScheduler {
     }
 
     pub fn init(cx: &mut App) {
-        cx.set_global(NormalTaskScheduler::new());
+        cx.set_global(TaskTracker::new());
     }
 
     pub fn has_pending_items(&self) -> bool {
@@ -98,13 +98,13 @@ impl NormalTaskScheduler {
 }
 
 pub fn register_task(cx: &mut AsyncApp, task: TaskInformation) {
-    let _ = cx.update_global::<NormalTaskScheduler, ()>(|this, _cx| {
+    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
         this.register(task);
     });
 }
 
 pub fn register_result(cx: &mut AsyncApp, task_result: TaskResult) {
-    let _ = cx.update_global::<NormalTaskScheduler, ()>(|this, _cx| {
+    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
         this.register_result(task_result);
     });
 }

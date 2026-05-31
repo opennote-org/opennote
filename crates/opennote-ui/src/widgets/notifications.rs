@@ -1,8 +1,14 @@
-use gpui::{BorrowAppContext, Context, Subscription, Window};
-use gpui_component::{WindowExt, notification::NotificationType};
+use gpui::{BorrowAppContext, Context, SharedString, Subscription, Window};
+use gpui_component::{
+    WindowExt,
+    notification::{Notification, NotificationType},
+};
 
-use crate::globals::schedulers::{
-    normal::NormalTaskScheduler, task_information::TaskInformation, task_result::TaskResult,
+use crate::globals::tasks::{
+    task_information::TaskInformation,
+    task_result::{TaskResult, TaskType},
+    tracker::TaskTracker,
+    unique_notifications::ChunkBlockNotification,
 };
 
 /// TODO:
@@ -16,16 +22,15 @@ impl NotificationCenter {
         let mut _subscriptions = Vec::new();
 
         // Get updates from the normal task scheduler
-        _subscriptions.push(cx.observe_global_in::<NormalTaskScheduler>(
-            window,
-            |_this, window, cx| {
-                let scheduler: &NormalTaskScheduler = cx.global();
+        _subscriptions.push(
+            cx.observe_global_in::<TaskTracker>(window, |_this, window, cx| {
+                let scheduler: &TaskTracker = cx.global();
                 if !scheduler.has_pending_items() {
                     return;
                 }
 
                 let (task_results, task_information) = cx
-                    .update_global::<NormalTaskScheduler, (Vec<TaskResult>, Vec<TaskInformation>)>(
+                    .update_global::<TaskTracker, (Vec<TaskResult>, Vec<TaskInformation>)>(
                         |this, _cx| (this.get_uncategorized_task_results(), this.get_all_tasks()),
                     );
 
@@ -41,12 +46,37 @@ impl NotificationCenter {
 
                 if !task_information.is_empty() {
                     for task in task_information {
+                        if task.is_long_running_task {
+                            match task.task_type {
+                                TaskType::ChunkBlock(_) => {
+                                    Self::push_unique_notifications::<ChunkBlockNotification>(
+                                        cx,
+                                        window,
+                                        task.message,
+                                    );
+                                    continue;
+                                }
+                                _ => {}
+                            }
+                        }
+
                         window.push_notification((NotificationType::Info, task.message), cx);
                     }
                 }
-            },
-        ));
+            }),
+        );
 
         Self { _subscriptions }
+    }
+
+    /// An unique notification won't auto-hide.
+    /// It needs to be manually hidden from the code.
+    /// This is usually used for long running tasks.
+    fn push_unique_notifications<T: 'static>(
+        cx: &mut Context<Self>,
+        window: &mut Window,
+        message: SharedString,
+    ) {
+        window.push_notification(Notification::info(message).id::<T>().autohide(false), cx);
     }
 }

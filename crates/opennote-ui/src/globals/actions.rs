@@ -1,3 +1,4 @@
+use gpui::AppContext;
 use uuid::Uuid;
 
 use opennote_core_logics::{
@@ -13,12 +14,12 @@ use opennote_models::{
 use crate::globals::{
     bootstrap::GlobalApplicationBootStrap,
     helpers::get_language_profile,
-    schedulers::{
-        normal::{register_result, register_task},
+    states::States,
+    tasks::{
         task_information::TaskInformation,
         task_result::{TaskResult, TaskType},
+        tracker::{register_result, register_task},
     },
-    states::States,
 };
 
 /// TODO:
@@ -31,7 +32,7 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
         .spawn(async move |cx| {
             log::debug!("Creating 1 block...");
 
-            let task = TaskInformation::new("Creating 1 block");
+            let task = TaskInformation::new("Creating 1 block", TaskType::Uncategorized, false);
 
             let task_id = task.id;
 
@@ -143,7 +144,11 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
         .spawn(async move |cx| {
             log::debug!("Deleting {} blocks...", block_ids.len());
 
-            let task = TaskInformation::new(format!("Deleting {} blocks", block_ids.len()));
+            let task = TaskInformation::new(
+                format!("Deleting {} blocks", block_ids.len()),
+                TaskType::Uncategorized,
+                false,
+            );
 
             let task_id = task.id;
             let num_blocks = block_ids.len();
@@ -208,7 +213,11 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
 
     app_cx
         .spawn(async move |cx| {
-            let task = TaskInformation::new(format!("Updating {} blocks", blocks.len()));
+            let task = TaskInformation::new(
+                format!("Updating {} blocks", blocks.len()),
+                TaskType::UpdateNBlocks,
+                true,
+            );
             let task_id = task.id;
 
             // Register task in the scheduler.
@@ -319,6 +328,7 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                 ),
             );
 
+            // TODO: when do we remove the notification for update_n_blocks
             let _ = cx.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
             });
@@ -351,7 +361,8 @@ pub fn update_parent(
                 )
                 .unwrap();
 
-            let task = TaskInformation::new("Updating blocks' parent");
+            let task =
+                TaskInformation::new("Updating blocks' parent", TaskType::Uncategorized, false);
             let task_id = task.id;
 
             // Register task in the scheduler.
@@ -431,7 +442,8 @@ pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
 
     app_cx
         .spawn(async move |cx| {
-            let task = TaskInformation::new("Chunking a block");
+            let task =
+                TaskInformation::new("Chunking a block", TaskType::ChunkBlock(block.id), true);
             let task_id = task.id;
 
             // Register task in the scheduler.
