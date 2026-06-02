@@ -1,4 +1,4 @@
-use gpui::AppContext;
+use gpui::Window;
 use uuid::Uuid;
 
 use opennote_core_logics::{
@@ -18,7 +18,11 @@ use crate::globals::{
     tasks::{
         task_information::TaskInformation,
         task_result::{TaskResult, TaskType},
-        tracker::{register_result, register_task},
+        tracker::{
+            register_long_running_result, register_long_running_task, register_result,
+            register_task,
+        },
+        unique_notifications::{ChunkBlockNotification, UpdateNBlocksNotification},
     },
 };
 
@@ -27,7 +31,13 @@ use crate::globals::{
 ///
 /// It will create one new block with a default title payload.
 /// This is a normal task that will only show up in the notification center on finish.
-pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
+pub fn create_one_block(
+    window: &mut Window,
+    app_cx: &mut gpui::App,
+    parent_block_id: Option<Uuid>,
+) {
+    let window = window.window_handle();
+
     app_cx
         .spawn(async move |cx| {
             log::debug!("Creating 1 block...");
@@ -37,7 +47,7 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
             let task_id = task.id;
 
             // Register task in the scheduler.
-            register_task(cx, task);
+            register_task(window, cx, task);
 
             let (default_block_title, databases, embedders, vector_database_config) =
                 cx.read_global::<GlobalApplicationBootStrap, (
@@ -80,6 +90,7 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                         "No embedders available. Please load an embedder before proceeding"
                     );
                     register_result(
+                        window,
                         cx,
                         TaskResult::new(
                             task_id,
@@ -99,6 +110,7 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
                     Err(error) => {
                         log::error!("{}", error);
                         register_result(
+                            window,
                             cx,
                             TaskResult::new(
                                 task_id,
@@ -118,6 +130,7 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
             );
 
             register_result(
+                window,
                 cx,
                 TaskResult::new(
                     task_id,
@@ -139,7 +152,9 @@ pub fn create_one_block(app_cx: &mut gpui::App, parent_block_id: Option<Uuid>) {
 
 /// Delete n blocks specified by their ids.
 /// This is a normal task that will only show up in the notification center on finish.
-pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
+pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
+    let window = window.window_handle();
+
     app_cx
         .spawn(async move |cx| {
             log::debug!("Deleting {} blocks...", block_ids.len());
@@ -154,7 +169,7 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
             let num_blocks = block_ids.len();
 
             // Register task in the scheduler.
-            register_task(cx, task);
+            register_task(window, cx, task);
 
             let (databases, vector_database_config) = cx
                 .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
@@ -171,6 +186,7 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
                 Err(error) => {
                     log::error!("{}", error);
                     register_result(
+                        window,
                         cx,
                         TaskResult::new(
                             task_id,
@@ -187,6 +203,7 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
             log::debug!("Blocks deletion finished, preceed to refreshing the block list...");
 
             register_result(
+                window,
                 cx,
                 TaskResult::new(
                     task_id,
@@ -207,9 +224,17 @@ pub fn delete_n_blocks(app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
 }
 
 /// Update n blocks supplied in the parameter.
-/// This is a normal task that will only show up in the notification center on finish.
-pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_changes: bool) {
+/// This is a long running task.
+/// It will remove the notification on finish.
+pub fn update_n_blocks(
+    window: &mut Window,
+    app_cx: &mut gpui::App,
+    blocks: Vec<Block>,
+    with_payload_changes: bool,
+) {
     log::debug!("Updating blocks: {:?}", blocks);
+
+    let window = window.window_handle();
 
     app_cx
         .spawn(async move |cx| {
@@ -221,7 +246,7 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
             let task_id = task.id;
 
             // Register task in the scheduler.
-            register_task(cx, task);
+            register_long_running_task::<UpdateNBlocksNotification>(window, cx, task);
 
             let mut blocks = blocks;
             let num_blocks = blocks.len();
@@ -251,6 +276,7 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                             // Cheap clone
                             let embedders = embedders.clone();
 
+                            // TODO: improve the inference speed
                             let vectorized_payloads = executor
                                 .spawn(
                                     async move { send_vectorization(payloads, &embedders).await },
@@ -260,7 +286,8 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                             match vectorized_payloads {
                                 Ok(payloads) => block.payloads = payloads,
                                 Err(error) => {
-                                    register_result(
+                                    register_long_running_result::<UpdateNBlocksNotification>(
+                                        window,
                                         cx,
                                         TaskResult::new(
                                             task_id,
@@ -269,7 +296,7 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                                                 "Error has occurred when embedding textsL {}",
                                                 error
                                             ),
-                                            TaskType::Uncategorized,
+                                            TaskType::UpdateNBlocks,
                                             None,
                                         ),
                                     );
@@ -282,13 +309,14 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                         log::error!(
                             "No embedders available. Please load an embedder before proceeding"
                         );
-                        register_result(
+                        register_long_running_result::<UpdateNBlocksNotification>(
+                            window,
                             cx,
                             TaskResult::new(
                                 task_id,
                                 false,
                                 "No embedders available. Please load an embedder before proceeding",
-                                TaskType::Uncategorized,
+                                TaskType::UpdateNBlocks,
                                 None,
                             ),
                         );
@@ -301,13 +329,14 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
                 Ok(_) => {}
                 Err(error) => {
                     log::error!("{}", error);
-                    register_result(
+                    register_long_running_result::<UpdateNBlocksNotification>(
+                        window,
                         cx,
                         TaskResult::new(
                             task_id,
                             false,
                             format!("Block update failed due to {}", error),
-                            TaskType::Uncategorized,
+                            TaskType::UpdateNBlocks,
                             None,
                         ),
                     );
@@ -317,18 +346,18 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
 
             log::debug!("Blocks update finished, preceed to refreshing the block list...");
 
-            register_result(
+            register_long_running_result::<UpdateNBlocksNotification>(
+                window,
                 cx,
                 TaskResult::new(
                     task_id,
                     true,
                     format!("Updated {} blocks", num_blocks),
-                    TaskType::Uncategorized,
+                    TaskType::UpdateNBlocks,
                     None,
                 ),
             );
 
-            // TODO: when do we remove the notification for update_n_blocks
             let _ = cx.update_global::<States, ()>(|_this, cx| {
                 States::refresh_blocks_list(cx);
             });
@@ -341,11 +370,14 @@ pub fn update_n_blocks(app_cx: &mut gpui::App, blocks: Vec<Block>, with_payload_
 /// Update parent-children relationship.
 /// This is a normal task that will only show up in the notification center on finish.
 pub fn update_parent(
+    window: &mut Window,
     app_cx: &mut gpui::App,
     new_parent_block_id: Option<Uuid>,
     block_ids: Vec<Uuid>,
 ) {
     log::debug!("Updating blocks' parent...");
+
+    let window = window.window_handle();
 
     app_cx
         .spawn(async move |app| {
@@ -366,7 +398,7 @@ pub fn update_parent(
             let task_id = task.id;
 
             // Register task in the scheduler.
-            register_task(app, task);
+            register_task(window, app, task);
 
             let num_blocks = block_ids.len();
 
@@ -385,6 +417,7 @@ pub fn update_parent(
                         Err(error) => {
                             log::error!("{}", error);
                             register_result(
+                                window,
                                 app,
                                 TaskResult::new(
                                     task_id,
@@ -400,6 +433,7 @@ pub fn update_parent(
                 Err(error) => {
                     log::error!("{}", error);
                     register_result(
+                        window,
                         app,
                         TaskResult::new(
                             task_id,
@@ -417,6 +451,7 @@ pub fn update_parent(
             );
 
             register_result(
+                window,
                 app,
                 TaskResult::new(
                     task_id,
@@ -434,11 +469,12 @@ pub fn update_parent(
         .detach();
 }
 
-pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
+pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block, text: String) {
     log::debug!("Chunking block: {:?}", block.id);
 
     let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
     let text_chunk_size = bootstrap.0.configurations.user.search.document_chunk_size;
+    let window = window.window_handle();
 
     app_cx
         .spawn(async move |cx| {
@@ -447,7 +483,7 @@ pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
             let task_id = task.id;
 
             // Register task in the scheduler.
-            register_task(cx, task);
+            register_long_running_task::<ChunkBlockNotification>(window, cx, task);
 
             // Chunk in the background
             let payloads: Vec<Payload> = match cx
@@ -468,7 +504,8 @@ pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
             {
                 Ok(result) => result,
                 Err(error) => {
-                    register_result(
+                    register_long_running_result::<ChunkBlockNotification>(
+                        window,
                         cx,
                         TaskResult::new(
                             task_id,
@@ -485,7 +522,8 @@ pub fn chunk_block(app_cx: &mut gpui::App, mut block: Block, text: String) {
             block.payloads = payloads;
 
             // Scheduler should receive the result at this point
-            register_result(
+            register_long_running_result::<ChunkBlockNotification>(
+                window,
                 cx,
                 TaskResult::new(
                     task_id,

@@ -1,4 +1,9 @@
-use gpui::{App, AsyncApp, Global};
+use gpui::{AnyWindowHandle, App, AppContext, AsyncApp, Global};
+use gpui_component::{
+    WindowExt,
+    notification::{Notification, NotificationType},
+};
+use uuid::Uuid;
 
 use crate::globals::tasks::{
     task_information::TaskInformation,
@@ -52,32 +57,8 @@ impl TaskTracker {
         self.results.push(task_result);
     }
 
-    /// Get all tasks and then deplete
-    pub fn get_all_tasks(&mut self) -> Vec<TaskInformation> {
-        std::mem::take(&mut self.tasks)
-    }
-
-    /// Get all uncategorized task results and then deplete
-    pub fn get_uncategorized_task_results(&mut self) -> Vec<TaskResult> {
-        let mut uncategorized = Vec::new();
-        let mut pointer = 0;
-
-        while pointer < self.results.len() {
-            // Remove the matched result
-            match self.results[pointer].task_type {
-                TaskType::Uncategorized => {
-                    uncategorized.push(self.results.remove(pointer));
-                    // No increment here.
-                    // Index has shifted after remove.
-                }
-                _ => {
-                    // Increment the pointer number when it is not matched
-                    pointer += 1;
-                }
-            };
-        }
-
-        uncategorized
+    pub fn remove_task_by_id(&mut self, id: Uuid) {
+        self.tasks.retain(|item| item.id == id);
     }
 
     /// Get a specific task
@@ -97,14 +78,72 @@ impl TaskTracker {
     }
 }
 
-pub fn register_task(cx: &mut AsyncApp, task: TaskInformation) {
+pub fn register_task(window: AnyWindowHandle, cx: &mut AsyncApp, task: TaskInformation) {
+    let message = task.message.clone();
+
     let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
         this.register(task);
     });
+
+    let _ = cx.update_window(window, |_view, window, cx| {
+        window.push_notification((NotificationType::Info, message), cx);
+    });
 }
 
-pub fn register_result(cx: &mut AsyncApp, task_result: TaskResult) {
+pub fn register_long_running_task<T: 'static>(
+    window: AnyWindowHandle,
+    cx: &mut AsyncApp,
+    task: TaskInformation,
+) {
+    let message = task.message.clone();
+
     let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
+        this.register(task);
+    });
+
+    let _ = cx.update_window(window, |_view, window, cx| {
+        window.push_notification(Notification::info(message).id::<T>().autohide(false), cx);
+    });
+}
+
+/// It will remove the task information, then register the result
+pub fn register_result(window: AnyWindowHandle, cx: &mut AsyncApp, task_result: TaskResult) {
+    let notification_type = get_notification_type(task_result.status);
+    let message = task_result.message.clone();
+
+    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
+        this.remove_task_by_id(task_result.id);
         this.register_result(task_result);
     });
+
+    let _ = cx.update_window(window, |_view, window, cx| {
+        window.push_notification((notification_type, message), cx);
+    });
+}
+
+/// It will remove the task information, then register the result
+pub fn register_long_running_result<T: Sized + 'static>(
+    window: AnyWindowHandle,
+    cx: &mut AsyncApp,
+    task_result: TaskResult,
+) {
+    let notification_type = get_notification_type(task_result.status);
+    let message = task_result.message.clone();
+
+    cx.update_global::<TaskTracker, ()>(|this, _cx| {
+        this.remove_task_by_id(task_result.id);
+        this.register_result(task_result);
+    });
+
+    let _ = cx.update_window(window, |_view, window, cx| {
+        window.remove_notification::<T>(cx);
+        window.push_notification((notification_type, message), cx);
+    });
+}
+
+fn get_notification_type(status: bool) -> NotificationType {
+    match status {
+        true => NotificationType::Success,
+        false => NotificationType::Error,
+    }
 }

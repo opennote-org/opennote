@@ -77,6 +77,7 @@ async fn main() -> Result<()> {
                         .unwrap();
                     workspace
                 });
+                
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })

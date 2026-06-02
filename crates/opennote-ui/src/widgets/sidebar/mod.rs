@@ -195,10 +195,10 @@ impl OpenNoteSidebar {
     fn create_new_block_button(entity_id: EntityId) -> Button {
         Button::new("workspace_sidebar_create_new_block_button")
             .label("+")
-            .on_click(move |click, _window, app_cx| {
+            .on_click(move |click, window, app_cx| {
                 if !click.is_right_click() {
                     // Default to create a root block
-                    create_one_block(app_cx, None);
+                    create_one_block(window, app_cx, None);
                     app_cx.notify(entity_id);
                 }
             })
@@ -261,14 +261,14 @@ impl Render for OpenNoteSidebar {
                             .child(Self::create_new_block_button(entity_id)),
                     ),
             )
-            .on_action(cx.listener(|this, _action: &CreateOneBlock, _window, cx| {
+            .on_action(cx.listener(|this, _action: &CreateOneBlock, window, cx| {
                 let mut parent_block_id = None;
                 if let Some(block) = this.tree_state.read(cx).selected_block {
                     parent_block_id = Some(block)
                 }
 
                 log::debug!("About to create a block under: {:?}", parent_block_id);
-                create_one_block(cx, parent_block_id);
+                create_one_block(window, cx, parent_block_id);
                 cx.notify();
             }))
     }

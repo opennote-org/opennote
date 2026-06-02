@@ -80,7 +80,7 @@ pub fn create_root_tree_list_item(
                         }
                     });
                 })
-                .on_drop(move |dragged: &DraggedItem, _window, app| {
+                .on_drop(move |dragged: &DraggedItem, window, app| {
                     sidebar_entity_on_drop.update(app, |this, cx| {
                         this.mouse_position = None;
 
@@ -94,7 +94,7 @@ pub fn create_root_tree_list_item(
                         });
 
                         cx.update_global::<States, ()>(|_global, cx| {
-                            update_parent(cx, None, blocks_to_drag);
+                            update_parent(window, cx, None, blocks_to_drag);
                         });
 
                         cx.notify();
@@ -143,7 +143,7 @@ pub fn create_tree_list_item(
                 .on_drag(dragged_block.clone(), |value, _point, _window, app| {
                     app.new(|_| value.clone())
                 })
-                .on_drop(move |dragged: &DraggedItem, _window, app| {
+                .on_drop(move |dragged: &DraggedItem, window, app| {
                     sidebar_entity_on_drop.update(app, |this, cx| {
                         this.mouse_position = None;
 
@@ -160,7 +160,7 @@ pub fn create_tree_list_item(
                         });
 
                         cx.update_global::<States, ()>(|_global, cx| {
-                            update_parent(cx, Some(uuid), blocks_to_drag);
+                            update_parent(window, cx, Some(uuid), blocks_to_drag);
                         });
 
                         cx.notify();
@@ -177,7 +177,7 @@ pub fn create_tree_list_item(
                         }
                     });
                 })
-                .on_action(move |_action: &DeleteBlocks, _window, cx| {
+                .on_action(move |_action: &DeleteBlocks, window, cx| {
                     sidebar_entity_delete_blocks.update(cx, |this, cx| {
                         let mut to_delete = Vec::new();
 
@@ -197,7 +197,7 @@ pub fn create_tree_list_item(
                         });
 
                         log::debug!("About to delete blocks: {:?}", to_delete);
-                        delete_n_blocks(cx, to_delete);
+                        delete_n_blocks(window, cx, to_delete);
                         cx.notify();
                     });
                 })

@@ -64,7 +64,7 @@ impl Editor {
                         return;
                     };
 
-                    update_n_blocks(cx, vec![block.clone()], true);
+                    update_n_blocks(window, cx, vec![block.clone()], true);
                     cx.notify();
                 }
             }),
@@ -118,11 +118,12 @@ impl Focusable for Editor {
 }
 
 /// TODO:
-/// - Should have in-progress tasks' notifications staying until finished
-/// - Should block the user from closing the window when tasks are in progress
 /// - Should indicate the saving status in the tabs
-/// - Should debounce the saving tasks
 /// - Should we make the Block object a reference?
+///
+/// we can remove the notifcation center and manage the notifications with the functions
+/// however, we will still let the app know whether there are tasks running
+/// when there are tasks running, we can't close the window
 impl Render for Editor {
     fn render(
         &mut self,
@@ -152,12 +153,12 @@ impl Render for Editor {
             .child(
                 Input::new(&self.state).h_full(), // We need the input to display in full height
             )
-            .on_action(cx.listener(|this, _action: &SaveDocument, _window, cx| {
+            .on_action(cx.listener(|this, _action: &SaveDocument, window, cx| {
                 if let Some(block) = &mut this.block {
                     let text = this.state.read(cx).value().to_string();
                     // Send the chunking task to the background.
                     // Once finished, editors will pull the results and do the saving.
-                    chunk_block(cx, block.clone(), text);
+                    chunk_block(window, cx, block.clone(), text);
                 }
             }))
     }

@@ -7,13 +7,12 @@ use gpui_component::{
 };
 
 use crate::{
-    globals::{helpers::get_language_profile, states::States},
+    globals::{helpers::get_language_profile, states::States, tasks::tracker::TaskTracker},
     key_mappings::{
         key_contexts::WORKSPACE,
         mappings::{ToggleSearchBar, ToggleSidebar},
     },
     widgets::{
-        notifications::NotificationCenter,
         pane::{pane::Pane, pane_group::PaneGroup},
         search_bar::create_search_bar,
         sidebar::OpenNoteSidebar,
@@ -26,7 +25,6 @@ pub struct Workspace {
 
     pub sidebar: Entity<OpenNoteSidebar>,
     pub pane_group: Entity<PaneGroup>,
-    pub notification_center: Entity<NotificationCenter>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -86,7 +84,6 @@ impl Workspace {
 
                 PaneGroup::new(pane_entity)
             }),
-            notification_center: cx.new(|cx| NotificationCenter::new(cx, window)),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
@@ -117,6 +114,16 @@ impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let notification = Root::render_notification_layer(window, cx);
         self.publish_initialization_successful_message(window, cx);
+
+        // TODO: prevent the window from closing when there are ongoing tasks
+        window.on_window_should_close(cx, |_this, cx| {
+            let task_tracker: &TaskTracker = cx.global();
+            if task_tracker.has_pending_items() {
+                return false;
+            }
+
+            true
+        });
 
         log::debug!("Refreshing the workspace...");
 

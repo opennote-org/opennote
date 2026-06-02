@@ -1,4 +1,4 @@
-use gpui::{SharedString, Task};
+use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
