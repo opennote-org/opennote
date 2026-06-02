@@ -10,9 +10,10 @@ use crate::{
     globals::{helpers::get_language_profile, states::States, tasks::tracker::TaskTracker},
     key_mappings::{
         key_contexts::WORKSPACE,
-        mappings::{ToggleSearchBar, ToggleSidebar},
+        mappings::{ToggleCommandBar, ToggleSearchBar, ToggleSidebar},
     },
     widgets::{
+        command_bar::CommandBar,
         pane::{pane::Pane, pane_group::PaneGroup},
         search_bar::create_search_bar,
         sidebar::OpenNoteSidebar,
@@ -25,6 +26,7 @@ pub struct Workspace {
 
     pub sidebar: Entity<OpenNoteSidebar>,
     pub pane_group: Entity<PaneGroup>,
+    pub command_bar: Entity<CommandBar>,
 
     search_query: Entity<InputState>,
     search_query_text: SharedString,
@@ -84,6 +86,7 @@ impl Workspace {
 
                 PaneGroup::new(pane_entity)
             }),
+            command_bar: cx.new(|cx| CommandBar::new(cx, window).unwrap()), // Should panic out if this fails to initialize
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
@@ -140,6 +143,7 @@ impl Render for Workspace {
                     .child(self.sidebar.clone()) // Left
                     .child(self.pane_group.clone()), // Right
             )
+            .child(self.command_bar.clone())
             .child(create_search_bar(
                 &self.search_query,
                 self.is_search_bar_toggled,
@@ -166,6 +170,14 @@ impl Render for Workspace {
                     // TODO: make an independent widget for search bar
                     // TODO: make search bar focus right
                     workspace.is_search_bar_toggled = !workspace.is_search_bar_toggled;
+                    cx.notify();
+                }),
+            )
+            .on_action(
+                cx.listener(|workspace, _action: &ToggleCommandBar, window, cx| {
+                    workspace.command_bar.update(cx, |this, cx| {
+                        this.is_toggled = !this.is_toggled;
+                    });
                     cx.notify();
                 }),
             )

@@ -51,6 +51,11 @@ impl Default for KeyMappings {
                 context: "workspace".to_string(),
             },
             KeyMapping {
+                sequence: vec![":".to_string()],
+                action: format!("ToggleCommandBar"),
+                context: "workspace".to_string(),
+            },
+            KeyMapping {
                 sequence: vec!["cmd".to_string(), "-".to_string(), "n".to_string()],
                 action: format!("CreateOneBlock"),
                 context: "workspace_sidebar".to_string(),

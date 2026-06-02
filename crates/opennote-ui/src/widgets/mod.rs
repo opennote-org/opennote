@@ -3,3 +3,4 @@ pub mod editor;
 pub mod pane;
 pub mod search_bar;
 pub mod sidebar;
+pub mod command_bar;
