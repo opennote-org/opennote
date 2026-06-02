@@ -5,8 +5,6 @@ use uuid::Uuid;
 use crate::widgets::pane::pane::Pane;
 
 // TODO:
-// - create a single DraggedItem for dragging operations on the same layer
-// - editor tabs can be dragged to split screens
 // - sidebar tabs can be dragged to re-order
 // - sidebar tabs can be dragged to open and split
 

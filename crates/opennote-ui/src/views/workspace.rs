@@ -115,7 +115,6 @@ impl Render for Workspace {
         let notification = Root::render_notification_layer(window, cx);
         self.publish_initialization_successful_message(window, cx);
 
-        // TODO: prevent the window from closing when there are ongoing tasks
         window.on_window_should_close(cx, |_this, cx| {
             let task_tracker: &TaskTracker = cx.global();
             if task_tracker.has_pending_items() {
