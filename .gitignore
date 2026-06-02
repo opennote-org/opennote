@@ -46,3 +46,7 @@ frontend/.fvm/
 
 # Others
 plan.md
+
+# Added by cargo
+
+/target

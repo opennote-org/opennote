@@ -1,0 +1,39 @@
+{
+  "logging": {
+    "format": "json",
+    "level": "info"
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "workers": 4
+  },
+  "identities_storage": {
+    "path": "./data/identities_storage.json"
+  },
+  "metadata_storage": {
+    "path": "./data/metadata_storage.json"
+  },
+  "backups_storage": {
+    "path": "./data/backups_storage.json"
+  },
+  "database": {
+    "provider": "sqlite",
+    "connection_url": "sqlite://./data/database.sqlite?mode=rwc"
+  },
+  "vector_database": {
+    "provider": "qdrant",
+    "index": "notes",
+    "base_url": "http://database:6334",
+    "api_key": "meilimasterkey"
+  },
+  "embedder": {
+    "provider": "native",
+    "base_url": "http://embedder:8000/v1/embeddings",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "vectorization_batch_size": 100,
+    "encoding_format": "float",
+    "dimensions": 384,
+    "api_key": "techlab2024-llm"
+  }
+}
