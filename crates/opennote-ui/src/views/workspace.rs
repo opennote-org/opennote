@@ -13,7 +13,7 @@ use crate::{
         mappings::{ToggleCommandBar, ToggleSearchBar, ToggleSidebar},
     },
     widgets::{
-        command_bar::CommandBar,
+        command_bar::bar::CommandBar,
         pane::{pane::Pane, pane_group::PaneGroup},
         search_bar::create_search_bar,
         sidebar::OpenNoteSidebar,
@@ -86,7 +86,7 @@ impl Workspace {
 
                 PaneGroup::new(pane_entity)
             }),
-            command_bar: cx.new(|cx| CommandBar::new(cx, window).unwrap()), // Should panic out if this fails to initialize
+            command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_query,
             search_query_text: "".into(),
             is_search_bar_toggled: false,
@@ -153,6 +153,7 @@ impl Render for Workspace {
                     workspace.sidebar.update(cx, |this, cx| {
                         this.toggle(cx);
 
+                        // Manually shift the focus, otherwise it won't just focus automatically
                         if !this.is_toggled() {
                             window.focus(&workspace.focus_handle(cx));
                         }
@@ -177,7 +178,17 @@ impl Render for Workspace {
                 cx.listener(|workspace, _action: &ToggleCommandBar, window, cx| {
                     workspace.command_bar.update(cx, |this, cx| {
                         this.is_toggled = !this.is_toggled;
+
+                        // Manually shift the focus, otherwise it won't just focus automatically
+                        if !this.is_toggled {
+                            window.focus(&workspace.focus_handle(cx));
+                        }
+
+                        if this.is_toggled {
+                            window.focus(&this.get_input_field_focus_handle(cx));
+                        }
                     });
+
                     cx.notify();
                 }),
             )
