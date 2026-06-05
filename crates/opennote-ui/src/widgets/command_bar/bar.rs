@@ -21,8 +21,6 @@ pub struct CommandBar {
 }
 
 /// TODO:
-/// - Implement commands (toggle sidebar and settings panel) for CommandBar
-/// - Implement settings panel
 /// - Create default background for editor
 impl CommandBar {
     pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window) -> Self {

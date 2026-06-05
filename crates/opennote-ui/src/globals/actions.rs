@@ -6,9 +6,14 @@ use opennote_core_logics::{
     payload::{PayloadContentParameters, build_payload, convert_string_to_payloads},
 };
 use opennote_data::{Databases, database::enums::BlockQuery};
-use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
+use opennote_embedder::{
+    entry::EmbedderEntry,
+    vectorization::{send_vectorization, vectorize},
+};
 use opennote_models::{
-    block::Block, configurations::system::VectorDatabaseConfig, payload::Payload,
+    block::Block,
+    configurations::system::{EmbedderConfig, VectorDatabaseConfig},
+    payload::Payload,
 };
 
 use crate::globals::{
@@ -251,16 +256,18 @@ pub fn update_n_blocks(
             let mut blocks = blocks;
             let num_blocks = blocks.len();
 
-            let (databases, embedders, vector_database_config) = cx
-                .read_global::<GlobalApplicationBootStrap, (
+            let (databases, embedders, vector_database_config, embedders_config) =
+                cx.read_global::<GlobalApplicationBootStrap, (
                     Databases,
                     Option<EmbedderEntry>,
                     VectorDatabaseConfig,
+                    EmbedderConfig,
                 )>(|this, _cx| {
                     (
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
                         this.0.configurations.system.vector_database.clone(),
+                        this.0.configurations.system.embedder.clone(),
                     )
                 })?;
 
@@ -268,24 +275,35 @@ pub fn update_n_blocks(
                 match &embedders {
                     Some(embedders) => {
                         let executor = cx.background_executor();
+                        let tokio_handle = tokio::runtime::Handle::current();
                         // TODO: make this concurrent
                         for block in blocks.iter_mut() {
+                            let tokio_handle = tokio_handle.clone();
+
                             // Take the payloads out, and swap in a default value temporarily
                             let payloads = std::mem::take(&mut block.payloads);
 
                             // Cheap clone
                             let embedders = embedders.clone();
+                            let embedders_config = embedders_config.clone();
 
                             // TODO: improve the inference speed
                             let vectorized_payloads = executor
-                                .spawn(
-                                    async move { send_vectorization(payloads, &embedders).await },
-                                )
+                                .spawn(async move {
+                                    tokio_handle
+                                        .spawn(async move {
+                                            vectorize(&embedders, &embedders_config, payloads).await
+                                        })
+                                        .await
+                                        .unwrap()
+                                })
                                 .await;
 
                             match vectorized_payloads {
                                 Ok(payloads) => block.payloads = payloads,
                                 Err(error) => {
+                                    dbg!(&error);
+                                    // TODO: error message should not automatically closed
                                     register_long_running_result::<UpdateNBlocksNotification>(
                                         window,
                                         cx,
@@ -293,7 +311,7 @@ pub fn update_n_blocks(
                                             task_id,
                                             false,
                                             format!(
-                                                "Error has occurred when embedding textsL {}",
+                                                "Error has occurred when embedding texts: {}",
                                                 error
                                             ),
                                             TaskType::UpdateNBlocks,
