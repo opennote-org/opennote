@@ -7,7 +7,6 @@ use gpui::{
 };
 use gpui_component::{h_flex, v_flex};
 use serde::Deserialize;
-use uuid::Uuid;
 
 use crate::widgets::pane::pane::Pane;
 
@@ -28,32 +27,6 @@ impl PaneGroup {
             root: Member::Pane(pane),
             is_center: false,
         }
-    }
-
-    fn get_pane_recursively(cx: &App, member: &Member, pane_id: Uuid) -> Option<Entity<Pane>> {
-        match member {
-            Member::Axis(axis) => {
-                for member in axis.members.iter() {
-                    if let Some(pane) = Self::get_pane_recursively(cx, member, pane_id) {
-                        return Some(pane);
-                    }
-                }
-
-                None
-            }
-            Member::Pane(pane) => {
-                let pane_reference = pane.read(cx);
-                if pane_reference.id == pane_id {
-                    return Some(pane.clone());
-                }
-
-                None
-            }
-        }
-    }
-
-    pub fn get_pane_by_id(&self, cx: &App, pane_id: Uuid) -> Option<Entity<Pane>> {
-        Self::get_pane_recursively(cx, &self.root, pane_id)
     }
 
     /// Only return an Entity<Pane> when the member is a pane.

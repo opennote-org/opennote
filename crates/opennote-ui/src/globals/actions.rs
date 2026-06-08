@@ -63,11 +63,15 @@ pub fn create_one_block(
                 )>(|this, cx| {
                     let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
 
+                    let handle = tokio::runtime::Handle::current();
+                    let configurations =
+                        handle.block_on(async { this.0.configurations.lock().await });
+
                     (
                         language_profile.default_block_title.clone(),
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
-                        this.0.configurations.system.vector_database.clone(),
+                        configurations.system.vector_database.clone(),
                     )
                 })?;
 
@@ -179,9 +183,13 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
             let (databases, vector_database_config) = cx
                 .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
                     |this, _cx| {
+                        let handle = tokio::runtime::Handle::current();
+                        let configurations =
+                            handle.block_on(async { this.0.configurations.lock().await });
+
                         (
                             this.0.databases.clone(),
-                            this.0.configurations.system.vector_database.clone(),
+                            configurations.system.vector_database.clone(),
                         )
                     },
                 )?;
@@ -263,11 +271,15 @@ pub fn update_n_blocks(
                     VectorDatabaseConfig,
                     EmbedderConfig,
                 )>(|this, _cx| {
+                    let handle = tokio::runtime::Handle::current();
+                    let configurations =
+                        handle.block_on(async { this.0.configurations.lock().await });
+
                     (
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
-                        this.0.configurations.system.vector_database.clone(),
-                        this.0.configurations.system.embedder.clone(),
+                        configurations.system.vector_database.clone(),
+                        configurations.system.embedder.clone(),
                     )
                 })?;
 
@@ -403,8 +415,12 @@ pub fn update_parent(
                 .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
                     |this, _app| {
                         let databases = this.0.databases.clone();
-                        let vector_database_config =
-                            this.0.configurations.system.vector_database.clone();
+
+                        let handle = tokio::runtime::Handle::current();
+                        let configurations =
+                            handle.block_on(async { this.0.configurations.lock().await });
+
+                        let vector_database_config = configurations.system.vector_database.clone();
 
                         (databases, vector_database_config)
                     },
@@ -491,7 +507,11 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
     log::debug!("Chunking block: {:?}", block.id);
 
     let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
-    let text_chunk_size = bootstrap.0.configurations.user.search.document_chunk_size;
+
+    let handle = tokio::runtime::Handle::current();
+    let configurations = handle.block_on(async { bootstrap.0.configurations.lock().await });
+
+    let text_chunk_size = configurations.user.search.document_chunk_size;
     let window = window.window_handle();
 
     app_cx

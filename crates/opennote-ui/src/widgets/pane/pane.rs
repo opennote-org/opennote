@@ -372,17 +372,6 @@ impl Render for Pane {
                     dragged_item.clone(),
                     move |value: &DraggedItem, _point, _window, app| app.new(|_| value.clone()),
                 )
-            // .drag_over::<DraggedTab>(move |tab, dragged_tab: &DraggedTab, _, cx| {
-            //     let styled_tab = tab
-            //         .bg(cx.theme().blue)
-            //         .border_color(cx.theme().blue)
-            //         .border_0();
-
-            //     styled_tab.border_r_2()
-            // })
-            // .on_drop(move |dragged: &DraggedTab, window, app| {
-
-            // })
         }));
 
         // Open editor only when there is an active block

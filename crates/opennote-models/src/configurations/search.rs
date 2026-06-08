@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +8,12 @@ use serde::{Deserialize, Serialize};
 pub enum SupportedSearchMethod {
     Keyword,
     Semantic,
+}
+
+impl Display for SupportedSearchMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&serde_json::to_string(&self).unwrap())
+    }
 }
 
 impl Default for SupportedSearchMethod {

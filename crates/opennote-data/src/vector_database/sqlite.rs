@@ -153,16 +153,13 @@ impl SemanticSearch for SQLiteVectorDatabase {
     async fn search_documents_semantically(
         &self,
         payload_ids: &Vec<Uuid>,
-        query: &str,
+        query: &[f32],
         top_n: usize,
-        embedder_entry: &EmbedderEntry,
     ) -> Result<Vec<RawSearchResult>> {
         // Embed the query
-        let query_vector = send_vectorization(vec![create_query(query)], embedder_entry).await?;
         let vector_str = format!(
             "[{}]",
-            query_vector[0]
-                .vector
+            query
                 .iter()
                 .map(|v| v.to_string())
                 .collect::<Vec<_>>()

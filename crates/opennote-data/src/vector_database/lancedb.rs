@@ -189,13 +189,9 @@ impl SemanticSearch for LanceDB {
     async fn search_documents_semantically(
         &self,
         payload_ids: &Vec<Uuid>, // payload ids
-        query: &str,
+        query: &[f32],
         _top_n: usize,
-        embedder_entry: &EmbedderEntry,
     ) -> Result<Vec<RawSearchResult>> {
-        // Convert to vec
-        let chunks = send_vectorization(vec![create_query(query)], embedder_entry).await?;
-
         let table = self
             .vector_database
             .open_table(&self.table_name)
@@ -203,7 +199,7 @@ impl SemanticSearch for LanceDB {
             .await?;
 
         let stream = table
-            .vector_search(chunks[0].vector.clone())?
+            .vector_search(query)?
             .distance_type(lancedb::DistanceType::Cosine)
             .limit(i64::MAX as usize) // LanceDB won't return exhaustive list like Qdrant
             .execute()

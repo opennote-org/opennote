@@ -20,6 +20,7 @@ use crate::{
     views::workspace::Workspace,
     widgets::{
         blocks_tree::build_blocks_tree,
+        pane::helpers::open_block,
         sidebar::tree::{create_root_tree_list_item, create_tree_list_item},
     },
 };
@@ -50,31 +51,28 @@ impl OpenNoteSidebar {
 
         _subscriptions.push(cx.observe(&tree_state, |this, _tree_state, cx| {
             if let Some(selected) = this.tree_state.read(cx).selected_block {
-                cx.update_global::<States, ()>(|global, cx| {
-                    let selected_block_id = {
-                        let mut selected_block: Vec<&Block> = global
-                            .blocks
-                            .iter()
-                            .filter_map(|(_id, item)| {
-                                if item.id == selected {
-                                    return Some(item);
-                                }
+                let selected_block_id: Uuid = {
+                    let states: &States = cx.global();
 
-                                None
-                            })
-                            .collect();
-                        selected_block.remove(0).id
-                    };
+                    let mut selected_block: Vec<&Block> = states
+                        .blocks
+                        .iter()
+                        .filter_map(|(_id, item)| {
+                            if item.id == selected {
+                                return Some(item);
+                            }
 
-                    // Set the selected block in the active pane
-                    if let Some(active_pane) = &global.active_pane {
-                        let _ = active_pane.update(cx, |this, cx| {
-                            this.set_selected_block_by_block_id(selected_block_id, cx);
-                        });
-                    }
+                            None
+                        })
+                        .collect();
 
-                    log::debug!("Set active block to {}", selected_block_id);
-                });
+                    // Right now, we only need the first match
+                    selected_block.remove(0).id
+                };
+
+                open_block(cx, selected_block_id);
+
+                log::debug!("Set active block to {}", selected_block_id);
             }
 
             this.tree_state.update(cx, |this, _cx| {

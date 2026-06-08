@@ -120,10 +120,6 @@ impl Focusable for Editor {
 /// TODO:
 /// - Should indicate the saving status in the tabs
 /// - Should we make the Block object a reference?
-///
-/// we can remove the notifcation center and manage the notifications with the functions
-/// however, we will still let the app know whether there are tasks running
-/// when there are tasks running, we can't close the window
 impl Render for Editor {
     fn render(
         &mut self,
