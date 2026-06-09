@@ -1,3 +1,5 @@
+use std::vec;
+
 use gpui::{ParentElement, Styled};
 use gpui_component::{
     IndexPath, h_flex,
@@ -5,10 +7,18 @@ use gpui_component::{
     list::{ListDelegate, ListItem},
 };
 
-use opennote_models::{block::Block, payload::Payload};
+use opennote_core_logics::search::{search_by_keyword, search_by_semantics};
+use opennote_embedder::vectorization::send_vectorization;
+use opennote_models::{
+    block::Block,
+    configurations::search::SupportedSearchMethod,
+    payload::{Payload, create_query},
+};
 
-use crate::widgets::pane::helpers::open_block;
-
+use crate::{
+    globals::{bootstrap::GlobalApplicationBootStrap, states::States},
+    widgets::pane::helpers::open_block,
+};
 
 /// Collect all available gpui actions / key bindings in this app
 ///
@@ -85,23 +95,65 @@ impl ListDelegate for SearchResultsList {
         &mut self,
         query: &str,
         _window: &mut gpui::Window,
-        _cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
+        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> gpui::Task<()> {
-        // // Adopt the search method accordingly
-        // // Retrieve the search method from global state
-        // match  {
+        // Adopt the search method accordingly
+        // Retrieve the search method from global state
+        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let configurations = bootstrap.get_configurations();
 
-        // }
+        let states: &States = cx.global();
+        let Some(active_pane) = states.active_pane.clone() else {
+            return gpui::Task::ready(());
+        };
 
-        // // Filter items based on query
-        // self.filtered_results = self
-        //     .results
-        //     .iter()
-        //     .filter(|(block, payload)| {
-        //         action.name().to_lowercase().contains(&query.to_lowercase())
-        //     })
-        //     .map(|(action, key_binding)| (action.boxed_clone(), key_binding.to_owned()))
-        //     .collect();
+        let Some(block_id) = active_pane
+            .read_with(cx, |this, _cx| this.selected_block_id)
+            .unwrap()
+        else {
+            return gpui::Task::ready(());
+        };
+
+        let databases = &bootstrap.0.databases;
+        let raw_results = match configurations.user.search.default_search_method {
+            SupportedSearchMethod::Keyword => tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    search_by_keyword(
+                        databases,
+                        [block_id].to_vec(),
+                        query,
+                        configurations.user.search.top_n,
+                    )
+                    .await
+                    .unwrap()
+                })
+            }),
+            SupportedSearchMethod::Semantic => tokio::task::block_in_place(|| {
+                let Some(embedders) = &bootstrap.0.embedders else {
+                    return Vec::new();
+                };
+
+                tokio::runtime::Handle::current().block_on(async {
+                    let payload = create_query(query);
+
+                    let payloads = send_vectorization(vec![payload], embedders).await.unwrap();
+
+                    search_by_semantics(
+                        databases,
+                        [block_id].to_vec(),
+                        &payloads[0].vector,
+                        configurations.user.search.top_n,
+                    )
+                    .await
+                    .unwrap()
+                })
+            }),
+        };
+
+        // TODO: convert raw results to blocks and payloads
+
+        // Filter items based on query
+        self.filtered_results = std::mem::take(&mut self.results);
 
         gpui::Task::ready(())
     }

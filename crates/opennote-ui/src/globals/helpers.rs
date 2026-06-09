@@ -12,18 +12,9 @@ pub fn get_language_profile(
     bootstrap: &GlobalApplicationBootStrap,
     assets_collection: &AssetsCollection,
 ) -> Result<LanguageProfile> {
-    let handle = tokio::runtime::Handle::current();
+    let configurations = bootstrap.get_configurations();
 
-    let language = handle.block_on(async move {
-        bootstrap
-            .0
-            .configurations
-            .lock()
-            .await
-            .user
-            .language
-            .to_string()
-    });
+    let language = configurations.user.language.to_string();
 
     Ok(assets_collection
         .language_profiles

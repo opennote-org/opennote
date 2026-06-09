@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::Context as AnyhowContext;
 use gpui::{
     App, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, ParentElement,
@@ -9,6 +11,7 @@ use gpui_component::{
     select::{Select, SelectState},
     v_flex,
 };
+use opennote_models::configurations::search::SupportedSearchMethod;
 
 use crate::{
     globals::{
@@ -51,8 +54,19 @@ impl SearchBar {
             )
         });
 
+        // Update the search method when the selected search method changes
         _subscriptions.push(cx.observe(&search_method_state, |this, _tree_state, cx| {
-            
+            let Some(new_search_method) = this.search_method_state.read(cx).selected_value() else {
+                return;
+            };
+
+            let new_search_method = new_search_method.to_owned();
+
+            let bootstrap: &mut GlobalApplicationBootStrap = cx.global_mut();
+            bootstrap
+                .set_search_method(SupportedSearchMethod::from_str(&new_search_method).unwrap());
+
+            cx.notify();
         }));
 
         Self {
@@ -76,6 +90,9 @@ impl Focusable for SearchBar {
     }
 }
 
+/// TODO:
+/// - for now, we only search the active block. but we will need to let users select
+/// which scope is going to be searched. Block, sub-blocks or all notes
 impl Render for SearchBar {
     fn render(
         &mut self,

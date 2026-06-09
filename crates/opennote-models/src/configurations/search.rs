@@ -1,13 +1,21 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportedSearchMethod {
     Keyword,
     Semantic,
+}
+
+impl FromStr for SupportedSearchMethod {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
 }
 
 impl Display for SupportedSearchMethod {

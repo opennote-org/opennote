@@ -59,9 +59,11 @@ pub enum SplitMode {
 /// Can be split, see `PaneGroup` for more details.
 pub struct Pane {
     pub id: Uuid,
+
+    pub selected_block_id: Option<Uuid>,
+    pub opened_block_ids: Vec<Uuid>,
+
     focus_handle: FocusHandle,
-    selected_block_id: Option<Uuid>,
-    opened_block_ids: Vec<Uuid>,
     editor: Entity<Editor>,
     drag_split_direction: Option<SplitDirection>,
     pane_group: WeakEntity<PaneGroup>,
