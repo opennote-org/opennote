@@ -8,7 +8,7 @@ use gpui::{
 use gpui_component::{
     ActiveTheme, IndexPath, Sizable, h_flex,
     list::{List, ListState},
-    select::{Select, SelectState},
+    select::{Select, SelectEvent, SelectState},
     v_flex,
 };
 use opennote_models::configurations::search::SupportedSearchMethod;
@@ -55,19 +55,29 @@ impl SearchBar {
         });
 
         // Update the search method when the selected search method changes
-        _subscriptions.push(cx.observe(&search_method_state, |this, _tree_state, cx| {
-            let Some(new_search_method) = this.search_method_state.read(cx).selected_value() else {
-                return;
-            };
+        _subscriptions.push(cx.subscribe(
+            &search_method_state,
+            |_this, _tree_state, event: &SelectEvent<Vec<SharedString>>, cx| {
+                let new_search_method = match event {
+                    SelectEvent::Confirm(value) => {
+                        let Some(value) = value else {
+                            return;
+                        };
+                        value
+                    }
+                };
 
-            let new_search_method = new_search_method.to_owned();
+                let new_search_method = new_search_method.to_owned();
 
-            let bootstrap: &mut GlobalApplicationBootStrap = cx.global_mut();
-            bootstrap
-                .set_search_method(SupportedSearchMethod::from_str(&new_search_method).unwrap());
+                let new_search_method =
+                    SupportedSearchMethod::from_str(&new_search_method).unwrap();
 
-            cx.notify();
-        }));
+                let bootstrap: &mut GlobalApplicationBootStrap = cx.global_mut();
+                bootstrap.set_search_method(new_search_method);
+
+                cx.notify();
+            },
+        ));
 
         Self {
             is_toggled: false,
@@ -93,6 +103,7 @@ impl Focusable for SearchBar {
 /// TODO:
 /// - for now, we only search the active block. but we will need to let users select
 /// which scope is going to be searched. Block, sub-blocks or all notes
+/// - click to jump to the corresponding block and payload
 impl Render for SearchBar {
     fn render(
         &mut self,

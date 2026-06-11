@@ -28,9 +28,9 @@ pub fn create_required_folders(config_directory: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Get the configuration filepath.
+/// Get the configuration folder path.
 /// This function will panic out if no config directory was found.
-pub fn get_configuration_filepath() -> PathBuf {
+pub fn get_configuration_folder_path() -> PathBuf {
     if let Some(config_dir) = dirs::config_dir() {
         let path = config_dir.join(APP_DATA_FOLDER_NAME);
         log::debug!(
@@ -42,4 +42,12 @@ pub fn get_configuration_filepath() -> PathBuf {
     } else {
         panic!("No config directory was found in this system")
     }
+}
+
+/// Run async codes in sync functions
+pub fn run_async_code<F, R>(closure: F) -> R
+where
+    F: Future<Output = R>,
+{
+    tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(closure))
 }

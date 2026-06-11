@@ -16,7 +16,7 @@ use crate::{
     globals::{
         assets::AssetsCollection,
         bootstrap::GlobalApplicationBootStrap,
-        helpers::{create_required_folders, get_configuration_filepath},
+        helpers::{create_required_folders, get_configuration_folder_path},
         states::States,
         tasks::tracker::TaskTracker,
     },
@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
     )
     .unwrap();
 
-    let config_path = get_configuration_filepath();
+    let config_path = get_configuration_folder_path();
 
     create_required_folders(&config_path)?;
 

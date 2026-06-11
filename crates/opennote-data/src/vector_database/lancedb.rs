@@ -21,7 +21,7 @@ use uuid::Uuid;
 use crate::search::models::RawSearchResult;
 use crate::{
     database::traits::database::Database,
-    search::{keyword::KeywordSearch, models::SearchResult, semantic::SemanticSearch},
+    search::{keyword::KeywordSearch, semantic::SemanticSearch},
     vector_database::traits::VectorDatabase,
 };
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
@@ -335,43 +335,4 @@ fn build_raw_search_results(payloads: Vec<Payload>) -> Vec<RawSearchResult> {
             score: 1.0 - (index as f32 / total_number_results),
         })
         .collect()
-}
-
-async fn build_search_results(
-    database: &Arc<dyn Database>,
-    payloads: Vec<Payload>,
-) -> Result<Vec<SearchResult>> {
-    if payloads.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let total_number_results = payloads.len() as f32;
-    let mut results = Vec::with_capacity(payloads.len());
-    let mut paths_map = HashMap::new();
-
-    // Only fetch the payloads with different block ids
-    for (index, payload) in payloads.into_iter().enumerate() {
-        // Check if the block id's path had already fetched
-        if !paths_map.contains_key(&payload.block_id) {
-            let path = database
-                .read_block_path(payload.block_id)
-                .await
-                .context(format!("Failed reading blocks for {}", payload.block_id))?;
-            // Use hashmap to store `block_id : path`
-            paths_map.insert(payload.block_id, path);
-        }
-
-        // Manually compute the score by using `x = 1 - (n / m)`
-        let result = SearchResult::new(
-            paths_map
-                .get(&payload.block_id)
-                .expect("block_id was just inserted")
-                .clone(),
-            payload,
-            1.0 - (index as f32 / total_number_results),
-        );
-        results.push(result);
-    }
-
-    Ok(results)
 }

@@ -5,7 +5,7 @@ use opennote_models::configurations::{Configurations, search::SupportedSearchMet
 use tokio::sync::MutexGuard;
 
 use crate::{
-    globals::helpers::get_configuration_filepath, key_mappings::traits::KeyMappingsUIExtension,
+    globals::helpers::get_configuration_folder_path, key_mappings::traits::KeyMappingsUIExtension,
 };
 
 pub const SEARCH_METHODS_ENUMS: [SupportedSearchMethod; 2] = [
@@ -78,7 +78,7 @@ impl GlobalApplicationBootStrap {
         configurations.user.search.default_search_method = search_method;
 
         configurations
-            .save_to_file(&get_configuration_filepath())
+            .save_to_file(&get_configuration_folder_path())
             .unwrap();
     }
 }

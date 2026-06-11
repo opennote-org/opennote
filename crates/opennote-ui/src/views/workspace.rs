@@ -166,7 +166,6 @@ impl Render for Workspace {
             )
             .on_action(
                 cx.listener(|workspace, _action: &ToggleSearchBar, window, cx| {
-                    // TODO: make search bar focus right
                     workspace.search_bar.update(cx, |this, cx| {
                         this.is_toggled = !this.is_toggled;
 

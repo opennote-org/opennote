@@ -61,8 +61,11 @@ impl Configurations {
 
     /// Reserved for future uses
     #[allow(dead_code)]
-    pub fn save_to_file(&self, path: &PathBuf) -> Result<()> {
-        write_configurations_to_file(&self, path)?;
+    pub fn save_to_file(&self, configuration_folder_path: &PathBuf) -> Result<()> {
+        write_configurations_to_file(
+            &self,
+            &configuration_folder_path.join(CONFIGURATIONS_FILE_NAME),
+        )?;
         Ok(())
     }
 

@@ -1,4 +1,7 @@
-use std::vec;
+use std::{
+    collections::{HashMap, HashSet},
+    vec,
+};
 
 use gpui::{ParentElement, Styled};
 use gpui_component::{
@@ -7,16 +10,21 @@ use gpui_component::{
     list::{ListDelegate, ListItem},
 };
 
-use opennote_core_logics::search::{search_by_keyword, search_by_semantics};
+use opennote_core_logics::{
+    block::read_blocks,
+    search::{search_by_keyword, search_by_semantics},
+};
+use opennote_data::database::enums::BlockQuery;
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
     block::Block,
     configurations::search::SupportedSearchMethod,
     payload::{Payload, create_query},
 };
+use uuid::Uuid;
 
 use crate::{
-    globals::{bootstrap::GlobalApplicationBootStrap, states::States},
+    globals::{bootstrap::GlobalApplicationBootStrap, helpers::run_async_code, states::States},
     widgets::pane::helpers::open_block,
 };
 
@@ -34,9 +42,6 @@ pub struct SearchResultsList {
     pub results: Vec<(Block, Payload)>,
 
     ///
-    pub filtered_results: Vec<(Block, Payload)>,
-
-    ///
     pub selected_index: Option<IndexPath>,
 }
 
@@ -44,7 +49,6 @@ impl SearchResultsList {
     pub fn new() -> Self {
         Self {
             results: Vec::new(),
-            filtered_results: Vec::new(),
             selected_index: None,
         }
     }
@@ -116,44 +120,83 @@ impl ListDelegate for SearchResultsList {
 
         let databases = &bootstrap.0.databases;
         let raw_results = match configurations.user.search.default_search_method {
-            SupportedSearchMethod::Keyword => tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(async {
-                    search_by_keyword(
-                        databases,
-                        [block_id].to_vec(),
-                        query,
-                        configurations.user.search.top_n,
-                    )
-                    .await
-                    .unwrap()
-                })
+            SupportedSearchMethod::Keyword => run_async_code(async {
+                search_by_keyword(
+                    databases,
+                    [block_id].to_vec(),
+                    query,
+                    configurations.user.search.top_n,
+                )
+                .await
+                .unwrap()
             }),
-            SupportedSearchMethod::Semantic => tokio::task::block_in_place(|| {
+            SupportedSearchMethod::Semantic => run_async_code(async {
                 let Some(embedders) = &bootstrap.0.embedders else {
                     return Vec::new();
                 };
 
-                tokio::runtime::Handle::current().block_on(async {
-                    let payload = create_query(query);
+                let payload = create_query(query);
 
-                    let payloads = send_vectorization(vec![payload], embedders).await.unwrap();
+                let payloads = send_vectorization(vec![payload], embedders).await.unwrap();
 
-                    search_by_semantics(
-                        databases,
-                        [block_id].to_vec(),
-                        &payloads[0].vector,
-                        configurations.user.search.top_n,
-                    )
-                    .await
-                    .unwrap()
-                })
+                search_by_semantics(
+                    databases,
+                    [block_id].to_vec(),
+                    &payloads[0].vector,
+                    configurations.user.search.top_n,
+                )
+                .await
+                .unwrap()
             }),
         };
 
         // TODO: convert raw results to blocks and payloads
+        let mut results: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        let blocks = run_async_code(async {
+            // Get block ids for retrieving them
+            let mut block_ids = HashSet::new();
 
-        // Filter items based on query
-        self.filtered_results = std::mem::take(&mut self.results);
+            // Also save them to a hash map for pairing
+            for raw_result in raw_results {
+                let block_id = raw_result.block_id;
+
+                block_ids.insert(block_id);
+
+                // Insert payload id when block is there
+                if let Some(payloads) = results.get_mut(&block_id) {
+                    payloads.push(raw_result.payload_id);
+                    continue;
+                }
+
+                // Insert payload id and block id when block is not there
+                if results.get(&block_id).is_none() {
+                    results.insert(block_id, vec![raw_result.payload_id]);
+                }
+            }
+
+            read_blocks(
+                databases,
+                &BlockQuery::ByIds(block_ids.into_iter().collect()),
+            )
+            .await
+            .unwrap()
+        });
+
+        // Pair payloads with their blocks
+        self.results.clear();
+        for block in blocks {
+            let mut block = block;
+            let payloads = std::mem::take(&mut block.payloads);
+            let mut payloads: HashMap<Uuid, Payload> =
+                payloads.into_iter().map(|item| (item.id, item)).collect();
+
+            if let Some(payload_ids) = results.remove(&block.id) {
+                for id in payload_ids {
+                    self.results
+                        .push((block.clone(), payloads.remove(&id).unwrap()));
+                }
+            }
+        }
 
         gpui::Task::ready(())
     }
