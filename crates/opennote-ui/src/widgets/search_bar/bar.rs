@@ -103,7 +103,6 @@ impl Focusable for SearchBar {
 /// TODO:
 /// - for now, we only search the active block. but we will need to let users select
 /// which scope is going to be searched. Block, sub-blocks or all notes
-/// - click to jump to the corresponding block and payload
 impl Render for SearchBar {
     fn render(
         &mut self,

@@ -1,7 +1,10 @@
-use gpui::App;
+use gpui::{App, SharedString};
 use uuid::Uuid;
 
 use crate::globals::states::States;
+
+/// TODO:
+/// - click to jump to the corresponding block and payload
 
 /// Open a block to the active pane
 pub fn open_block(cx: &mut App, block_id: Uuid) {

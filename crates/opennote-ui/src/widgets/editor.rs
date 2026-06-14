@@ -1,10 +1,11 @@
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    ParentElement, Render, Styled, Subscription, div,
+    ParentElement, Render, SharedString, Styled, Subscription, div,
 };
 use gpui_component::{
-    WindowExt,
-    input::{Input, InputState},
+    RopeExt, WindowExt,
+    highlighter::Diagnostic,
+    input::{Input, InputState, Position},
 };
 use uuid::Uuid;
 
@@ -76,7 +77,7 @@ impl Editor {
                 InputState::new(window, cx)
                     .code_editor("markdown")
                     .line_number(true)
-                    .searchable(false)
+                    .searchable(true) // TODO: InputState should support searching through the backend
             }),
             block: None,
             loaded_block_id: None,
