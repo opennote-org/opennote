@@ -5,6 +5,7 @@ use gpui::{
 use gpui::{Context, FocusHandle, Render, Window, prelude::*};
 use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
 use gpui_component::{ActiveTheme, IconName, Selectable, Sizable};
+use opennote_models::block::Block;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -62,6 +63,8 @@ pub struct Pane {
 
     pub selected_block_id: Option<Uuid>,
     pub opened_block_ids: Vec<Uuid>,
+    /// The string that will highlighted in the editor
+    pub search_string: Option<SharedString>,
 
     focus_handle: FocusHandle,
     editor: Entity<Editor>,
@@ -84,6 +87,7 @@ impl Pane {
             focus_handle: cx.focus_handle(),
             selected_block_id: None,
             drag_split_direction: None,
+            search_string: None,
             editor: cx.new(|cx| Editor::new(cx, window)),
             opened_block_ids: Vec::new(),
             pane_group,
@@ -273,6 +277,15 @@ impl Pane {
         cx.notify();
     }
 
+    pub fn set_search_string(&mut self, string: SharedString) {
+        self.search_string = Some(string)
+    }
+
+    /// `self.search_string` will be emptied, once called
+    pub fn pop_search_string(&mut self) -> Option<SharedString> {
+        self.search_string.take()
+    }
+
     pub fn set_selected_block_by_block_id(&mut self, block_id: Uuid, cx: &mut Context<Self>) {
         for opened_block_id in self.opened_block_ids.iter() {
             if *opened_block_id == block_id {
@@ -299,7 +312,7 @@ impl Focusable for Pane {
 }
 
 impl Render for Pane {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
 
         if self.opened_block_ids.is_empty() {
@@ -381,15 +394,30 @@ impl Render for Pane {
             return base_div.child(tabs);
         };
 
+        // TODO:
+        // - close search bar after clicking a result
+        // - clear highlight after click somewhere else
+        // - clear search results after switching
+        // - press esc to exit
+        // - wrap the text
+        // - display which block does it belong to
         let editor = self.editor.clone();
+        let search_string = self.pop_search_string();
         editor.update(cx, |this, cx| {
             // The backend is always the source of truth.
             // We fetch the block from the backend with the current uuid.
 
             if let Some(selected_block_id) = self.selected_block_id {
-                let states: &States = cx.global();
-                if let Some(block) = states.blocks.get(&selected_block_id) {
-                    this.register_block(block.clone());
+                let block = cx.update_global::<States, Option<Block>>(|states, cx| {
+                    if let Some(block) = states.blocks.get(&selected_block_id) {
+                        return Some(block.clone());
+                    }
+
+                    None
+                });
+
+                if let Some(block) = block {
+                    this.register_block(cx, window, block, search_string);
                 }
             }
         });

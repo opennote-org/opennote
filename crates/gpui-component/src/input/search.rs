@@ -4,8 +4,8 @@ use std::{ops::Range, rc::Rc};
 
 use gpui::{
     App, AppContext as _, Context, Empty, Entity, FocusHandle, Focusable, Half,
-    InteractiveElement as _, IntoElement, KeyBinding, ParentElement as _, Pixels, Render, Styled,
-    Subscription, Window, actions, canvas, div, prelude::FluentBuilder as _,
+    InteractiveElement as _, IntoElement, KeyBinding, ParentElement as _, Pixels, Render,
+    SharedString, Styled, Subscription, Window, actions, canvas, div, prelude::FluentBuilder as _,
 };
 use ropey::Rope;
 
@@ -164,15 +164,13 @@ impl DoubleEndedIterator for SearchMatcher {
     }
 }
 
-/// TODO:
-/// - SearchPanel should be replaced by our customized search bar
 pub(super) struct SearchPanel {
-    editor: Entity<InputState>,
+    pub editor: Entity<InputState>,
     search_input: Entity<InputState>,
     replace_input: Entity<InputState>,
     case_insensitive: bool,
     replace_mode: bool,
-    matcher: SearchMatcher,
+    pub matcher: SearchMatcher,
     input_width: Pixels,
 
     open: bool,
@@ -272,6 +270,23 @@ impl SearchPanel {
         });
     }
 
+    pub fn update_search_query_manually(
+        &mut self,
+        cx: &mut Context<Self>,
+        visible_range_offset: Option<Range<usize>>,
+        query: SharedString,
+    ) {
+        self.matcher
+            .update_query(query.as_str(), self.case_insensitive);
+
+        if let Some(visible_range_offset) = visible_range_offset {
+            self.matcher
+                .update_cursor_by_offset(visible_range_offset.start);
+        }
+
+        cx.notify();
+    }
+
     fn update_search_query(&mut self, cx: &mut Context<Self>) {
         let query = self.search_input.read(cx).value();
         let visible_range_offset = self
@@ -330,9 +345,9 @@ impl SearchPanel {
     }
 
     pub(super) fn matcher(&self) -> Option<&SearchMatcher> {
-        if !self.open {
-            return None;
-        }
+        // if !self.open {
+        //     return None;
+        // }
 
         Some(&self.matcher)
     }

@@ -3,7 +3,7 @@ use std::{
     vec,
 };
 
-use gpui::{ParentElement, Styled};
+use gpui::{ParentElement, SharedString, Styled};
 use gpui_component::{
     IndexPath, h_flex,
     label::Label,
@@ -68,11 +68,13 @@ impl ListDelegate for SearchResultsList {
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> Option<Self::Item> {
         self.results.get(ix.row).map(|(block, payload)| {
+            let texts = SharedString::from(payload.texts.clone());
+
             let content = h_flex()
                 .items_center()
                 .justify_between()
                 .child(Label::new(block.get_title()))
-                .child(payload.texts.clone());
+                .child(texts.clone());
 
             let block_id = block.id;
 
@@ -80,7 +82,7 @@ impl ListDelegate for SearchResultsList {
                 .selected(Some(ix) == self.selected_index)
                 .child(content)
                 .on_click(cx.listener(move |_this, _, window, cx| {
-                    open_block(cx, block_id);
+                    open_block(cx, block_id, Some(texts.clone()));
                 }))
         })
     }

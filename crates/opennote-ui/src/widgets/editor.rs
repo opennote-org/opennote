@@ -1,5 +1,5 @@
 use gpui::{
-    AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
+    App, AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
     ParentElement, Render, SharedString, Styled, Subscription, div,
 };
 use gpui_component::{
@@ -85,8 +85,22 @@ impl Editor {
         }
     }
 
-    pub fn register_block(&mut self, block: Block) {
+    pub fn register_block(
+        &mut self,
+        cx: &mut App,
+        window: &mut gpui::Window,
+        block: Block,
+        highlighted_text: Option<SharedString>,
+    ) {
         self.block = Some(block);
+
+        let Some(string) = highlighted_text else {
+            return;
+        };
+
+        self.state.update(cx, |this, cx| {
+            this.set_highlighted_text(cx, window, string);
+        });
     }
 
     /// Update the editor content with the new openned block's content

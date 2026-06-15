@@ -272,6 +272,7 @@ pub struct InputState {
     /// - "💝" = 4
     pub(super) selected_range: Selection,
     pub(super) search_panel: Option<Entity<SearchPanel>>,
+    /// Turn on basic keyword search support
     pub(super) searchable: bool,
     /// Range for save the selected word, use to keep word range when drag move.
     pub(super) selected_word_range: Option<Selection>,
@@ -485,6 +486,45 @@ impl InputState {
             *l = line_number;
         }
         cx.notify();
+    }
+
+    pub fn set_highlighted_text(
+        &mut self,
+        cx: &mut Context<Self>,
+        window: &mut Window,
+        highlighted_text: SharedString,
+    ) {
+        let search_panel = match self.search_panel.as_ref() {
+            Some(panel) => panel.clone(),
+            None => SearchPanel::new(cx.entity(), window, cx),
+        };
+
+        let text = self.text.clone();
+        let editor = cx.entity();
+        search_panel.update(cx, |this, _cx| {
+            this.editor = editor;
+            this.matcher.update(&text);
+        });
+
+        self.search_panel = Some(search_panel);
+
+        let Some(search_panel) = self.search_panel.clone() else {
+            return;
+        };
+
+        let visible_range_offset = self
+            .last_layout
+            .as_ref()
+            .map(|l| l.visible_range_offset.clone());
+
+        let range = search_panel.update(cx, |this, cx| {
+            this.update_search_query_manually(cx, visible_range_offset, highlighted_text);
+            this.matcher.matched_ranges.first().cloned()
+        });
+
+        if let Some(range) = range {
+            self.scroll_to(range.end, Some(MoveDirection::Down), cx);
+        }
     }
 
     /// Set the number of rows for the multi-line Textarea.

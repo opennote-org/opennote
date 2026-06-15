@@ -70,7 +70,7 @@ impl OpenNoteSidebar {
                     selected_block.remove(0).id
                 };
 
-                open_block(cx, selected_block_id);
+                open_block(cx, selected_block_id, None);
 
                 log::debug!("Set active block to {}", selected_block_id);
             }
