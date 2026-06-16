@@ -10,12 +10,15 @@ use gpui::*;
 use gpui_component::*;
 
 use opennote_bootstrap::ApplicationBootStrap;
-use opennote_models::{configurations::Configurations, constants::APP_DATA_FOLDER_NAME};
+use opennote_models::configurations::Configurations;
 
 use crate::{
     globals::{
-        assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap,
-        helpers::create_required_folders, states::States, tasks::tracker::TaskTracker,
+        assets::AssetsCollection,
+        bootstrap::GlobalApplicationBootStrap,
+        helpers::{create_required_folders, get_configuration_folder_path},
+        states::States,
+        tasks::tracker::TaskTracker,
     },
     logs::UICustomLog,
     views::workspace::Workspace,
@@ -33,19 +36,7 @@ async fn main() -> Result<()> {
     )
     .unwrap();
 
-    // TODO: Consider further restricting the input paths, thus avoiding passing
-    // the config path from here
-    let config_path = if let Some(config_dir) = dirs::config_dir() {
-        let path = config_dir.join(APP_DATA_FOLDER_NAME);
-        log::debug!(
-            "Configuration directory has been set to: {}",
-            path.display()
-        );
-
-        path
-    } else {
-        panic!("No config directory was found in this system")
-    };
+    let config_path = get_configuration_folder_path();
 
     create_required_folders(&config_path)?;
 
@@ -77,7 +68,7 @@ async fn main() -> Result<()> {
                         .unwrap();
                     workspace
                 });
-                
+
                 // This first level on the window, should be a Root.
                 cx.new(|cx| Root::new(view, window, cx))
             })

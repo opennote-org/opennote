@@ -10,7 +10,7 @@ use opennote_tasks_scheduler::TasksScheduler;
 
 #[derive(Clone)]
 pub struct ApplicationBootStrap {
-    pub configurations: Arc<Configurations>,
+    pub configurations: Arc<Mutex<Configurations>>,
     pub databases: Databases,
     pub tasks_scheduler: Arc<Mutex<TasksScheduler>>,
     pub embedders: Option<EmbedderEntry>,
@@ -27,7 +27,7 @@ impl ApplicationBootStrap {
         };
 
         Ok(Self {
-            configurations: Arc::new(configurations.clone()),
+            configurations: Arc::new(Mutex::new(configurations.clone())),
             tasks_scheduler: Arc::new(Mutex::new(TasksScheduler::new())),
             databases: Databases::new(&configurations.system).await?,
             embedders,
@@ -36,7 +36,9 @@ impl ApplicationBootStrap {
 
     /// Reload an embedder model during  the runtime based on the lastest system configurations
     pub async fn reload_embedder(&mut self) -> Result<()> {
-        self.embedders = Some(EmbedderEntry::new(&self.configurations.system).await?);
+        let system = &self.configurations.lock().await.system;
+
+        self.embedders = Some(EmbedderEntry::new(system).await?);
 
         Ok(())
     }

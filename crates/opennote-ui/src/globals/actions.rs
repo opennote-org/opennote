@@ -63,11 +63,13 @@ pub fn create_one_block(
                 )>(|this, cx| {
                     let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
 
+                    let configurations = this.get_configurations();
+
                     (
                         language_profile.default_block_title.clone(),
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
-                        this.0.configurations.system.vector_database.clone(),
+                        configurations.system.vector_database.clone(),
                     )
                 })?;
 
@@ -179,9 +181,11 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
             let (databases, vector_database_config) = cx
                 .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
                     |this, _cx| {
+                        let configurations = this.get_configurations();
+
                         (
                             this.0.databases.clone(),
-                            this.0.configurations.system.vector_database.clone(),
+                            configurations.system.vector_database.clone(),
                         )
                     },
                 )?;
@@ -263,11 +267,13 @@ pub fn update_n_blocks(
                     VectorDatabaseConfig,
                     EmbedderConfig,
                 )>(|this, _cx| {
+                    let configurations = this.get_configurations();
+
                     (
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
-                        this.0.configurations.system.vector_database.clone(),
-                        this.0.configurations.system.embedder.clone(),
+                        configurations.system.vector_database.clone(),
+                        configurations.system.embedder.clone(),
                     )
                 })?;
 
@@ -302,7 +308,6 @@ pub fn update_n_blocks(
                             match vectorized_payloads {
                                 Ok(payloads) => block.payloads = payloads,
                                 Err(error) => {
-                                    dbg!(&error);
                                     // TODO: error message should not automatically closed
                                     register_long_running_result::<UpdateNBlocksNotification>(
                                         window,
@@ -403,10 +408,9 @@ pub fn update_parent(
                 .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
                     |this, _app| {
                         let databases = this.0.databases.clone();
-                        let vector_database_config =
-                            this.0.configurations.system.vector_database.clone();
+                        let configurations = this.get_configurations();
 
-                        (databases, vector_database_config)
+                        (databases, configurations.system.vector_database.clone())
                     },
                 )
                 .unwrap();
@@ -491,7 +495,9 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
     log::debug!("Chunking block: {:?}", block.id);
 
     let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
-    let text_chunk_size = bootstrap.0.configurations.user.search.document_chunk_size;
+    let configurations = bootstrap.get_configurations();
+
+    let text_chunk_size = configurations.user.search.document_chunk_size;
     let window = window.window_handle();
 
     app_cx
