@@ -504,6 +504,8 @@ impl InputState {
         search_panel.update(cx, |this, _cx| {
             this.editor = editor;
             this.matcher.update(&text);
+            // We don't want to show the default search panel
+            this.open = false;
         });
 
         self.search_panel = Some(search_panel);

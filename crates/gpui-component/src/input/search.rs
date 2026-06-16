@@ -173,7 +173,7 @@ pub(super) struct SearchPanel {
     pub matcher: SearchMatcher,
     input_width: Pixels,
 
-    open: bool,
+    pub open: bool,
     _subscriptions: Vec<Subscription>,
 }
 
