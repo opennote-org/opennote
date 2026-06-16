@@ -8,6 +8,7 @@ use gpui_component::{
     IndexPath, h_flex,
     label::Label,
     list::{ListDelegate, ListItem},
+    text::Text,
 };
 
 use opennote_core_logics::{
@@ -78,7 +79,7 @@ impl ListDelegate for SearchResultsList {
                 .items_center()
                 .justify_between()
                 .child(Label::new(block.get_title()))
-                .child(texts.clone());
+                .child(Text::String(texts.clone()));
 
             let block_id = block.id;
 

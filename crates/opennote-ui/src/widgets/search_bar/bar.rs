@@ -11,6 +11,7 @@ use gpui_component::{
     select::{Select, SelectEvent, SelectState},
     v_flex,
 };
+
 use opennote_models::configurations::search::SupportedSearchMethod;
 
 use crate::{
@@ -152,6 +153,5 @@ impl Render for SearchBar {
                         ),
                     ),
             )
-        // When changes had been detected, start full text match
     }
 }

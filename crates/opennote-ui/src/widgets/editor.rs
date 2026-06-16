@@ -3,9 +3,8 @@ use gpui::{
     ParentElement, Render, SharedString, Styled, Subscription, div,
 };
 use gpui_component::{
-    RopeExt, WindowExt,
-    highlighter::Diagnostic,
-    input::{Input, InputState, Position},
+    WindowExt,
+    input::{Input, InputState},
 };
 use uuid::Uuid;
 

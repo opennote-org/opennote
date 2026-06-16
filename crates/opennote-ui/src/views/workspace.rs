@@ -1,13 +1,8 @@
-use anyhow::Context as AnyhowContext;
 use gpui::{Context, *};
-use gpui_component::{
-    Root, StyledExt, WindowExt,
-    input::{InputEvent, InputState},
-    notification::NotificationType,
-};
+use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
 
 use crate::{
-    globals::{helpers::get_language_profile, states::States, tasks::tracker::TaskTracker},
+    globals::{states::States, tasks::tracker::TaskTracker},
     key_mappings::{
         key_contexts::WORKSPACE,
         mappings::{ToggleCommandBar, ToggleSearchBar, ToggleSidebar},
@@ -47,27 +42,7 @@ impl Focusable for Workspace {
 
 impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Result<Self> {
-        let language_profile = get_language_profile(cx.global(), cx.global())
-            .context("Getting language profile failed")?;
-
-        let search_query = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(&language_profile.search_bar_placeholder)
-        });
-
         let mut _subscriptions = vec![];
-
-        // // Reserved for capturing search queries
-        // _subscriptions.push(cx.subscribe_in(&search_query, window, {
-        //     let search_query = search_query.clone();
-        //     move |this, _, ev: &InputEvent, _window, cx| match ev {
-        //         InputEvent::Change => {
-        //             let value = search_query.read(cx).value();
-        //             this.search_query_text = format!("{}", value).into();
-        //             cx.notify()
-        //         }
-        //         _ => {}
-        //     }
-        // }));
 
         let workspace_weak_entity = cx.weak_entity();
 
@@ -88,9 +63,6 @@ impl Workspace {
             }),
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window)),
-            // search_query,
-            // search_query_text: "".into(),
-            // is_search_bar_toggled: false,
             is_initialization_succeeded: false,
             _subscriptions,
         })

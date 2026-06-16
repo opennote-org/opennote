@@ -394,10 +394,6 @@ impl Render for Pane {
             return base_div.child(tabs);
         };
 
-        // TODO:
-        // - press esc to exit
-        // - wrap the text
-        // - display which block does it belong to
         let editor = self.editor.clone();
         let search_string = self.pop_search_string();
         editor.update(cx, |this, cx| {
