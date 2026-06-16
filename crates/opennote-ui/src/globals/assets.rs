@@ -63,6 +63,11 @@ pub struct LanguageProfile {
     pub search_bar_placeholder: String,
 
     /*
+     * Command Bar
+     */
+    pub command_bar_placeholder: String,
+
+    /*
      * Notes / Blocks
      */
     pub default_block_title: String,

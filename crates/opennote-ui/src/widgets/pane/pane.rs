@@ -5,6 +5,7 @@ use gpui::{
 use gpui::{Context, FocusHandle, Render, Window, prelude::*};
 use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
 use gpui_component::{ActiveTheme, IconName, Selectable, Sizable};
+use opennote_models::block::Block;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -59,9 +60,13 @@ pub enum SplitMode {
 /// Can be split, see `PaneGroup` for more details.
 pub struct Pane {
     pub id: Uuid,
+
+    pub selected_block_id: Option<Uuid>,
+    pub opened_block_ids: Vec<Uuid>,
+    /// The string that will highlighted in the editor
+    pub search_string: Option<SharedString>,
+
     focus_handle: FocusHandle,
-    selected_block_id: Option<Uuid>,
-    opened_block_ids: Vec<Uuid>,
     editor: Entity<Editor>,
     drag_split_direction: Option<SplitDirection>,
     pane_group: WeakEntity<PaneGroup>,
@@ -82,6 +87,7 @@ impl Pane {
             focus_handle: cx.focus_handle(),
             selected_block_id: None,
             drag_split_direction: None,
+            search_string: None,
             editor: cx.new(|cx| Editor::new(cx, window)),
             opened_block_ids: Vec::new(),
             pane_group,
@@ -271,6 +277,15 @@ impl Pane {
         cx.notify();
     }
 
+    pub fn set_search_string(&mut self, string: SharedString) {
+        self.search_string = Some(string)
+    }
+
+    /// `self.search_string` will be emptied, once called
+    pub fn pop_search_string(&mut self) -> Option<SharedString> {
+        self.search_string.take()
+    }
+
     pub fn set_selected_block_by_block_id(&mut self, block_id: Uuid, cx: &mut Context<Self>) {
         for opened_block_id in self.opened_block_ids.iter() {
             if *opened_block_id == block_id {
@@ -297,7 +312,7 @@ impl Focusable for Pane {
 }
 
 impl Render for Pane {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
 
         if self.opened_block_ids.is_empty() {
@@ -372,17 +387,6 @@ impl Render for Pane {
                     dragged_item.clone(),
                     move |value: &DraggedItem, _point, _window, app| app.new(|_| value.clone()),
                 )
-            // .drag_over::<DraggedTab>(move |tab, dragged_tab: &DraggedTab, _, cx| {
-            //     let styled_tab = tab
-            //         .bg(cx.theme().blue)
-            //         .border_color(cx.theme().blue)
-            //         .border_0();
-
-            //     styled_tab.border_r_2()
-            // })
-            // .on_drop(move |dragged: &DraggedTab, window, app| {
-
-            // })
         }));
 
         // Open editor only when there is an active block
@@ -391,14 +395,22 @@ impl Render for Pane {
         };
 
         let editor = self.editor.clone();
+        let search_string = self.pop_search_string();
         editor.update(cx, |this, cx| {
             // The backend is always the source of truth.
             // We fetch the block from the backend with the current uuid.
 
             if let Some(selected_block_id) = self.selected_block_id {
-                let states: &States = cx.global();
-                if let Some(block) = states.blocks.get(&selected_block_id) {
-                    this.register_block(block.clone());
+                let block = cx.update_global::<States, Option<Block>>(|states, cx| {
+                    if let Some(block) = states.blocks.get(&selected_block_id) {
+                        return Some(block.clone());
+                    }
+
+                    None
+                });
+
+                if let Some(block) = block {
+                    this.register_block(cx, window, block, search_string);
                 }
             }
         });

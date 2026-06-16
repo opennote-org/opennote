@@ -8,17 +8,17 @@ use crate::entry::EmbedderEntry;
 pub async fn vectorize(
     embedder_entry: &EmbedderEntry,
     embedder_config: &EmbedderConfig,
-    chunks: Vec<Payload>,
+    payloads: Vec<Payload>,
 ) -> Result<Vec<Payload>> {
     let mut batches: Vec<Vec<Payload>> = Vec::new();
     let mut batch: Vec<Payload> = Vec::new();
-    for chunk in chunks {
+    for payload in payloads {
         if batch.len() == embedder_config.vectorization_batch_size {
             batches.push(batch);
             batch = Vec::new();
         }
 
-        batch.push(chunk);
+        batch.push(payload);
     }
 
     if !batch.is_empty() {

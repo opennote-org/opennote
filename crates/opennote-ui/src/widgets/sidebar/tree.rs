@@ -204,6 +204,7 @@ pub fn create_tree_list_item(
                 .on_click(move |event, _window, app| {
                     sidebar_entity_on_mouse_click.update(app, |this, cx| {
                         if has_mouse_moved(event, this) {
+                            // Because this means a drag, not a click
                             return;
                         }
 

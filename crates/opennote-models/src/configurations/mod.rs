@@ -4,7 +4,7 @@ pub mod search;
 pub mod system;
 pub mod user;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,11 @@ impl Configurations {
         };
 
         if !path.exists() {
-            return Ok(Self::default());
+            let default_settings: Configurations = Self::default();
+
+            write_configurations_to_file(&default_settings, &path)?;
+
+            return Ok(default_settings);
         }
 
         let content: String = std::fs::read_to_string(&path)
@@ -57,12 +61,11 @@ impl Configurations {
 
     /// Reserved for future uses
     #[allow(dead_code)]
-    pub fn save_to_file(&self, path: &str) -> Result<()> {
-        let content = serde_json::to_string_pretty(self).context("Failed to serialize config")?;
-
-        std::fs::write(path, content)
-            .with_context(|| format!("Failed to write config file: {}", path))?;
-
+    pub fn save_to_file(&self, configuration_folder_path: &PathBuf) -> Result<()> {
+        write_configurations_to_file(
+            &self,
+            &configuration_folder_path.join(CONFIGURATIONS_FILE_NAME),
+        )?;
         Ok(())
     }
 
@@ -73,4 +76,14 @@ impl Configurations {
 
         Ok(())
     }
+}
+
+fn write_configurations_to_file(configurations: &Configurations, path: &PathBuf) -> Result<()> {
+    let content =
+        serde_json::to_string_pretty(configurations).context("Failed to serialize config")?;
+
+    std::fs::write(path, content)
+        .with_context(|| format!("Failed to write config file: {}", path.display()))?;
+
+    Ok(())
 }

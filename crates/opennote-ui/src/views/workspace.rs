@@ -1,20 +1,16 @@
-use anyhow::Context as AnyhowContext;
 use gpui::{Context, *};
-use gpui_component::{
-    Root, StyledExt, WindowExt,
-    input::{InputEvent, InputState},
-    notification::NotificationType,
-};
+use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
 
 use crate::{
-    globals::{helpers::get_language_profile, states::States, tasks::tracker::TaskTracker},
+    globals::{states::States, tasks::tracker::TaskTracker},
     key_mappings::{
         key_contexts::WORKSPACE,
-        mappings::{ToggleSearchBar, ToggleSidebar},
+        mappings::{ToggleCommandBar, ToggleSearchBar, ToggleSidebar},
     },
     widgets::{
+        command_bar::bar::CommandBar,
         pane::{pane::Pane, pane_group::PaneGroup},
-        search_bar::create_search_bar,
+        search_bar::bar::SearchBar,
         sidebar::OpenNoteSidebar,
     },
 };
@@ -25,11 +21,12 @@ pub struct Workspace {
 
     pub sidebar: Entity<OpenNoteSidebar>,
     pub pane_group: Entity<PaneGroup>,
+    pub command_bar: Entity<CommandBar>,
+    pub search_bar: Entity<SearchBar>,
 
-    search_query: Entity<InputState>,
-    search_query_text: SharedString,
-    is_search_bar_toggled: bool,
-
+    // search_query: Entity<InputState>,
+    // search_query_text: SharedString,
+    // is_search_bar_toggled: bool,
     is_initialization_succeeded: bool,
 
     _subscriptions: Vec<Subscription>,
@@ -45,27 +42,7 @@ impl Focusable for Workspace {
 
 impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Result<Self> {
-        let language_profile = get_language_profile(cx.global(), cx.global())
-            .context("Getting language profile failed")?;
-
-        let search_query = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(&language_profile.search_bar_placeholder)
-        });
-
         let mut _subscriptions = vec![];
-
-        // Reserved for capturing search queries
-        _subscriptions.push(cx.subscribe_in(&search_query, window, {
-            let search_query = search_query.clone();
-            move |this, _, ev: &InputEvent, _window, cx| match ev {
-                InputEvent::Change => {
-                    let value = search_query.read(cx).value();
-                    this.search_query_text = format!("{}", value).into();
-                    cx.notify()
-                }
-                _ => {}
-            }
-        }));
 
         let workspace_weak_entity = cx.weak_entity();
 
@@ -84,9 +61,8 @@ impl Workspace {
 
                 PaneGroup::new(pane_entity)
             }),
-            search_query,
-            search_query_text: "".into(),
-            is_search_bar_toggled: false,
+            command_bar: cx.new(|cx| CommandBar::new(cx, window)),
+            search_bar: cx.new(|cx| SearchBar::new(cx, window)),
             is_initialization_succeeded: false,
             _subscriptions,
         })
@@ -140,15 +116,14 @@ impl Render for Workspace {
                     .child(self.sidebar.clone()) // Left
                     .child(self.pane_group.clone()), // Right
             )
-            .child(create_search_bar(
-                &self.search_query,
-                self.is_search_bar_toggled,
-            ))
+            .child(self.command_bar.clone())
+            .child(self.search_bar.clone())
             .on_action(
                 cx.listener(|workspace, _action: &ToggleSidebar, window, cx| {
                     workspace.sidebar.update(cx, |this, cx| {
                         this.toggle(cx);
 
+                        // Manually shift the focus, otherwise it won't just focus automatically
                         if !this.is_toggled() {
                             window.focus(&workspace.focus_handle(cx));
                         }
@@ -162,10 +137,38 @@ impl Render for Workspace {
                 }),
             )
             .on_action(
-                cx.listener(|workspace, _action: &ToggleSearchBar, _window, cx| {
-                    // TODO: make an independent widget for search bar
-                    // TODO: make search bar focus right
-                    workspace.is_search_bar_toggled = !workspace.is_search_bar_toggled;
+                cx.listener(|workspace, _action: &ToggleSearchBar, window, cx| {
+                    workspace.search_bar.update(cx, |this, cx| {
+                        this.is_toggled = !this.is_toggled;
+
+                        // Manually shift the focus, otherwise it won't just focus automatically
+                        if !this.is_toggled {
+                            window.focus(&workspace.focus_handle(cx));
+                        }
+
+                        if this.is_toggled {
+                            window.focus(&this.get_input_field_focus_handle(cx));
+                        }
+                    });
+
+                    cx.notify();
+                }),
+            )
+            .on_action(
+                cx.listener(|workspace, _action: &ToggleCommandBar, window, cx| {
+                    workspace.command_bar.update(cx, |this, cx| {
+                        this.is_toggled = !this.is_toggled;
+
+                        // Manually shift the focus, otherwise it won't just focus automatically
+                        if !this.is_toggled {
+                            window.focus(&workspace.focus_handle(cx));
+                        }
+
+                        if this.is_toggled {
+                            window.focus(&this.get_input_field_focus_handle(cx));
+                        }
+                    });
+
                     cx.notify();
                 }),
             )

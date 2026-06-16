@@ -7,6 +7,8 @@ use crate::{database::traits::database::Database, search::models::RawSearchResul
 
 #[async_trait]
 pub trait KeywordSearch {
+    /// Database is where the data are stored.
+    /// It should not be confused with the vector database.
     async fn search_documents(
         &self,
         database: &Arc<dyn Database>,

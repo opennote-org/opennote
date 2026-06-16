@@ -6,16 +6,21 @@ use gpui::{Action, actions};
 
 use crate::key_mappings::key_contexts::{EDITOR, GENERAL, SIDEBAR, WORKSPACE};
 
-actions!(workspace, [ToggleSidebar, ToggleSearchBar]);
+actions!(
+    workspace,
+    [ToggleSidebar, ToggleSearchBar, ToggleCommandBar]
+);
 actions!(sidebar, [CreateOneBlock, DeleteBlocks]);
 actions!(general, [MoveUp, MoveDown, MoveLeft, MoveRight]);
 actions!(editor, [SaveDocument]);
 
+/// You will also need to add the action in `crates/opennote-models/src/configurations/key_mappings.rs`
 pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
     match context {
         WORKSPACE => match action {
             "ToggleSidebar" => Ok(Box::new(ToggleSidebar)),
             "ToggleSearchBar" => Ok(Box::new(ToggleSearchBar)),
+            "ToggleCommandBar" => Ok(Box::new(ToggleCommandBar)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,

@@ -14,10 +14,14 @@ members = [
     "crates/opennote-connectors",
     "crates/opennote-mcp-server",
     "crates/opennote-server",
-    "crates/opennote-texts-processing", 
-    "crates/opennote-tasks-scheduler", 
-    "crates/opennote-bootstrap", 
+    "crates/opennote-texts-processing",
+    "crates/opennote-tasks-scheduler",
+    "crates/opennote-bootstrap",
     "crates/opennote-core-logics",
+    "crates/gpui-component",
+    "crates/gpui-component-macros",
+    "crates/gpui-component-assets",
+    "crates/gpui_macros",
 ]
 
 [workspace.dependencies]
@@ -34,6 +38,12 @@ opennote-tasks-scheduler = { path = "crates/opennote-tasks-scheduler" }
 opennote-bootstrap = { path = "crates/opennote-bootstrap" }
 opennote-core-logics = { path = "crates/opennote-core-logics" }
 
+gpui-component = { path = "crates/gpui-component" }
+gpui-component-macros = { path = "crates/gpui-component-macros" }
+gpui-component-assets = { path = "crates/gpui-component-assets" }
+
+gpui_macros = { path = "crates/gpui_macros" }
+
 # External dependencies
 sea-orm = { version = "2.0.0-rc.32", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-uuid"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -48,3 +58,23 @@ schemars = "1.2.0"
 chunk = "0.10.1"
 dirs = "6.0.0"
 log = "0.4.29"
+gpui = "0.2.2"
+
+# External dependencies largely used in gpui-component
+notify = "7.0.0"
+ropey = { version = "=2.0.0-beta.1", features = [
+    "metric_lines_lf",
+    "metric_utf16",
+] }
+serde_repr = "0.1"
+smallvec = "1"
+smol = "2"
+tracing = "0.1.41"
+sum-tree = { version = "0.2.0", package = "zed-sum-tree" }
+rust-i18n = "4"
+
+# External dependencies largely used in gpui_macros
+heck = "0.5"
+proc-macro2 = "1.0.93"
+quote = "1.0.9"
+syn = { version = "2.0.101", features = ["full", "extra-traits", "visit-mut"] }

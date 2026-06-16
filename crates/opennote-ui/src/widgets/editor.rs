@@ -1,6 +1,6 @@
 use gpui::{
-    AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    ParentElement, Render, Styled, Subscription, div,
+    App, AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
+    ParentElement, Render, SharedString, Styled, Subscription, div,
 };
 use gpui_component::{
     WindowExt,
@@ -76,7 +76,7 @@ impl Editor {
                 InputState::new(window, cx)
                     .code_editor("markdown")
                     .line_number(true)
-                    .searchable(false)
+                    .searchable(true) // TODO: InputState should support searching through the backend
             }),
             block: None,
             loaded_block_id: None,
@@ -84,8 +84,22 @@ impl Editor {
         }
     }
 
-    pub fn register_block(&mut self, block: Block) {
+    pub fn register_block(
+        &mut self,
+        cx: &mut App,
+        window: &mut gpui::Window,
+        block: Block,
+        highlighted_text: Option<SharedString>,
+    ) {
         self.block = Some(block);
+
+        let Some(string) = highlighted_text else {
+            return;
+        };
+
+        self.state.update(cx, |this, cx| {
+            this.set_highlighted_text(cx, window, string);
+        });
     }
 
     /// Update the editor content with the new openned block's content
@@ -120,10 +134,6 @@ impl Focusable for Editor {
 /// TODO:
 /// - Should indicate the saving status in the tabs
 /// - Should we make the Block object a reference?
-///
-/// we can remove the notifcation center and manage the notifications with the functions
-/// however, we will still let the app know whether there are tasks running
-/// when there are tasks running, we can't close the window
 impl Render for Editor {
     fn render(
         &mut self,
