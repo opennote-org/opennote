@@ -1,8 +1,6 @@
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    AnyElement, App, DefiniteLength, Edges, EdgesRefinement, Entity, InteractiveElement as _,
-    IntoElement, IsZero, MouseButton, ParentElement as _, Rems, RenderOnce, StyleRefinement,
-    Styled, Window, div, px, relative,
+    AnyElement, App, DefiniteLength, Edges, EdgesRefinement, Entity, InteractiveElement as _, IntoElement, IsZero, MouseButton, ParentElement as _, Rems, RenderOnce, StatefulInteractiveElement, StyleRefinement, Styled, Window, div, px, relative
 };
 
 use crate::button::{Button, ButtonVariants as _};
@@ -271,12 +269,26 @@ impl RenderOnce for Input {
             self.cleanable && !state.loading && state.text.len() > 0 && state.mode.is_single_line();
         let has_suffix = suffix.is_some() || state.loading || self.mask_toggle || show_clear_button;
 
+        let input_state = self.state.clone();
+
         div()
             .id(("input", self.state.entity_id()))
             .flex()
             .key_context(crate::input::CONTEXT)
             .track_focus(&state.focus_handle.clone())
             .tab_index(self.tab_index)
+            .on_click(move |event, _this, cx| {
+                if !event.is_right_click() {
+                    // Clean up the selection when the user clicks somewhere else
+                    input_state.update(cx, |this, cx| {
+                        if let Some(search_panel) = &this.search_panel {
+                            search_panel.update(cx, |this, _cx| {
+                                this.matcher.reset_matcher();
+                            });
+                        }
+                    });
+                }
+            })
             .when(!state.disabled, |this| {
                 this.on_action(window.listener_for(&self.state, InputState::backspace))
                     .on_action(window.listener_for(&self.state, InputState::delete))

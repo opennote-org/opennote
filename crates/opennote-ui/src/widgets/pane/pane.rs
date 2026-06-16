@@ -395,7 +395,6 @@ impl Render for Pane {
         };
 
         // TODO:
-        // - clear highlight after click somewhere else
         // - press esc to exit
         // - wrap the text
         // - display which block does it belong to

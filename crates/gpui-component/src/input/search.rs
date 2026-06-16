@@ -56,6 +56,12 @@ impl SearchMatcher {
         }
     }
 
+    /// Reset the matcher and clean up the matches
+    pub fn reset_matcher(&mut self) {
+        self.query = None;
+        self.update_matches();
+    }
+
     /// Update source text and re-match
     pub(crate) fn update(&mut self, text: &Rope) {
         if self.text.eq(text) {
