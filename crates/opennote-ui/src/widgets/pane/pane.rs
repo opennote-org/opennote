@@ -395,7 +395,6 @@ impl Render for Pane {
         };
 
         // TODO:
-        // - close search bar after clicking a result
         // - clear highlight after click somewhere else
         // - clear search results after switching
         // - press esc to exit

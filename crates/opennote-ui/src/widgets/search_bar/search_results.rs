@@ -3,7 +3,7 @@ use std::{
     vec,
 };
 
-use gpui::{ParentElement, SharedString, Styled};
+use gpui::{ParentElement, SharedString, Styled, WeakEntity};
 use gpui_component::{
     IndexPath, h_flex,
     label::Label,
@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::{
     globals::{bootstrap::GlobalApplicationBootStrap, helpers::run_async_code, states::States},
-    widgets::pane::helpers::open_block,
+    widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},
 };
 
 /// Collect all available gpui actions / key bindings in this app
@@ -41,15 +41,18 @@ pub struct SearchResultsList {
     /// Searched block and the specific payload contains the result
     pub results: Vec<(Block, Payload)>,
 
+    pub search_bar: WeakEntity<SearchBar>,
+
     ///
     pub selected_index: Option<IndexPath>,
 }
 
 impl SearchResultsList {
-    pub fn new() -> Self {
+    pub fn new(search_bar: WeakEntity<SearchBar>) -> Self {
         Self {
             results: Vec::new(),
             selected_index: None,
+            search_bar,
         }
     }
 }
@@ -69,6 +72,7 @@ impl ListDelegate for SearchResultsList {
     ) -> Option<Self::Item> {
         self.results.get(ix.row).map(|(block, payload)| {
             let texts = SharedString::from(payload.texts.clone());
+            let search_bar = self.search_bar.clone();
 
             let content = h_flex()
                 .items_center()
@@ -83,6 +87,10 @@ impl ListDelegate for SearchResultsList {
                 .child(content)
                 .on_click(cx.listener(move |_this, _, window, cx| {
                     open_block(cx, block_id, Some(texts.clone()));
+                    let _ = search_bar.update(cx, |this, cx| {
+                        this.is_toggled = false;
+                        cx.notify();
+                    });
                 }))
         })
     }

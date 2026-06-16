@@ -79,10 +79,13 @@ impl SearchBar {
             },
         ));
 
+        let weak_entity = cx.weak_entity();
+
         Self {
             is_toggled: false,
-            search_results_list: cx
-                .new(|cx| ListState::new(SearchResultsList::new(), window, cx).searchable(true)),
+            search_results_list: cx.new(|cx| {
+                ListState::new(SearchResultsList::new(weak_entity), window, cx).searchable(true)
+            }),
             focus_handle: cx.focus_handle(),
             search_method_state,
             _subscriptions,
