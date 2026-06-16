@@ -34,6 +34,7 @@ pub struct SearchBar {
 impl SearchBar {
     pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window) -> Self {
         let mut _subscriptions = Vec::new();
+        let search_bar_weak_entity = cx.weak_entity();
 
         let bootstrap: &GlobalApplicationBootStrap = cx.global();
 
@@ -44,6 +45,13 @@ impl SearchBar {
             .collect();
 
         let selected_index: usize = bootstrap.get_search_method();
+
+        let search_results_list = cx.new(|cx| {
+            ListState::new(SearchResultsList::new(search_bar_weak_entity), window, cx)
+                .searchable(true)
+        });
+
+        let search_results_list_weak_entity = search_results_list.downgrade();
 
         let search_method_state = cx.new(|cx| {
             SelectState::new(
@@ -57,7 +65,7 @@ impl SearchBar {
         // Update the search method when the selected search method changes
         _subscriptions.push(cx.subscribe(
             &search_method_state,
-            |_this, _tree_state, event: &SelectEvent<Vec<SharedString>>, cx| {
+            move |_this, _tree_state, event: &SelectEvent<Vec<SharedString>>, cx| {
                 let new_search_method = match event {
                     SelectEvent::Confirm(value) => {
                         let Some(value) = value else {
@@ -75,18 +83,20 @@ impl SearchBar {
                 let bootstrap: &mut GlobalApplicationBootStrap = cx.global_mut();
                 bootstrap.set_search_method(new_search_method);
 
+                let _ = search_results_list_weak_entity.update(cx, |this, cx| {
+                    let delegate = this.delegate_mut();
+                    delegate.results.clear();
+                    cx.notify();
+                });
+
                 cx.notify();
             },
         ));
 
-        let weak_entity = cx.weak_entity();
-
         Self {
             is_toggled: false,
-            search_results_list: cx.new(|cx| {
-                ListState::new(SearchResultsList::new(weak_entity), window, cx).searchable(true)
-            }),
             focus_handle: cx.focus_handle(),
+            search_results_list,
             search_method_state,
             _subscriptions,
         }
