@@ -50,3 +50,5 @@ plan.md
 # Added by cargo
 
 /target
+
+__pycache__
