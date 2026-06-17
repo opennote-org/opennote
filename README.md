@@ -6,7 +6,7 @@ A block-based note-taking application with AI-powered semantic search, built pur
 
 ## Overview
 
-OpenNote is designed to be simple, efficient and practical. Instead of doing everything, we aim to do a few things well. 
+OpenNote is designed to be simple, efficient and practical. Instead of doing everything, we aim to do a few things well.
 
 OpenNote runs in two modes:
 
@@ -16,9 +16,9 @@ OpenNote runs in two modes:
 
 ## Features
 
-- Tree structured hierarchical documents like Notion and Obsidian 
-- Semantic search via local or remote embedding models 
-- Keyword search 
+- Tree structured hierarchical documents like Notion and Obsidian
+- Semantic search via local or remote embedding models
+- Keyword search
 - Document import from webpages, text files, and relational databases (in-development)
 - MCP server for AI agent integration (in-development)
 - Vim-style keybindings (in-development)
@@ -44,6 +44,8 @@ OpenNote is in active development and welcomes all forms of contribution — bug
 ## Credits
 
 Kudo to all libraries used by this project. See them in [Cargo.toml](./Cargo.toml) and also Cargo.toml in each sub-crate.
+
+Thanks to [appify](https://github.com/akx/appify) for bundling the executable binary into macOS app.
 
 ## License
 
