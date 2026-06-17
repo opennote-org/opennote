@@ -6,45 +6,23 @@ A block-based note-taking application with AI-powered semantic search, built pur
 
 ## Overview
 
-Everything in OpenNote is a **Block** — a tree-structured unit of content that can hold text (markdown, titles), images, or JSON payloads. Blocks form hierarchical documents and support vector embeddings for semantic search.
+OpenNote is designed to be simple, efficient and practical. Instead of doing everything, we aim to do a few things well. 
 
 OpenNote runs in two modes:
 
-- **Desktop App** — native GUI built with GPUI (Zed's UI framework)
-- **Backend Server** — Actix-web HTTP server exposing a REST API
-- **MCP Server** — an MCP (Model Context Protocol) server for AI agent integration
+- **Desktop App** — native GUI built with GPUI (early preview)
+- **Backend Server** — Actix-web HTTP server exposing a REST API (in development)
+- **MCP Server** — an MCP (Model Context Protocol) server for AI agent integration (in development)
 
 ## Features
 
-- Block-based hierarchical documents (Notion/Obsidian-like)
-- Semantic search via local or remote embedding models (in-development)
-- Keyword search (in-development)
+- Tree structured hierarchical documents like Notion and Obsidian 
+- Semantic search via local or remote embedding models 
+- Keyword search 
 - Document import from webpages, text files, and relational databases (in-development)
 - MCP server for AI agent integration (in-development)
 - Vim-style keybindings (in-development)
 - Local-first, MIT licensed
-
-## Project Structure
-
-```
-opennote/
-├── crates/
-│   ├── opennote-ui              # Native desktop GUI (GPUI)
-│   ├── opennote-server          # HTTP + MCP server (Actix-web)
-│   ├── opennote-mcp-server      # Model Context Protocol implementation
-│   ├── opennote-data            # Data access, search, vector database
-│   ├── opennote-embedder        # Embedding/vectorization layer
-│   ├── opennote-models          # Domain models, configs, types
-│   ├── opennote-entities        # SeaORM entity models
-│   ├── opennote-core-logics     # Business logic orchestration
-│   ├── opennote-connectors      # Data import connectors
-│   ├── opennote-texts-processing # Text chunking
-│   ├── opennote-tasks-scheduler  # Async task tracking
-│   └── opennote-bootstrap       # App bootstrapping & DI
-├── assets/                       # Language files, binary assets
-├── scripts/                      # Dev/build scripts
-└── Cargo.toml                    # Workspace config
-```
 
 ## Getting Started
 
