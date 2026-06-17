@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use opennote_models::constants::APP_DATA_FOLDER_NAME;
+use opennote_models::constants::{APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME};
 
 use crate::globals::{
     assets::{AssetsCollection, LanguageProfile},
@@ -25,6 +25,7 @@ pub fn get_language_profile(
 
 pub fn create_required_folders(config_directory: &Path) -> Result<()> {
     std::fs::create_dir_all(config_directory)?;
+    std::fs::create_dir_all(config_directory.join(DATA_STORAGE_FOLDER_NAME))?;
     Ok(())
 }
 
