@@ -401,15 +401,12 @@ impl Render for Pane {
             // We fetch the block from the backend with the current uuid.
 
             if let Some(selected_block_id) = self.selected_block_id {
-                let block = cx.update_global::<States, Option<Block>>(|states, cx| {
-                    if let Some(block) = states.blocks.get(&selected_block_id) {
-                        return Some(block.clone());
-                    }
+                let states: &States = cx.global();
 
-                    None
-                });
+                let block = states.blocks.get(&selected_block_id);
 
                 if let Some(block) = block {
+                    let block = block.to_owned();
                     this.register_block(cx, window, block, search_string);
                 }
             }
