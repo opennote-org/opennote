@@ -2,10 +2,13 @@ use gpui::{Context, *};
 use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
 
 use crate::{
-    globals::{states::States, tasks::tracker::TaskTracker},
+    globals::{actions::create_one_block, states::States, tasks::tracker::TaskTracker},
     key_mappings::{
         key_contexts::WORKSPACE,
-        mappings::{ToggleCommandBar, ToggleSearchBar, ToggleSidebar},
+        mappings::{
+            CreateOneBlock, ToggleCommandBar, ToggleSearchBar,
+            ToggleSidebar,
+        },
     },
     widgets::{
         command_bar::bar::CommandBar,
@@ -172,6 +175,11 @@ impl Render for Workspace {
                     cx.notify();
                 }),
             )
+            .on_action(cx.listener(|this, _action: &CreateOneBlock, window, cx| {
+                this.sidebar.update(cx, |this, cx| {
+                    this.handle_block_creation(window, cx);
+                })
+            }))
             .children(notification)
     }
 }

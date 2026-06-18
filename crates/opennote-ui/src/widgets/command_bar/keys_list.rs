@@ -1,34 +1,34 @@
-use gpui::{Action, App, KeyBinding, ParentElement, Styled, prelude::FluentBuilder};
+use gpui::{Action, App, KeyBinding, ParentElement, SharedString, Styled, prelude::FluentBuilder};
 use gpui_component::{
     IndexPath, h_flex,
     label::Label,
     list::{ListDelegate, ListItem},
 };
 
-use crate::key_mappings::mappings::ToggleSidebar;
+use crate::key_mappings::{helpers::get_keystrokes_as_shared_string, mappings::ToggleSidebar};
 
 /// Collect all available gpui actions / key bindings in this app
 pub struct KeysList {
-    pub actions: Vec<(Box<dyn Action>, Option<KeyBinding>)>,
-    pub filtered_actions: Vec<(Box<dyn Action>, Option<KeyBinding>)>,
+    pub actions: Vec<(Box<dyn Action>, Option<SharedString>)>,
+    pub filtered_actions: Vec<(Box<dyn Action>, Option<SharedString>)>,
     pub selected_index: Option<IndexPath>,
 }
 
 impl KeysList {
     pub fn new(cx: &App) -> Self {
-        let keymap = cx.key_bindings();
-        let keymap_ref = keymap.borrow();
         let actions: Vec<Box<dyn Action>> = vec![Box::new(ToggleSidebar)];
 
-        let actions_keymaps: Vec<(Box<dyn Action>, Option<KeyBinding>)> = actions
+        let actions_keymaps: Vec<(Box<dyn Action>, Option<SharedString>)> = actions
             .into_iter()
             .map(|item| {
-                let binding = keymap_ref.bindings_for_action(item.as_ref()).last();
+                let item_clone = item.boxed_clone();
+                let binding = get_keystrokes_as_shared_string(cx, item);
+
                 if let Some(binding) = binding {
-                    return (item.boxed_clone(), Some(binding.to_owned()));
+                    return (item_clone, Some(binding));
                 }
 
-                (item.boxed_clone(), None)
+                (item_clone, None)
             })
             .collect();
 
@@ -50,7 +50,7 @@ impl ListDelegate for KeysList {
     fn render_item(
         &mut self,
         ix: IndexPath,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> Option<Self::Item> {
         self.actions.get(ix.row).map(|(action, key_binding)| {
@@ -60,15 +60,8 @@ impl ListDelegate for KeysList {
                 .items_center()
                 .justify_between()
                 .child(Label::new(action.name()))
-                .when_some(key_binding.clone(), |this, key_binding: KeyBinding| {
-                    this.child(Label::new(
-                        key_binding
-                            .keystrokes()
-                            .iter()
-                            .map(|item| item.to_string())
-                            .collect::<Vec<_>>()
-                            .join(" "),
-                    ))
+                .when_some(key_binding.clone(), |this, key_binding| {
+                    this.child(Label::new(key_binding))
                 });
 
             ListItem::new(ix)

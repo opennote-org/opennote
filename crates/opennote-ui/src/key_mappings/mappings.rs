@@ -21,6 +21,7 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
             "ToggleSidebar" => Ok(Box::new(ToggleSidebar)),
             "ToggleSearchBar" => Ok(Box::new(ToggleSearchBar)),
             "ToggleCommandBar" => Ok(Box::new(ToggleCommandBar)),
+            "CreateOneBlock" => Ok(Box::new(CreateOneBlock)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,
@@ -28,7 +29,6 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
             )),
         },
         SIDEBAR => match action {
-            "CreateOneBlock" => Ok(Box::new(CreateOneBlock)),
             "DeleteBlocks" => Ok(Box::new(DeleteBlocks)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",

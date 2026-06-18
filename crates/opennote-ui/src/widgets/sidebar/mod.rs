@@ -4,7 +4,7 @@ use anyhow::Result;
 use gpui::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, Styled, Subscription,
-    WeakEntity, div,
+    WeakEntity, Window, div,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
@@ -201,6 +201,17 @@ impl OpenNoteSidebar {
                 }
             })
     }
+
+    pub fn handle_block_creation(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let mut parent_block_id = None;
+        if let Some(block) = self.tree_state.read(cx).selected_block {
+            parent_block_id = Some(block)
+        }
+
+        log::debug!("About to create a block under: {:?}", parent_block_id);
+        create_one_block(window, cx, parent_block_id);
+        cx.notify();
+    }
 }
 
 impl Focusable for OpenNoteSidebar {
@@ -259,15 +270,5 @@ impl Render for OpenNoteSidebar {
                             .child(Self::create_new_block_button(entity_id)),
                     ),
             )
-            .on_action(cx.listener(|this, _action: &CreateOneBlock, window, cx| {
-                let mut parent_block_id = None;
-                if let Some(block) = this.tree_state.read(cx).selected_block {
-                    parent_block_id = Some(block)
-                }
-
-                log::debug!("About to create a block under: {:?}", parent_block_id);
-                create_one_block(window, cx, parent_block_id);
-                cx.notify();
-            }))
     }
 }

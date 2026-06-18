@@ -3,14 +3,16 @@ use gpui::{
     Subscription, WeakEntity, div,
 };
 use gpui::{Context, FocusHandle, Render, Window, prelude::*};
-use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
-use gpui_component::{ActiveTheme, IconName, Selectable, Sizable};
-use opennote_models::block::Block;
+use gpui_component::button::{Button, ButtonRounded, ButtonVariants, Toggle};
+use gpui_component::description_list::{DescriptionItem, DescriptionList};
+use gpui_component::{ActiveTheme, IconName, Selectable, Sizable, StyledExt, v_flex};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::globals::states::States;
+use crate::key_mappings::helpers::get_keystrokes_as_shared_string;
+use crate::key_mappings::mappings::{CreateOneBlock, ToggleCommandBar, ToggleSearchBar};
 use crate::libs::tabs::drag::DraggedItem;
 use crate::libs::tabs::tab::Tab;
 use crate::libs::tabs::tab_bar::TabBar;
@@ -315,8 +317,31 @@ impl Render for Pane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
 
+        // Display search bar, command bar, new doc
+        // and their keyboard shortcuts
         if self.opened_block_ids.is_empty() {
-            return base_div.child("No documents yet");
+            return v_flex().h_full().child(
+                div().w_48().mx_auto().my_auto().child(
+                    DescriptionList::new()
+                        .columns(1)
+                        .bordered(false)
+                        .large()
+                        .children([
+                            DescriptionItem::new("Search").value(
+                                get_keystrokes_as_shared_string(cx, ToggleSearchBar.boxed_clone())
+                                    .unwrap_or("".into()),
+                            ),
+                            DescriptionItem::new("Commands").value(
+                                get_keystrokes_as_shared_string(cx, ToggleCommandBar.boxed_clone())
+                                    .unwrap_or("".into()),
+                            ),
+                            DescriptionItem::new("New Note").value(
+                                get_keystrokes_as_shared_string(cx, CreateOneBlock.boxed_clone())
+                                    .unwrap_or("".into()),
+                            ),
+                        ]),
+                ),
+            );
         }
 
         let pane_reference = cx.weak_entity();
