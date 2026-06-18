@@ -59,10 +59,13 @@ impl Render for CommandBar {
             .track_focus(&self.focus_handle(cx))
             .absolute()
             .size_full()
+            .flex()
+            .justify_center()
+            .items_center()
             .when(self.is_toggled, |this| this.visible())
             .when(!self.is_toggled, |this| this.invisible())
             .child(
-                v_flex().top_20().gap_5().items_center().child(
+                v_flex().child(
                     List::new(&self.keys_list)
                         .search_placeholder(language_profile.command_bar_placeholder)
                         .bg(cx.theme().accent)
