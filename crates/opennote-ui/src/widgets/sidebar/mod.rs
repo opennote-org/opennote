@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     globals::{actions::create_one_block, helpers::get_language_profile, states::States},
-    key_mappings::{key_contexts::SIDEBAR, mappings::CreateOneBlock},
+    key_mappings::key_contexts::SIDEBAR,
     libs::{
         tabs::drag::DraggedItem,
         tree::{Tree, TreeState, tree},

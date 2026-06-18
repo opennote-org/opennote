@@ -2,13 +2,10 @@ use gpui::{Context, *};
 use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
 
 use crate::{
-    globals::{actions::create_one_block, states::States, tasks::tracker::TaskTracker},
+    globals::{states::States, tasks::tracker::TaskTracker},
     key_mappings::{
         key_contexts::WORKSPACE,
-        mappings::{
-            CreateOneBlock, ToggleCommandBar, ToggleSearchBar,
-            ToggleSidebar,
-        },
+        mappings::{CreateOneBlock, ToggleCommandBar, ToggleSearchBar, ToggleSidebar},
     },
     widgets::{
         command_bar::bar::CommandBar,
@@ -27,9 +24,6 @@ pub struct Workspace {
     pub command_bar: Entity<CommandBar>,
     pub search_bar: Entity<SearchBar>,
 
-    // search_query: Entity<InputState>,
-    // search_query_text: SharedString,
-    // is_search_bar_toggled: bool,
     is_initialization_succeeded: bool,
 
     _subscriptions: Vec<Subscription>,
