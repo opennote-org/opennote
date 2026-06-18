@@ -161,7 +161,7 @@ impl Render for Editor {
             .track_focus(&self.focus_handle(cx))
             .h_full()
             .child(
-                Input::new(&self.state).h_full(), // We need the input to display in full height
+                Input::new(&self.state).h_full().bordered(false), // We need the input to display in full height
             )
             .on_action(cx.listener(|this, _action: &SaveDocument, window, cx| {
                 if let Some(block) = &mut this.block {
