@@ -103,4 +103,15 @@ impl Block {
 
         return String::new();
     }
+
+    /// Get only the text content of this block
+    pub fn get_text_content(&self) -> String {
+        let texts: Vec<String> = self
+            .payloads
+            .iter()
+            .map(|item| item.texts.clone())
+            .collect();
+
+        texts.concat()
+    }
 }

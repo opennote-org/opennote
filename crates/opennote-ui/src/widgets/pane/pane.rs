@@ -1,11 +1,12 @@
+use std::collections::HashMap;
+
 use gpui::{
-    Action, DefiniteLength, DragMoveEvent, ElementId, Entity, Focusable, Point, SharedString,
-    Subscription, WeakEntity, div,
+    Action, DefiniteLength, DragMoveEvent, Entity, Focusable, Point, SharedString, Subscription,
+    WeakEntity, div,
 };
 use gpui::{Context, FocusHandle, Render, Window, prelude::*};
-use gpui_component::button::{Button, ButtonRounded, ButtonVariants, Toggle};
 use gpui_component::description_list::{DescriptionItem, DescriptionList};
-use gpui_component::{ActiveTheme, IconName, Selectable, Sizable, StyledExt, v_flex};
+use gpui_component::{ActiveTheme, Sizable, v_flex};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -14,10 +15,10 @@ use crate::globals::states::States;
 use crate::key_mappings::helpers::get_keystrokes_as_shared_string;
 use crate::key_mappings::mappings::{CreateOneBlock, ToggleCommandBar, ToggleSearchBar};
 use crate::libs::tabs::drag::DraggedItem;
-use crate::libs::tabs::tab::Tab;
 use crate::libs::tabs::tab_bar::TabBar;
 use crate::widgets::editor::Editor;
 use crate::widgets::pane::pane_group::{PaneGroup, SplitDirection};
+use crate::widgets::pane::tab::{TabState, create_tab_bar_for_blocks};
 
 macro_rules! split_structs {
     ($($name:ident => $doc:literal),* $(,)?) => {
@@ -65,13 +66,14 @@ pub struct Pane {
 
     pub selected_block_id: Option<Uuid>,
     pub opened_block_ids: Vec<Uuid>,
+    pub opened_block_states: HashMap<Uuid, TabState>,
     /// The string that will highlighted in the editor
     pub search_string: Option<SharedString>,
 
     focus_handle: FocusHandle,
-    editor: Entity<Editor>,
+    pub(crate) editor: Entity<Editor>,
     drag_split_direction: Option<SplitDirection>,
-    pane_group: WeakEntity<PaneGroup>,
+    pub(crate) pane_group: WeakEntity<PaneGroup>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -84,20 +86,23 @@ impl Pane {
     ) -> Self {
         let mut _subscriptions = Vec::new();
 
+        let pane_ref = cx.weak_entity();
+
         Self {
             id: Uuid::new_v4(),
             focus_handle: cx.focus_handle(),
             selected_block_id: None,
             drag_split_direction: None,
             search_string: None,
-            editor: cx.new(|cx| Editor::new(cx, window)),
+            editor: cx.new(|cx| Editor::new(cx, window, pane_ref)),
             opened_block_ids: Vec::new(),
+            opened_block_states: HashMap::new(),
             pane_group,
             _subscriptions,
         }
     }
 
-    fn close_tab(&mut self, block_id: &Uuid, cx: &mut Context<Self>) {
+    pub(crate) fn close_tab(&mut self, block_id: &Uuid, cx: &mut Context<Self>) {
         // if we have multiple tabs openning
         if self.opened_block_ids.len() > 1 {
             // Remove the closed block from the openned blocks,
@@ -111,6 +116,7 @@ impl Pane {
             }
 
             self.opened_block_ids.remove(removed_index as usize);
+            self.opened_block_states.remove(block_id);
 
             // Move the focus to the previous tab / block
             if let Some(selected_block_id) = &self.selected_block_id {
@@ -142,6 +148,7 @@ impl Pane {
         // if we only have 1 tab openning
         if self.opened_block_ids.len() == 1 {
             self.opened_block_ids.clear();
+            self.opened_block_states.clear();
             self.selected_block_id = None;
 
             cx.notify();
@@ -298,6 +305,12 @@ impl Pane {
         }
 
         self.opened_block_ids.push(block_id);
+        self.opened_block_states.insert(
+            block_id,
+            TabState {
+                ..Default::default()
+            },
+        );
         self.selected_block_id = Some(block_id);
         cx.notify();
     }
@@ -347,72 +360,14 @@ impl Render for Pane {
         let pane_reference = cx.weak_entity();
         let pane_id = self.id;
 
-        let tabs = TabBar::new("tabs").children(self.opened_block_ids.iter().map(|id| {
-            let id = id.clone();
-            let mut selected = false;
-
-            // The active block is the focused block
-            if let Some(selected_block_id) = &self.selected_block_id {
-                if *selected_block_id == id {
-                    selected = true;
-                }
-            }
-
-            let states: &States = cx.global();
-            let mut title = String::new();
-            if let Some(block) = states.blocks.get(&id) {
-                title = block.get_title();
-            }
-
-            let dragged_item = DraggedItem {
-                label: Some(SharedString::from(title.clone())),
-                owner_pane: Some(pane_reference.clone()),
-                owner_pane_id: Some(pane_id),
-                block_id: Some(id),
-                ..Default::default()
-            };
-
-            Tab::new()
-                .label(title)
-                .selected(selected)
-                .suffix(
-                    Button::new(ElementId::Name(SharedString::from(format!("close-{}", id))))
-                        .icon(IconName::CircleX)
-                        .ghost()
-                        .xsmall()
-                        .rounded(ButtonRounded::Medium)
-                        .on_click(cx.listener(move |view, _, _, cx| {
-                            view.close_tab(&id, cx);
-                            if !view.has_opened_blocks() {
-                                let pane = cx.entity();
-                                let mut pane_to_select = None;
-
-                                let _ = view.pane_group.update(cx, |this, _cx| {
-                                    pane_to_select = this.remove_panes(&pane);
-                                });
-
-                                // Set the active pane to a survived pane
-                                if let Some(pane_to_select) = pane_to_select {
-                                    cx.update_global::<States, ()>(|this, _cx| {
-                                        this.active_pane = Some(pane_to_select.downgrade());
-                                    });
-                                }
-                            }
-                            cx.stop_propagation();
-                        })),
-                )
-                .on_click(
-                    cx.listener(move |view, event: &gpui::ClickEvent, _window, _cx| {
-                        if !event.is_right_click() {
-                            view.selected_block_id = Some(id)
-                        }
-                    }),
-                )
-                .on_drag(
-                    dragged_item.clone(),
-                    move |value: &DraggedItem, _point, _window, app| app.new(|_| value.clone()),
-                )
-        }));
+        let tabs: TabBar = create_tab_bar_for_blocks(
+            cx,
+            pane_reference,
+            pane_id,
+            &self.opened_block_ids,
+            self.selected_block_id,
+            &self.opened_block_states,
+        );
 
         // Open editor only when there is an active block
         if self.selected_block_id.is_none() {
@@ -421,21 +376,20 @@ impl Render for Pane {
 
         let editor = self.editor.clone();
         let search_string = self.pop_search_string();
-        editor.update(cx, |this, cx| {
-            // The backend is always the source of truth.
-            // We fetch the block from the backend with the current uuid.
+        if let Some(selected_block_id) = self.selected_block_id {
+            let states: &States = cx.global();
 
-            if let Some(selected_block_id) = self.selected_block_id {
-                let states: &States = cx.global();
+            let block = states.blocks.get(&selected_block_id);
 
-                let block = states.blocks.get(&selected_block_id);
-
-                if let Some(block) = block {
-                    let block = block.to_owned();
+            if let Some(block) = block {
+                let block = block.to_owned();
+                editor.update(cx, |this, cx| {
+                    // The backend is always the source of truth.
+                    // We fetch the block from the backend with the current uuid.
                     this.register_block(cx, window, block, search_string);
-                }
+                });
             }
-        });
+        }
 
         log::debug!("Rendering the pane... {:?}", self.drag_split_direction);
         base_div.h_full().child(tabs).child(
