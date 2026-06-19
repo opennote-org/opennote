@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use anyhow::Context as AnyhowContext;
 use gpui::{
-    App, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, ParentElement,
-    Render, SharedString, Styled, Subscription, div, prelude::FluentBuilder,
+    App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, SharedString,
+    Styled, Subscription,
 };
 use gpui_component::{
     ActiveTheme, IndexPath, Sizable, h_flex,
@@ -120,7 +120,7 @@ impl Focusable for SearchBar {
 impl Render for SearchBar {
     fn render(
         &mut self,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
         let language_profile = get_language_profile(cx.global(), cx.global())
