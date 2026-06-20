@@ -277,6 +277,7 @@ impl TreeState {
         let Some(entry) = self.entries.get_mut(ix) else {
             return;
         };
+        
         if !entry.is_folder() {
             return;
         }
@@ -360,7 +361,8 @@ impl TreeState {
         cx.notify();
     }
 
-    fn on_entry_click(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Self>) {
+    /// Alter the expansion state
+    pub fn on_entry_click(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Self>) {
         // self.selected_ix = Some(ix);
         self.toggle_expand(ix);
         cx.notify();
@@ -368,7 +370,7 @@ impl TreeState {
 }
 
 impl Focusable for TreeState {
-    fn focus_handle(&self, cx: &App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -386,25 +388,27 @@ impl Render for TreeState {
                         let item = (render_item)(ix, entry, window, cx)
                             .disabled(entry.item().is_disabled());
 
-                        let el = div().id(ix).when(!entry.item().is_disabled(), |this| {
-                            this.on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener({
-                                    move |this, _, window, cx| {
-                                        this.on_entry_click(ix, window, cx);
-                                    }
-                                }),
-                            )
-                        });
+                        // let el = div().id(ix).when(!entry.item().is_disabled(), |this| {
+                        //     this.on_mouse_down(
+                        //         MouseButton::Left,
+                        //         cx.listener({
+                        //             move |this, _, window, cx| {
+                        //                 this.on_entry_click(ix, window, cx);
+                        //             }
+                        //         }),
+                        //     )
+                        // });
 
                         if let Some(selected) = state.selected_index {
                             if selected == ix {
-                                items.push(el.child(item.selected(true)));
+                                // items.push(el.child(item.selected(true)));
+                                items.push(item.selected(true));
                                 continue;
                             }
                         }
 
-                        items.push(el.child(item));
+                        // items.push(el.child(item));
+                        items.push(item);
                     }
 
                     items

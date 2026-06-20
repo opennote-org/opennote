@@ -12,7 +12,7 @@ use crate::{
     },
     key_mappings::mappings::{CreateOneBlock, DeleteBlocks},
     libs::tabs::drag::DraggedItem,
-    widgets::sidebar::OpenNoteSidebar,
+    widgets::{pane::helpers::open_block, sidebar::OpenNoteSidebar},
 };
 
 // Collect blocks to drag from both the single selection and the multi-selection.
@@ -237,9 +237,12 @@ pub fn create_tree_list_item(
 
                         if !event.modifiers().platform {
                             // Select the block
-                            this.tree_state.update(cx, |this, _cx| {
+                            this.tree_state.update(cx, |this, cx| {
                                 this.selected_blocks.clear();
-                                this.selected_block = Some(id)
+                                this.selected_block = None;
+
+                                open_block(cx, id, None);
+                                cx.notify();
                             });
                         }
 

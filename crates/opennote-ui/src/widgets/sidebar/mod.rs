@@ -49,37 +49,6 @@ impl OpenNoteSidebar {
             cx.notify();
         }));
 
-        _subscriptions.push(cx.observe(&tree_state, |this, _tree_state, cx| {
-            if let Some(selected) = this.tree_state.read(cx).selected_block {
-                let selected_block_id: Uuid = {
-                    let states: &States = cx.global();
-
-                    let mut selected_block: Vec<&Block> = states
-                        .blocks
-                        .iter()
-                        .filter_map(|(_id, item)| {
-                            if item.id == selected {
-                                return Some(item);
-                            }
-
-                            None
-                        })
-                        .collect();
-
-                    // Right now, we only need the first match
-                    selected_block.remove(0).id
-                };
-
-                open_block(cx, selected_block_id, None);
-
-                log::debug!("Set active block to {}", selected_block_id);
-            }
-
-            this.tree_state.update(cx, |this, _cx| {
-                this.selected_block = None;
-            });
-        }));
-
         Self {
             workspace,
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
