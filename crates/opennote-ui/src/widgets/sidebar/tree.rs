@@ -1,8 +1,17 @@
+use std::{collections::HashMap, sync::Arc};
+
 use gpui::{
-    AppContext, BorrowAppContext, ClickEvent, Entity, InteractiveElement, ParentElement,
-    SharedString, StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
+    App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
+    ParentElement, SharedString, StatefulInteractiveElement, Styled, TextOverflow,
+    prelude::FluentBuilder, px,
 };
-use gpui_component::{IconName, h_flex, list::ListItem, menu::ContextMenuExt};
+use gpui_component::{
+    IconName, Sizable, StyledExt,
+    button::{Button, ButtonRounded, ButtonVariants},
+    h_flex,
+    list::ListItem,
+    menu::ContextMenuExt,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -12,7 +21,10 @@ use crate::{
     },
     key_mappings::mappings::{CreateOneBlock, DeleteBlocks},
     libs::tabs::drag::DraggedItem,
-    widgets::{pane::helpers::open_block, sidebar::OpenNoteSidebar},
+    widgets::{
+        pane::helpers::open_block,
+        sidebar::{BlockState, OpenNoteSidebar},
+    },
 };
 
 // Collect blocks to drag from both the single selection and the multi-selection.
@@ -53,10 +65,12 @@ pub fn create_root_tree_list_item(
     entry: &crate::libs::tree::TreeEntry,
     id: SharedString, // The id of the tree item
     uuid: Uuid,
-    sidebar_entity_on_drop: Entity<OpenNoteSidebar>,
-    sidebar_entity_on_drag_move: Entity<OpenNoteSidebar>,
+    sidebar: Entity<OpenNoteSidebar>,
     is_dragged_over: bool,
 ) -> ListItem {
+    let sidebar_entity_on_drop: Entity<OpenNoteSidebar> = sidebar.clone();
+    let sidebar_entity_on_drag_move: Entity<OpenNoteSidebar> = sidebar.clone();
+
     ListItem::new(index)
         .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
         .check_icon(IconName::Check)
@@ -110,23 +124,31 @@ pub fn create_tree_list_item(
     id: SharedString,    // The id of the tree item
     uuid: Uuid,          // The uuid/id of the block
     language_profile: crate::globals::assets::LanguageProfile,
-    sidebar_entity_delete_blocks: Entity<OpenNoteSidebar>,
-    sidebar_entity_on_drop: Entity<OpenNoteSidebar>,
-    sidebar_entity_on_drag_move: Entity<OpenNoteSidebar>,
-    sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
-    sidebar_entity_on_mouse_down: Entity<OpenNoteSidebar>,
+    sidebar: Entity<OpenNoteSidebar>,
     is_selected: bool,
     is_multi_selected: bool,
     is_dragged_over: bool,
     dragged_block: DraggedItem,
+    has_children: bool,
 ) -> ListItem {
+    let sidebar_entity_delete_blocks: Entity<OpenNoteSidebar> = sidebar.clone();
+    let sidebar_entity_on_drop: Entity<OpenNoteSidebar> = sidebar.clone();
+    let sidebar_entity_on_drag_move: Entity<OpenNoteSidebar> = sidebar.clone();
+    let sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar> = sidebar.clone();
+    let sidebar_entity_on_mouse_down: Entity<OpenNoteSidebar> = sidebar.clone();
+    let sidebar_entity_expand = sidebar.clone();
+
     ListItem::new(index)
+        .w_full() // Let the background highlights take over the entire row for the short ones as well
         .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
-        .check_icon(IconName::Check)
         .when(is_selected || is_multi_selected, |this| this.selected(true))
         .cursor_move()
         .child(
             h_flex()
+                .when(has_children, |this| {
+                    render_parent_button(index, &id, uuid, sidebar_entity_expand, this)
+                })
+                .when(!has_children, |this| render_non_parent_button(&id, this))
                 .id(id.clone())
                 .gap_2()
                 .when(is_dragged_over, |this| {
@@ -260,4 +282,56 @@ pub fn create_tree_list_item(
                     )
                 }),
         )
+}
+
+fn render_non_parent_button(id: &SharedString, this: gpui::Div) -> gpui::Div {
+    this.child(
+        Button::new(ElementId::Name(SharedString::from(format!(
+            "expand-{}",
+            id
+        ))))
+        .icon(IconName::File)
+        .ghost()
+        .xsmall()
+        .rounded(ButtonRounded::Medium),
+    )
+}
+
+fn render_parent_button(
+    index: usize,
+    id: &SharedString,
+    uuid: Uuid,
+    sidebar_entity_expand: Entity<OpenNoteSidebar>,
+    this: gpui::Div,
+) -> gpui::Div {
+    this.child(
+        Button::new(ElementId::Name(SharedString::from(format!(
+            "expand-{}",
+            id
+        ))))
+        .icon(IconName::Folder)
+        .ghost()
+        .xsmall()
+        .rounded(ButtonRounded::Medium)
+        .on_click(move |event, window, cx| {
+            if !event.is_right_click() {
+                sidebar_entity_expand.update(cx, |this, cx| {
+                    this.tree_state.update(cx, |this, cx| {
+                        this.on_entry_click(index, window, cx);
+                    });
+
+                    let block_state = this
+                        .blocks_state
+                        .entry(uuid)
+                        .or_insert(BlockState { has_expanded: true });
+
+                    block_state.has_expanded = !block_state.has_expanded;
+
+                    cx.notify();
+                })
+            }
+
+            cx.stop_propagation();
+        }),
+    )
 }

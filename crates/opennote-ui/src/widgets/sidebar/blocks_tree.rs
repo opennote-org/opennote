@@ -2,11 +2,15 @@ use std::collections::HashMap;
 
 use uuid::Uuid;
 
-use crate::libs::tree::TreeItem;
+use crate::{libs::tree::TreeItem, widgets::sidebar::BlockState};
+
 use opennote_models::block::Block;
 
 /// Build a `TreeItem` hierarchy from blocks, ready to pass into `TreeState::items()`.
-pub fn build_blocks_tree(blocks: Vec<Block>) -> Vec<TreeItem> {
+pub fn build_blocks_tree(
+    blocks: Vec<Block>,
+    blocks_state: &mut HashMap<Uuid, BlockState>,
+) -> Vec<TreeItem> {
     let mut map: HashMap<Option<Uuid>, Vec<Block>> = HashMap::new();
 
     // We need the root blocks for starting the recursion
@@ -15,7 +19,7 @@ pub fn build_blocks_tree(blocks: Vec<Block>) -> Vec<TreeItem> {
     }
 
     let mut tree_items = vec![TreeItem::new(Uuid::new_v4().to_string(), "root")]; // Reserved for being able to drag blocks back to root
-    tree_items.extend(build_children(None, &mut map));
+    tree_items.extend(build_children(None, &mut map, blocks_state));
 
     tree_items
 }
@@ -23,6 +27,7 @@ pub fn build_blocks_tree(blocks: Vec<Block>) -> Vec<TreeItem> {
 fn build_children(
     parent_id: Option<Uuid>,
     map: &mut HashMap<Option<Uuid>, Vec<Block>>,
+    blocks_state: &mut HashMap<Uuid, BlockState>,
 ) -> Vec<TreeItem> {
     let Some(siblings) = map.get(&parent_id) else {
         return Vec::new();
@@ -35,12 +40,18 @@ fn build_children(
         .map(|block| {
             let (id, label) = { (block.id, block.get_title()) };
 
-            let children = build_children(Some(id), map);
+            let children = build_children(Some(id), map, blocks_state);
 
             // Use the UUID string as the TreeItem id so we can recover the block on selection
-            TreeItem::new(id.to_string(), label)
+            let mut tree_item = TreeItem::new(id.to_string(), label)
                 .expanded(true)
-                .children(children)
+                .children(children);
+
+            if let Some(block_state) = blocks_state.get(&id) {
+                tree_item = tree_item.expanded(block_state.has_expanded);
+            }
+
+            tree_item
         })
         .collect()
 }
