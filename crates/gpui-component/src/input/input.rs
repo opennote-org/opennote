@@ -101,7 +101,7 @@ impl Input {
         self
     }
 
-    /// Set the bordered for the input, default: true
+    /// Display a border when the input is focused, default: true
     pub fn bordered(mut self, bordered: bool) -> Self {
         self.bordered = bordered;
         self

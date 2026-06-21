@@ -4,5 +4,12 @@
   "command_bar_placeholder": "Enter your command...",
   "default_block_title": "Untitled",
   "delete_blocks": "Delete",
-  "create_one_block": "Create"
+  "create_one_block": "Create",
+  "workspace::ToggleSidebar": "Toggle sidebar",
+  "workspace::ToggleCommandBar": "Toggle command bar",
+  "workspace::CreateOneBlock": "Create a new note",
+  "workspace::ToggleSearchBar": "Toggle search bar",
+  "new_note": "New Note",
+  "search": "Search",
+  "commands": "Commands"
 }

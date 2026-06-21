@@ -2,13 +2,16 @@
 //! - Might need to introduce `basis` to renders to avoid fast drag issues
 
 use gpui::{
-    AnyElement, App, Axis, Bounds, Element, Entity, IntoElement, ParentElement, Pixels, Render,
-    Styled, Window, div, point, relative, size,
+    AnyElement, App, Axis, BorrowAppContext, Bounds, Element, Entity, IntoElement, ParentElement,
+    Pixels, Render, Styled, Window, div, point, relative, size,
 };
 use gpui_component::{h_flex, v_flex};
 use serde::Deserialize;
 
-use crate::widgets::pane::pane::Pane;
+use crate::{
+    globals::states::States,
+    widgets::{pane::pane::Pane, sidebar::OpenNoteSidebar},
+};
 
 pub const HANDLE_HITBOX_SIZE: f32 = 4.0;
 
@@ -19,13 +22,15 @@ pub const HANDLE_HITBOX_SIZE: f32 = 4.0;
 pub struct PaneGroup {
     pub root: Member,
     pub is_center: bool,
+    pub sidebar: Entity<OpenNoteSidebar>,
 }
 
 impl PaneGroup {
-    pub fn new(pane: Entity<Pane>) -> Self {
+    pub fn new(pane: Entity<Pane>, sidebar: Entity<OpenNoteSidebar>) -> Self {
         Self {
             root: Member::Pane(pane),
             is_center: false,
+            sidebar,
         }
     }
 
@@ -35,6 +40,15 @@ impl PaneGroup {
         match pane_member {
             Member::Axis(_) => None,
             Member::Pane(pane) => Some(pane.clone()),
+        }
+    }
+
+    pub fn cleanup_pane_without_tabs(&mut self, pane: Entity<Pane>, cx: &mut App) {
+        // Set the active pane to a survived pane
+        if let Some(pane_to_select) = self.remove_panes(&pane) {
+            cx.update_global::<States, ()>(|this, _cx| {
+                this.active_pane = Some(pane_to_select.downgrade());
+            });
         }
     }
 

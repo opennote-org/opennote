@@ -1,30 +1,43 @@
+mod blocks_tree;
+
 pub mod tree;
+
+use std::collections::HashMap;
 
 use anyhow::Result;
 use gpui::{
-    AppContext, BorrowAppContext, Context, Entity, EntityId, FocusHandle, Focusable,
+    AppContext, Context, Entity, EntityId, EventEmitter, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, Styled, Subscription,
-    WeakEntity, div,
+    WeakEntity, Window, div,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
 
 use crate::{
     globals::{actions::create_one_block, helpers::get_language_profile, states::States},
-    key_mappings::{key_contexts::SIDEBAR, mappings::CreateOneBlock},
+    key_mappings::key_contexts::SIDEBAR,
     libs::{
         tabs::drag::DraggedItem,
         tree::{Tree, TreeState, tree},
         tree_view_sidebar::TreeViewSidebar,
     },
     views::workspace::Workspace,
-    widgets::{
+    widgets::sidebar::{
         blocks_tree::build_blocks_tree,
-        pane::helpers::open_block,
-        sidebar::tree::{create_root_tree_list_item, create_tree_list_item},
+        tree::{create_root_tree_list_item, create_tree_list_item},
     },
 };
 use opennote_models::block::Block;
+
+#[derive(Debug)]
+struct BlockState {
+    pub has_expanded: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum OpenNoteSidebarEvent {
+    BlocksDeleted(Vec<Uuid>),
+}
 
 #[derive(Debug)]
 pub struct OpenNoteSidebar {
@@ -32,10 +45,14 @@ pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
+    blocks_state: HashMap<Uuid, BlockState>,
+
     mouse_position: Option<Point<Pixels>>,
 
     _subscriptions: Vec<Subscription>,
 }
+
+impl EventEmitter<OpenNoteSidebarEvent> for OpenNoteSidebar {}
 
 impl OpenNoteSidebar {
     pub fn new(cx: &mut Context<Self>, workspace: WeakEntity<Workspace>) -> Self {
@@ -49,42 +66,12 @@ impl OpenNoteSidebar {
             cx.notify();
         }));
 
-        _subscriptions.push(cx.observe(&tree_state, |this, _tree_state, cx| {
-            if let Some(selected) = this.tree_state.read(cx).selected_block {
-                let selected_block_id: Uuid = {
-                    let states: &States = cx.global();
-
-                    let mut selected_block: Vec<&Block> = states
-                        .blocks
-                        .iter()
-                        .filter_map(|(_id, item)| {
-                            if item.id == selected {
-                                return Some(item);
-                            }
-
-                            None
-                        })
-                        .collect();
-
-                    // Right now, we only need the first match
-                    selected_block.remove(0).id
-                };
-
-                open_block(cx, selected_block_id, None);
-
-                log::debug!("Set active block to {}", selected_block_id);
-            }
-
-            this.tree_state.update(cx, |this, _cx| {
-                this.selected_block = None;
-            });
-        }));
-
         Self {
             workspace,
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
             tree_state,
+            blocks_state: HashMap::new(),
             mouse_position: None,
             _subscriptions,
         }
@@ -108,9 +95,9 @@ impl OpenNoteSidebar {
         Ok(Uuid::parse_str(str)?)
     }
 
-    fn create_sidebar_items(&self, cx: &mut Context<Self>, blocks: Vec<Block>) -> Tree {
+    fn create_sidebar_items(&mut self, cx: &mut Context<Self>, blocks: Vec<Block>) -> Tree {
         log::debug!("Building sidebar items...");
-        let tree_items = build_blocks_tree(blocks);
+        let tree_items = build_blocks_tree(blocks, &mut self.blocks_state);
 
         self.tree_state.update(cx, |this, cx| {
             this.set_items(tree_items, cx);
@@ -128,11 +115,7 @@ impl OpenNoteSidebar {
             let id = entry.item().id.clone(); // This is a stringified uuid of a block
             let label = entry.item().label.clone();
             let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
-            let sidebar_entity_delete_blocks = sidebar.clone();
-            let sidebar_entity_on_mouse_down = sidebar.clone();
-            let sidebar_entity_on_mouse_click = sidebar.clone();
-            let sidebar_entity_on_drop = sidebar.clone();
-            let sidebar_entity_on_drag_move = sidebar.clone();
+            let sidebar = sidebar.clone();
 
             let uuid = Self::convert_str_to_uuid(&id).unwrap();
 
@@ -146,14 +129,14 @@ impl OpenNoteSidebar {
                     entry,
                     id,
                     uuid,
-                    sidebar_entity_on_drop,
-                    sidebar_entity_on_drag_move,
+                    sidebar,
                     is_dragged_over,
                 );
             }
 
             let is_selected = selected_block == Some(uuid);
             let is_multi_selected = selected_blocks.contains(&uuid);
+            let has_children = !entry.item().children.is_empty();
 
             let current_selections = if let Some(dragged) = selected_block {
                 vec![dragged]
@@ -175,15 +158,12 @@ impl OpenNoteSidebar {
                 id,
                 uuid,
                 language_profile,
-                sidebar_entity_delete_blocks,
-                sidebar_entity_on_drop,
-                sidebar_entity_on_drag_move,
-                sidebar_entity_on_mouse_click,
-                sidebar_entity_on_mouse_down,
+                sidebar,
                 is_selected,
                 is_multi_selected,
                 is_dragged_over,
                 dragged_block,
+                has_children,
             )
         });
 
@@ -200,6 +180,17 @@ impl OpenNoteSidebar {
                     app_cx.notify(entity_id);
                 }
             })
+    }
+
+    pub fn handle_block_creation(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let mut parent_block_id = None;
+        if let Some(block) = self.tree_state.read(cx).selected_block {
+            parent_block_id = Some(block)
+        }
+
+        log::debug!("About to create a block under: {:?}", parent_block_id);
+        create_one_block(window, cx, parent_block_id);
+        cx.notify();
     }
 }
 
@@ -255,19 +246,9 @@ impl Render for OpenNoteSidebar {
                             .w_full()
                             .justify_between()
                             .items_center()
-                            .child(Label::new(language_profile.sidebar_title).text_xl())
+                            .child(Label::new(&language_profile["sidebar_title"]).text_xl())
                             .child(Self::create_new_block_button(entity_id)),
                     ),
             )
-            .on_action(cx.listener(|this, _action: &CreateOneBlock, window, cx| {
-                let mut parent_block_id = None;
-                if let Some(block) = this.tree_state.read(cx).selected_block {
-                    parent_block_id = Some(block)
-                }
-
-                log::debug!("About to create a block under: {:?}", parent_block_id);
-                create_one_block(window, cx, parent_block_id);
-                cx.notify();
-            }))
     }
 }

@@ -1,17 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use opennote_models::constants::{APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME};
 
-use crate::globals::{
-    assets::{AssetsCollection, LanguageProfile},
-    bootstrap::GlobalApplicationBootStrap,
-};
+use crate::globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap};
 
 pub fn get_language_profile(
     bootstrap: &GlobalApplicationBootStrap,
     assets_collection: &AssetsCollection,
-) -> Result<LanguageProfile> {
+) -> Result<HashMap<String, String>> {
     let configurations = bootstrap.get_configurations();
 
     let language = configurations.user.language.to_string();

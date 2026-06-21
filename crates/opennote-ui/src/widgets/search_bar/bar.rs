@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use anyhow::Context as AnyhowContext;
 use gpui::{
-    App, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, ParentElement,
-    Render, SharedString, Styled, Subscription, div, prelude::FluentBuilder,
+    App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, SharedString,
+    Styled, Subscription,
 };
 use gpui_component::{
     ActiveTheme, IndexPath, Sizable, h_flex,
@@ -19,7 +19,7 @@ use crate::{
         bootstrap::{GlobalApplicationBootStrap, SEARCH_METHODS_ENUMS},
         helpers::get_language_profile,
     },
-    widgets::search_bar::search_results::SearchResultsList,
+    widgets::{floating::create_float_palette, search_bar::search_results::SearchResultsList},
 };
 
 /// Select commands to execute
@@ -120,38 +120,29 @@ impl Focusable for SearchBar {
 impl Render for SearchBar {
     fn render(
         &mut self,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
         let language_profile = get_language_profile(cx.global(), cx.global())
             .context("Getting language profile failed")
             .unwrap();
 
-        div()
-            .track_focus(&self.focus_handle(cx))
-            .absolute()
-            .size_full()
-            .flex()
-            .justify_center()
-            .items_center()
-            .when(self.is_toggled, |this| this.visible())
-            .when(!self.is_toggled, |this| this.invisible())
-            .child(
-                h_flex()
-                    .flex_shrink()
-                    .items_start()
-                    .gap_2()
-                    .child(Select::new(&self.search_method_state).w_40().small())
-                    .child(
-                        v_flex().child(
-                            List::new(&self.search_results_list)
-                                .search_placeholder(language_profile.search_bar_placeholder)
-                                .bg(cx.theme().accent)
-                                .shadow_2xl()
-                                .w_128()
-                                .h_128(),
-                        ),
+        create_float_palette(&self.focus_handle(cx), self.is_toggled).child(
+            h_flex()
+                .flex_shrink()
+                .items_start()
+                .gap_2()
+                .child(Select::new(&self.search_method_state).w_40().small())
+                .child(
+                    v_flex().child(
+                        List::new(&self.search_results_list)
+                            .search_placeholder(&language_profile["search_bar_placeholder"])
+                            .bg(cx.theme().accent)
+                            .shadow_2xl()
+                            .w_128()
+                            .h_128(),
                     ),
-            )
+                ),
+        )
     }
 }

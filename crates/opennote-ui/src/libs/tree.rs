@@ -277,6 +277,7 @@ impl TreeState {
         let Some(entry) = self.entries.get_mut(ix) else {
             return;
         };
+
         if !entry.is_folder() {
             return;
         }
@@ -297,39 +298,6 @@ impl TreeState {
             self.add_entry(item, 0);
         }
     }
-
-    // fn on_action_confirm(&mut self, _: &Confirm, _: &mut Window, cx: &mut Context<Self>) {
-    //     if let Some(selected_ix) = self.selected_ix {
-    //         if let Some(entry) = self.entries.get(selected_ix) {
-    //             if entry.is_folder() {
-    //                 self.toggle_expand(selected_ix);
-    //                 cx.notify();
-    //             }
-    //         }
-    //     }
-    // }
-
-    // fn on_action_left(&mut self, _: &SelectLeft, _: &mut Window, cx: &mut Context<Self>) {
-    //     if let Some(selected_ix) = self.selected_ix {
-    //         if let Some(entry) = self.entries.get(selected_ix) {
-    //             if entry.is_folder() && entry.is_expanded() {
-    //                 self.toggle_expand(selected_ix);
-    //                 cx.notify();
-    //             }
-    //         }
-    //     }
-    // }
-
-    // fn on_action_right(&mut self, _: &SelectRight, _: &mut Window, cx: &mut Context<Self>) {
-    //     if let Some(selected_ix) = self.selected_ix {
-    //         if let Some(entry) = self.entries.get(selected_ix) {
-    //             if entry.is_folder() && !entry.is_expanded() {
-    //                 self.toggle_expand(selected_ix);
-    //                 cx.notify();
-    //             }
-    //         }
-    //     }
-    // }
 
     fn on_action_up(&mut self, _: &MoveUp, _: &mut Window, cx: &mut Context<Self>) {
         let mut selected_ix = self.selected_index.unwrap_or(0);
@@ -360,15 +328,15 @@ impl TreeState {
         cx.notify();
     }
 
-    fn on_entry_click(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Self>) {
-        // self.selected_ix = Some(ix);
+    /// Alter the expansion state
+    pub fn on_entry_click(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Self>) {
         self.toggle_expand(ix);
         cx.notify();
     }
 }
 
 impl Focusable for TreeState {
-    fn focus_handle(&self, cx: &App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -386,25 +354,14 @@ impl Render for TreeState {
                         let item = (render_item)(ix, entry, window, cx)
                             .disabled(entry.item().is_disabled());
 
-                        let el = div().id(ix).when(!entry.item().is_disabled(), |this| {
-                            this.on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener({
-                                    move |this, _, window, cx| {
-                                        this.on_entry_click(ix, window, cx);
-                                    }
-                                }),
-                            )
-                        });
-
                         if let Some(selected) = state.selected_index {
                             if selected == ix {
-                                items.push(el.child(item.selected(true)));
+                                items.push(item.selected(true));
                                 continue;
                             }
                         }
 
-                        items.push(el.child(item));
+                        items.push(item);
                     }
 
                     items

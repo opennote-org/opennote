@@ -1,10 +1,10 @@
 use gpui::{
     App, AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    ParentElement, Render, SharedString, Styled, Subscription, div,
+    ParentElement, Render, SharedString, Styled, Subscription, WeakEntity, div,
 };
 use gpui_component::{
     WindowExt,
-    input::{Input, InputState},
+    input::{Input, InputEvent, InputState},
 };
 use uuid::Uuid;
 
@@ -20,6 +20,7 @@ use crate::{
         },
     },
     key_mappings::{key_contexts::EDITOR, mappings::SaveDocument},
+    widgets::pane::{pane::Pane, tab::TabState},
 };
 
 /// Payload -> Text -> Payload
@@ -28,19 +29,24 @@ use crate::{
 pub struct Editor {
     focus_handle: FocusHandle,
     state: Entity<InputState>,
-    block: Option<Block>,
+    pub block: Option<Block>,
     loaded_block_id: Option<Uuid>,
+
+    /// The pane that owns this editor
+    pane: WeakEntity<Pane>,
 
     _subscriptions: Vec<Subscription>,
 }
 
 impl Editor {
-    pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window) -> Self {
+    pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window, pane: WeakEntity<Pane>) -> Self {
         let mut _subscriptions = Vec::new();
 
         // Get updates from the normal task scheduler
-        _subscriptions.push(
-            cx.observe_global_in::<TaskTracker>(window, |this, window, cx| {
+        let pane_clone: WeakEntity<Pane> = pane.clone();
+        _subscriptions.push(cx.observe_global_in::<TaskTracker>(
+            window,
+            move |this, window, cx| {
                 let Some(block) = &this.block else {
                     return;
                 };
@@ -67,19 +73,47 @@ impl Editor {
                     update_n_blocks(window, cx, vec![block.clone()], true);
                     cx.notify();
                 }
-            }),
-        );
+
+                // Alter the tab's save state to true
+                TabState::set_save_state(cx, pane_clone.clone(), block.id, true);
+            },
+        ));
+
+        let state = cx.new(|cx| {
+            InputState::new(window, cx)
+                .code_editor("markdown")
+                .line_number(true)
+                .searchable(true) // It will search with the backend instead
+        });
+
+        let pane_clone: WeakEntity<Pane> = pane.clone();
+        _subscriptions.push(cx.subscribe_in(
+            &state,
+            window,
+            move |view, state, event, _window, cx| match event {
+                InputEvent::Change => {
+                    let Some(block) = &view.block else {
+                        return;
+                    };
+
+                    let texts: String = block.get_text_content();
+
+                    if !Self::has_text_changed(&texts, state, cx) {
+                        return;
+                    }
+
+                    TabState::set_save_state(cx, pane_clone.clone(), block.id, false);
+                }
+                _ => {}
+            },
+        ));
 
         Self {
             focus_handle: cx.focus_handle(),
-            state: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .code_editor("markdown")
-                    .line_number(true)
-                    .searchable(true) // TODO: InputState should support searching through the backend
-            }),
+            state,
             block: None,
             loaded_block_id: None,
+            pane,
             _subscriptions,
         }
     }
@@ -91,6 +125,18 @@ impl Editor {
         block: Block,
         highlighted_text: Option<SharedString>,
     ) {
+        // Check if this block has opened already.
+        // If so, early return it.
+        if let Some(existing_block) = &self.block {
+            if existing_block.id == block.id {
+                return;
+            }
+        }
+
+        // If the block is unsaved, we will save the unsaved content to the state.
+        self.save_unsaved_content_to_tab_state(cx);
+
+        // Swap the block with the new one for opening.
         self.block = Some(block);
 
         let Some(string) = highlighted_text else {
@@ -102,26 +148,78 @@ impl Editor {
         });
     }
 
+    fn save_unsaved_content_to_tab_state(&mut self, cx: &mut App) {
+        let pane = self.pane.clone();
+        let block_id = self.block.as_ref().map(|item| item.id);
+        let existing_block_content = self.state.read(cx).value();
+
+        cx.defer(move |cx| {
+            let _ = pane.update(cx, |this, _cx| {
+                if let Some(existing_block_id) = &block_id {
+                    if let Some(tab_state) = this.opened_block_states.get_mut(&existing_block_id) {
+                        tab_state.unsaved_content = Some(existing_block_content);
+                    }
+                }
+            });
+        });
+    }
+
+    fn has_text_changed(block_texts: &str, input_state: &Entity<InputState>, cx: &mut App) -> bool {
+        let current_value = input_state.read(cx).value();
+
+        if current_value.as_ref() == block_texts {
+            return false;
+        }
+
+        true
+    }
+
     /// Update the editor content with the new openned block's content
-    pub fn update_editor_content(
-        &self,
+    pub fn update_editor_content_with_new_block(
+        &mut self,
         cx: &mut Context<Self>,
         window: &mut gpui::Window,
-        block: &Block,
     ) {
-        // Editing is exerted directly on texts, not payloads.
-        let texts: Vec<String> = block
-            .payloads
-            .iter()
-            .map(|item| item.texts.clone())
-            .collect();
-        let texts: String = texts.concat();
+        let block = match &self.block {
+            Some(block) => block,
+            None => return,
+        };
 
-        let current_value = self.state.read(cx).value();
-        if current_value.as_ref() != texts.as_str() {
-            self.state
-                .update(cx, |this, cx| this.set_value(texts, window, cx));
+        // Skip if the block has already opened by this editor
+        if let Some(loaded_block_id) = self.loaded_block_id {
+            if loaded_block_id == block.id {
+                return;
+            }
         }
+
+        self.loaded_block_id = Some(block.id);
+
+        // If we don't have this block's unsaved content in the state,
+        // we will use the block's content directly.
+        let unsaved_content = self
+            .pane
+            .update(cx, |this, _cx| {
+                if let Some(tab_state) = this.opened_block_states.get_mut(&block.id) {
+                    return tab_state.unsaved_content.take();
+                }
+
+                None
+            })
+            .unwrap();
+
+        let texts = if let Some(unsaved) = unsaved_content {
+            unsaved
+        } else {
+            block.get_text_content().into()
+        };
+
+        // Early return if the new block is identical with the opened one
+        if !Self::has_text_changed(&texts, &self.state, cx) {
+            return;
+        }
+
+        self.state
+            .update(cx, |this, cx| this.set_value(texts, window, cx));
     }
 }
 
@@ -132,7 +230,6 @@ impl Focusable for Editor {
 }
 
 /// TODO:
-/// - Should indicate the saving status in the tabs
 /// - Should we make the Block object a reference?
 impl Render for Editor {
     fn render(
@@ -140,28 +237,14 @@ impl Render for Editor {
         window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        match &self.block {
-            Some(block) => match self.loaded_block_id {
-                Some(loaded_block_id) => {
-                    if loaded_block_id != block.id {
-                        self.update_editor_content(cx, window, block);
-                        self.loaded_block_id = Some(block.id);
-                    }
-                }
-                None => {
-                    self.update_editor_content(cx, window, block);
-                    self.loaded_block_id = Some(block.id);
-                }
-            },
-            None => {}
-        }
+        self.update_editor_content_with_new_block(cx, window);
 
         div()
             .key_context(EDITOR)
             .track_focus(&self.focus_handle(cx))
             .h_full()
             .child(
-                Input::new(&self.state).h_full(), // We need the input to display in full height
+                Input::new(&self.state).h_full().bordered(false), // We need the input to display in full height
             )
             .on_action(cx.listener(|this, _action: &SaveDocument, window, cx| {
                 if let Some(block) = &mut this.block {

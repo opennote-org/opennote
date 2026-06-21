@@ -3,12 +3,13 @@ use std::{
     vec,
 };
 
-use gpui::{ParentElement, SharedString, Styled, WeakEntity};
+use gpui::{ParentElement, SharedString, Styled, TextOverflow, WeakEntity};
 use gpui_component::{
-    IndexPath, h_flex,
+    IndexPath,
     label::Label,
     list::{ListDelegate, ListItem},
     text::Text,
+    v_flex,
 };
 
 use opennote_core_logics::{
@@ -68,25 +69,29 @@ impl ListDelegate for SearchResultsList {
     fn render_item(
         &mut self,
         ix: IndexPath,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> Option<Self::Item> {
         self.results.get(ix.row).map(|(block, payload)| {
             let texts = SharedString::from(payload.texts.clone());
             let search_bar = self.search_bar.clone();
 
-            let content = h_flex()
-                .items_center()
-                .justify_between()
-                .child(Label::new(block.get_title()))
-                .child(Text::String(texts.clone()));
+            let truncated = texts.lines().nth(0).unwrap().to_string();
+
+            let content = v_flex()
+                // .child(Label::new(block.get_title()))
+                .child(Text::String(truncated.into()));
 
             let block_id = block.id;
 
             ListItem::new(ix)
                 .selected(Some(ix) == self.selected_index)
-                .child(content)
-                .on_click(cx.listener(move |_this, _, window, cx| {
+                .child(
+                    content
+                        .overflow_hidden()
+                        .text_overflow(TextOverflow::Truncate("...".into())),
+                )
+                .on_click(cx.listener(move |_this, _event, _window, cx| {
                     open_block(cx, block_id, Some(texts.clone()));
                     let _ = search_bar.update(cx, |this, cx| {
                         this.is_toggled = false;

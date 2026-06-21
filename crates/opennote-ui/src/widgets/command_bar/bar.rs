@@ -9,7 +9,10 @@ use gpui_component::{
     v_flex,
 };
 
-use crate::{globals::helpers::get_language_profile, widgets::command_bar::keys_list::KeysList};
+use crate::{
+    globals::helpers::get_language_profile,
+    widgets::{command_bar::keys_list::KeysList, floating::create_float_palette},
+};
 
 /// Select commands to execute
 pub struct CommandBar {
@@ -48,30 +51,24 @@ impl Focusable for CommandBar {
 impl Render for CommandBar {
     fn render(
         &mut self,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
         let language_profile = get_language_profile(cx.global(), cx.global())
             .context("Getting language profile failed")
             .unwrap();
 
-        div()
-            .track_focus(&self.focus_handle(cx))
-            .absolute()
-            .size_full()
-            .when(self.is_toggled, |this| this.visible())
-            .when(!self.is_toggled, |this| this.invisible())
-            .child(
-                v_flex().top_20().gap_5().items_center().child(
-                    List::new(&self.keys_list)
-                        .search_placeholder(language_profile.command_bar_placeholder)
-                        .bg(cx.theme().accent)
-                        .shadow_2xl()
-                        .w_128()
-                        .h_128()
-                        .items_center(),
-                ),
-            )
+        create_float_palette(&self.focus_handle(cx), self.is_toggled).child(
+            v_flex().child(
+                List::new(&self.keys_list)
+                    .search_placeholder(&language_profile["command_bar_placeholder"])
+                    .bg(cx.theme().accent)
+                    .shadow_2xl()
+                    .w_128()
+                    .h_128()
+                    .items_center(),
+            ),
+        )
         // When changes had been detected, start full text match
     }
 }
