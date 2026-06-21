@@ -5,7 +5,7 @@ use gpui::{
     ParentElement, SharedString, StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
 };
 use gpui_component::{
-    IconName, Sizable,
+    IconName, InteractiveElementExt, Sizable,
     button::{Button, ButtonRounded, ButtonVariants},
     h_flex,
     list::ListItem,
@@ -45,7 +45,7 @@ fn has_mouse_moved(event: &ClickEvent, this: &mut OpenNoteSidebar) -> bool {
     // Determine if the mouse has been dragged or clicked
     if let Some(position) = event.mouse_position() {
         let Some(mouse_position) = this.mouse_position.take() else {
-            return true;
+            return false;
         };
 
         // If the mouse has not moved, we continue to on click
@@ -134,6 +134,7 @@ pub fn create_tree_list_item(
     let sidebar_entity_on_drop: Entity<OpenNoteSidebar> = sidebar.clone();
     let sidebar_entity_on_drag_move: Entity<OpenNoteSidebar> = sidebar.clone();
     let sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar> = sidebar.clone();
+    let sidebar_entity_on_mouse_right_click: Entity<OpenNoteSidebar> = sidebar.clone();
     let sidebar_entity_on_mouse_down: Entity<OpenNoteSidebar> = sidebar.clone();
     let sidebar_entity_expand = sidebar.clone();
 
@@ -157,6 +158,9 @@ pub fn create_tree_list_item(
                 .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
                     start_mouse_dragging(&sidebar_entity_on_mouse_down, event, cx);
                 })
+                .on_mouse_down(gpui::MouseButton::Right, move |_event, _window, cx| {
+                    handle_sidebar_item_right_click(uuid, &sidebar_entity_on_mouse_right_click, cx)
+                })
                 .on_drag(dragged_block.clone(), |value, _point, _window, app| {
                     app.new(|_| value.clone())
                 })
@@ -166,7 +170,14 @@ pub fn create_tree_list_item(
                     sidebar_entity_on_drag_move,
                 ))
                 .on_action(handle_sidebar_delete_item(sidebar_entity_delete_blocks))
-                .on_click(handle_sidebar_item_click(id, sidebar_entity_on_mouse_click))
+                .on_double_click(handle_sidebar_item_double_click(
+                    uuid,
+                    sidebar_entity_on_mouse_click.clone(),
+                ))
+                .on_click(handle_sidebar_item_click(
+                    uuid,
+                    sidebar_entity_on_mouse_click,
+                ))
                 .context_menu(move |menu, _window, _cx| {
                     menu.menu(
                         &language_profile["create_one_block"],
@@ -177,8 +188,56 @@ pub fn create_tree_list_item(
         )
 }
 
+fn handle_sidebar_item_double_click(
+    uuid: Uuid,
+    sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
+) -> impl Fn(&ClickEvent, &mut gpui::Window, &mut App) {
+    move |_event, _window, app| {
+        sidebar_entity_on_mouse_click.update(app, |this, cx| {
+            // Reset the mouse position
+            this.mouse_position = None;
+
+            // Select the block
+            this.tree_state.update(cx, |this, cx| {
+                this.selected_blocks.clear();
+                this.selected_block = None;
+
+                open_block(cx, uuid, None);
+                cx.notify();
+            });
+
+            cx.notify();
+            return;
+        });
+    }
+}
+
+fn handle_sidebar_item_right_click(uuid: Uuid, sidebar: &Entity<OpenNoteSidebar>, cx: &mut App) {
+    sidebar.update(cx, |this, cx| {
+        // Reset the mouse position
+        this.mouse_position = None;
+
+        this.tree_state.update(cx, |this, cx| {
+            let has_multi_selected = !this.selected_blocks.is_empty();
+
+            // Prevent the right click canceling multi-selections
+            if has_multi_selected {
+                return;
+            }
+
+            this.selected_blocks.clear();
+            this.selected_block = Some(uuid);
+
+            cx.notify();
+        });
+
+        cx.notify();
+        return;
+    });
+}
+
 fn handle_sidebar_item_click(
-    id: SharedString,
+    uuid: Uuid,
     sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
 ) -> impl Fn(&ClickEvent, &mut gpui::Window, &mut App) {
     move |event, _window, app| {
@@ -191,14 +250,13 @@ fn handle_sidebar_item_click(
             // Reset the mouse position
             this.mouse_position = None;
 
-            let id = OpenNoteSidebar::convert_str_to_uuid(&id.clone()).unwrap();
-
-            // Multi-selection only happens when the platform key is pressed
-            if event.modifiers().platform {
+            // Multi-selection only happens when the platform key is pressed,
+            // and is using the left click
+            if event.modifiers().platform && !event.is_right_click() {
                 this.tree_state.update(cx, |this, _cx| {
                     // Single selection should be converted to multi-selection
                     if let Some(selected) = this.selected_block {
-                        let has_single_selected = selected == id;
+                        let has_single_selected = selected == uuid;
                         this.selected_block = None;
 
                         // Multi-selecting a single selected item will deselect the item
@@ -208,25 +266,15 @@ fn handle_sidebar_item_click(
                     }
 
                     // Each selection must be unique
-                    if !this.selected_blocks.insert(id) {
+                    if !this.selected_blocks.insert(uuid) {
                         // Deselect the already multi-selected
-                        this.selected_blocks.remove(&id);
+                        this.selected_blocks.remove(&uuid);
                     }
                 });
             }
 
-            if !event.modifiers().platform {
-                // Select the block
-                this.tree_state.update(cx, |this, cx| {
-                    this.selected_blocks.clear();
-                    this.selected_block = None;
-
-                    open_block(cx, id, None);
-                    cx.notify();
-                });
-            }
-
             cx.notify();
+            return;
         });
     }
 }
