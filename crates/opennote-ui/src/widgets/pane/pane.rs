@@ -371,6 +371,29 @@ impl Pane {
             ),
         )
     }
+
+    fn update_editor_with_selected_block(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<'_, Pane>,
+    ) {
+        if let Some(selected_block_id) = self.selected_block_id {
+            let states: &States = cx.global();
+
+            let block = states.blocks.get(&selected_block_id);
+
+            if let Some(block) = block {
+                let block = block.to_owned();
+                let search_string = self.pop_search_string();
+
+                self.editor.update(cx, |this, cx| {
+                    // The backend is always the source of truth.
+                    // We fetch the block from the backend with the current uuid.
+                    this.register_block(cx, window, block, search_string);
+                });
+            }
+        }
+    }
 }
 
 impl Focusable for Pane {
@@ -406,29 +429,14 @@ impl Render for Pane {
             return base_div.child(tabs);
         };
 
-        let editor = self.editor.clone();
-        let search_string = self.pop_search_string();
-        if let Some(selected_block_id) = self.selected_block_id {
-            let states: &States = cx.global();
-
-            let block = states.blocks.get(&selected_block_id);
-
-            if let Some(block) = block {
-                let block = block.to_owned();
-                editor.update(cx, |this, cx| {
-                    // The backend is always the source of truth.
-                    // We fetch the block from the backend with the current uuid.
-                    this.register_block(cx, window, block, search_string);
-                });
-            }
-        }
+        self.update_editor_with_selected_block(window, cx);
 
         log::debug!("Rendering the pane... {:?}", self.drag_split_direction);
         base_div.h_full().child(tabs).child(
             div()
                 .h_full()
                 .on_drag_move::<DraggedItem>(cx.listener(Self::handle_drag_move)) // Calculate the split preview area
-                .child(editor)
+                .child(self.editor.clone())
                 .child(
                     div()
                         .absolute()

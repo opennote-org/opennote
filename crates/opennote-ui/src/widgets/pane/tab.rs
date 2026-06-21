@@ -20,11 +20,16 @@ pub struct TabState {
     /// Once a SaveDocument action has been successfully completed,
     /// this becomes true
     pub has_saved: bool,
+
+    pub unsaved_content: Option<SharedString>,
 }
 
 impl Default for TabState {
     fn default() -> Self {
-        Self { has_saved: true }
+        Self {
+            has_saved: true,
+            unsaved_content: None,
+        }
     }
 }
 

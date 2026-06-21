@@ -29,7 +29,7 @@ use crate::{
 pub struct Editor {
     focus_handle: FocusHandle,
     state: Entity<InputState>,
-    block: Option<Block>,
+    pub block: Option<Block>,
     loaded_block_id: Option<Uuid>,
 
     /// The pane that owns this editor
@@ -125,6 +125,18 @@ impl Editor {
         block: Block,
         highlighted_text: Option<SharedString>,
     ) {
+        // Check if this block has opened already.
+        // If so, early return it.
+        if let Some(existing_block) = &self.block {
+            if existing_block.id == block.id {
+                return;
+            }
+        }
+
+        // If the block is unsaved, we will save the unsaved content to the state.
+        self.save_unsaved_content_to_tab_state(cx);
+
+        // Swap the block with the new one for opening.
         self.block = Some(block);
 
         let Some(string) = highlighted_text else {
@@ -133,6 +145,22 @@ impl Editor {
 
         self.state.update(cx, |this, cx| {
             this.set_highlighted_text(cx, window, string);
+        });
+    }
+
+    fn save_unsaved_content_to_tab_state(&mut self, cx: &mut App) {
+        let pane = self.pane.clone();
+        let block_id = self.block.as_ref().map(|item| item.id);
+        let existing_block_content = self.state.read(cx).value();
+
+        cx.defer(move |cx| {
+            let _ = pane.update(cx, |this, _cx| {
+                if let Some(existing_block_id) = &block_id {
+                    if let Some(tab_state) = this.opened_block_states.get_mut(&existing_block_id) {
+                        tab_state.unsaved_content = Some(existing_block_content);
+                    }
+                }
+            });
         });
     }
 
@@ -166,7 +194,24 @@ impl Editor {
 
         self.loaded_block_id = Some(block.id);
 
-        let texts: String = block.get_text_content();
+        // If we don't have this block's unsaved content in the state,
+        // we will use the block's content directly.
+        let unsaved_content = self
+            .pane
+            .update(cx, |this, _cx| {
+                if let Some(tab_state) = this.opened_block_states.get_mut(&block.id) {
+                    return tab_state.unsaved_content.take();
+                }
+
+                None
+            })
+            .unwrap();
+
+        let texts = if let Some(unsaved) = unsaved_content {
+            unsaved
+        } else {
+            block.get_text_content().into()
+        };
 
         // Early return if the new block is identical with the opened one
         if !Self::has_text_changed(&texts, &self.state, cx) {
