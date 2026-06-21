@@ -43,12 +43,16 @@ impl Workspace {
 
         let workspace_weak_entity = cx.weak_entity();
 
+        let sidebar = cx.new(|cx| OpenNoteSidebar::new(cx, workspace_weak_entity));
+
         Ok(Self {
             focus_handle: cx.focus_handle(),
-            sidebar: cx.new(|cx| OpenNoteSidebar::new(cx, workspace_weak_entity)),
+            sidebar: sidebar.clone(),
             pane_group: cx.new(|pane_group_cx| {
-                let pane_group = pane_group_cx.weak_entity();
-                let pane_entity = pane_group_cx.new(|cx| Pane::new(cx, window, pane_group));
+                let entity = pane_group_cx.entity();
+
+                let pane_entity =
+                    pane_group_cx.new(|cx| Pane::new(cx, window, entity, sidebar.clone()));
 
                 // Set the active pane to be the one we have just created,
                 // so we don't have empty PaneGroup
@@ -56,7 +60,7 @@ impl Workspace {
                     this.active_pane = Some(pane_entity.downgrade());
                 });
 
-                PaneGroup::new(pane_entity)
+                PaneGroup::new(pane_entity, sidebar.clone())
             }),
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window)),

@@ -6,8 +6,9 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use gpui::{
-    AppContext, Context, Entity, EntityId, FocusHandle, Focusable, InteractiveElement, IntoElement,
-    ParentElement, Pixels, Point, Render, Styled, Subscription, WeakEntity, Window, div,
+    AppContext, Context, Entity, EntityId, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, Styled, Subscription,
+    WeakEntity, Window, div,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
@@ -33,6 +34,11 @@ struct BlockState {
     pub has_expanded: bool,
 }
 
+#[derive(Debug, Clone)]
+pub enum OpenNoteSidebarEvent {
+    BlocksDeleted(Vec<Uuid>),
+}
+
 #[derive(Debug)]
 pub struct OpenNoteSidebar {
     workspace: WeakEntity<Workspace>,
@@ -45,6 +51,8 @@ pub struct OpenNoteSidebar {
 
     _subscriptions: Vec<Subscription>,
 }
+
+impl EventEmitter<OpenNoteSidebarEvent> for OpenNoteSidebar {}
 
 impl OpenNoteSidebar {
     pub fn new(cx: &mut Context<Self>, workspace: WeakEntity<Workspace>) -> Self {

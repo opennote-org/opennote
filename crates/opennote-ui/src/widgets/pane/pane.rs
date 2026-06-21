@@ -20,6 +20,7 @@ use crate::libs::tabs::tab_bar::TabBar;
 use crate::widgets::editor::Editor;
 use crate::widgets::pane::pane_group::{PaneGroup, SplitDirection};
 use crate::widgets::pane::tab::{TabState, create_tab_bar_for_blocks};
+use crate::widgets::sidebar::{OpenNoteSidebar, OpenNoteSidebarEvent};
 
 macro_rules! split_structs {
     ($($name:ident => $doc:literal),* $(,)?) => {
@@ -83,9 +84,32 @@ impl Pane {
     pub fn new(
         cx: &mut Context<Self>,
         window: &mut gpui::Window,
-        pane_group: WeakEntity<PaneGroup>,
+        pane_group: Entity<PaneGroup>,
+        sidebar: Entity<OpenNoteSidebar>,
     ) -> Self {
         let mut _subscriptions = Vec::new();
+
+        let pane_group_clone = pane_group.clone();
+        _subscriptions.push(cx.subscribe(&sidebar, move |this, _entity, event, cx| {
+            if !this.has_opened_blocks() {
+                return;
+            };
+
+            match event {
+                OpenNoteSidebarEvent::BlocksDeleted(block_ids) => {
+                    for id in block_ids {
+                        if this.opened_block_ids.contains(id) {
+                            this.close_tab(id, cx);
+                            let entity = cx.entity();
+
+                            let _ = pane_group_clone.update(cx, |this, cx| {
+                                this.cleanup_pane_without_tabs(entity, cx);
+                            });
+                        }
+                    }
+                }
+            }
+        }));
 
         let pane_ref = cx.weak_entity();
 
@@ -98,7 +122,7 @@ impl Pane {
             editor: cx.new(|cx| Editor::new(cx, window, pane_ref)),
             opened_block_ids: Vec::new(),
             opened_block_states: HashMap::new(),
-            pane_group,
+            pane_group: pane_group.downgrade(),
             _subscriptions,
         }
     }
@@ -265,8 +289,9 @@ impl Pane {
         // Will recursively split
         // TODO: move the focus to the corresponding pane too
         let _ = self.pane_group.update(cx, |this, cx| {
-            let pane_group_reference = cx.weak_entity();
-            let new_pane = cx.new(|cx| Pane::new(cx, window, pane_group_reference));
+            let pane_group_reference = cx.entity();
+            let new_pane =
+                cx.new(|cx| Pane::new(cx, window, pane_group_reference, this.sidebar.clone()));
             new_pane.update(cx, |this, cx| {
                 let weak_reference = cx.weak_entity();
                 this.set_selected_block_by_block_id(dragged_block_id, cx);

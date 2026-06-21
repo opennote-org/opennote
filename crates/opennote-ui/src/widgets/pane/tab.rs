@@ -91,21 +91,14 @@ pub fn create_tab_bar_for_blocks(
                     .rounded(ButtonRounded::Medium)
                     .on_click(cx.listener(move |view, _, _, cx| {
                         view.close_tab(&id, cx);
+                        let entity = cx.entity();
+
                         if !view.has_opened_blocks() {
-                            let pane = cx.entity();
-                            let mut pane_to_select = None;
-
-                            let _ = view.pane_group.update(cx, |this, _cx| {
-                                pane_to_select = this.remove_panes(&pane);
+                            let _ = view.pane_group.update(cx, |this, cx| {
+                                this.cleanup_pane_without_tabs(entity, cx);
                             });
-
-                            // Set the active pane to a survived pane
-                            if let Some(pane_to_select) = pane_to_select {
-                                cx.update_global::<States, ()>(|this, _cx| {
-                                    this.active_pane = Some(pane_to_select.downgrade());
-                                });
-                            }
                         }
+
                         cx.stop_propagation();
                     })),
             )
