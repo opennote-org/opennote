@@ -51,7 +51,7 @@ impl Focusable for CommandBar {
 impl Render for CommandBar {
     fn render(
         &mut self,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
         let language_profile = get_language_profile(cx.global(), cx.global())

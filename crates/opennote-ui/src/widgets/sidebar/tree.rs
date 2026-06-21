@@ -1,12 +1,9 @@
-use std::{collections::HashMap, sync::Arc};
-
 use gpui::{
     App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
-    ParentElement, SharedString, StatefulInteractiveElement, Styled, TextOverflow,
-    prelude::FluentBuilder, px,
+    ParentElement, SharedString, StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
 };
 use gpui_component::{
-    IconName, Sizable, StyledExt,
+    IconName, Sizable,
     button::{Button, ButtonRounded, ButtonVariants},
     h_flex,
     list::ListItem,

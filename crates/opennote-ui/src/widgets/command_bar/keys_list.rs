@@ -1,22 +1,30 @@
-use gpui::{Action, App, KeyBinding, ParentElement, SharedString, Styled, prelude::FluentBuilder};
+use gpui::{Action, App, ParentElement, SharedString, Styled, prelude::FluentBuilder};
 use gpui_component::{
     IndexPath, h_flex,
     label::Label,
     list::{ListDelegate, ListItem},
 };
 
-use crate::key_mappings::{helpers::get_keystrokes_as_shared_string, mappings::ToggleSidebar};
+use crate::key_mappings::{
+    helpers::get_keystrokes_as_shared_string,
+    mappings::{CreateOneBlock, ToggleCommandBar, ToggleSidebar},
+};
 
 /// Collect all available gpui actions / key bindings in this app
 pub struct KeysList {
     pub actions: Vec<(Box<dyn Action>, Option<SharedString>)>,
     pub filtered_actions: Vec<(Box<dyn Action>, Option<SharedString>)>,
     pub selected_index: Option<IndexPath>,
+    pub searched: bool,
 }
 
 impl KeysList {
     pub fn new(cx: &App) -> Self {
-        let actions: Vec<Box<dyn Action>> = vec![Box::new(ToggleSidebar)];
+        let actions: Vec<Box<dyn Action>> = vec![
+            Box::new(ToggleSidebar),
+            Box::new(ToggleCommandBar),
+            Box::new(CreateOneBlock),
+        ];
 
         let actions_keymaps: Vec<(Box<dyn Action>, Option<SharedString>)> = actions
             .into_iter()
@@ -36,24 +44,17 @@ impl KeysList {
             actions: actions_keymaps,
             filtered_actions: Vec::new(),
             selected_index: None,
+            searched: false,
         }
     }
-}
 
-impl ListDelegate for KeysList {
-    type Item = ListItem;
-
-    fn items_count(&self, _section: usize, _cx: &gpui::App) -> usize {
-        self.actions.len()
-    }
-
-    fn render_item(
-        &mut self,
+    fn create_list_item(
+        &self,
         ix: IndexPath,
-        _window: &mut gpui::Window,
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
-    ) -> Option<Self::Item> {
-        self.actions.get(ix.row).map(|(action, key_binding)| {
+        items: &Vec<(Box<dyn Action>, Option<SharedString>)>,
+    ) -> Option<ListItem> {
+        return items.get(ix.row).map(|(action, key_binding)| {
             let action = action.boxed_clone();
 
             let content = h_flex()
@@ -70,7 +71,28 @@ impl ListDelegate for KeysList {
                 .on_click(cx.listener(move |_this, _, window, cx| {
                     window.dispatch_action(action.boxed_clone(), cx);
                 }))
-        })
+        });
+    }
+}
+
+impl ListDelegate for KeysList {
+    type Item = ListItem;
+
+    fn items_count(&self, _section: usize, _cx: &gpui::App) -> usize {
+        self.actions.len()
+    }
+
+    fn render_item(
+        &mut self,
+        ix: IndexPath,
+        _window: &mut gpui::Window,
+        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
+    ) -> Option<Self::Item> {
+        if self.searched {
+            return self.create_list_item(ix, cx, &self.filtered_actions);
+        }
+
+        self.create_list_item(ix, cx, &self.actions)
     }
 
     fn set_selected_index(
@@ -89,6 +111,11 @@ impl ListDelegate for KeysList {
         _window: &mut gpui::Window,
         _cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> gpui::Task<()> {
+        if query.is_empty() {
+            self.searched = false;
+            return gpui::Task::ready(());
+        }
+
         // Filter items based on query
         self.filtered_actions = self
             .actions
@@ -98,6 +125,8 @@ impl ListDelegate for KeysList {
             })
             .map(|(action, key_binding)| (action.boxed_clone(), key_binding.to_owned()))
             .collect();
+
+        self.searched = true;
 
         gpui::Task::ready(())
     }
