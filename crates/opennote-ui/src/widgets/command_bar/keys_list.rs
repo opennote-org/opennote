@@ -5,9 +5,12 @@ use gpui_component::{
     list::{ListDelegate, ListItem},
 };
 
-use crate::key_mappings::{
-    helpers::get_keystrokes_as_shared_string,
-    mappings::{CreateOneBlock, ToggleCommandBar, ToggleSidebar},
+use crate::{
+    globals::helpers::get_language_profile,
+    key_mappings::{
+        helpers::{get_keystrokes_as_shared_string, match_action_to_language},
+        mappings::{CreateOneBlock, ToggleCommandBar, ToggleSidebar},
+    },
 };
 
 /// Collect all available gpui actions / key bindings in this app
@@ -54,13 +57,16 @@ impl KeysList {
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
         items: &Vec<(Box<dyn Action>, Option<SharedString>)>,
     ) -> Option<ListItem> {
+        let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+
         return items.get(ix.row).map(|(action, key_binding)| {
-            let action = action.boxed_clone();
+            let action: Box<dyn Action + 'static> = action.boxed_clone();
+            let action_name = match_action_to_language(language_profile, &action);
 
             let content = h_flex()
                 .items_center()
                 .justify_between()
-                .child(Label::new(action.name()))
+                .child(Label::new(action_name))
                 .when_some(key_binding.clone(), |this, key_binding| {
                     this.child(Label::new(key_binding))
                 });

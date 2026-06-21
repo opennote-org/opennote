@@ -61,7 +61,7 @@ impl Render for CommandBar {
         create_float_palette(&self.focus_handle(cx), self.is_toggled).child(
             v_flex().child(
                 List::new(&self.keys_list)
-                    .search_placeholder(language_profile.command_bar_placeholder)
+                    .search_placeholder(&language_profile["command_bar_placeholder"])
                     .bg(cx.theme().accent)
                     .shadow_2xl()
                     .w_128()

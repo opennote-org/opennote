@@ -136,7 +136,7 @@ impl Render for SearchBar {
                 .child(
                     v_flex().child(
                         List::new(&self.search_results_list)
-                            .search_placeholder(language_profile.search_bar_placeholder)
+                            .search_placeholder(&language_profile["search_bar_placeholder"])
                             .bg(cx.theme().accent)
                             .shadow_2xl()
                             .w_128()

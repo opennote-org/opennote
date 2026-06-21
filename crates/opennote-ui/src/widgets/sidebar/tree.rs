@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use gpui::{
     App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
     ParentElement, SharedString, StatefulInteractiveElement, Styled, prelude::FluentBuilder, px,
@@ -120,7 +122,7 @@ pub fn create_tree_list_item(
     label: SharedString, // The label of the tree item. Usually is the title of a block
     id: SharedString,    // The id of the tree item
     uuid: Uuid,          // The uuid/id of the block
-    language_profile: crate::globals::assets::LanguageProfile,
+    language_profile: HashMap<String, String>,
     sidebar: Entity<OpenNoteSidebar>,
     is_selected: bool,
     is_multi_selected: bool,
@@ -167,13 +169,10 @@ pub fn create_tree_list_item(
                 .on_click(handle_sidebar_item_click(id, sidebar_entity_on_mouse_click))
                 .context_menu(move |menu, _window, _cx| {
                     menu.menu(
-                        language_profile.create_one_block.clone(),
+                        &language_profile["create_one_block"],
                         Box::new(CreateOneBlock),
                     )
-                    .menu(
-                        language_profile.delete_blocks.clone(),
-                        Box::new(DeleteBlocks),
-                    )
+                    .menu(&language_profile["delete_blocks"], Box::new(DeleteBlocks))
                 }),
         )
 }

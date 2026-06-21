@@ -66,7 +66,7 @@ pub fn create_one_block(
                     let configurations = this.get_configurations();
 
                     (
-                        language_profile.default_block_title.clone(),
+                        language_profile["default_block_title"].clone(),
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
                         configurations.system.vector_database.clone(),

@@ -238,7 +238,7 @@ impl Render for OpenNoteSidebar {
                             .w_full()
                             .justify_between()
                             .items_center()
-                            .child(Label::new(language_profile.sidebar_title).text_xl())
+                            .child(Label::new(&language_profile["sidebar_title"]).text_xl())
                             .child(Self::create_new_block_button(entity_id)),
                     ),
             )

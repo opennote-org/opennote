@@ -8,9 +8,14 @@ use crate::key_mappings::key_contexts::{EDITOR, GENERAL, SIDEBAR, WORKSPACE};
 
 actions!(
     workspace,
-    [ToggleSidebar, ToggleSearchBar, ToggleCommandBar]
+    [
+        ToggleSidebar,
+        ToggleSearchBar,
+        ToggleCommandBar,
+        CreateOneBlock
+    ]
 );
-actions!(sidebar, [CreateOneBlock, DeleteBlocks]);
+actions!(sidebar, [DeleteBlocks]);
 actions!(general, [MoveUp, MoveDown, MoveLeft, MoveRight]);
 actions!(editor, [SaveDocument]);
 

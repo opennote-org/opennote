@@ -4,5 +4,12 @@
   "command_bar_placeholder": "请输入命令...",
   "default_block_title": "未命名文档",
   "delete_blocks": "删除",
-  "create_one_block": "新建"
+  "create_one_block": "新建",
+  "workspace::ToggleSidebar": "开关侧边栏",
+  "workspace::ToggleCommandBar": "开关命令栏",
+  "workspace::CreateOneBlock": "创建新笔记",
+  "workspace::ToggleSearchBar": "开关搜索栏",
+  "new_note": "新笔记",
+  "search": "搜索",
+  "commands": "指令"
 }

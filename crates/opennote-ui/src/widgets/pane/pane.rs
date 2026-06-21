@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use gpui::{
-    Action, DefiniteLength, DragMoveEvent, Entity, Focusable, Point, SharedString, Subscription,
-    WeakEntity, div,
+    Action, DefiniteLength, Div, DragMoveEvent, Entity, Focusable, Point, SharedString,
+    Subscription, WeakEntity, div,
 };
 use gpui::{Context, FocusHandle, Render, Window, prelude::*};
 use gpui_component::description_list::{DescriptionItem, DescriptionList};
@@ -11,6 +11,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::globals::helpers::get_language_profile;
 use crate::globals::states::States;
 use crate::key_mappings::helpers::get_keystrokes_as_shared_string;
 use crate::key_mappings::mappings::{CreateOneBlock, ToggleCommandBar, ToggleSearchBar};
@@ -318,6 +319,33 @@ impl Pane {
     pub fn has_opened_blocks(&self) -> bool {
         !self.opened_block_ids.is_empty()
     }
+
+    fn create_commmand_board(cx: &mut Context<'_, Pane>) -> Div {
+        let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+
+        v_flex().h_full().child(
+            div().w_48().mx_auto().my_auto().child(
+                DescriptionList::new()
+                    .columns(1)
+                    .bordered(false)
+                    .large()
+                    .children([
+                        DescriptionItem::new(language_profile["search"].to_string()).value(
+                            get_keystrokes_as_shared_string(cx, ToggleSearchBar.boxed_clone())
+                                .unwrap_or("".into()),
+                        ),
+                        DescriptionItem::new(language_profile["commands"].to_string()).value(
+                            get_keystrokes_as_shared_string(cx, ToggleCommandBar.boxed_clone())
+                                .unwrap_or("".into()),
+                        ),
+                        DescriptionItem::new(language_profile["new_note"].to_string()).value(
+                            get_keystrokes_as_shared_string(cx, CreateOneBlock.boxed_clone())
+                                .unwrap_or("".into()),
+                        ),
+                    ]),
+            ),
+        )
+    }
 }
 
 impl Focusable for Pane {
@@ -333,28 +361,7 @@ impl Render for Pane {
         // Display search bar, command bar, new doc
         // and their keyboard shortcuts
         if self.opened_block_ids.is_empty() {
-            return v_flex().h_full().child(
-                div().w_48().mx_auto().my_auto().child(
-                    DescriptionList::new()
-                        .columns(1)
-                        .bordered(false)
-                        .large()
-                        .children([
-                            DescriptionItem::new("Search").value(
-                                get_keystrokes_as_shared_string(cx, ToggleSearchBar.boxed_clone())
-                                    .unwrap_or("".into()),
-                            ),
-                            DescriptionItem::new("Commands").value(
-                                get_keystrokes_as_shared_string(cx, ToggleCommandBar.boxed_clone())
-                                    .unwrap_or("".into()),
-                            ),
-                            DescriptionItem::new("New Note").value(
-                                get_keystrokes_as_shared_string(cx, CreateOneBlock.boxed_clone())
-                                    .unwrap_or("".into()),
-                            ),
-                        ]),
-                ),
-            );
+            return Self::create_commmand_board(cx);
         }
 
         let pane_reference = cx.weak_entity();
