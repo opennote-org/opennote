@@ -148,11 +148,24 @@ impl Editor {
 
     /// Update the editor content with the new openned block's content
     pub fn update_editor_content_with_new_block(
-        &self,
+        &mut self,
         cx: &mut Context<Self>,
         window: &mut gpui::Window,
-        block: &Block,
     ) {
+        let block = match &self.block {
+            Some(block) => block,
+            None => return,
+        };
+
+        // Skip if the block has already opened by this editor
+        if let Some(loaded_block_id) = self.loaded_block_id {
+            if loaded_block_id == block.id {
+                return;
+            }
+        }
+
+        self.loaded_block_id = Some(block.id);
+
         let texts: String = block.get_text_content();
 
         // Early return if the new block is identical with the opened one
@@ -179,21 +192,7 @@ impl Render for Editor {
         window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        match &self.block {
-            Some(block) => match self.loaded_block_id {
-                Some(loaded_block_id) => {
-                    if loaded_block_id != block.id {
-                        self.update_editor_content_with_new_block(cx, window, block);
-                        self.loaded_block_id = Some(block.id);
-                    }
-                }
-                None => {
-                    self.update_editor_content_with_new_block(cx, window, block);
-                    self.loaded_block_id = Some(block.id);
-                }
-            },
-            None => {}
-        }
+        self.update_editor_content_with_new_block(cx, window);
 
         div()
             .key_context(EDITOR)
