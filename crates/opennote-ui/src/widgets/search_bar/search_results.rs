@@ -6,7 +6,6 @@ use std::{
 use gpui::{ParentElement, SharedString, Styled, TextOverflow, WeakEntity};
 use gpui_component::{
     IndexPath,
-    label::Label,
     list::{ListDelegate, ListItem},
     text::Text,
     v_flex,

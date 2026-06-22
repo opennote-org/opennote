@@ -125,10 +125,10 @@ impl Editor {
         block: Block,
         highlighted_text: Option<SharedString>,
     ) {
-        // Check if this block has opened already.
-        // If so, early return it.
+        // If the same block is already open, just update the highlight and return.
         if let Some(existing_block) = &self.block {
             if existing_block.id == block.id {
+                self.set_highlighted_text(cx, window, highlighted_text);
                 return;
             }
         }
@@ -139,6 +139,15 @@ impl Editor {
         // Swap the block with the new one for opening.
         self.block = Some(block);
 
+        self.set_highlighted_text(cx, window, highlighted_text);
+    }
+
+    fn set_highlighted_text(
+        &mut self,
+        cx: &mut App,
+        window: &mut gpui::Window,
+        highlighted_text: Option<SharedString>,
+    ) {
         let Some(string) = highlighted_text else {
             return;
         };
