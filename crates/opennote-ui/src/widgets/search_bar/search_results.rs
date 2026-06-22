@@ -3,9 +3,10 @@ use std::{
     vec,
 };
 
-use gpui::{ParentElement, SharedString, Styled, TextOverflow, WeakEntity};
+use gpui::{ParentElement, SharedString, Styled, TextOverflow, WeakEntity, div};
 use gpui_component::{
     IndexPath,
+    label::Label,
     list::{ListDelegate, ListItem},
     text::Text,
     v_flex,
@@ -75,21 +76,14 @@ impl ListDelegate for SearchResultsList {
             let texts = SharedString::from(payload.texts.clone());
             let search_bar = self.search_bar.clone();
 
-            let truncated = texts.lines().nth(0).unwrap().to_string();
-
-            let content = v_flex()
-                // .child(Label::new(block.get_title()))
-                .child(Text::String(truncated.into()));
+            let content = v_flex().child(Text::String(texts.clone()));
 
             let block_id = block.id;
 
             ListItem::new(ix)
                 .selected(Some(ix) == self.selected_index)
-                .child(
-                    content
-                        .overflow_hidden()
-                        .text_overflow(TextOverflow::Truncate("...".into())),
-                )
+                .h_64()
+                .child(content)
                 .on_click(cx.listener(move |_this, _event, _window, cx| {
                     open_block(cx, block_id, Some(texts.clone()));
                     let _ = search_bar.update(cx, |this, cx| {

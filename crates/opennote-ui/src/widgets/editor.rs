@@ -142,6 +142,8 @@ impl Editor {
         self.set_highlighted_text(cx, window, highlighted_text);
     }
 
+    /// Highlight a string in the editor.
+    /// It will do nothing if the `highlighted_text` is None.
     fn set_highlighted_text(
         &mut self,
         cx: &mut App,
