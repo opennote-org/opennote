@@ -9,6 +9,7 @@ use crate::input::{
 pub(crate) enum MoveDirection {
     Up,
     Down,
+    All,
 }
 
 impl InputState {
