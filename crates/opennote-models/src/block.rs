@@ -96,9 +96,10 @@ impl Block {
     /// have any payload.
     pub fn get_title(&self) -> String {
         if self.payloads.len() != 0 {
-            let string: &String = &self.payloads[0].texts;
-            let splitted: &str = string.split("\n").nth(0).unwrap_or("");
-            return splitted.to_string();
+            // We treat the first line of the text of the first payload as the title
+            if let Some(payload) = self.payloads.first() {
+                return payload.texts.lines().next().unwrap_or("").to_string();
+            }
         }
 
         return String::new();
