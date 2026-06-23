@@ -95,15 +95,11 @@ impl Block {
     /// It will return an empty string if the block does not
     /// have any payload.
     pub fn get_title(&self) -> String {
-        if self.payloads.len() != 0 {
-            // We treat the first line of the text of the first payload as the title
-            match self.payloads.first() {
-                Some(payload) => return payload.texts.lines().next().unwrap_or("").to_string(),
-                None => {}
-            }
+        // We treat the first line of the text of the first payload as the title
+        match self.payloads.first() {
+            Some(payload) => payload.texts.lines().next().unwrap_or("").to_string(),
+            None => String::new(),
         }
-
-        return String::new();
     }
 
     /// Get only the text content of this block
