@@ -82,6 +82,7 @@ impl Editor {
         let state = cx.new(|cx| {
             InputState::new(window, cx)
                 .code_editor("markdown")
+                .multi_line(true)
                 .line_number(true)
                 .searchable(true) // It will search with the backend instead
         });
