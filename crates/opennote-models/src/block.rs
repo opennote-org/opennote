@@ -96,9 +96,9 @@ impl Block {
     /// have any payload.
     pub fn get_title(&self) -> String {
         if self.payloads.len() != 0 {
-            let string = self.payloads[0].texts.clone();
-            let splitted: Vec<&str> = string.split("\n").collect();
-            return splitted[0].to_string();
+            let string: &String = &self.payloads[0].texts;
+            let splitted: &str = string.split("\n").nth(0).unwrap_or("");
+            return splitted.to_string();
         }
 
         return String::new();
@@ -106,12 +106,13 @@ impl Block {
 
     /// Get only the text content of this block
     pub fn get_text_content(&self) -> String {
-        let texts: Vec<String> = self
-            .payloads
-            .iter()
-            .map(|item| item.texts.clone())
-            .collect();
+        let mut texts = String::new();
 
-        texts.concat()
+        // Avoid cloning strings
+        for payload in self.payloads.iter() {
+            texts.push_str(&payload.texts);
+        }
+
+        texts
     }
 }
