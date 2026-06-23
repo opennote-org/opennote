@@ -16,7 +16,7 @@ use opennote_core_logics::{
     block::read_blocks,
     search::{search_by_keyword, search_by_semantics},
 };
-use opennote_data::database::enums::BlockQuery;
+use opennote_data::{database::enums::BlockQuery, search::SearchScope};
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
     block::Block,
@@ -120,11 +120,37 @@ impl ListDelegate for SearchResultsList {
             return gpui::Task::ready(());
         };
 
-        let Some(block_id) = active_pane
+        let selected_block_id = active_pane
             .read_with(cx, |this, _cx| this.selected_block_id)
-            .unwrap()
-        else {
-            return gpui::Task::ready(());
+            .unwrap();
+
+        // Determine the blocks to search for
+        let block_ids = match states.get_search_scope() {
+            SearchScope::Document => match selected_block_id {
+                Some(result) => vec![result],
+                None => return gpui::Task::ready(()),
+            },
+            SearchScope::Collection => {
+                // Get the selected block id
+                let block_id = match selected_block_id {
+                    Some(result) => result,
+                    None => return gpui::Task::ready(()),
+                };
+
+                // find all blocks that have selected block as their parents
+                states
+                    .blocks
+                    .iter()
+                    .filter_map(|(_, block)| {
+                        if block.parent_id == Some(block_id) {
+                            Some(block.id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            }
+            SearchScope::Userspace => states.blocks.keys().map(|item| item.to_owned()).collect(),
         };
 
         let databases = &bootstrap.0.databases;
@@ -132,7 +158,7 @@ impl ListDelegate for SearchResultsList {
             SupportedSearchMethod::Keyword => run_async_code(async {
                 search_by_keyword(
                     databases,
-                    [block_id].to_vec(),
+                    block_ids,
                     query,
                     configurations.user.search.top_n,
                 )
@@ -150,7 +176,7 @@ impl ListDelegate for SearchResultsList {
 
                 search_by_semantics(
                     databases,
-                    [block_id].to_vec(),
+                    block_ids,
                     &payloads[0].vector,
                     configurations.user.search.top_n,
                 )
