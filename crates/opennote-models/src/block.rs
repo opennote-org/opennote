@@ -97,8 +97,9 @@ impl Block {
     pub fn get_title(&self) -> String {
         if self.payloads.len() != 0 {
             // We treat the first line of the text of the first payload as the title
-            if let Some(payload) = self.payloads.first() {
-                return payload.texts.lines().next().unwrap_or("").to_string();
+            match self.payloads.first() {
+                Some(payload) => return payload.texts.lines().next().unwrap_or("").to_string(),
+                None => {}
             }
         }
 
