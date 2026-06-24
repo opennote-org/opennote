@@ -1,4 +1,5 @@
 [package]
+name = "gpui-component"
 publish = true
 version.workspace = true
 edition.workspace = true
