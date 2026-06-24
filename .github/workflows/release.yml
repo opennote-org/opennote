@@ -32,7 +32,7 @@ jobs:
         run: ./scripts/build_release_mac.sh
 
       - name: Upload DMG to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: target/OpenNote.dmg
         env:
@@ -62,7 +62,7 @@ jobs:
         run: pwsh -File ./scripts/build_release_windows.ps1
 
       - name: Upload ZIP to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: target/opennote-windows-x86_64.zip
         env:
@@ -105,7 +105,7 @@ jobs:
         run: ./scripts/build_release_linux.sh
 
       - name: Upload tar.gz to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: target/opennote-linux-x86_64.tar.gz
         env:
