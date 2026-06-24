@@ -8948,6 +8948,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "opennote-desktop"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dirs 6.0.0",
+ "fast_log",
+ "gpui",
+ "gpui-component",
+ "gpui-component-assets",
+ "log",
+ "opennote-bootstrap",
+ "opennote-core-logics",
+ "opennote-data",
+ "opennote-embedder",
+ "opennote-models",
+ "rust-embed",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "smallvec 1.15.1",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "opennote-embedder"
 version = "0.1.0"
 dependencies = [
@@ -9009,31 +9034,6 @@ version = "0.1.0"
 dependencies = [
  "chunk",
  "opennote-models",
-]
-
-[[package]]
-name = "opennote-ui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "dirs 6.0.0",
- "fast_log",
- "gpui",
- "gpui-component",
- "gpui-component-assets",
- "log",
- "opennote-bootstrap",
- "opennote-core-logics",
- "opennote-data",
- "opennote-embedder",
- "opennote-models",
- "rust-embed",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "smallvec 1.15.1",
- "tokio",
- "uuid",
 ]
 
 [[package]]
