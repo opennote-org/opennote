@@ -54,30 +54,55 @@ if ! gh auth status &>/dev/null; then
 fi
 
 # -------------------------------------------------------------------
-# Version bump
+# Version bump – handles workspace inheritance automatically
 # -------------------------------------------------------------------
-echo "$(yellow "→") Bumping version to $VERSION in $CARGO_TOML_PATH"
+echo "$(yellow "→") Bumping version to $VERSION"
 
-if [ ! -f "$CARGO_TOML_PATH" ]; then
-    die "File not found: $CARGO_TOML_PATH"
-fi
+CARGO_TOML="${CARGO_TOML_PATH:-crates/opennote-desktop/Cargo.toml}"
+WORKSPACE_CARGO="Cargo.toml"   # workspace root (adjust if different)
 
-if command -v cargo-set-version &>/dev/null; then
-    # Prefer cargo-edit if installed
-    cargo set-version "$VERSION" --manifest-path "$CARGO_TOML_PATH"
-elif command -v sed &>/dev/null; then
-    # Fallback: update first `version = "x.y.z"` line
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$CARGO_TOML_PATH"
+# Check if the crate uses workspace inheritance
+if grep -Eq '^\s*version\s*\.\s*workspace\s*=\s*true' "$CARGO_TOML"; then
+    echo "$(yellow "→") Using workspace inheritance – updating workspace root"
+
+    if [ ! -f "$WORKSPACE_CARGO" ]; then
+        die "Workspace Cargo.toml not found at $WORKSPACE_CARGO"
+    fi
+
+    # Update the version in [workspace.package]
+    if command -v cargo-set-version &>/dev/null; then
+        cargo set-version "$VERSION" --manifest-path "$WORKSPACE_CARGO"
     else
-        sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$CARGO_TOML_PATH"
+        # Perl: only replace the version inside [workspace.package] block
+        perl -i -pe '
+            if ( /^\s*\[workspace\.package\]/ .. /^\s*\[/ ) {
+                s/^(\s*version\s*=\s*)\".*\"/${1}"'"$VERSION"'"/;
+            }
+        ' "$WORKSPACE_CARGO"
+    fi
+
+    # Verify
+    if ! grep -q "\"$VERSION\"" "$WORKSPACE_CARGO"; then
+        die "Failed to update workspace version. Check $WORKSPACE_CARGO manually."
     fi
 else
-    die "Neither 'cargo set-version' (cargo-edit) nor 'sed' available. Install one of them."
+    echo "$(yellow "→") Direct version field – updating local Cargo.toml"
+    if [ ! -f "$CARGO_TOML" ]; then
+        die "File not found: $CARGO_TOML"
+    fi
+
+    if command -v cargo-set-version &>/dev/null; then
+        cargo set-version "$VERSION" --manifest-path "$CARGO_TOML"
+    else
+        perl -i -pe "s/^(\s*version\s*=\s*)\".*\"/\1\"$VERSION\"/" "$CARGO_TOML"
+    fi
+
+    if ! grep -q "\"$VERSION\"" "$CARGO_TOML"; then
+        die "Version string not found after bump. Check $CARGO_TOML manually."
+    fi
 fi
 
-# Verify the version now matches
-grep -q "version = \"$VERSION\"" "$CARGO_TOML_PATH" || die "Version string not found after bump. Check $CARGO_TOML_PATH manually."
+echo "$(green "✓") Version bumped successfully"
 
 # -------------------------------------------------------------------
 # Commit, tag, push
