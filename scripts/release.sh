@@ -108,7 +108,15 @@ echo "$(green "✓") Version bumped successfully"
 # Commit, tag, push
 # -------------------------------------------------------------------
 echo "$(yellow "→") Committing version bump"
-git add "$CARGO_TOML_PATH"
+
+# Stage all modified tracked files (catches whichever Cargo.toml changed)
+git add -u
+
+# Only commit if there’s something staged
+if git diff --cached --quiet; then
+    die "No changes staged – was the version actually bumped?"
+fi
+
 git commit -m "chore: bump version to $VERSION"
 
 echo "$(yellow "→") Creating tag v$VERSION"
