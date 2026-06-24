@@ -128,6 +128,7 @@ pub enum Dtype {
     BF16,
 }
 
+#[allow(dead_code)]
 fn is_video_extension(extension: &std::ffi::OsStr) -> bool {
     match extension.to_str().map(|ext| ext.to_ascii_lowercase()) {
         Some(ext) => matches!(
@@ -138,6 +139,7 @@ fn is_video_extension(extension: &std::ffi::OsStr) -> bool {
     }
 }
 
+#[allow(dead_code)]
 async fn process_images<E: EmbedImage + Send + Sync + 'static>(
     image_buffer: &[String],
     embedder: Arc<E>,
