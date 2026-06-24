@@ -6,7 +6,7 @@ license = "MIT"
 [workspace]
 resolver = "3"
 members = [
-    "crates/opennote-ui",
+    "crates/opennote-desktop",
     "crates/opennote-data",
     "crates/opennote-embedder",
     "crates/opennote-models",
@@ -26,7 +26,7 @@ members = [
 
 [workspace.dependencies]
 # Internal dependencies
-opennote-ui = { path = "crates/opennote-ui" }
+opennote-desktop = { path = "crates/opennote-desktop" }
 opennote-data = { path = "crates/opennote-data" }
 opennote-server = { path = "crates/opennote-server" }
 opennote-mcp-server = { path = "crates/opennote-mcp-server" }

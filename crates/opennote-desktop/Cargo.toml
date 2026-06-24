@@ -1,5 +1,5 @@
 [package]
-name = "opennote-ui"
+name = "opennote-desktop"
 version.workspace = true
 edition.workspace = true
 
