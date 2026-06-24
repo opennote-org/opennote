@@ -51,7 +51,7 @@ impl Default for KeyMappings {
                 context: "workspace".to_string(),
             },
             KeyMapping {
-                sequence: vec![":".to_string()],
+                sequence: vec!["cmd".to_string(), "-".to_string(), ":".to_string()],
                 action: format!("ToggleCommandBar"),
                 context: "workspace".to_string(),
             },
