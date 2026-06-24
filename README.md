@@ -4,6 +4,10 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 
 **Status: Heavy Development** — APIs, architecture, and workflows are evolving quickly. Contributions, feedback, and experimental use are all welcome.
 
+<div align="center">
+  <img src="assets/demo.png" alt="App Screenshot" width="500"/>
+</div>
+
 ## Features
 
 - **Keyword and semantic search** — find notes instantly, or let your documents answer your questions.
@@ -26,6 +30,12 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 3. Unzip the archive.
 4. Double-click to launch the app.
 5. Enjoy!
+
+**For mac users**: I don't have an Apple Developer Account yet, so I can't codesign the mac app. You may need to run the following command in Terminal, after pasting the app file to the `Applications` folder:
+
+```bash
+sudo xattr -r -d com.apple.quarantine /Applications/opennote.app
+```
 
 ## Contributing
 
