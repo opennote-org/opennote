@@ -41,9 +41,7 @@ impl Workspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Result<Self> {
         let mut _subscriptions = vec![];
 
-        let workspace_weak_entity = cx.weak_entity();
-
-        let sidebar = cx.new(|cx| OpenNoteSidebar::new(cx, workspace_weak_entity));
+        let sidebar = cx.new(|cx| OpenNoteSidebar::new(cx));
 
         Ok(Self {
             focus_handle: cx.focus_handle(),
@@ -92,7 +90,7 @@ impl Render for Workspace {
         let notification = Root::render_notification_layer(window, cx);
         self.publish_initialization_successful_message(window, cx);
 
-        // Prevent the window from being closed when there are ongoing tasks 
+        // Prevent the window from being closed when there are ongoing tasks
         window.on_window_should_close(cx, |_this, cx| {
             let task_tracker: &TaskTracker = cx.global();
             if task_tracker.has_pending_items() {

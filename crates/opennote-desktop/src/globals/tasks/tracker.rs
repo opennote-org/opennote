@@ -130,7 +130,7 @@ pub fn register_long_running_result<T: Sized + 'static>(
     let notification_type = get_notification_type(task_result.status);
     let message = task_result.message.clone();
 
-    cx.update_global::<TaskTracker, ()>(|this, _cx| {
+    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
         this.remove_task_by_id(task_result.id);
         this.register_result(task_result);
     });

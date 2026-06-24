@@ -1,8 +1,7 @@
 use std::sync::Arc;
-use std::usize;
 use std::{collections::HashMap, pin::Pin};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use arrow_array::{RecordBatch, RecordBatchIterator};
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -24,11 +23,10 @@ use crate::{
     search::{keyword::KeywordSearch, semantic::SemanticSearch},
     vector_database::traits::VectorDatabase,
 };
-use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::content_type::ContentType;
 use opennote_models::{
     configurations::system::{SystemConfigurations, VectorDatabaseConfig},
-    payload::{Payload, create_query},
+    payload::Payload,
 };
 
 pub struct LanceDB {

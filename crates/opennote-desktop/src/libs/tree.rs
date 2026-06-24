@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc};
 use gpui::{
     App, Context, ElementId, Entity, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
     ListSizingBehavior, ParentElement, Render, RenderOnce, SharedString, StyleRefinement, Styled,
-    UniformListScrollHandle, Window, div, prelude::FluentBuilder as _, uniform_list,
+    UniformListScrollHandle, Window, div, uniform_list,
 };
 
 use gpui_component::{StyledExt, list::ListItem, scroll::ScrollableElement};

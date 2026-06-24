@@ -142,6 +142,7 @@ impl TabBar {
         self
     }
 
+    #[allow(dead_code)]
     pub(crate) fn tab_item_top_offset(mut self, offset: impl Into<Pixels>) -> Self {
         self.tab_item_top_offset = offset.into();
         self

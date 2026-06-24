@@ -8,7 +8,7 @@ use anyhow::Result;
 use gpui::{
     AppContext, Context, Entity, EntityId, EventEmitter, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, Styled, Subscription,
-    WeakEntity, Window, div,
+    Window, div,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
@@ -21,7 +21,6 @@ use crate::{
         tree::{Tree, TreeState, tree},
         tree_view_sidebar::TreeViewSidebar,
     },
-    views::workspace::Workspace,
     widgets::sidebar::{
         blocks_tree::build_blocks_tree,
         tree::{create_root_tree_list_item, create_tree_list_item},
@@ -41,7 +40,6 @@ pub enum OpenNoteSidebarEvent {
 
 #[derive(Debug)]
 pub struct OpenNoteSidebar {
-    workspace: WeakEntity<Workspace>,
     focus_handle: FocusHandle,
     is_toggled: bool,
     tree_state: Entity<TreeState>,
@@ -55,7 +53,7 @@ pub struct OpenNoteSidebar {
 impl EventEmitter<OpenNoteSidebarEvent> for OpenNoteSidebar {}
 
 impl OpenNoteSidebar {
-    pub fn new(cx: &mut Context<Self>, workspace: WeakEntity<Workspace>) -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
         let mut _subscriptions = Vec::new();
 
         let tree_state = cx.new(|cx| TreeState::new(cx));
@@ -67,7 +65,6 @@ impl OpenNoteSidebar {
         }));
 
         Self {
-            workspace,
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
             tree_state,

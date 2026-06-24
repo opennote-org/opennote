@@ -9,7 +9,7 @@ doctest = false
 
 [features]
 decimal = ["dep:rust_decimal"]
-# inspector = ["gpui-macros/inspector", "gpui/inspector", "wry/devtools"]
+inspector = ["gpui_macros/inspector", "gpui/inspector", "wry/devtools"]
 webview = ["dep:wry"]
 
 # For syntax highlighting in Markdown and CodeEditor.
