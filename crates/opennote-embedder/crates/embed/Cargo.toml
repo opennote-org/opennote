@@ -1,0 +1,79 @@
+[package]
+name = "embed"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "../README.md"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+
+# Data Serialization
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.140"
+
+# HTTP Client
+reqwest = { version = "0.12.2", default-features = false, features = ["json", "blocking"] }
+
+# Regular Expressions
+regex = "1.10.3"
+
+# Parallelism
+rayon = "1.8.1"
+
+# Natural Language Processing
+tokenizers = { version="0.22.1", features=["http"] }
+
+tracing = "0.1.41"
+
+# Hugging Face Libraries
+hf-hub = { version = "0.4.2", default-features = false }
+candle-nn = { version = "0.9.2" }
+candle-transformers = { version = "0.9.2" }
+candle-core = { version = "0.9.2" }
+candle-flash-attn = { version = "0.9.2", optional = true }
+
+# Asynchronous Programming
+tokio.workspace = true
+
+# Image processing
+image = "0.25.6"
+
+ndarray = "0.16.1"
+pdf2image = "0.1.2"
+strum = "0.27.1"
+base64 = "0.22.1"
+# Optional Dependency
+intel-mkl-src = { version = "0.8.1", optional = true }
+accelerate-src = { version = "0.3.2", optional = true }
+half = "2.4.1"
+model2vec-rs = "0.1.4"
+
+[dev-dependencies]
+tempdir = "0.3.7"
+lazy_static = "1.4.0"
+clap = { version = "4.5.20", features = ["derive"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+ort = {version = "=2.0.0-rc.10", features = ["load-dynamic", "half"], optional = true}
+[target.'cfg(target_os = "macos")'.dependencies]
+ort = {version = "=2.0.0-rc.10", features = ["half"], optional = true}
+
+
+[features]
+default = ['rustls-tls']
+mkl = ["dep:intel-mkl-src", "candle-nn/mkl", "candle-transformers/mkl", "candle-core/mkl"]
+accelerate = ["dep:accelerate-src", "candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate"]
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda", "ort/cuda"]
+cudnn = ["candle-core/cudnn"]
+flash-attn = ["cuda", "candle-transformers/flash-attn", "dep:candle-flash-attn"]
+metal = ["candle-core/metal", "candle-nn/metal"]
+ort = ["dep:ort",]
+rustls-tls = [
+    "reqwest/rustls-tls",
+    "hf-hub/rustls-tls",
+    "tokenizers/rustls-tls"
+]

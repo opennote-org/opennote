@@ -1,0 +1,90 @@
+pub mod key_mappings;
+pub mod language;
+pub mod search;
+pub mod system;
+pub mod user;
+
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    configurations::{system::SystemConfigurations, user::UserConfigurations},
+    constants::CONFIGURATIONS_FILE_NAME,
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Configurations {
+    /// Configurations that are relevent to how the app behaves in general
+    pub system: SystemConfigurations,
+
+    /// Configurations that are relevent to how an user uses the app
+    pub user: UserConfigurations,
+}
+
+impl Default for Configurations {
+    fn default() -> Self {
+        Self {
+            system: SystemConfigurations::default(),
+            user: UserConfigurations::default(),
+        }
+    }
+}
+
+impl Configurations {
+    /// The path to the configuration file.
+    /// It will automatically add the configuration file name
+    pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+
+        let path = if path.is_dir() {
+            path.join(CONFIGURATIONS_FILE_NAME)
+        } else {
+            path.to_path_buf()
+        };
+
+        let default_settings: Configurations = Self::default();
+        if !path.exists() {
+            write_configurations_to_file(&default_settings, &path)?;
+
+            return Ok(default_settings);
+        }
+
+        let content: String = match std::fs::read_to_string(&path) {
+            Ok(result) => result,
+            Err(_error) => return Ok(default_settings),
+        };
+
+        serde_json::from_str(&content)
+            .context(format!("Failed to parse config file: {}", path.display()))
+    }
+
+    /// Reserved for future uses
+    #[allow(dead_code)]
+    pub fn save_to_file(&self, configuration_folder_path: &PathBuf) -> Result<()> {
+        write_configurations_to_file(
+            &self,
+            &configuration_folder_path.join(CONFIGURATIONS_FILE_NAME),
+        )?;
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.system.server.port == 0 {
+            return Err(anyhow::anyhow!("Server port cannot be 0"));
+        }
+
+        Ok(())
+    }
+}
+
+fn write_configurations_to_file(configurations: &Configurations, path: &PathBuf) -> Result<()> {
+    let content =
+        serde_json::to_string_pretty(configurations).context("Failed to serialize config")?;
+
+    std::fs::write(path, content)
+        .with_context(|| format!("Failed to write config file: {}", path.display()))?;
+
+    Ok(())
+}

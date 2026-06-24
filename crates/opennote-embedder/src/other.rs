@@ -1,0 +1,51 @@
+use std::collections::HashMap;
+
+use anyhow::Result;
+use async_trait::async_trait;
+
+use opennote_models::{
+    configurations::system::{EmbedderConfig, SystemConfigurations},
+    payload::Payload,
+};
+
+use crate::traits::Embedder;
+
+pub struct Other {
+    embedder_config: EmbedderConfig,
+}
+
+impl Other {
+    pub async fn new(config: &SystemConfigurations) -> Result<Self> {
+        Ok(Self {
+            embedder_config: config.embedder.clone(),
+        })
+    }
+}
+
+#[async_trait]
+impl Embedder for Other {
+    async fn vectorize(&self, queries: &Vec<Payload>) -> Result<Vec<Vec<f32>>> {
+        let mut api_keys = HashMap::new();
+        api_keys.insert(
+            self.embedder_config.provider.to_string(),
+            self.embedder_config.api_key.to_owned(),
+        );
+
+        // Bug in catsu.
+        // If we don't pass the api keys this way, it will raise an error saying that no provider found.
+        let client: catsu::Client = catsu::Client::with_api_keys(api_keys)?;
+
+        let response: catsu::EmbedResponse = client
+            .embed_with_api_key(
+                &self.embedder_config.model,
+                queries.iter().map(|item| item.texts.clone()).collect(),
+                None,
+                Some(self.embedder_config.dimensions as u32),
+                Some(&self.embedder_config.provider.to_string().as_str()),
+                Some(self.embedder_config.api_key.to_owned()),
+            )
+            .await?;
+
+        Ok(response.embeddings)
+    }
+}

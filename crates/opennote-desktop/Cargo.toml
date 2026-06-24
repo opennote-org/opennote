@@ -1,0 +1,29 @@
+[package]
+name = "opennote-desktop"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Internal dependencies
+opennote-bootstrap = { workspace = true }
+opennote-models = { workspace = true }
+opennote-core-logics = { workspace = true }
+opennote-data = { workspace = true }
+opennote-embedder = { workspace = true }
+gpui-component = { workspace = true }
+gpui-component-assets = { workspace = true }
+
+# External dependencies
+anyhow = { workspace = true }
+dirs = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
+uuid = { workspace = true }
+schemars = { workspace = true }
+gpui = { workspace = true }
+
+rust-embed = "8.11.0"
+fast_log = "1.7.7"
+smallvec = "1.15.1"

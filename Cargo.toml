@@ -1,0 +1,80 @@
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/opennote-desktop",
+    "crates/opennote-data",
+    "crates/opennote-embedder",
+    "crates/opennote-models",
+    "crates/opennote-entities",
+    "crates/opennote-connectors",
+    "crates/opennote-mcp-server",
+    "crates/opennote-server",
+    "crates/opennote-texts-processing",
+    "crates/opennote-tasks-scheduler",
+    "crates/opennote-bootstrap",
+    "crates/opennote-core-logics",
+    "crates/gpui-component",
+    "crates/gpui-component-macros",
+    "crates/gpui-component-assets",
+    "crates/gpui_macros",
+]
+
+[workspace.dependencies]
+# Internal dependencies
+opennote-desktop = { path = "crates/opennote-desktop" }
+opennote-data = { path = "crates/opennote-data" }
+opennote-server = { path = "crates/opennote-server" }
+opennote-mcp-server = { path = "crates/opennote-mcp-server" }
+opennote-embedder = { path = "crates/opennote-embedder" }
+opennote-models = { path = "crates/opennote-models" }
+opennote-entities = { path = "crates/opennote-entities" }
+opennote-texts-processing = { path = "crates/opennote-texts-processing" }
+opennote-tasks-scheduler = { path = "crates/opennote-tasks-scheduler" }
+opennote-bootstrap = { path = "crates/opennote-bootstrap" }
+opennote-core-logics = { path = "crates/opennote-core-logics" }
+
+gpui-component = { path = "crates/gpui-component" }
+gpui-component-macros = { path = "crates/gpui-component-macros" }
+gpui-component-assets = { path = "crates/gpui-component-assets" }
+
+gpui_macros = { path = "crates/gpui_macros" }
+
+# External dependencies
+sea-orm = { version = "2.0.0-rc.32", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "with-uuid"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+tokio = { version = "1.47.1", features = ["full"] }
+uuid = { version = "1.18.1", features = ["v4"] }
+anyhow = "1.0.100"
+async-trait = "0.1.89"
+futures = "0.3.31"
+reqwest = { version = "0.12.24", features = ["cookies", "gzip", "json", "rustls-tls"] }
+schemars = "1.2.0"
+chunk = "0.10.1"
+dirs = "6.0.0"
+log = "0.4.29"
+gpui = "0.2.2"
+
+# External dependencies largely used in gpui-component
+notify = "7.0.0"
+ropey = { version = "=2.0.0-beta.1", features = [
+    "metric_lines_lf",
+    "metric_utf16",
+] }
+serde_repr = "0.1"
+smallvec = "1"
+smol = "2"
+tracing = "0.1.41"
+sum-tree = { version = "0.2.0", package = "zed-sum-tree" }
+rust-i18n = "4"
+
+# External dependencies largely used in gpui_macros
+heck = "0.5"
+proc-macro2 = "1.0.93"
+quote = "1.0.9"
+syn = { version = "2.0.101", features = ["full", "extra-traits", "visit-mut"] }

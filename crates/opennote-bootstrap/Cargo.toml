@@ -1,0 +1,17 @@
+[package]
+name = "opennote-bootstrap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal dependencies
+opennote-embedder = { workspace = true }
+opennote-models = { workspace = true }
+opennote-data = { workspace = true }
+opennote-tasks-scheduler = { workspace = true }
+
+# External dependencies
+tokio = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
