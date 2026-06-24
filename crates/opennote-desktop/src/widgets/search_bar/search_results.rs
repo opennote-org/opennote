@@ -3,10 +3,9 @@ use std::{
     vec,
 };
 
-use gpui::{ParentElement, SharedString, Styled, TextOverflow, WeakEntity, div};
+use gpui::{ParentElement, SharedString, Styled, WeakEntity};
 use gpui_component::{
     IndexPath,
-    label::Label,
     list::{ListDelegate, ListItem},
     text::Text,
     v_flex,

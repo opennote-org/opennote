@@ -1,7 +1,7 @@
 use anyhow::Context as AnyhowContext;
 use gpui::{
-    App, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, ParentElement,
-    Render, Styled, Subscription, div, prelude::FluentBuilder,
+    App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, Styled,
+    Subscription,
 };
 use gpui_component::{
     ActiveTheme,
