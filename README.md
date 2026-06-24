@@ -13,7 +13,9 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 ## Roadmap
 
 - [ ] Self-hosted server for syncing documents across devices
+- [ ] Multi-modal support
 - [ ] MCP server support
+- [ ] Import webpages, databases and files
 - [ ] Advanced NLP features to simplify document management (e.g., automatic categorization by semantic similarity)
 - [ ] LLM integrations — local-first, always
 
