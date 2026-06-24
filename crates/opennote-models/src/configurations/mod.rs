@@ -44,16 +44,17 @@ impl Configurations {
             path.to_path_buf()
         };
 
+        let default_settings: Configurations = Self::default();
         if !path.exists() {
-            let default_settings: Configurations = Self::default();
-
             write_configurations_to_file(&default_settings, &path)?;
 
             return Ok(default_settings);
         }
 
-        let content: String = std::fs::read_to_string(&path)
-            .context(format!("Failed to read config file: {}", path.display()))?;
+        let content: String = match std::fs::read_to_string(&path) {
+            Ok(result) => result,
+            Err(_error) => return Ok(default_settings),
+        };
 
         serde_json::from_str(&content)
             .context(format!("Failed to parse config file: {}", path.display()))

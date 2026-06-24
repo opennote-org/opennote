@@ -41,8 +41,7 @@ async fn main() -> Result<()> {
     create_required_folders(&config_path)?;
 
     // Load configurations
-    let configurations =
-        Configurations::load_from_file(config_path).expect("Error when loading configurations");
+    let configurations = Configurations::load_from_file(config_path)?;
 
     let bootstrap = ApplicationBootStrap::new(configurations).await?;
 

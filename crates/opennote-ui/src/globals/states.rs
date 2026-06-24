@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 
 use gpui::{App, AppContext, Global, WeakEntity};
-use opennote_core_logics::block::read_blocks;
-use opennote_data::database::enums::BlockQuery;
-use opennote_models::block::Block;
 use uuid::Uuid;
 
-use crate::{globals::bootstrap::GlobalApplicationBootStrap, widgets::pane::pane::Pane};
+use opennote_core_logics::block::read_blocks;
+use opennote_data::{database::enums::BlockQuery, search::SearchScope};
+use opennote_models::block::Block;
+
+use crate::{
+    globals::bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
+    widgets::pane::pane::Pane,
+};
 
 /// It manages general global states
 pub struct States {
@@ -16,6 +20,8 @@ pub struct States {
     /// The pane that is active.
     /// It is optional because we can't create a pane when new.
     pub active_pane: Option<WeakEntity<Pane>>,
+
+    pub search_scope: SearchScope,
 }
 
 impl Global for States {}
@@ -25,6 +31,7 @@ impl States {
         Self {
             blocks: HashMap::new(),
             active_pane: None,
+            search_scope: SearchScope::Document,
         }
     }
 
@@ -60,5 +67,25 @@ impl States {
             })
             .detach();
         });
+    }
+
+    pub fn set_search_scope(&mut self, search_scope: SearchScope) {
+        self.search_scope = search_scope;
+    }
+
+    pub fn get_search_scope(&self) -> SearchScope {
+        self.search_scope
+    }
+
+    pub fn get_search_scope_index(&self) -> usize {
+        let mut selected_index = 0;
+
+        for (index, item) in SEARCH_SCOPES_ENUMS.iter().enumerate() {
+            if *item == self.search_scope {
+                selected_index = index;
+            }
+        }
+
+        selected_index
     }
 }

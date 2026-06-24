@@ -17,7 +17,7 @@ use crate::{
 use super::{InputState, LastLayout, mode::InputMode};
 
 const BOTTOM_MARGIN_ROWS: usize = 3;
-pub(super) const RIGHT_MARGIN: Pixels = px(10.);
+pub(super) const RIGHT_MARGIN: Pixels = px(10. * 10.); // It was 10. originally. Changed this because Chinese characters can be hidden by 10.
 pub(super) const LINE_NUMBER_RIGHT_MARGIN: Pixels = px(10.);
 
 pub(super) struct TextElement {

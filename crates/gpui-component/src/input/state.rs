@@ -525,7 +525,7 @@ impl InputState {
         });
 
         if let Some(range) = range {
-            self.scroll_to(range.end, Some(MoveDirection::Down), cx);
+            self.scroll_to(range.end, Some(MoveDirection::All), cx);
         }
     }
 
@@ -1438,6 +1438,14 @@ impl InputState {
         } else {
             line_height
         };
+
+        // Move the center of the viewport to the highlighted text
+        let edge_height = if direction == Some(MoveDirection::All) {
+            (bounds.size.height - line_height) / 2.0
+        } else {
+            edge_height
+        };
+
         if row_offset_y - edge_height + line_height < -scroll_offset.y {
             // Scroll up
             scroll_offset.y = -row_offset_y + edge_height - line_height;
