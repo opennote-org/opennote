@@ -45,7 +45,7 @@ impl Default for KeyMappings {
                     "-".to_string(),
                     "shift".to_string(),
                     "-".to_string(),
-                    "p".to_string(),
+                    "f".to_string(),
                 ],
                 action: format!("ToggleSearchBar"),
                 context: "workspace".to_string(),
