@@ -20,6 +20,7 @@ use crate::{
         states::States,
         tasks::tracker::TaskTracker,
     },
+    libs::theme::adapt_theme_to_system,
     logs::UICustomLog,
     views::workspace::Workspace,
 };
@@ -59,6 +60,8 @@ async fn main() -> Result<()> {
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
+                adapt_theme_to_system(cx);
+
                 States::refresh_blocks_list(cx);
 
                 let view = cx.new(|cx| {
