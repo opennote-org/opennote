@@ -34,7 +34,7 @@ jobs:
       - name: Upload DMG to release
         uses: softprops/action-gh-release@v3
         with:
-          files: target/OpenNote.dmg
+          files: ./target/release/OpenNote.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -64,7 +64,7 @@ jobs:
       - name: Upload ZIP to release
         uses: softprops/action-gh-release@v3
         with:
-          files: target/opennote-windows-x86_64.zip
+          files: ./target/release/opennote-windows-x86_64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -107,6 +107,6 @@ jobs:
       - name: Upload tar.gz to release
         uses: softprops/action-gh-release@v3
         with:
-          files: target/opennote-linux-x86_64.tar.gz
+          files: ./target/release/opennote-linux-x86_64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
