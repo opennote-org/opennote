@@ -18,6 +18,6 @@ cp ./target/release/opennote-desktop "$PACKAGE_DIR/"
 
 echo "Creating tar.gz archive..."
 ARCHIVE_NAME="opennote-linux-x86_64.tar.gz"
-tar -czf "./target/${ARCHIVE_NAME}" -C ./target/release linux-package
+tar -czf "./target/release/${ARCHIVE_NAME}" -C ./target/release linux-package
 
 echo "Archive created at ./target/${ARCHIVE_NAME}"

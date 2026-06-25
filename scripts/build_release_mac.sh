@@ -17,7 +17,7 @@ main() {
         --icon-png ./assets/logo.png
 
     echo "Packaging DMG..."
-    DMG_NAME="OpenNote.dmg"
+    DMG_NAME="opennote-macos.dmg"
     DMG_PATH="./target/release/${DMG_NAME}"
 
     # Remove old DMG if it exists
