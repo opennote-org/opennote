@@ -16,7 +16,7 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 
 ## Roadmap
 
-- [ ] Self-hosted server for syncing documents across devices
+- [x] Self-hosted server for syncing documents across devices
 - [ ] Multi-modal support
 - [ ] MCP server support
 - [ ] Import webpages, databases and files
@@ -35,6 +35,46 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 
 ```bash
 sudo xattr -r -d com.apple.quarantine /Applications/opennote.app
+```
+
+### Configure the Desktop App
+
+You can configure OpenNote with its `configurations.json`. It can be found here:
+
+```bash
+# on macOS
+"/Users/yourusername/Library/Application Support/opennote/configurations.json"
+
+# on Linux
+
+# on Windows
+```
+
+### Setup Remote Server
+
+You can host your remote server for syncing across different computers. To achieve this, you need to first start the remote server, then configure it to your other computers.
+
+To configure the server on a computer, change the config at `configurations.json` to
+
+```json
+{
+  "system": {
+    "server": { /* ... */ },
+    "logging": { /* ... */ },
+    "database": { /* ... */ },
+    "vector_database": { /* ... */ },
+    "embedder": { /* ... */ }
+  },
+  "user": {
+    "search": { /* ... */ },
+    "key_mappings": [ /* ... */ ]
+    "remote_servers": {
+      "debug": { // Put your server name here. DO NOT use duplicated names if you have other servers.
+        "connection_string": "http://localhost:8080" // Your server's address and port
+      }
+    }
+  }
+}
 ```
 
 ## Contributing
