@@ -1,9 +1,8 @@
 use std::fmt::Display;
 
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum UserInterfaceLanguage {
     Chinese,

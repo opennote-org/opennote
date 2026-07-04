@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 # Internal dependencies
 opennote-entities = { workspace = true }
+actix-web = { workspace = true }
 
 # External dependencies
 sea-orm = { workspace = true }

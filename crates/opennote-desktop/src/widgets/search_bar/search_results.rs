@@ -11,10 +11,7 @@ use gpui_component::{
     v_flex,
 };
 
-use opennote_core_logics::{
-    block::read_blocks,
-    search::{search_by_keyword, search_by_semantics},
-};
+use opennote_core_logics::block::read_blocks;
 use opennote_data::{database::enums::BlockQuery, search::SearchScope};
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
@@ -25,7 +22,12 @@ use opennote_models::{
 use uuid::Uuid;
 
 use crate::{
-    globals::{bootstrap::GlobalApplicationBootStrap, helpers::run_async_code, states::States},
+    globals::{
+        actions::route_helpers::{self, route_read_blocks},
+        bootstrap::GlobalApplicationBootStrap,
+        helpers::run_async_code,
+        states::States,
+    },
     widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},
 };
 
@@ -137,52 +139,42 @@ impl ListDelegate for SearchResultsList {
                 };
 
                 // find all blocks that have selected block as their parents
-                states
-                    .blocks
-                    .iter()
-                    .filter_map(|(_, block)| {
-                        if block.parent_id == Some(block_id) {
-                            Some(block.id)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
+                states.find_block_children_ids(block_id)
             }
-            SearchScope::Userspace => states.blocks.keys().map(|item| item.to_owned()).collect(),
+            SearchScope::Userspace => states.get_all_blocks_ids(),
         };
 
         let databases = &bootstrap.0.databases;
-        let raw_results = match configurations.user.search.default_search_method {
-            SupportedSearchMethod::Keyword => run_async_code(async {
-                search_by_keyword(
-                    databases,
-                    block_ids,
-                    query,
-                    configurations.user.search.top_n,
-                )
-                .await
-                .unwrap()
-            }),
-            SupportedSearchMethod::Semantic => run_async_code(async {
+        let search_method = configurations.user.search.default_search_method;
+        let top_n = configurations.user.search.top_n;
+        let (server_name, server) = states.get_servers_by_block_id(&block_ids[0]);
+
+        let raw_results = run_async_code(async {
+            let query_str = Some(query.to_string());
+            let mut query_vector = None;
+
+            if search_method == SupportedSearchMethod::Semantic {
                 let Some(embedders) = &bootstrap.0.embedders else {
                     return Vec::new();
                 };
-
                 let payload = create_query(query);
-
                 let payloads = send_vectorization(vec![payload], embedders).await.unwrap();
+                query_vector = Some(payloads[0].vector.clone());
+            }
 
-                search_by_semantics(
-                    databases,
-                    block_ids,
-                    &payloads[0].vector,
-                    configurations.user.search.top_n,
-                )
-                .await
-                .unwrap()
-            }),
-        };
+            route_helpers::route_search_blocks(
+                &server_name,
+                databases,
+                &server.connection_string,
+                search_method,
+                block_ids,
+                query_str,
+                query_vector,
+                top_n,
+            )
+            .await
+            .unwrap()
+        });
 
         // TODO: convert raw results to blocks and payloads
         let mut results: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
@@ -208,8 +200,10 @@ impl ListDelegate for SearchResultsList {
                 }
             }
 
-            read_blocks(
+            route_read_blocks(
+                &server_name,
                 databases,
+                &server.connection_string,
                 &BlockQuery::ByIds(block_ids.into_iter().collect()),
             )
             .await

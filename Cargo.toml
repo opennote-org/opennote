@@ -59,6 +59,7 @@ chunk = "0.10.1"
 dirs = "6.0.0"
 log = "0.4.29"
 gpui = "0.2.2"
+actix-web = "4.14.0"
 
 # External dependencies largely used in gpui-component
 notify = "7.0.0"

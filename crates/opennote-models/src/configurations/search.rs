@@ -1,9 +1,8 @@
 use std::{fmt::Display, str::FromStr};
 
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportedSearchMethod {
     Keyword,
@@ -30,7 +29,7 @@ impl Default for SupportedSearchMethod {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserSearchConfiguration {
     /// The default way of searching

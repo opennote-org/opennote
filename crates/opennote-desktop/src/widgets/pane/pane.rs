@@ -380,7 +380,7 @@ impl Pane {
         if let Some(selected_block_id) = self.selected_block_id {
             let states: &States = cx.global();
 
-            let block = states.blocks.get(&selected_block_id);
+            let block = states.get_block(&selected_block_id);
 
             if let Some(block) = block {
                 let block = block.to_owned();

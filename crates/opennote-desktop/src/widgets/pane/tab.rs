@@ -72,7 +72,7 @@ pub fn create_tab_bar_for_blocks(
         // Get the title of the block
         let states: &States = cx.global();
         let mut title = String::new();
-        if let Some(block) = states.blocks.get(&id) {
+        if let Some(block) = states.get_block(&id) {
             title = block.get_title();
         }
 

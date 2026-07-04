@@ -1,0 +1,125 @@
+use anyhow::Result;
+use reqwest::Client;
+use uuid::Uuid;
+
+use opennote_core_logics::block::{create_blocks, delete_blocks, read_blocks, update_blocks};
+use opennote_core_logics::search::{search_by_keyword, search_by_semantics};
+use opennote_data::{Databases, database::enums::BlockQuery, search::models::RawSearchResult};
+use opennote_models::{
+    block::Block, configurations::search::SupportedSearchMethod,
+    configurations::system::VectorDatabaseConfig, constants::LOCAL_SERVER_NAME,
+};
+use opennote_server::{
+    create_remote_server_blocks, delete_remote_server_blocks, read_remote_server_blocks,
+    search_remote_server_blocks, update_remote_server_blocks,
+};
+
+pub async fn route_create_blocks(
+    server_name: &str,
+    databases: &Databases,
+    vector_database_config: &VectorDatabaseConfig,
+    connection_string: &str,
+    blocks: Vec<Block>,
+) -> Result<Vec<Block>> {
+    if server_name == LOCAL_SERVER_NAME {
+        create_blocks(vector_database_config, databases, blocks).await
+    } else {
+        create_remote_server_blocks(&Client::new(), connection_string, blocks).await
+    }
+}
+
+pub async fn route_delete_blocks(
+    server_name: &str,
+    databases: &Databases,
+    vector_database_config: &VectorDatabaseConfig,
+    connection_string: &str,
+    block_ids: Vec<Uuid>,
+) -> Result<()> {
+    if server_name == LOCAL_SERVER_NAME {
+        delete_blocks(databases, vector_database_config, block_ids).await
+    } else {
+        delete_remote_server_blocks(&Client::new(), connection_string, block_ids).await
+    }
+}
+
+pub async fn route_read_blocks(
+    server_name: &str,
+    databases: &Databases,
+    connection_string: &str,
+    filter: &BlockQuery,
+) -> Result<Vec<Block>> {
+    if server_name == LOCAL_SERVER_NAME {
+        read_blocks(databases, filter).await
+    } else {
+        let all_blocks = read_remote_server_blocks(&Client::new(), connection_string).await?;
+        match filter {
+            BlockQuery::ByIds(ids) => Ok(all_blocks
+                .into_iter()
+                .filter(|b| ids.contains(&b.id))
+                .collect()),
+            BlockQuery::ChildrenOf(ids) => Ok(all_blocks
+                .into_iter()
+                .filter(|b| b.parent_id.map_or(false, |pid| ids.contains(&pid)))
+                .collect()),
+            BlockQuery::Root => Ok(all_blocks
+                .into_iter()
+                .filter(|b| b.parent_id.is_none())
+                .collect()),
+            BlockQuery::All => Ok(all_blocks),
+        }
+    }
+}
+
+pub async fn route_update_blocks(
+    server_name: &str,
+    databases: &Databases,
+    vector_database_config: &VectorDatabaseConfig,
+    connection_string: &str,
+    blocks: Vec<Block>,
+) -> Result<()> {
+    if server_name == LOCAL_SERVER_NAME {
+        update_blocks(vector_database_config, databases, blocks).await
+    } else {
+        update_remote_server_blocks(&Client::new(), connection_string, blocks).await
+    }
+}
+
+pub async fn route_search_blocks(
+    server_name: &str,
+    databases: &Databases,
+    connection_string: &str,
+    search_method: SupportedSearchMethod,
+    block_ids: Vec<Uuid>,
+    query: Option<String>,
+    query_vector: Option<Vec<f32>>,
+    top_n: usize,
+) -> Result<Vec<RawSearchResult>> {
+    if server_name == LOCAL_SERVER_NAME {
+        match search_method {
+            SupportedSearchMethod::Keyword => {
+                // Early return for missing query value
+                let query = query
+                    .ok_or_else(|| anyhow::anyhow!("Query string required for keyword search"))?;
+                search_by_keyword(databases, block_ids, &query, top_n).await
+            }
+            SupportedSearchMethod::Semantic => {
+                // Early return for missing query value
+                let query_vector = query_vector
+                    .ok_or_else(|| anyhow::anyhow!("Query vector required for semantic search"))?;
+                search_by_semantics(databases, block_ids, &query_vector, top_n).await
+            }
+        }
+    } else {
+        // Missing value check now is relied on the remote server
+        search_remote_server_blocks(
+            &Client::new(),
+            connection_string,
+            search_method,
+            block_ids,
+            query,
+            query_vector,
+            top_n,
+        )
+        .await
+    }
+}

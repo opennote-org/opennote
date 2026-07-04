@@ -19,7 +19,7 @@ use crate::{
         states::States,
     },
     key_mappings::mappings::{CreateOneBlock, DeleteBlocks},
-    libs::tabs::drag::DraggedItem,
+    libs::{tabs::drag::DraggedItem, tree::TreeState},
     widgets::{
         pane::helpers::open_block,
         sidebar::{BlockState, OpenNoteSidebar, OpenNoteSidebarEvent},
@@ -64,11 +64,14 @@ pub fn create_root_tree_list_item(
     entry: &crate::libs::tree::TreeEntry,
     id: SharedString, // The id of the tree item
     uuid: Uuid,
+    tree_state: Entity<TreeState>,
     sidebar: Entity<OpenNoteSidebar>,
     is_dragged_over: bool,
 ) -> ListItem {
     let sidebar_entity_on_drop: Entity<OpenNoteSidebar> = sidebar.clone();
     let sidebar_entity_on_drag_move: Entity<OpenNoteSidebar> = sidebar.clone();
+
+    let tree_state_on_drag_move = tree_state.clone();
 
     ListItem::new(index)
         .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
@@ -83,10 +86,10 @@ pub fn create_root_tree_list_item(
                     this.border_b_2().border_color(gpui::blue())
                 })
                 .on_drag_move::<DraggedItem>(move |event, _window, app| {
-                    sidebar_entity_on_drag_move.update(app, |this, cx| {
+                    sidebar_entity_on_drag_move.update(app, |_, cx| {
                         // Update the dragged block when the mouse moves into a bound of list item
                         if event.bounds.contains(&event.event.position) {
-                            this.tree_state.update(cx, |this, _cx| {
+                            tree_state.update(cx, |this, _cx| {
                                 this.dragged_target_block = Some(uuid);
                             });
                             cx.notify();
@@ -99,7 +102,7 @@ pub fn create_root_tree_list_item(
 
                         let blocks_to_drag: Vec<Uuid> = collect_selections(dragged);
 
-                        this.tree_state.update(cx, |this, _cx| {
+                        tree_state_on_drag_move.update(cx, |this, _cx| {
                             this.dragged_target_block = None;
 
                             this.selected_block = None;
@@ -124,6 +127,7 @@ pub fn create_tree_list_item(
     uuid: Uuid,          // The uuid/id of the block
     language_profile: HashMap<String, String>,
     sidebar: Entity<OpenNoteSidebar>,
+    tree_state: Entity<TreeState>,
     is_selected: bool,
     is_multi_selected: bool,
     is_dragged_over: bool,
@@ -135,8 +139,13 @@ pub fn create_tree_list_item(
     let sidebar_entity_on_drag_move: Entity<OpenNoteSidebar> = sidebar.clone();
     let sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar> = sidebar.clone();
     let sidebar_entity_on_mouse_right_click: Entity<OpenNoteSidebar> = sidebar.clone();
-    let sidebar_entity_on_mouse_down: Entity<OpenNoteSidebar> = sidebar.clone();
-    let sidebar_entity_expand = sidebar.clone();
+    let sidebar_entity_expand: Entity<OpenNoteSidebar> = sidebar.clone();
+
+    let tree_state_entity_delete_blocks = tree_state.clone();
+    let tree_state_entity_on_drop = tree_state.clone();
+    let tree_state_entity_on_drag_move = tree_state.clone();
+    let tree_state_entity_on_mouse_click = tree_state.clone();
+    let tree_state_entity_on_mouse_right_click = tree_state.clone();
 
     ListItem::new(index)
         .w_full() // Let the background highlights take over the entire row for the short ones as well
@@ -146,7 +155,7 @@ pub fn create_tree_list_item(
         .child(
             h_flex()
                 .when(has_children, |this| {
-                    render_parent_button(index, &id, uuid, sidebar_entity_expand, this)
+                    render_parent_button(index, &id, uuid, &tree_state, sidebar_entity_expand, this)
                 })
                 .when(!has_children, |this| render_non_parent_button(&id, this))
                 .id(id.clone())
@@ -156,26 +165,41 @@ pub fn create_tree_list_item(
                 })
                 .child(label)
                 .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
-                    start_mouse_dragging(&sidebar_entity_on_mouse_down, event, cx);
+                    start_mouse_dragging(&sidebar, event, cx);
                 })
                 .on_mouse_down(gpui::MouseButton::Right, move |_event, _window, cx| {
-                    handle_sidebar_item_right_click(uuid, &sidebar_entity_on_mouse_right_click, cx)
+                    handle_sidebar_item_right_click(
+                        uuid,
+                        &tree_state_entity_on_mouse_right_click,
+                        &sidebar_entity_on_mouse_right_click,
+                        cx,
+                    )
                 })
                 .on_drag(dragged_block.clone(), |value, _point, _window, app| {
                     app.new(|_| value.clone())
                 })
-                .on_drop(handle_sidebar_items_drop(uuid, sidebar_entity_on_drop))
+                .on_drop(handle_sidebar_items_drop(
+                    uuid,
+                    tree_state_entity_on_drop,
+                    sidebar_entity_on_drop,
+                ))
                 .on_drag_move::<DraggedItem>(handle_sidebar_items_move(
                     uuid,
+                    tree_state_entity_on_drag_move,
                     sidebar_entity_on_drag_move,
                 ))
-                .on_action(handle_sidebar_delete_item(sidebar_entity_delete_blocks))
+                .on_action(handle_sidebar_delete_item(
+                    tree_state_entity_delete_blocks,
+                    sidebar_entity_delete_blocks,
+                ))
                 .on_double_click(handle_sidebar_item_double_click(
                     uuid,
+                    tree_state_entity_on_mouse_click.clone(),
                     sidebar_entity_on_mouse_click.clone(),
                 ))
                 .on_click(handle_sidebar_item_click(
                     uuid,
+                    tree_state_entity_on_mouse_click,
                     sidebar_entity_on_mouse_click,
                 ))
                 .context_menu(move |menu, _window, _cx| {
@@ -190,6 +214,7 @@ pub fn create_tree_list_item(
 
 fn handle_sidebar_item_double_click(
     uuid: Uuid,
+    tree_state: Entity<TreeState>,
     sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
 ) -> impl Fn(&ClickEvent, &mut gpui::Window, &mut App) {
     move |_event, _window, app| {
@@ -198,7 +223,7 @@ fn handle_sidebar_item_double_click(
             this.mouse_position = None;
 
             // Select the block
-            this.tree_state.update(cx, |this, cx| {
+            tree_state.update(cx, |this, cx| {
                 this.selected_blocks.clear();
                 this.selected_block = None;
 
@@ -212,12 +237,17 @@ fn handle_sidebar_item_double_click(
     }
 }
 
-fn handle_sidebar_item_right_click(uuid: Uuid, sidebar: &Entity<OpenNoteSidebar>, cx: &mut App) {
+fn handle_sidebar_item_right_click(
+    uuid: Uuid,
+    tree_state: &Entity<TreeState>,
+    sidebar: &Entity<OpenNoteSidebar>,
+    cx: &mut App,
+) {
     sidebar.update(cx, |this, cx| {
         // Reset the mouse position
         this.mouse_position = None;
 
-        this.tree_state.update(cx, |this, cx| {
+        tree_state.update(cx, |this, cx| {
             let has_multi_selected = !this.selected_blocks.is_empty();
 
             // Prevent the right click canceling multi-selections
@@ -238,6 +268,7 @@ fn handle_sidebar_item_right_click(uuid: Uuid, sidebar: &Entity<OpenNoteSidebar>
 
 fn handle_sidebar_item_click(
     uuid: Uuid,
+    tree_state: Entity<TreeState>,
     sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
 ) -> impl Fn(&ClickEvent, &mut gpui::Window, &mut App) {
     move |event, _window, app| {
@@ -253,7 +284,7 @@ fn handle_sidebar_item_click(
             // Multi-selection only happens when the platform key is pressed,
             // and is using the left click
             if event.modifiers().platform && !event.is_right_click() {
-                this.tree_state.update(cx, |this, _cx| {
+                tree_state.update(cx, |this, _cx| {
                     // Single selection should be converted to multi-selection
                     if let Some(selected) = this.selected_block {
                         let has_single_selected = selected == uuid;
@@ -280,13 +311,14 @@ fn handle_sidebar_item_click(
 }
 
 fn handle_sidebar_delete_item(
+    tree_state: Entity<TreeState>,
     sidebar_entity_delete_blocks: Entity<OpenNoteSidebar>,
 ) -> impl Fn(&DeleteBlocks, &mut gpui::Window, &mut App) {
     move |_action: &DeleteBlocks, window, cx| {
-        sidebar_entity_delete_blocks.update(cx, |this, cx| {
+        sidebar_entity_delete_blocks.update(cx, |_this, cx| {
             let mut to_delete = Vec::new();
 
-            this.tree_state.update(cx, |this, _cx| {
+            tree_state.update(cx, |this, _cx| {
                 let is_multi_selected = !this.selected_blocks.is_empty();
 
                 if is_multi_selected {
@@ -314,13 +346,14 @@ fn handle_sidebar_delete_item(
 
 fn handle_sidebar_items_move(
     uuid: Uuid,
+    tree_state: Entity<TreeState>,
     sidebar_entity_on_drag_move: Entity<OpenNoteSidebar>,
 ) -> impl Fn(&gpui::DragMoveEvent<DraggedItem>, &mut gpui::Window, &mut App) {
     move |event, _window, app| {
-        sidebar_entity_on_drag_move.update(app, |this, cx| {
+        sidebar_entity_on_drag_move.update(app, |_this, cx| {
             // Update the dragged block when the mouse moves into a bound of list item
             if event.bounds.contains(&event.event.position) {
-                this.tree_state.update(cx, |this, _cx| {
+                tree_state.update(cx, |this, _cx| {
                     this.dragged_target_block = Some(uuid);
                 });
                 cx.notify();
@@ -331,6 +364,7 @@ fn handle_sidebar_items_move(
 
 fn handle_sidebar_items_drop(
     uuid: Uuid,
+    tree_state: Entity<TreeState>,
     sidebar_entity_on_drop: Entity<OpenNoteSidebar>,
 ) -> impl Fn(&DraggedItem, &mut gpui::Window, &mut App) {
     move |dragged: &DraggedItem, window, app| {
@@ -343,7 +377,7 @@ fn handle_sidebar_items_drop(
 
             let blocks_to_drag: Vec<Uuid> = collect_selections(dragged);
 
-            this.tree_state.update(cx, |this, _cx| {
+            tree_state.update(cx, |this, _cx| {
                 this.dragged_target_block = None;
                 this.selected_block = None;
                 this.selected_blocks.clear();
@@ -387,9 +421,12 @@ fn render_parent_button(
     index: usize,
     id: &SharedString,
     uuid: Uuid,
+    tree_state: &Entity<TreeState>,
     sidebar_entity_expand: Entity<OpenNoteSidebar>,
     this: gpui::Div,
 ) -> gpui::Div {
+    let tree_state = tree_state.clone();
+
     this.child(
         Button::new(ElementId::Name(SharedString::from(format!(
             "expand-{}",
@@ -402,7 +439,7 @@ fn render_parent_button(
         .on_click(move |event, window, cx| {
             if !event.is_right_click() {
                 sidebar_entity_expand.update(cx, |this, cx| {
-                    this.tree_state.update(cx, |this, cx| {
+                    tree_state.update(cx, |this, cx| {
                         this.on_entry_click(index, window, cx);
                     });
 

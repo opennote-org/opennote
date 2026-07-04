@@ -1,4 +1,5 @@
 mod blocks_tree;
+mod tab;
 
 pub mod tree;
 
@@ -6,27 +7,29 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use gpui::{
-    AppContext, Context, Entity, EntityId, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, Styled, Subscription,
-    Window, div,
+    AppContext, BorrowAppContext, Context, Entity, EntityId, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, SharedString, Styled,
+    Subscription, Window, div,
 };
 use gpui_component::{Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
+
+use opennote_models::{block::Block, constants::LOCAL_SERVER_NAME};
 
 use crate::{
     globals::{actions::create_one_block, helpers::get_language_profile, states::States},
     key_mappings::key_contexts::SIDEBAR,
     libs::{
-        tabs::drag::DraggedItem,
+        tabs::{drag::DraggedItem, tab_bar::TabBar},
         tree::{Tree, TreeState, tree},
         tree_view_sidebar::TreeViewSidebar,
     },
     widgets::sidebar::{
         blocks_tree::build_blocks_tree,
+        tab::create_sidebar_tabbar,
         tree::{create_root_tree_list_item, create_tree_list_item},
     },
 };
-use opennote_models::block::Block;
 
 #[derive(Debug)]
 struct BlockState {
@@ -42,7 +45,7 @@ pub enum OpenNoteSidebarEvent {
 pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
-    tree_state: Entity<TreeState>,
+    tree_states: HashMap<SharedString, Entity<TreeState>>,
     blocks_state: HashMap<Uuid, BlockState>,
 
     mouse_position: Option<Point<Pixels>>,
@@ -55,10 +58,24 @@ impl EventEmitter<OpenNoteSidebarEvent> for OpenNoteSidebar {}
 impl OpenNoteSidebar {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let mut _subscriptions = Vec::new();
+        let mut tree_states = HashMap::new();
 
-        let tree_state = cx.new(|cx| TreeState::new(cx));
+        // Create tree states for each server
+        tree_states.insert(
+            SharedString::from(LOCAL_SERVER_NAME),
+            cx.new(|cx| TreeState::new(cx)),
+        );
 
-        // Watch for changes in States, such as the blocks list
+        let _ = cx.update_global::<States, ()>(|states, cx| {
+            for (name, _remote_server_states) in states.get_servers() {
+                tree_states.insert(name.clone(), cx.new(|cx| TreeState::new(cx)));
+            }
+        });
+
+        // Watch for changes in States, such as the blocks list.
+        //
+        // Please avoid using update_global method as much as possible,
+        // otherwise, GPUI will keep refreshing because update_global will trigger the observer.
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
             log::debug!("Sidebar refreshes because the global state had changed");
             cx.notify();
@@ -67,7 +84,7 @@ impl OpenNoteSidebar {
         Self {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
             is_toggled: true,
-            tree_state,
+            tree_states,
             blocks_state: HashMap::new(),
             mouse_position: None,
             _subscriptions,
@@ -83,8 +100,24 @@ impl OpenNoteSidebar {
         cx.notify();
     }
 
-    pub fn get_tree_focus_handle(&self, cx: &mut Context<Self>) -> FocusHandle {
-        self.tree_state.read(cx).focus_handle(cx)
+    pub fn get_tree_state(&self, server_name: &SharedString) -> Option<Entity<TreeState>> {
+        if let Some(tree_state) = self.tree_states.get(server_name) {
+            return Some(tree_state.clone());
+        }
+
+        None
+    }
+
+    pub fn get_tree_focus_handle(
+        &self,
+        cx: &Context<Self>,
+        server_name: &SharedString,
+    ) -> Option<FocusHandle> {
+        if let Some(tree_state) = self.tree_states.get(server_name) {
+            return Some(tree_state.read(cx).focus_handle(cx));
+        }
+
+        None
     }
 
     /// Use .unwrap by default. Make sure the input is a valid uuid string
@@ -92,27 +125,34 @@ impl OpenNoteSidebar {
         Ok(Uuid::parse_str(str)?)
     }
 
-    fn create_sidebar_items(&mut self, cx: &mut Context<Self>, blocks: Vec<Block>) -> Tree {
+    fn create_sidebar_items(
+        &mut self,
+        cx: &mut Context<Self>,
+        tree_state: Entity<TreeState>,
+        blocks: Vec<Block>,
+    ) -> Tree {
         log::debug!("Building sidebar items...");
         let tree_items = build_blocks_tree(blocks, &mut self.blocks_state);
 
-        self.tree_state.update(cx, |this, cx| {
+        tree_state.update(cx, |this, cx| {
             this.set_items(tree_items, cx);
         });
 
         // Read TreeState values before the closure to avoid re-entrant read panic
-        let dragged_target_block = self.tree_state.read(cx).dragged_target_block;
-        let selected_block = self.tree_state.read(cx).selected_block;
-        let selected_blocks = self.tree_state.read(cx).selected_blocks.clone();
+        let dragged_target_block = tree_state.read(cx).dragged_target_block;
+        let selected_block = tree_state.read(cx).selected_block;
+        let selected_blocks = tree_state.read(cx).selected_blocks.clone();
 
         // We need this to update the sidebar's internal state
         let sidebar = cx.entity();
+        let tree_state_clone = tree_state.clone();
 
-        let tree = tree(&self.tree_state, move |index, entry, _window, cx| {
+        let tree = tree(&tree_state_clone, move |index, entry, _window, cx| {
             let id = entry.item().id.clone(); // This is a stringified uuid of a block
             let label = entry.item().label.clone();
             let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
             let sidebar = sidebar.clone();
+            let tree_state = tree_state.clone();
 
             let uuid = Self::convert_str_to_uuid(&id).unwrap();
 
@@ -126,6 +166,7 @@ impl OpenNoteSidebar {
                     entry,
                     id,
                     uuid,
+                    tree_state,
                     sidebar,
                     is_dragged_over,
                 );
@@ -156,6 +197,7 @@ impl OpenNoteSidebar {
                 uuid,
                 language_profile,
                 sidebar,
+                tree_state,
                 is_selected,
                 is_multi_selected,
                 is_dragged_over,
@@ -179,9 +221,14 @@ impl OpenNoteSidebar {
             })
     }
 
-    pub fn handle_block_creation(&self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn handle_block_creation(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        tree_state: Entity<TreeState>,
+    ) {
         let mut parent_block_id = None;
-        if let Some(block) = self.tree_state.read(cx).selected_block {
+        if let Some(block) = tree_state.read(cx).selected_block {
             parent_block_id = Some(block)
         }
 
@@ -208,34 +255,44 @@ impl Render for OpenNoteSidebar {
         }
 
         let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
-        let states: &States = cx.global();
         let entity_id = cx.entity_id();
 
-        log::debug!("Refreshing sidebar...");
-        log::debug!(
-            "Single selected block: {:?}",
-            self.tree_state.read(cx).selected_block
-        );
-        log::debug!(
-            "Multi selected blocks: {:?}",
-            self.tree_state.read(cx).selected_blocks
-        );
-        log::debug!("Got {} blocks", states.blocks.len());
+        let (active_server_name, blocks, remote_server_tab_bar) =
+            cx.read_global::<States, (SharedString, Vec<Block>, TabBar)>(|states, _cx| {
+                let remote_server_tab_bar =
+                    create_sidebar_tabbar(states.active_server.clone(), states.get_servers());
+
+                (
+                    states.active_server.clone(),
+                    states.get_all_blocks_by_server(&states.active_server.clone()),
+                    remote_server_tab_bar,
+                )
+            });
+
+        // log::debug!("Refreshing sidebar...");
+        // log::debug!(
+        //     "Single selected block: {:?}",
+        //     self.tree_state.read(cx).selected_block
+        // );
+        // log::debug!(
+        //     "Multi selected blocks: {:?}",
+        //     self.tree_state.read(cx).selected_blocks
+        // );
+        // log::debug!("Got {} blocks", states.get_all_blocks_ids().len());
 
         div()
             .key_context(SIDEBAR)
             .track_focus(&self.focus_handle(cx))
             .h_full() // We need h_full to display the sidebar in full height, but not necessarily size_full
+            .child(remote_server_tab_bar)
             .child(
                 TreeViewSidebar::new(Side::Left)
                     .child(
                         self.create_sidebar_items(
                             cx,
-                            states
-                                .blocks
-                                .iter()
-                                .map(|(_id, item)| item.clone())
-                                .collect(),
+                            self.get_tree_state(&SharedString::new(active_server_name))
+                                .unwrap(),
+                            blocks,
                         ),
                     )
                     .header(

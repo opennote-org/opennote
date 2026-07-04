@@ -5,19 +5,19 @@ pub mod logs;
 pub mod views;
 pub mod widgets;
 
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use gpui::*;
 use gpui_component::*;
 
-use opennote_bootstrap::ApplicationBootStrap;
-use opennote_models::configurations::Configurations;
+use opennote_models::constants::{
+    APP_DATA_FOLDER_NAME, DEFAULT_SQLITE_DATA_FOLDER_NAME, set_environment_variables,
+};
 
 use crate::{
     globals::{
-        assets::AssetsCollection,
-        bootstrap::GlobalApplicationBootStrap,
-        helpers::{create_required_folders, get_configuration_folder_path},
-        states::States,
+        assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap, states::States,
         tasks::tracker::TaskTracker,
     },
     libs::theme::adapt_theme_to_system,
@@ -37,32 +37,26 @@ async fn main() -> Result<()> {
     )
     .unwrap();
 
-    let config_path = get_configuration_folder_path();
-
-    create_required_folders(&config_path)?;
-
-    // Load configurations
-    let configurations = Configurations::load_from_file(config_path)?;
-
-    let bootstrap = ApplicationBootStrap::new(configurations).await?;
+    set_environment_variables(HashMap::from([(
+        DEFAULT_SQLITE_DATA_FOLDER_NAME,
+        APP_DATA_FOLDER_NAME,
+    )]))?;
 
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
 
         // Initialize the necessary services and resources for the app
-        States::init(cx);
         TaskTracker::init(cx);
-        GlobalApplicationBootStrap::init(cx, bootstrap);
+        GlobalApplicationBootStrap::init(cx);
         AssetsCollection::init(cx)
             .context("Failed to load the assets on application start")
             .unwrap();
+        States::init(cx);
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {
                 adapt_theme_to_system(cx);
-
-                States::refresh_blocks_list(cx);
 
                 let view = cx.new(|cx| {
                     let workspace = Workspace::new(window, cx)
