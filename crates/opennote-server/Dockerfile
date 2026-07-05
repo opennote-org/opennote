@@ -3,6 +3,7 @@ FROM rust:1.96-bookworm AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     protobuf-compiler \
+    libprotobuf-dev \
     cmake \
     && rm -rf /var/lib/apt/lists/*
 
@@ -24,9 +25,6 @@ COPY --from=builder /usr/local/bin/opennote-server /usr/local/bin/opennote-serve
 EXPOSE 8080
 
 ENV DEFAULT_SQLITE_DATA_FOLDER_NAME="opennote_server"
-
-# This must be set by the user when `docker run` it
-ENV SERVER_PASSWORD=""
 
 VOLUME ["/root/.config/opennote_server"]
 

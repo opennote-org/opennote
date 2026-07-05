@@ -52,30 +52,7 @@ You can configure OpenNote with its `configurations.json`. It can be found here:
 
 ### Setup Remote Server
 
-You can host your remote server for syncing across different computers. To achieve this, you need to first start the remote server, then configure it to your other computers.
-
-To configure the server on a computer, change the config at `configurations.json` to
-
-```json
-{
-  "system": {
-    "server": { /* ... */ },
-    "logging": { /* ... */ },
-    "database": { /* ... */ },
-    "vector_database": { /* ... */ },
-    "embedder": { /* ... */ }
-  },
-  "user": {
-    "search": { /* ... */ },
-    "key_mappings": [ /* ... */ ]
-    "remote_servers": {
-      "debug": { // Put your server name here. DO NOT use duplicated names if you have other servers.
-        "connection_string": "http://localhost:8080" // Your server's address and port
-      }
-    }
-  }
-}
-```
+You can host your remote server for syncing across different computers. To achieve this, refer to [README.md of opennote-server](crates/opennote-server/README.md).
 
 ## Contributing
 
