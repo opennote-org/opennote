@@ -12,7 +12,11 @@ use gpui::*;
 use gpui_component::*;
 
 use opennote_models::constants::{
-    APP_DATA_FOLDER_NAME, DEFAULT_SQLITE_DATA_FOLDER_NAME, set_environment_variables,
+    APP_DATA_FOLDER_NAME,
+    env_vars::{
+        DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, STARTUP_ENVIRONMENT_VARIABLES_FOR_DESKTOP,
+        set_environment_variables,
+    },
 };
 
 use crate::{
@@ -37,10 +41,13 @@ async fn main() -> Result<()> {
     )
     .unwrap();
 
-    set_environment_variables(HashMap::from([(
-        DEFAULT_SQLITE_DATA_FOLDER_NAME,
-        APP_DATA_FOLDER_NAME,
-    )]))?;
+    set_environment_variables(
+        &STARTUP_ENVIRONMENT_VARIABLES_FOR_DESKTOP,
+        HashMap::from([(
+            DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME,
+            APP_DATA_FOLDER_NAME,
+        )]),
+    )?;
 
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.

@@ -3,7 +3,9 @@ pub mod route_helpers;
 use gpui::{SharedString, Window};
 use uuid::Uuid;
 
-use opennote_core_logics::payload::{PayloadContentParameters, build_payload, convert_string_to_payloads};
+use opennote_core_logics::payload::{
+    PayloadContentParameters, build_payload, convert_string_to_payloads,
+};
 use opennote_data::{Databases, database::enums::BlockQuery};
 use opennote_embedder::{
     entry::EmbedderEntry,
@@ -118,9 +120,9 @@ pub fn create_one_block(
 
             let num_blocks = match route_helpers::route_create_blocks(
                 &server_name,
+                &server,
                 &databases,
                 &vector_database_config,
-                &server.connection_string,
                 vec![block],
             )
             .await
@@ -210,9 +212,9 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
 
             match route_helpers::route_delete_blocks(
                 &server_name,
+                &server,
                 &databases,
                 &vector_database_config,
-                &server.connection_string,
                 block_ids,
             )
             .await
@@ -382,9 +384,9 @@ pub fn update_n_blocks(
 
             match route_helpers::route_update_blocks(
                 &server_name,
+                &server,
                 &databases,
                 &vector_database_config,
-                &server.connection_string,
                 blocks,
             )
             .await
@@ -472,8 +474,8 @@ pub fn update_parent(
 
             match route_helpers::route_read_blocks(
                 &server_name,
+                &server,
                 &databases,
-                &server.connection_string,
                 &BlockQuery::ByIds(block_ids),
             )
             .await
@@ -489,9 +491,9 @@ pub fn update_parent(
 
                     match route_helpers::route_update_blocks(
                         &server_name,
+                        &server,
                         &databases,
                         &vector_database_config,
-                        &server.connection_string,
                         blocks,
                     )
                     .await

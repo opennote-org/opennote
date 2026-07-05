@@ -14,6 +14,7 @@ use opennote_models::{
 
 use crate::{
     globals::{
+        actions::route_helpers::route_read_blocks,
         bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
         helpers::run_async_code,
     },
@@ -23,6 +24,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct ServerStates {
     pub connection_string: SharedString,
+    pub password: SharedString,
     pub blocks: HashMap<Uuid, Block>,
 }
 
@@ -52,6 +54,7 @@ impl States {
                     server_name.into(),
                     ServerStates {
                         connection_string: config.connection_string.into(),
+                        password: config.password.into(),
                         blocks: HashMap::new(),
                     },
                 )
@@ -62,6 +65,7 @@ impl States {
             SharedString::new(LOCAL_SERVER_NAME),
             ServerStates {
                 connection_string: SharedString::new(""),
+                password: SharedString::new(""),
                 blocks: HashMap::new(),
             },
         );
@@ -104,38 +108,23 @@ impl States {
     pub fn refresh_blocks_list(&self, cx: &mut App) {
         log::debug!("Refreshing blocks...");
 
-        let databases = cx.read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
-            this.0.databases.clone()
-        });
-
         let servers = self.get_servers().to_owned();
 
         cx.spawn(async move |cx| {
-            match read_blocks(&databases, &BlockQuery::All).await {
-                Ok(results) => {
-                    match cx.update_global::<States, ()>(|this, _cx| {
-                        this.hard_update_blocks(&SharedString::new(LOCAL_SERVER_NAME), results);
-                    }) {
-                        Ok(_) => {}
-                        Err(error) => log::error!("{}", error),
-                    }
-                }
-                Err(error) => {
-                    log::error!("{}", error);
-                }
-            };
-        })
-        .detach();
-
-        cx.spawn(async move |cx| {
-            let client = Client::new();
+            let databases = cx
+                .read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
+                    this.0.databases.clone()
+                })
+                .unwrap();
 
             let handles: Vec<_> = servers
                 .into_iter()
                 .map(|(name, server)| {
-                    let client = client.clone();
+                    let databases = databases.clone();
+
                     async move {
-                        match read_remote_server_blocks(&client, &server.connection_string).await {
+                        match route_read_blocks(&name, &server, &databases, &BlockQuery::All).await
+                        {
                             Ok(results) => (name, Ok(results)),
                             Err(error) => {
                                 log::error!("{}", error);
@@ -231,8 +220,8 @@ impl States {
         &self.servers
     }
 
-    /// Get a block's server with its uuid. 
-    /// Default to return the local server. 
+    /// Get a block's server with its uuid.
+    /// Default to return the local server.
     pub fn get_servers_by_block_id(&self, block_id: &Uuid) -> (SharedString, ServerStates) {
         for (name, server) in self.servers.iter() {
             if server.blocks.contains_key(block_id) {

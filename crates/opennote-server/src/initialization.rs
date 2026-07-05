@@ -1,5 +1,9 @@
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, middleware::Logger, web::Data};
+use actix_web::{
+    App, HttpServer,
+    middleware::{Logger, from_fn},
+    web::Data,
+};
 use anyhow::{Context, Result};
 
 use opennote_bootstrap::ApplicationBootStrap;
@@ -11,7 +15,7 @@ use opennote_models::{
     traits::LoadFromAndSaveToFile,
 };
 
-use crate::routes::configure_routes;
+use crate::{middlewares::check_password, routes::configure_routes};
 
 pub fn load_configurations() -> Result<Configurations> {
     let config_path = get_configuration_folder_path(ApplicationType::Server);
@@ -58,6 +62,7 @@ pub async fn initialize_backend_api_service(
         App::new()
             .wrap(Logger::default())
             .wrap(Cors::permissive())
+            .wrap(from_fn(check_password))
             .app_data(bootstrap.clone())
             .service(configure_routes())
         // .service(web::scope("/mcp").service(mcp_service.clone().scope()))

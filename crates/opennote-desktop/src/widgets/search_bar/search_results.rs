@@ -164,8 +164,8 @@ impl ListDelegate for SearchResultsList {
 
             route_helpers::route_search_blocks(
                 &server_name,
+                &server,
                 databases,
-                &server.connection_string,
                 search_method,
                 block_ids,
                 query_str,
@@ -202,8 +202,8 @@ impl ListDelegate for SearchResultsList {
 
             route_read_blocks(
                 &server_name,
+                &server,
                 databases,
-                &server.connection_string,
                 &BlockQuery::ByIds(block_ids.into_iter().collect()),
             )
             .await

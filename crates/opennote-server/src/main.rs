@@ -1,5 +1,6 @@
 pub mod endpoints;
 pub mod initialization;
+pub mod middlewares;
 pub mod routes;
 
 use std::collections::HashMap;
@@ -10,7 +11,11 @@ use log::info;
 
 use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::constants::{
-    DEFAULT_SQLITE_DATA_FOLDER_NAME, SERVER_DATA_FOLDER_NAME, set_environment_variables,
+    SERVER_DATA_FOLDER_NAME, SERVER_PASSWORD,
+    env_vars::{
+        DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, SERVER_PASSWORD_ENV_VAR_NAME,
+        STARTUP_ENVIRONMENT_VARIABLES_FOR_SERVER, set_environment_variables,
+    },
 };
 
 use crate::initialization::{
@@ -18,11 +23,14 @@ use crate::initialization::{
 };
 
 #[actix_web::main]
-async fn main() -> Result<()>{
-    set_environment_variables(HashMap::from([(
-        DEFAULT_SQLITE_DATA_FOLDER_NAME,
-        SERVER_DATA_FOLDER_NAME,
-    )]))?;
+async fn main() -> Result<()> {
+    set_environment_variables(
+        &STARTUP_ENVIRONMENT_VARIABLES_FOR_SERVER,
+        HashMap::from([(
+            DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME,
+            SERVER_DATA_FOLDER_NAME,
+        )]),
+    )?;
 
     // Load configuration first
     let config = load_configurations()?;

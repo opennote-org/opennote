@@ -1,3 +1,4 @@
+use actix_web::http::header::AUTHORIZATION;
 use anyhow::{Context, Result, bail};
 use reqwest::Client;
 use uuid::Uuid;
@@ -46,9 +47,14 @@ async fn parse_response<T: serde::de::DeserializeOwned>(response: reqwest::Respo
     }
 }
 
-pub async fn read_remote_server_blocks(client: &Client, base_url: &str) -> Result<Vec<Block>> {
+pub async fn read_remote_server_blocks(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+) -> Result<Vec<Block>> {
     let response = client
         .get(build_url(base_url, READ_WORKSPACE_BLOCKS_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
         .send()
         .await
         .context("Failed to send read request")?;
@@ -58,10 +64,12 @@ pub async fn read_remote_server_blocks(client: &Client, base_url: &str) -> Resul
 pub async fn create_remote_server_blocks(
     client: &Client,
     base_url: &str,
+    password: &str,
     blocks: Vec<Block>,
 ) -> Result<Vec<Block>> {
     let response = client
         .post(build_url(base_url, CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
         .json(&CreateBlocksInWorkspaceRequest { blocks })
         .send()
         .await
@@ -72,10 +80,12 @@ pub async fn create_remote_server_blocks(
 pub async fn delete_remote_server_blocks(
     client: &Client,
     base_url: &str,
+    password: &str,
     block_ids: Vec<Uuid>,
 ) -> Result<()> {
     let response = client
         .delete(build_url(base_url, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
         .json(&DeleteBlocksInWorkspaceRequest { block_ids })
         .send()
         .await
@@ -86,10 +96,12 @@ pub async fn delete_remote_server_blocks(
 pub async fn update_remote_server_blocks(
     client: &Client,
     base_url: &str,
+    password: &str,
     blocks: Vec<Block>,
 ) -> Result<()> {
     let response = client
         .put(build_url(base_url, UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
         .json(&UpdateBlocksInWorkspaceRequest { blocks })
         .send()
         .await
@@ -100,6 +112,7 @@ pub async fn update_remote_server_blocks(
 pub async fn search_remote_server_blocks(
     client: &Client,
     base_url: &str,
+    password: &str,
     search_method: SupportedSearchMethod,
     block_ids: Vec<Uuid>,
     query: Option<String>,
@@ -108,6 +121,7 @@ pub async fn search_remote_server_blocks(
 ) -> Result<Vec<RawSearchResult>> {
     let response = client
         .post(build_url(base_url, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
         .json(&SearchBlocksInWorkspaceRequest {
             search_method,
             block_ids,

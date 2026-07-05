@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{
-        DATA_STORAGE_FOLDER_NAME, DEFAULT_SQLITE_DATA_FOLDER_NAME,
-        SQLITE_VECTOR_DATABASE_FILE_EXTENSION, VECTOR_DATABASE_FILENAME, load_environment_variable,
+        DATA_STORAGE_FOLDER_NAME, SQLITE_VECTOR_DATABASE_FILE_EXTENSION, VECTOR_DATABASE_FILENAME,
+        env_vars::{DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, load_environment_variable},
     },
     providers::{
         database::DatabaseProvider, embedder::EmbedderProvider,
@@ -123,7 +123,8 @@ impl Default for ServerConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         if let Some(config_dir) = dirs::config_dir() {
-            let app_data_folder_name = load_environment_variable(DEFAULT_SQLITE_DATA_FOLDER_NAME);
+            let app_data_folder_name =
+                load_environment_variable(DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME);
 
             // Looks like this but should be an absolute path:
             // sqlite://./data/database.sqlite?mode=rwc
@@ -147,7 +148,8 @@ impl Default for DatabaseConfig {
 impl Default for VectorDatabaseConfig {
     fn default() -> Self {
         if let Some(config_dir) = dirs::config_dir() {
-            let app_data_folder_name = load_environment_variable(DEFAULT_SQLITE_DATA_FOLDER_NAME);
+            let app_data_folder_name =
+                load_environment_variable(DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME);
 
             // Looks like this but should be an absolute path:
             // ./data
