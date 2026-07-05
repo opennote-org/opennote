@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gpui::{BorrowAppContext, SharedString};
+use gpui::{BorrowAppContext, EntityId, SharedString};
 use gpui_component::Selectable;
 
 use crate::{
@@ -24,8 +24,9 @@ pub fn create_sidebar_tabbar(
                 .selected(has_selected)
                 .on_click(move |event: &gpui::ClickEvent, _window, cx| {
                     if !event.is_right_click() {
-                        let _ = cx.update_global::<States, ()>(|states, _cx| {
+                        let _ = cx.update_global::<States, ()>(|states, cx| {
                             states.set_active_remote_server(server_name.clone());
+                            states.refresh_blocks_list(cx);
                         });
                     }
                 });
