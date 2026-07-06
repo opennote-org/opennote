@@ -11,10 +11,10 @@ use log::info;
 
 use opennote_bootstrap::ApplicationBootStrap;
 use opennote_models::constants::{
-    SERVER_DATA_FOLDER_NAME, SERVER_PASSWORD,
+    SERVER_DATA_FOLDER_NAME,
     env_vars::{
-        DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, SERVER_PASSWORD_ENV_VAR_NAME,
-        STARTUP_ENVIRONMENT_VARIABLES_FOR_SERVER, set_environment_variables,
+        DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, STARTUP_ENVIRONMENT_VARIABLES_FOR_SERVER,
+        set_environment_variables,
     },
 };
 

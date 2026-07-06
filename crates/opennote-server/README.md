@@ -1,6 +1,6 @@
 # OpenNote Server
 
-Self-hosted backend server for OpenNote. Sync your notes across devices by running your own server.
+Self-hosted backend server for OpenNote. Sync your notes across devices by running your own server. All communications are strictly encrypted.
 
 ## Quick Start
 
@@ -28,13 +28,16 @@ The server reads `configurations.json` from `~/.config/opennote_server/` (inside
 
 Defaults:
 
-| Setting | Default   |
-| ------- | --------- |
-| Host    | `0.0.0.0` |
-| Port    | `8080`    |
-| Workers | `4`       |
+| Setting    | Default                 |
+| ---------- | ----------------------- |
+| Host       | `0.0.0.0`               |
+| Port       | `8080`                  |
+| Workers    | `4`                     |
+| Shared Key | `[0u8; 32]` (all zeros) |
 
-If the host in the configuration is `localhost`, then change it to `0.0.0.0`.
+If the host in the configuration is `localhost`, change it to `0.0.0.0`.
+
+The communication between the desktop app and the server is strictly encrypted with the shared key. By default, it uses all zeros. If you would like to increase the security, you may change the shared key.
 
 ### Environment Variables
 
@@ -49,21 +52,23 @@ Set `SERVER_PASSWORD` to protect your server. Without it, anyone who can reach t
 
 Edit `~/.config/opennote/configurations.json` and add a remote server entry under `user.remote_servers`:
 
-On macOS, it will be `/Users/yourusername/Library/Application Support/opennote_server/`. On Windows, it is `C:\Users\yourusername\AppData\Roaming\opennote_server`.
-
 ```json
 {
-    "user": {
-        "remote_servers": {
-            "my-server": {
-                "connection_string": "http://<server-ip>:8080",
-                "password": "your-secret-password"
-            }
-        }
+  "user": {
+    "remote_servers": {
+      "my-server": {
+        "connection_string": "http://<server-ip>:8080",
+        "password": "your-secret-password",
+        "shared_key": [
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0
+        ]
+      }
     }
+  }
 }
 ```
 
 After restarting the desktop app, a new tab will appear in the sidebar. Click it to switch to the remote server.
 
-Note: the `password` field must match the `SERVER_PASSWORD` set on the server. If the server uses an empty password, set `"password": ""`.
+Note: the `password` field must match the `SERVER_PASSWORD` set on the server. The `shared_key` must match the server's shared key (a 32-byte array). All communication between the client and server is encrypted using this shared key.

@@ -18,3 +18,5 @@ anyhow = { workspace = true }
 schemars = { workspace = true }
 dirs = { workspace = true }
 chrono = "0.4.44"
+serde-encrypt = { workspace = true }
+reqwest = { workspace = true }

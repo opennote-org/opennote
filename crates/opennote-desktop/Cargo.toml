@@ -18,6 +18,7 @@ gpui-component-assets = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde-encrypt = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
 uuid = { workspace = true }

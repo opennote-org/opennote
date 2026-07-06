@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gpui::{BorrowAppContext, EntityId, SharedString};
+use gpui::{BorrowAppContext, SharedString};
 use gpui_component::Selectable;
 
 use crate::{

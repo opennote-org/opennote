@@ -53,13 +53,14 @@ uuid = { version = "1.18.1", features = ["v4"] }
 anyhow = "1.0.100"
 async-trait = "0.1.89"
 futures = "0.3.31"
-reqwest = { version = "0.12.24", features = ["cookies", "gzip", "json", "rustls-tls"] }
+reqwest = { version = "0.12.24", features = ["cookies", "gzip", "rustls-tls"] }
 schemars = "1.2.0"
 chunk = "0.10.1"
 dirs = "6.0.0"
 log = "0.4.29"
 gpui = "0.2.2"
 actix-web = "4.14.0"
+serde-encrypt = "0.7.0"
 
 # External dependencies largely used in gpui-component
 notify = "7.0.0"

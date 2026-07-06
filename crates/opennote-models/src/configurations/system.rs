@@ -3,6 +3,7 @@
 //! Modifications to these may incur break changes to the existing database.
 
 use serde::{Deserialize, Serialize};
+use serde_encrypt::shared_key::SharedKey;
 
 use crate::{
     constants::{
@@ -77,6 +78,9 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub workers: usize,
+
+    /// The shared key is set for this server
+    pub shared_key: SharedKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,6 +120,7 @@ impl Default for ServerConfig {
             host: "localhost".to_string(),
             port: 8080,
             workers: 4,
+            shared_key: SharedKey::new_const([0u8; 32]),
         }
     }
 }

@@ -25,9 +25,8 @@ pub async fn check_password(
         }
     };
 
-    let password = load_environment_variable(SERVER_PASSWORD_ENV_VAR_NAME);
-
-    if auth_value.to_str().unwrap_or("") != password {
+    if auth_value.to_str().unwrap_or("") != load_environment_variable(SERVER_PASSWORD_ENV_VAR_NAME)
+    {
         return Err(actix_web::error::ErrorUnauthorized("Invalid password"));
     }
 

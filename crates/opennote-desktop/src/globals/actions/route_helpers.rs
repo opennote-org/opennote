@@ -31,6 +31,7 @@ pub async fn route_create_blocks(
             &server_states.connection_string,
             &server_states.password,
             blocks,
+            &server_states.shared_key,
         )
         .await
     }
@@ -51,6 +52,7 @@ pub async fn route_delete_blocks(
             &server_states.connection_string,
             &server_states.password,
             block_ids,
+            &server_states.shared_key,
         )
         .await
     }
@@ -69,6 +71,7 @@ pub async fn route_read_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
+            &server_states.shared_key,
         )
         .await?;
         match filter {
@@ -104,6 +107,7 @@ pub async fn route_update_blocks(
             &server_states.connection_string,
             &server_states.password,
             blocks,
+            &server_states.shared_key,
         )
         .await
     }
@@ -145,6 +149,7 @@ pub async fn route_search_blocks(
             query,
             query_vector,
             top_n,
+            &server_states.shared_key,
         )
         .await
     }

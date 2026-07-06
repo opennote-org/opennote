@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
-use gpui::{App, AppContext, Global, SharedString, WeakEntity};
-use opennote_server::read_remote_server_blocks;
-use reqwest::Client;
+use gpui::{App, Global, SharedString, WeakEntity};
+use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
-use opennote_core_logics::block::read_blocks;
 use opennote_data::{Databases, database::enums::BlockQuery, search::SearchScope};
 use opennote_models::{
     block::Block, configurations::remote_server::RemoteServerConfiguration,
@@ -25,6 +23,7 @@ use crate::{
 pub struct ServerStates {
     pub connection_string: SharedString,
     pub password: SharedString,
+    pub shared_key: SharedKey,
     pub blocks: HashMap<Uuid, Block>,
 }
 
@@ -55,6 +54,7 @@ impl States {
                     ServerStates {
                         connection_string: config.connection_string.into(),
                         password: config.password.into(),
+                        shared_key: config.shared_key.clone(),
                         blocks: HashMap::new(),
                     },
                 )
@@ -66,6 +66,7 @@ impl States {
             ServerStates {
                 connection_string: SharedString::new(""),
                 password: SharedString::new(""),
+                shared_key: SharedKey::new([0u8; 32]),
                 blocks: HashMap::new(),
             },
         );

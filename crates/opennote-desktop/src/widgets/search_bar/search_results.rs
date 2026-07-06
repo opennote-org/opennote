@@ -11,7 +11,6 @@ use gpui_component::{
     v_flex,
 };
 
-use opennote_core_logics::block::read_blocks;
 use opennote_data::{database::enums::BlockQuery, search::SearchScope};
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
