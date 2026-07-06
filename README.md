@@ -12,11 +12,12 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 
 - **Keyword and semantic search** — find notes instantly, or let your documents answer your questions.
 - **Fully local** — everything runs on your machine. Your data stays private.
+- **Self-host Server** — you can opt to run a self-hosted server to sync data across all of your devices with encrypted communications. 🔥🔥🔥newly added🔥🔥🔥
 - **Blazing fast** — built for performance from the ground up.
 
 ## Roadmap
 
-- [x] Self-hosted server for syncing documents across devices
+- [x] Self-hosted server for syncing documents across devices with encrypted communications
 - [ ] Multi-modal support
 - [ ] MCP server support
 - [ ] Import webpages, databases and files
@@ -67,6 +68,10 @@ OpenNote is in active development and welcomes contributions of all kinds — bu
 Kudos to all the libraries used in this project. See the full list in [Cargo.toml](./Cargo.toml) and in the `Cargo.toml` of each sub-crate.
 
 Thanks to [appify](https://github.com/akx/appify) for bundling the executable as a macOS app.
+
+Thanks to [sqlite](https://sqlite.org) for localizing relational database.
+
+Thanks to [sqlite-vector](https://github.com/sqliteai/sqlite-vector) for localizing vector storages.
 
 ## License
 
