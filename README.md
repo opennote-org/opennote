@@ -47,13 +47,15 @@ You can configure OpenNote with its `configurations.json`. It can be found here:
 "/Users/yourusername/Library/Application Support/opennote/configurations.json"
 
 # on Linux
+"/home/yourusername/.config/opennote/configurations.json"
 
 # on Windows
+"C:\Users\Alice\AppData\Roaming\opennote\configurations.json"
 ```
 
 ### Setup Remote Server
 
-You can host your remote server for syncing across different computers. To achieve this, refer to [README.md of opennote-server](crates/opennote-server/README.md).
+You may host a remote server for syncing across different computers securely. To achieve this, refer to [README.md of opennote-server](crates/opennote-server/README.md).
 
 ## Contributing
 
