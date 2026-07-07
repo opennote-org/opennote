@@ -3971,7 +3971,7 @@ dependencies = [
 
 [[package]]
 name = "embed"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "accelerate-src",
  "anyhow",
@@ -5652,7 +5652,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-component"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -5721,7 +5721,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-component-assets"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "gpui",
@@ -5730,7 +5730,7 @@ dependencies = [
 
 [[package]]
 name = "gpui-component-macros"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5798,7 +5798,7 @@ dependencies = [
 
 [[package]]
 name = "gpui_macros"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "gpui",
  "heck 0.5.0",
@@ -8385,7 +8385,7 @@ dependencies = [
 
 [[package]]
 name = "migration"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "sea-orm-migration",
  "tokio",
@@ -9246,7 +9246,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-bootstrap"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "log",
@@ -9259,11 +9259,11 @@ dependencies = [
 
 [[package]]
 name = "opennote-connectors"
-version = "0.2.0"
+version = "0.2.1"
 
 [[package]]
 name = "opennote-core-logics"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "chunk",
@@ -9278,7 +9278,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-data"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "arrow-array",
@@ -9309,7 +9309,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-desktop"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "dark-light",
@@ -9338,7 +9338,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-embedder"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9352,18 +9352,18 @@ dependencies = [
 
 [[package]]
 name = "opennote-entities"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "sea-orm",
 ]
 
 [[package]]
 name = "opennote-mcp-server"
-version = "0.2.0"
+version = "0.2.1"
 
 [[package]]
 name = "opennote-models"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -9381,7 +9381,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-server"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actix-cors",
  "actix-web",
@@ -9401,7 +9401,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-tasks-scheduler"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -9410,7 +9410,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-texts-processing"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chunk",
  "opennote-models",
