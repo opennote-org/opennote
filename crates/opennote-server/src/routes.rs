@@ -1,88 +1,35 @@
 use actix_web::{Scope, web};
+use opennote_models::constants::{
+    CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+    READ_WORKSPACE_BLOCKS_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
+    UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+};
 
-use crate::handlers::{
-    collection::{
-        create_collection, delete_collections, get_collections, update_collections_metadata,
-    },
-    document::{
-        add_document, delete_document, get_document_content, get_documents_metadata,
-        import_documents, reindex, update_document_content, update_documents_metadata,
-    },
-    general::{get_info, health_check, retrieve_task_result},
-    search::{intelligent_search, search},
-    user::{
-        create_user, get_user_configurations, get_user_configurations_schemars, login,
-        update_user_configurations,
-    },
+use crate::endpoints::{
+    create_blocks_in_workspace, delete_blocks_in_workspace, read_workspace_blocks,
+    search_blocks_in_workspace, update_blocks_in_workspace,
 };
 
 pub fn configure_routes() -> Scope {
-    web::scope("/api/v1")
-        .route("/health", web::get().to(health_check))
-        .route("/info", web::get().to(get_info))
+    web::scope(ROOT_ENDPOINT)
         .route(
-            "/retrieve_task_result",
-            web::post().to(retrieve_task_result),
+            READ_WORKSPACE_BLOCKS_ENDPOINT,
+            web::get().to(read_workspace_blocks),
         )
-        .service(
-            web::scope("users")
-                .route("/sync/create_user", web::post().to(create_user))
-                .route(
-                    "/sync/get_user_configurations",
-                    web::post().to(get_user_configurations),
-                )
-                .route(
-                    "/sync/update_user_configurations",
-                    web::post().to(update_user_configurations),
-                )
-                .route("/async/reindex", web::post().to(reindex))
-                .route("/sync/login", web::post().to(login))
-                .route(
-                    "/sync/get_user_configurations_schemars",
-                    web::get().to(get_user_configurations_schemars),
-                ),
+        .route(
+            CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+            web::post().to(create_blocks_in_workspace),
         )
-        .service(
-            web::scope("collections")
-                .route(
-                    "/async/update_collections_metadata",
-                    web::post().to(update_collections_metadata),
-                )
-                .route("/sync/create_collection", web::post().to(create_collection))
-                .route(
-                    "/sync/delete_collections",
-                    web::post().to(delete_collections),
-                )
-                .route("/sync/get_collections", web::get().to(get_collections)),
+        .route(
+            DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+            web::delete().to(delete_blocks_in_workspace),
         )
-        .service(
-            web::scope("documents")
-                .route("/async/import_documents", web::post().to(import_documents))
-                .route("/async/add_document", web::post().to(add_document))
-                .route("/async/delete_document", web::post().to(delete_document))
-                .route(
-                    "/async/update_documents_metadata",
-                    web::post().to(update_documents_metadata),
-                )
-                .route(
-                    "/async/update_document_content",
-                    web::post().to(update_document_content),
-                )
-                .route(
-                    "/sync/get_document_content",
-                    web::post().to(get_document_content),
-                )
-                .route(
-                    "/sync/get_documents_metadata",
-                    web::post().to(get_documents_metadata),
-                ),
+        .route(
+            UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+            web::put().to(update_blocks_in_workspace),
         )
-        .service(
-            web::scope("search")
-                .route(
-                    "/sync/intelligent_search",
-                    web::post().to(intelligent_search),
-                )
-                .route("/sync/search", web::post().to(search)),
+        .route(
+            SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
+            web::post().to(search_blocks_in_workspace),
         )
 }

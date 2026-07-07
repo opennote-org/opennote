@@ -17,7 +17,7 @@ pub struct ApplicationBootStrap {
 }
 
 impl ApplicationBootStrap {
-    pub async fn new(configurations: Configurations) -> Result<Self> {
+    pub async fn new(configurations: &Configurations) -> Result<Self> {
         let embedders = match EmbedderEntry::new(&configurations.system).await {
             Ok(result) => Some(result),
             Err(error) => {

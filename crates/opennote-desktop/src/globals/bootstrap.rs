@@ -1,14 +1,19 @@
+use anyhow::Context;
 use gpui::{App, Global};
 
 use tokio::sync::MutexGuard;
 
 use opennote_bootstrap::ApplicationBootStrap;
-use opennote_data::search::SearchScope;
-use opennote_models::configurations::{Configurations, search::SupportedSearchMethod};
-
-use crate::{
-    globals::helpers::get_configuration_folder_path, key_mappings::traits::KeyMappingsUIExtension,
+use opennote_core_logics::configurations::{
+    ApplicationType, create_required_folders, get_configuration_folder_path,
 };
+use opennote_data::search::SearchScope;
+use opennote_models::{
+    configurations::{Configurations, search::SupportedSearchMethod},
+    traits::LoadFromAndSaveToFile,
+};
+
+use crate::{globals::helpers::run_async_code, key_mappings::traits::KeyMappingsUIExtension};
 
 pub const SEARCH_METHODS_ENUMS: [SupportedSearchMethod; 2] = [
     SupportedSearchMethod::Keyword,
@@ -28,20 +33,36 @@ pub struct GlobalApplicationBootStrap(pub ApplicationBootStrap);
 impl Global for GlobalApplicationBootStrap {}
 
 impl GlobalApplicationBootStrap {
-    pub fn init(cx: &mut App, bootstrap: ApplicationBootStrap) {
-        let key_bindings = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                bootstrap
-                    .configurations
-                    .lock()
-                    .await
-                    .user
-                    .key_mappings
-                    .clone()
-                    .into_keybindings()
-            })
+    pub fn init(cx: &mut App) {
+        let config_path: std::path::PathBuf =
+            get_configuration_folder_path(ApplicationType::Desktop);
+
+        create_required_folders(&config_path)
+            .context("Failed to create required folders")
+            .unwrap();
+
+        // Load configurations
+        let configurations = Configurations::load_from_file(config_path)
+            .context("Failed to load configurations on application start")
+            .unwrap();
+
+        let bootstrap = run_async_code(async {
+            ApplicationBootStrap::new(&configurations)
+                .await
+                .context("Failed to bootstrap the application")
+                .unwrap()
         });
 
+        let key_bindings = run_async_code(async {
+            bootstrap
+                .configurations
+                .lock()
+                .await
+                .user
+                .key_mappings
+                .clone()
+                .into_keybindings()
+        });
         cx.bind_keys(key_bindings);
 
         cx.set_global(GlobalApplicationBootStrap(bootstrap));
@@ -86,7 +107,7 @@ impl GlobalApplicationBootStrap {
         configurations.user.search.default_search_method = search_method;
 
         configurations
-            .save_to_file(&get_configuration_folder_path())
+            .save_to_file(&get_configuration_folder_path(ApplicationType::Desktop))
             .unwrap();
     }
 }

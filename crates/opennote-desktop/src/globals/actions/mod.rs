@@ -1,9 +1,10 @@
-use gpui::Window;
+pub mod route_helpers;
+
+use gpui::{SharedString, Window};
 use uuid::Uuid;
 
-use opennote_core_logics::{
-    block::{create_blocks, delete_blocks, read_blocks, update_blocks},
-    payload::{PayloadContentParameters, build_payload, convert_string_to_payloads},
+use opennote_core_logics::payload::{
+    PayloadContentParameters, build_payload, convert_string_to_payloads,
 };
 use opennote_data::{Databases, database::enums::BlockQuery};
 use opennote_embedder::{
@@ -19,7 +20,7 @@ use opennote_models::{
 use crate::globals::{
     bootstrap::GlobalApplicationBootStrap,
     helpers::get_language_profile,
-    states::States,
+    states::{ServerStates, States},
     tasks::{
         task_information::TaskInformation,
         task_result::{TaskResult, TaskType},
@@ -73,6 +74,12 @@ pub fn create_one_block(
                     )
                 })?;
 
+            let (server_name, server) = cx
+                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
+                    this.get_active_server()
+                })
+                .unwrap();
+
             let mut block = Block::new(parent_block_id, Vec::new());
 
             let payload = build_payload(
@@ -111,25 +118,32 @@ pub fn create_one_block(
                 }
             }
 
-            let num_blocks =
-                match create_blocks(&vector_database_config, &databases, vec![block]).await {
-                    Ok(result) => result.len(),
-                    Err(error) => {
-                        log::error!("{}", error);
-                        register_result(
-                            window,
-                            cx,
-                            TaskResult::new(
-                                task_id,
-                                false,
-                                format!("Block creation failed due to {}", error),
-                                TaskType::Uncategorized,
-                                None,
-                            ),
-                        );
-                        return Err(error);
-                    }
-                };
+            let num_blocks = match route_helpers::route_create_blocks(
+                &server_name,
+                &server,
+                &databases,
+                &vector_database_config,
+                vec![block],
+            )
+            .await
+            {
+                Ok(result) => result.len(),
+                Err(error) => {
+                    log::error!("{}", error);
+                    register_result(
+                        window,
+                        cx,
+                        TaskResult::new(
+                            task_id,
+                            false,
+                            format!("Block creation failed due to {}", error),
+                            TaskType::Uncategorized,
+                            None,
+                        ),
+                    );
+                    return Err(error);
+                }
+            };
 
             log::debug!(
                 "Block creation finished for {} blocks, preceed to refreshing the block list...",
@@ -148,8 +162,8 @@ pub fn create_one_block(
                 ),
             );
 
-            let _ = cx.update_global::<States, ()>(|_this, cx| {
-                States::refresh_blocks_list(cx);
+            let _ = cx.update_global::<States, ()>(|this, cx| {
+                this.refresh_blocks_list(cx);
             });
 
             Ok::<(), anyhow::Error>(())
@@ -190,7 +204,21 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
                     },
                 )?;
 
-            match delete_blocks(&databases, &vector_database_config, block_ids).await {
+            let (server_name, server) = cx
+                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
+                    this.get_active_server()
+                })
+                .unwrap();
+
+            match route_helpers::route_delete_blocks(
+                &server_name,
+                &server,
+                &databases,
+                &vector_database_config,
+                block_ids,
+            )
+            .await
+            {
                 Ok(_) => {}
                 Err(error) => {
                     log::error!("{}", error);
@@ -223,8 +251,8 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
                 ),
             );
 
-            let _ = cx.update_global::<States, ()>(|_this, cx| {
-                States::refresh_blocks_list(cx);
+            let _ = cx.update_global::<States, ()>(|this, cx| {
+                this.refresh_blocks_list(cx);
             });
 
             Ok::<(), anyhow::Error>(())
@@ -348,7 +376,21 @@ pub fn update_n_blocks(
                 }
             }
 
-            match update_blocks(&vector_database_config, &databases, blocks).await {
+            let (server_name, server) = cx
+                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
+                    this.get_active_server()
+                })
+                .unwrap();
+
+            match route_helpers::route_update_blocks(
+                &server_name,
+                &server,
+                &databases,
+                &vector_database_config,
+                blocks,
+            )
+            .await
+            {
                 Ok(_) => {}
                 Err(error) => {
                     log::error!("{}", error);
@@ -381,8 +423,8 @@ pub fn update_n_blocks(
                 ),
             );
 
-            let _ = cx.update_global::<States, ()>(|_this, cx| {
-                States::refresh_blocks_list(cx);
+            let _ = cx.update_global::<States, ()>(|this, cx| {
+                this.refresh_blocks_list(cx);
             });
 
             Ok::<(), anyhow::Error>(())
@@ -424,7 +466,20 @@ pub fn update_parent(
 
             let num_blocks = block_ids.len();
 
-            match read_blocks(&databases, &BlockQuery::ByIds(block_ids)).await {
+            let (server_name, server) = app
+                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
+                    this.get_active_server()
+                })
+                .unwrap();
+
+            match route_helpers::route_read_blocks(
+                &server_name,
+                &server,
+                &databases,
+                &BlockQuery::ByIds(block_ids),
+            )
+            .await
+            {
                 Ok(blocks) => {
                     let blocks: Vec<Block> = blocks
                         .into_iter()
@@ -434,7 +489,15 @@ pub fn update_parent(
                         })
                         .collect();
 
-                    match update_blocks(&vector_database_config, &databases, blocks).await {
+                    match route_helpers::route_update_blocks(
+                        &server_name,
+                        &server,
+                        &databases,
+                        &vector_database_config,
+                        blocks,
+                    )
+                    .await
+                    {
                         Ok(_) => {}
                         Err(error) => {
                             log::error!("{}", error);
@@ -484,8 +547,8 @@ pub fn update_parent(
                 ),
             );
 
-            let _ = app.update_global::<States, ()>(|_this, cx| {
-                States::refresh_blocks_list(cx);
+            let _ = app.update_global::<States, ()>(|this, cx| {
+                this.refresh_blocks_list(cx);
             });
         })
         .detach();

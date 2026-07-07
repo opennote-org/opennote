@@ -380,7 +380,7 @@ impl Pane {
         if let Some(selected_block_id) = self.selected_block_id {
             let states: &States = cx.global();
 
-            let block = states.blocks.get(&selected_block_id);
+            let block = states.get_block(&selected_block_id);
 
             if let Some(block) = block {
                 let block = block.to_owned();
@@ -389,7 +389,8 @@ impl Pane {
                 self.editor.update(cx, |this, cx| {
                     // The backend is always the source of truth.
                     // We fetch the block from the backend with the current uuid.
-                    this.register_block(cx, window, block, search_string);
+                    this.register_block(cx, block);
+                    this.set_highlighted_text(cx, window, search_string);
                 });
             }
         }

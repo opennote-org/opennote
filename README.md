@@ -12,11 +12,12 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 
 - **Keyword and semantic search** — find notes instantly, or let your documents answer your questions.
 - **Fully local** — everything runs on your machine. Your data stays private.
+- **Self-host Server** — you can opt to run a self-hosted server to sync data across all of your devices with encrypted communications. 🔥🔥🔥newly added🔥🔥🔥
 - **Blazing fast** — built for performance from the ground up.
 
 ## Roadmap
 
-- [ ] Self-hosted server for syncing documents across devices
+- [x] Self-hosted server for syncing documents across devices with encrypted communications
 - [ ] Multi-modal support
 - [ ] MCP server support
 - [ ] Import webpages, databases and files
@@ -37,6 +38,25 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 sudo xattr -r -d com.apple.quarantine /Applications/opennote.app
 ```
 
+### Configure the Desktop App
+
+You can configure OpenNote with its `configurations.json`. It can be found here:
+
+```bash
+# on macOS
+"/Users/yourusername/Library/Application Support/opennote/configurations.json"
+
+# on Linux
+"/home/yourusername/.config/opennote/configurations.json"
+
+# on Windows
+"C:\Users\Alice\AppData\Roaming\opennote\configurations.json"
+```
+
+### Setup Remote Server
+
+You may host a remote server for syncing across different computers securely. To achieve this, refer to [README.md of opennote-server](crates/opennote-server/README.md).
+
 ## Contributing
 
 OpenNote is in active development and welcomes contributions of all kinds — bug reports, feature ideas, code, documentation, and design.
@@ -50,6 +70,10 @@ OpenNote is in active development and welcomes contributions of all kinds — bu
 Kudos to all the libraries used in this project. See the full list in [Cargo.toml](./Cargo.toml) and in the `Cargo.toml` of each sub-crate.
 
 Thanks to [appify](https://github.com/akx/appify) for bundling the executable as a macOS app.
+
+Thanks to [sqlite](https://sqlite.org) for localizing relational database.
+
+Thanks to [sqlite-vector](https://github.com/sqliteai/sqlite-vector) for localizing vector storages.
 
 ## License
 

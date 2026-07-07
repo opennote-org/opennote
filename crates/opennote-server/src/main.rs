@@ -1,59 +1,54 @@
+pub mod endpoints;
+pub mod initialization;
+pub mod middlewares;
+pub mod routes;
+
+use std::collections::HashMap;
+
 use actix_web::web::Data;
-use anyhow::{Context, Result};
-use app_state::AppState;
+use anyhow::Result;
 use log::info;
 
-use rmcp_actix_web::transport::StreamableHttpService;
-use sqlx::any::install_default_drivers;
+use opennote_bootstrap::ApplicationBootStrap;
+use opennote_models::constants::{
+    SERVER_DATA_FOLDER_NAME,
+    env_vars::{
+        DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, STARTUP_ENVIRONMENT_VARIABLES_FOR_SERVER,
+        set_environment_variables,
+    },
+};
+
+use crate::initialization::{
+    initialize_backend_api_service, initialize_logger, load_configurations,
+};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
+    set_environment_variables(
+        &STARTUP_ENVIRONMENT_VARIABLES_FOR_SERVER,
+        HashMap::from([(
+            DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME,
+            SERVER_DATA_FOLDER_NAME,
+        )]),
+    )?;
+
     // Load configuration first
     let config = load_configurations()?;
 
     // Initialize logger with config level
     initialize_logger(&config);
 
-    // Install database drivers, otherwise the RelationshipDatabase Connector may fail
-    install_default_drivers();
-    info!("Default relationship database drivers installed.");
-
-    info!("Starting Actix Web Service...");
+    info!("Starting OpenNote Server...");
     info!(
         "Configuration: Server {}:{}",
-        config.server.host, config.server.port
+        config.system.server.host, config.system.server.port
     );
 
-    let app_state: Data<AppState> = initialize_app_state(&config)
-        .await
-        .context("App state failed to initialize")?;
-    log::info!("Application state initialized successfully");
-
-    // Checkups
-    handshake_embedding_service(&config.embedder, &app_state.embedder_entry)
-        .await
-        .context("Embedding service is OFFLINE")?;
-    log::info!("Embedding service is ONLINE");
-
-    align_embedder_model(&config, &app_state)
-        .await
-        .context(format!(
-            "Embedding model {} failed to align",
-            config.embedder.dimensions
-        ))?;
-    log::info!("Embedder model alignment completed successfully");
-
-    align_vector_database(&config, &app_state)
-        .await
-        .context(format!(
-            "Vector database {} failed to align",
-            config.vector_database.provider
-        ))?;
-    log::info!("Vector database alignment completed successfully");
-
-    let mcp_service: StreamableHttpService<MCPService> = initialize_mcp_server(&app_state).await?;
-
-    initialize_backend_api_service(app_state, mcp_service, &config).await?;
+    initialize_backend_api_service(
+        Data::new(ApplicationBootStrap::new(&config).await?),
+        &config,
+    )
+    .await?;
 
     Ok(())
 }

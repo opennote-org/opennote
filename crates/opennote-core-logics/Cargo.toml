@@ -16,3 +16,4 @@ uuid = { workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true }
 chunk = { workspace = true }
+dirs = { workspace = true }

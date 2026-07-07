@@ -525,7 +525,9 @@ impl InputState {
         });
 
         if let Some(range) = range {
-            self.scroll_to(range.end, Some(MoveDirection::All), cx);
+            cx.defer_in(window, move |this, _window, cx| {
+                this.scroll_to(range.end, Some(MoveDirection::All), cx);
+            });
         }
     }
 

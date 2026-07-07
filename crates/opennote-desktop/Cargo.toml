@@ -10,19 +10,22 @@ opennote-models = { workspace = true }
 opennote-core-logics = { workspace = true }
 opennote-data = { workspace = true }
 opennote-embedder = { workspace = true }
+opennote-server = { workspace = true }
 gpui-component = { workspace = true }
 gpui-component-assets = { workspace = true }
 
 # External dependencies
 anyhow = { workspace = true }
-dirs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde-encrypt = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
 uuid = { workspace = true }
 schemars = { workspace = true }
 gpui = { workspace = true }
+reqwest = { workspace = true }
+futures.workspace = true
 
 rust-embed = "8.11.0"
 fast_log = "1.7.7"

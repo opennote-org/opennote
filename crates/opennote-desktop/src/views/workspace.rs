@@ -128,7 +128,12 @@ impl Render for Workspace {
                         }
 
                         if this.is_toggled() {
-                            window.focus(&this.get_tree_focus_handle(cx));
+                            let states: &States = cx.global();
+                            if let Some(tree_state) =
+                                this.get_tree_focus_handle(cx, &states.active_server)
+                            {
+                                window.focus(&tree_state);
+                            }
                         }
                     });
 
@@ -173,7 +178,12 @@ impl Render for Workspace {
             )
             .on_action(cx.listener(|this, _action: &CreateOneBlock, window, cx| {
                 this.sidebar.update(cx, |this, cx| {
-                    this.handle_block_creation(window, cx);
+                    let states: &States = cx.global();
+                    let tree_state = this.get_tree_state(&states.active_server);
+
+                    if let Some(tree_state) = tree_state {
+                        this.handle_block_creation(window, cx, tree_state);
+                    }
                 })
             }))
             .children(notification)

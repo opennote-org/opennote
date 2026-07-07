@@ -1,10 +1,6 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
 use anyhow::Result;
-use opennote_models::constants::{APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME};
 
 use crate::globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap};
 
@@ -21,28 +17,6 @@ pub fn get_language_profile(
         .get(&language)
         .unwrap()
         .to_owned())
-}
-
-pub fn create_required_folders(config_directory: &Path) -> Result<()> {
-    std::fs::create_dir_all(config_directory)?;
-    std::fs::create_dir_all(config_directory.join(DATA_STORAGE_FOLDER_NAME))?;
-    Ok(())
-}
-
-/// Get the configuration folder path.
-/// This function will panic out if no config directory was found.
-pub fn get_configuration_folder_path() -> PathBuf {
-    if let Some(config_dir) = dirs::config_dir() {
-        let path = config_dir.join(APP_DATA_FOLDER_NAME);
-        log::debug!(
-            "Configuration directory has been set to: {}",
-            path.display()
-        );
-
-        path
-    } else {
-        panic!("No config directory was found in this system")
-    }
 }
 
 /// Run async codes in sync functions
