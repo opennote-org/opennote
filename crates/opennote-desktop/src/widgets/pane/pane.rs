@@ -389,7 +389,8 @@ impl Pane {
                 self.editor.update(cx, |this, cx| {
                     // The backend is always the source of truth.
                     // We fetch the block from the backend with the current uuid.
-                    this.register_block(cx, window, block, search_string);
+                    this.register_block(cx, block);
+                    this.set_highlighted_text(cx, window, search_string);
                 });
             }
         }

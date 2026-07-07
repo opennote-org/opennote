@@ -119,17 +119,11 @@ impl Editor {
         }
     }
 
-    pub fn register_block(
-        &mut self,
-        cx: &mut App,
-        window: &mut gpui::Window,
-        block: Block,
-        highlighted_text: Option<SharedString>,
-    ) {
-        // If the same block has already opened, just update the highlight and return.
+    /// Register a block to the editor for opening
+    pub fn register_block(&mut self, cx: &mut App, block: Block) {
+        // If the same block has already opened, just return.
         if let Some(existing_block) = &self.block {
             if existing_block.id == block.id {
-                self.set_highlighted_text(cx, window, highlighted_text);
                 return;
             }
         }
@@ -139,13 +133,11 @@ impl Editor {
 
         // Swap the block with the new one for opening.
         self.block = Some(block);
-
-        self.set_highlighted_text(cx, window, highlighted_text);
     }
 
     /// Highlight a string in the editor.
     /// It will do nothing if the `highlighted_text` is None.
-    fn set_highlighted_text(
+    pub fn set_highlighted_text(
         &mut self,
         cx: &mut App,
         window: &mut gpui::Window,
