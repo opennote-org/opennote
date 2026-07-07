@@ -126,7 +126,7 @@ impl Editor {
         block: Block,
         highlighted_text: Option<SharedString>,
     ) {
-        // If the same block is already open, just update the highlight and return.
+        // If the same block has already opened, just update the highlight and return.
         if let Some(existing_block) = &self.block {
             if existing_block.id == block.id {
                 self.set_highlighted_text(cx, window, highlighted_text);

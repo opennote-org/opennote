@@ -221,20 +221,24 @@ impl States {
         &self.servers
     }
 
-    /// Get a block's server with its uuid.
-    /// Default to return the local server.
-    pub fn get_servers_by_block_id(&self, block_id: &Uuid) -> (SharedString, ServerStates) {
+    /// Default to return the local server only.
+    pub fn get_servers_by_block_ids(
+        &self,
+        block_ids: &Vec<Uuid>,
+    ) -> Vec<(SharedString, ServerStates)> {
+        let mut involved_servers = Vec::new();
+
         for (name, server) in self.servers.iter() {
-            if server.blocks.contains_key(block_id) {
-                return (name.to_owned(), server.to_owned());
+            let any_block_id_contained = block_ids
+                .iter()
+                .any(|item| server.blocks.contains_key(item));
+
+            if any_block_id_contained {
+                involved_servers.push((name.to_owned(), server.to_owned()));
             }
         }
 
-        let local_server_name = SharedString::new(LOCAL_SERVER_NAME);
-        (
-            local_server_name.clone(),
-            self.servers.get(&local_server_name).unwrap().to_owned(),
-        )
+        involved_servers
     }
 
     /// Get the active server.
