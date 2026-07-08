@@ -66,7 +66,8 @@ pub async fn initialize_backend_api_service(
             .wrap(Cors::permissive())
             .wrap(from_fn(check_password))
             .app_data(bootstrap.clone())
-            .app_data(PayloadConfig::new(usize::MAX))
+            // Size limit is 100 MB for now.
+            .app_data(PayloadConfig::new(100 * 1024 * 1024))
             .service(configure_routes())
         // .service(web::scope("/mcp").service(mcp_service.clone().scope()))
     });
