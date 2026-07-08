@@ -117,7 +117,7 @@ impl Default for LoggingConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            host: "localhost".to_string(),
+            host: "0.0.0.0".to_string(),
             port: 8080,
             workers: 4,
             shared_key: SharedKey::new_const([0u8; 32]),
