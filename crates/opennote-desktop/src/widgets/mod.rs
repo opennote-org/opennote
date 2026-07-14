@@ -4,3 +4,4 @@ pub mod pane;
 pub mod search_bar;
 pub mod sidebar;
 pub mod floating;
+pub mod settings;

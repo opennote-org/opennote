@@ -269,22 +269,11 @@ impl Render for OpenNoteSidebar {
                 )
             });
 
-        // log::debug!("Refreshing sidebar...");
-        // log::debug!(
-        //     "Single selected block: {:?}",
-        //     self.tree_state.read(cx).selected_block
-        // );
-        // log::debug!(
-        //     "Multi selected blocks: {:?}",
-        //     self.tree_state.read(cx).selected_blocks
-        // );
-        // log::debug!("Got {} blocks", states.get_all_blocks_ids().len());
-
         div()
             .key_context(SIDEBAR)
             .track_focus(&self.focus_handle(cx))
             .w(DEFAULT_WIDTH)
-            .border_color(cx.theme().sidebar_border)
+            .border_color(cx.theme().sidebar_border) // Together with border_r_l to create a border line
             .border_r_1()
             .h_full() // We need h_full to display the sidebar in full height, but not necessarily size_full
             .child(remote_server_tab_bar)
