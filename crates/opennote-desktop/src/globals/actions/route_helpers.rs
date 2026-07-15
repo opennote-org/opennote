@@ -26,7 +26,7 @@ pub async fn route_create_blocks(
     if server_name == LOCAL_SERVER_NAME {
         create_blocks(vector_database_config, databases, blocks).await
     } else {
-        create_remote_server_blocks(
+        match create_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
@@ -34,6 +34,10 @@ pub async fn route_create_blocks(
             &server_states.shared_key,
         )
         .await
+        {
+            Ok(blocks) => Ok(blocks),
+            Err(_) => Ok(Vec::new()),
+        }
     }
 }
 
@@ -47,7 +51,7 @@ pub async fn route_delete_blocks(
     if server_name == LOCAL_SERVER_NAME {
         delete_blocks(databases, vector_database_config, block_ids).await
     } else {
-        delete_remote_server_blocks(
+        match delete_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
@@ -55,6 +59,10 @@ pub async fn route_delete_blocks(
             &server_states.shared_key,
         )
         .await
+        {
+            Ok(_) => Ok(()),
+            Err(_) => Ok(()),
+        }
     }
 }
 
@@ -67,13 +75,18 @@ pub async fn route_read_blocks(
     if server_name == LOCAL_SERVER_NAME {
         read_blocks(databases, filter).await
     } else {
-        let all_blocks = read_remote_server_blocks(
+        let all_blocks = match read_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
             &server_states.shared_key,
         )
-        .await?;
+        .await
+        {
+            Ok(results) => results,
+            Err(_) => return Ok(Vec::new()),
+        };
+
         match filter {
             BlockQuery::ByIds(ids) => Ok(all_blocks
                 .into_iter()
@@ -102,7 +115,7 @@ pub async fn route_update_blocks(
     if server_name == LOCAL_SERVER_NAME {
         update_blocks(vector_database_config, databases, blocks).await
     } else {
-        update_remote_server_blocks(
+        match update_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
@@ -110,6 +123,10 @@ pub async fn route_update_blocks(
             &server_states.shared_key,
         )
         .await
+        {
+            Ok(_) => Ok(()),
+            Err(_) => Ok(()),
+        }
     }
 }
 
@@ -140,7 +157,7 @@ pub async fn route_search_blocks(
         }
     } else {
         // Missing value check now is relied on the remote server
-        search_remote_server_blocks(
+        match search_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
@@ -152,5 +169,9 @@ pub async fn route_search_blocks(
             &server_states.shared_key,
         )
         .await
+        {
+            Ok(results) => Ok(results),
+            Err(_) => Ok(Vec::new()),
+        }
     }
 }

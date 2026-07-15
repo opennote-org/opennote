@@ -9,11 +9,11 @@ use crate::{
             CreateOneBlock, ToggleCommandBar, ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
         },
     },
+    views::settings::SettingsPanel,
     widgets::{
         command_bar::bar::CommandBar,
         pane::{pane::Pane, pane_group::PaneGroup},
         search_bar::bar::SearchBar,
-        settings::SettingsPanel,
         sidebar::OpenNoteSidebar,
     },
 };
@@ -195,7 +195,7 @@ impl Render for Workspace {
                 cx.listener(|this, _action: &ToggleSettingsPanel, window, cx| {
                     let settings_panel = this.settings_panel.clone();
                     let _ = cx
-                        .open_window(WindowOptions::default(), |this, cx| {
+                        .open_window(WindowOptions::default(), |_this, cx| {
                             cx.new(|cx| Root::new(settings_panel, window, cx))
                         })
                         .unwrap();
