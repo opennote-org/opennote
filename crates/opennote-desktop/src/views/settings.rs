@@ -1,6 +1,6 @@
 use gpui::{
     AppContext, BorrowAppContext, Entity, IntoElement, ParentElement as _, Render, Styled as _,
-    prelude::FluentBuilder as _,
+    WeakEntity, prelude::FluentBuilder as _,
 };
 use gpui_component::{
     ActiveTheme, Sizable as _,
@@ -13,7 +13,10 @@ use gpui_component::{
 use opennote_core_logics::configurations::{ApplicationType, get_configuration_folder_path};
 use opennote_models::{configurations::Configurations, traits::LoadFromAndSaveToFile};
 
-use crate::globals::{bootstrap::GlobalApplicationBootStrap, helpers::run_async_code};
+use crate::{
+    globals::{bootstrap::GlobalApplicationBootStrap, helpers::run_async_code, states::States},
+    widgets::sidebar::OpenNoteSidebar,
+};
 
 pub struct SettingsPanel {
     /// The code editor entity.
@@ -22,10 +25,16 @@ pub struct SettingsPanel {
     status_message: Option<String>,
     /// When `true`, the status message is rendered in an error colour.
     status_is_error: bool,
+    /// This is used to refresh the sidebar after updated the config.
+    sidebar: WeakEntity<OpenNoteSidebar>,
 }
 
 impl SettingsPanel {
-    pub fn new(cx: &mut gpui::Context<Self>, window: &mut gpui::Window) -> Self {
+    pub fn new(
+        cx: &mut gpui::Context<Self>,
+        window: &mut gpui::Window,
+        sidebar: WeakEntity<OpenNoteSidebar>,
+    ) -> Self {
         let config_json = {
             let bootstrap: &GlobalApplicationBootStrap = cx.global();
             let configs = run_async_code(async { bootstrap.0.configurations.lock().await.clone() });
@@ -47,6 +56,7 @@ impl SettingsPanel {
             editor_state,
             status_message: None,
             status_is_error: false,
+            sidebar,
         }
     }
 
@@ -90,6 +100,8 @@ impl SettingsPanel {
 
         match Self::parse_configs_json(&current_text) {
             Ok((parsed_configs, pretty_json)) => {
+                let servers = parsed_configs.user.remote_servers.clone();
+
                 cx.update_global::<GlobalApplicationBootStrap, ()>(move |bootstrap, _cx| {
                     run_async_code(async {
                         let mut configs = bootstrap.0.configurations.lock().await;
@@ -98,6 +110,10 @@ impl SettingsPanel {
                             .save_to_file(&config_path)
                             .expect("Failed to save configurations");
                     });
+                });
+
+                cx.update_global::<States, ()>(move |this, _cx| {
+                    this.update_servers(servers);
                 });
 
                 Self::set_editor_text(&self.editor_state, &pretty_json, window, cx);
@@ -143,13 +159,13 @@ impl Render for SettingsPanel {
         v_flex()
             .size_full()
             .gap_2()
-            // ---- Toolbar ----
             .child(
                 h_flex()
                     .gap_2()
                     .p_2()
                     .border_b_1()
                     .border_color(cx.theme().border)
+                    // Buttons
                     .child(
                         Button::new("save-configs")
                             .primary()
@@ -157,6 +173,13 @@ impl Render for SettingsPanel {
                             .label("Save")
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.save_configurations(window, cx);
+                                // Reload the sidebar for updating the servers
+                                let _ = this.sidebar.update(cx, |_this, cx| {
+                                    cx.update_global::<States, ()>(|this, cx| {
+                                        this.refresh_blocks_list(cx)
+                                    });
+                                    cx.notify();
+                                });
                             })),
                     )
                     .child(
@@ -180,7 +203,7 @@ impl Render for SettingsPanel {
                         )
                     }),
             )
-            // ---- Code editor ----
+            // JSON editor
             .child(
                 gpui::div()
                     .flex_1()

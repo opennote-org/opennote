@@ -66,7 +66,7 @@ impl Workspace {
             }),
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window)),
-            settings_panel: cx.new(|cx| SettingsPanel::new(cx, window)),
+            settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
             is_initialization_succeeded: false,
             _subscriptions,
         })

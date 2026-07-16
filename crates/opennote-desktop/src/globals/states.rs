@@ -46,34 +46,9 @@ impl Global for States {}
 
 impl States {
     pub fn new(servers: HashMap<String, RemoteServerConfiguration>) -> Self {
-        let mut servers: HashMap<SharedString, ServerStates> = servers
-            .into_iter()
-            .map(|(server_name, config)| {
-                (
-                    server_name.into(),
-                    ServerStates {
-                        connection_string: config.connection_string.into(),
-                        password: config.password.into(),
-                        shared_key: config.shared_key.clone(),
-                        blocks: HashMap::new(),
-                    },
-                )
-            })
-            .collect();
-
-        servers.insert(
-            SharedString::new(LOCAL_SERVER_NAME),
-            ServerStates {
-                connection_string: SharedString::new(""),
-                password: SharedString::new(""),
-                shared_key: SharedKey::new([0u8; 32]),
-                blocks: HashMap::new(),
-            },
-        );
-
         Self {
             active_server: SharedString::new(LOCAL_SERVER_NAME),
-            servers,
+            servers: build_servers(servers),
             active_pane: None,
             search_scope: SearchScope::Document,
         }
@@ -258,4 +233,39 @@ impl States {
 
         selected_index
     }
+
+    pub fn update_servers(&mut self, servers: HashMap<String, RemoteServerConfiguration>) {
+        self.servers = build_servers(servers);
+    }
+}
+
+/// This will also include the local workspace as a server too.
+fn build_servers(
+    servers: HashMap<String, RemoteServerConfiguration>,
+) -> HashMap<SharedString, ServerStates> {
+    let mut servers: HashMap<SharedString, ServerStates> = servers
+        .into_iter()
+        .map(|(server_name, config)| {
+            (
+                server_name.into(),
+                ServerStates {
+                    connection_string: config.connection_string.into(),
+                    password: config.password.into(),
+                    shared_key: config.shared_key.clone(),
+                    blocks: HashMap::new(),
+                },
+            )
+        })
+        .collect();
+
+    servers.insert(
+        SharedString::new(LOCAL_SERVER_NAME),
+        ServerStates {
+            connection_string: SharedString::new(""),
+            password: SharedString::new(""),
+            shared_key: SharedKey::new([0u8; 32]),
+            blocks: HashMap::new(),
+        },
+    );
+    servers
 }
