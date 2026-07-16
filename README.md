@@ -53,6 +53,8 @@ You can configure OpenNote with its `configurations.json`. It can be found here:
 "C:\Users\Alice\AppData\Roaming\opennote\configurations.json"
 ```
 
+However, you may also open the configuration editor by pressing `CMD + ;` on macOS, or `Ctrl + ;` on Windows and Linux.
+
 ### Setup Remote Server
 
 You may host a remote server for syncing across different computers securely. To achieve this, refer to [README.md of opennote-server](crates/opennote-server/README.md).
