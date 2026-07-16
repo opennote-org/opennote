@@ -65,6 +65,9 @@ pub struct SearchResultsList {
 
     pub servers_to_retrieve: Vec<(SharedString, ServerStates)>,
 
+    /// Indicate which query is current active as the user types
+    pub active_query_id: usize,
+
     pub search_bar: WeakEntity<SearchBar>,
 
     ///
@@ -79,6 +82,7 @@ impl SearchResultsList {
             servers_to_retrieve: Vec::new(),
             selected_index: None,
             search_bar,
+            active_query_id: 0,
         }
     }
 }
@@ -145,6 +149,11 @@ impl ListDelegate for SearchResultsList {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> gpui::Task<()> {
+        // Create a query id for the observer to validate
+        // if this is the current query.
+        self.active_query_id += 1;
+        let query_id = self.active_query_id;
+
         // Cleanup before searching
         self.results.clear();
         self.raw_results.clear();
@@ -235,8 +244,11 @@ impl ListDelegate for SearchResultsList {
                 };
 
                 let _ = this.update(cx, |this, cx| {
-                    this.delegate_mut().raw_results.extend(raw_results);
-                    cx.notify();
+                    // Cancel all old queries as the user types
+                    if query_id == this.delegate().active_query_id {
+                        this.delegate_mut().raw_results.extend(raw_results);
+                        cx.notify();
+                    }
                 });
             })
             .detach();
