@@ -1,5 +1,5 @@
 use actix_web::http::header::AUTHORIZATION;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use reqwest::Client;
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
