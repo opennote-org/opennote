@@ -11,7 +11,7 @@ use gpui::{
     InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, SharedString, Styled,
     Subscription, Window, div,
 };
-use gpui_component::{Side, button::Button, h_flex, label::Label};
+use gpui_component::{ActiveTheme, Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
 
 use opennote_models::{block::Block, constants::LOCAL_SERVER_NAME};
@@ -22,7 +22,7 @@ use crate::{
     libs::{
         tabs::{drag::DraggedItem, tab_bar::TabBar},
         tree::{Tree, TreeState, tree},
-        tree_view_sidebar::TreeViewSidebar,
+        tree_view_sidebar::{DEFAULT_WIDTH, TreeViewSidebar},
     },
     widgets::sidebar::{
         blocks_tree::build_blocks_tree,
@@ -269,20 +269,12 @@ impl Render for OpenNoteSidebar {
                 )
             });
 
-        // log::debug!("Refreshing sidebar...");
-        // log::debug!(
-        //     "Single selected block: {:?}",
-        //     self.tree_state.read(cx).selected_block
-        // );
-        // log::debug!(
-        //     "Multi selected blocks: {:?}",
-        //     self.tree_state.read(cx).selected_blocks
-        // );
-        // log::debug!("Got {} blocks", states.get_all_blocks_ids().len());
-
         div()
             .key_context(SIDEBAR)
             .track_focus(&self.focus_handle(cx))
+            .w(DEFAULT_WIDTH)
+            .border_color(cx.theme().sidebar_border) // Together with border_r_l to create a border line
+            .border_r_1()
             .h_full() // We need h_full to display the sidebar in full height, but not necessarily size_full
             .child(remote_server_tab_bar)
             .child(

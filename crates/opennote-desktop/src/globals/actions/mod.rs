@@ -1,11 +1,10 @@
 pub mod route_helpers;
+pub mod chunking;
 
 use gpui::{SharedString, Window};
 use uuid::Uuid;
 
-use opennote_core_logics::payload::{
-    PayloadContentParameters, build_payload, convert_string_to_payloads,
-};
+use opennote_core_logics::payload::{PayloadContentParameters, build_payload};
 use opennote_data::{Databases, database::enums::BlockQuery};
 use opennote_embedder::{
     entry::EmbedderEntry,
@@ -14,7 +13,6 @@ use opennote_embedder::{
 use opennote_models::{
     block::Block,
     configurations::system::{EmbedderConfig, VectorDatabaseConfig},
-    payload::Payload,
 };
 
 use crate::globals::{
@@ -28,7 +26,7 @@ use crate::globals::{
             register_long_running_result, register_long_running_task, register_result,
             register_task,
         },
-        unique_notifications::{ChunkBlockNotification, UpdateNBlocksNotification},
+        unique_notifications::UpdateNBlocksNotification,
     },
 };
 
@@ -267,6 +265,8 @@ pub fn update_n_blocks(
     window: &mut Window,
     app_cx: &mut gpui::App,
     blocks: Vec<Block>,
+    server_name: SharedString,
+    server_states: ServerStates,
     with_payload_changes: bool,
 ) {
     log::debug!("Updating blocks: {:?}", blocks);
@@ -376,15 +376,9 @@ pub fn update_n_blocks(
                 }
             }
 
-            let (server_name, server) = cx
-                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
-                    this.get_active_server()
-                })
-                .unwrap();
-
             match route_helpers::route_update_blocks(
                 &server_name,
-                &server,
+                &server_states,
                 &databases,
                 &vector_database_config,
                 blocks,
@@ -550,76 +544,6 @@ pub fn update_parent(
             let _ = app.update_global::<States, ()>(|this, cx| {
                 this.refresh_blocks_list(cx);
             });
-        })
-        .detach();
-}
-
-pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block, text: String) {
-    log::debug!("Chunking block: {:?}", block.id);
-
-    let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
-    let configurations = bootstrap.get_configurations();
-
-    let text_chunk_size = configurations.user.search.document_chunk_size;
-    let window = window.window_handle();
-
-    app_cx
-        .spawn(async move |cx| {
-            let task =
-                TaskInformation::new("Chunking a block", TaskType::ChunkBlock(block.id), true);
-            let task_id = task.id;
-
-            // Register task in the scheduler.
-            register_long_running_task::<ChunkBlockNotification>(window, cx, task);
-
-            // Chunk in the background
-            let payloads: Vec<Payload> = match cx
-                .background_executor()
-                .spawn(async move {
-                    let payloads =
-                        match convert_string_to_payloads(block.id, Some(text_chunk_size), text) {
-                            Ok(results) => results,
-                            Err(error) => {
-                                log::error!("Error when trying to save a document: {}", error);
-                                return Ok(vec![]);
-                            }
-                        };
-
-                    Ok::<Vec<Payload>, anyhow::Error>(payloads)
-                })
-                .await
-            {
-                Ok(result) => result,
-                Err(error) => {
-                    register_long_running_result::<ChunkBlockNotification>(
-                        window,
-                        cx,
-                        TaskResult::new(
-                            task_id,
-                            false,
-                            format!("Chunking failed: {}", error),
-                            TaskType::ChunkBlock(block.id),
-                            None,
-                        ),
-                    );
-                    return;
-                }
-            };
-
-            block.payloads = payloads;
-
-            // Scheduler should receive the result at this point
-            register_long_running_result::<ChunkBlockNotification>(
-                window,
-                cx,
-                TaskResult::new(
-                    task_id,
-                    true,
-                    "Chunking completed",
-                    TaskType::ChunkBlock(block.id),
-                    Some(serde_json::to_value(block).unwrap()),
-                ),
-            );
         })
         .detach();
 }

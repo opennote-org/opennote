@@ -7,7 +7,9 @@ use crate::{
     ActiveTheme, Side, StyledExt, h_flex, libs::tree::Tree, scroll::ScrollableElement, v_flex,
 };
 
-const DEFAULT_WIDTH: Pixels = px(255.);
+/// Default width of the sidebar.
+/// Should be shared with other components that stack with it.
+pub const DEFAULT_WIDTH: Pixels = px(255.);
 
 /// A Sidebar element that can contain trees
 #[derive(IntoElement)]

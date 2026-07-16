@@ -12,7 +12,8 @@ actions!(
         ToggleSidebar,
         ToggleSearchBar,
         ToggleCommandBar,
-        CreateOneBlock
+        ToggleSettingsPanel,
+        CreateOneBlock,
     ]
 );
 actions!(sidebar, [DeleteBlocks]);
@@ -26,6 +27,7 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
             "ToggleSidebar" => Ok(Box::new(ToggleSidebar)),
             "ToggleSearchBar" => Ok(Box::new(ToggleSearchBar)),
             "ToggleCommandBar" => Ok(Box::new(ToggleCommandBar)),
+            "ToggleSettingsPanel" => Ok(Box::new(ToggleSettingsPanel)),
             "CreateOneBlock" => Ok(Box::new(CreateOneBlock)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",

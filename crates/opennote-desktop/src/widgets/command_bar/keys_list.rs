@@ -9,7 +9,7 @@ use crate::{
     globals::helpers::get_language_profile,
     key_mappings::{
         helpers::{get_keystrokes_as_shared_string, match_action_to_language},
-        mappings::{CreateOneBlock, ToggleCommandBar, ToggleSidebar},
+        mappings::{CreateOneBlock, ToggleCommandBar, ToggleSettingsPanel, ToggleSidebar},
     },
 };
 
@@ -27,6 +27,7 @@ impl KeysList {
             Box::new(ToggleSidebar),
             Box::new(ToggleCommandBar),
             Box::new(CreateOneBlock),
+            Box::new(ToggleSettingsPanel),
         ];
 
         let actions_keymaps: Vec<(Box<dyn Action>, Option<SharedString>)> = actions

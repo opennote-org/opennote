@@ -9,6 +9,7 @@
   "workspace::ToggleCommandBar": "Toggle command bar",
   "workspace::CreateOneBlock": "Create a new note",
   "workspace::ToggleSearchBar": "Toggle search bar",
+  "workspace::ToggleSettingsPanel": "Toggle settings panel",
   "new_note": "New Note",
   "search": "Search",
   "commands": "Commands"

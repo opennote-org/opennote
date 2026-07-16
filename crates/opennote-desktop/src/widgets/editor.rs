@@ -12,7 +12,8 @@ use opennote_models::block::Block;
 
 use crate::{
     globals::{
-        actions::{chunk_block, update_n_blocks},
+        actions::{chunking::chunk_block, update_n_blocks},
+        states::States,
         tasks::{
             task_result::{TaskResult, TaskType},
             tracker::TaskTracker,
@@ -70,7 +71,11 @@ impl Editor {
                         return;
                     };
 
-                    update_n_blocks(window, cx, vec![block.clone()], true);
+                    let states: &States = cx.global();
+                    let servers = states.get_servers_by_block_ids(&vec![block.id]).remove(0);
+
+                    update_n_blocks(window, cx, vec![block], servers.0, servers.1, true);
+
                     cx.notify();
                 }
 

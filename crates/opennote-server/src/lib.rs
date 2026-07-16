@@ -130,13 +130,18 @@ pub async fn search_remote_server_blocks(
     };
     let body = create_request(payload, shared_key)?.serialize();
 
-    let response = client
+    let response = match client
         .post(build_url(base_url, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT))
         .header(AUTHORIZATION.as_str(), password)
         .body(body)
         .send()
         .await
-        .context("Failed to send search request")?;
+    {
+        Ok(result) => result,
+        // Server connection status should be indicated somewhere else.
+        // A server error should not block the entire search opearation.
+        Err(_) => return Ok(Vec::new()),
+    };
 
     parse_base_response(response, shared_key).await
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gpui::{App, Global, SharedString, WeakEntity};
+use gpui::{App, AppContext, Global, SharedString, WeakEntity};
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
@@ -46,34 +46,9 @@ impl Global for States {}
 
 impl States {
     pub fn new(servers: HashMap<String, RemoteServerConfiguration>) -> Self {
-        let mut servers: HashMap<SharedString, ServerStates> = servers
-            .into_iter()
-            .map(|(server_name, config)| {
-                (
-                    server_name.into(),
-                    ServerStates {
-                        connection_string: config.connection_string.into(),
-                        password: config.password.into(),
-                        shared_key: config.shared_key.clone(),
-                        blocks: HashMap::new(),
-                    },
-                )
-            })
-            .collect();
-
-        servers.insert(
-            SharedString::new(LOCAL_SERVER_NAME),
-            ServerStates {
-                connection_string: SharedString::new(""),
-                password: SharedString::new(""),
-                shared_key: SharedKey::new([0u8; 32]),
-                blocks: HashMap::new(),
-            },
-        );
-
         Self {
             active_server: SharedString::new(LOCAL_SERVER_NAME),
-            servers,
+            servers: build_servers(servers),
             active_pane: None,
             search_scope: SearchScope::Document,
         }
@@ -98,7 +73,7 @@ impl States {
         cx.set_global(states);
     }
 
-    /// Overwrite the existing blocks in the states with the new blocks
+    /// Overwrite the existing blocks of a server in the states with the new blocks
     pub fn hard_update_blocks(&mut self, server_name: &SharedString, blocks: Vec<Block>) {
         if let Some(server) = self.servers.get_mut(server_name) {
             server.blocks = HashMap::from_iter(blocks.into_iter().map(|item| (item.id, item)));
@@ -110,46 +85,33 @@ impl States {
         log::debug!("Refreshing blocks...");
 
         let servers = self.get_servers().to_owned();
+        let databases = cx.read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
+            this.0.databases.clone()
+        });
 
-        cx.spawn(async move |cx| {
-            let databases = cx
-                .read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
-                    this.0.databases.clone()
-                })
-                .unwrap();
-
-            let handles: Vec<_> = servers
-                .into_iter()
-                .map(|(name, server)| {
-                    let databases = databases.clone();
-
-                    async move {
-                        match route_read_blocks(&name, &server, &databases, &BlockQuery::All).await
-                        {
-                            Ok(results) => (name, Ok(results)),
-                            Err(error) => {
-                                log::error!("{}", error);
-                                (name, Err(error))
-                            }
+        for (name, server) in servers {
+            let databases = databases.clone();
+            cx.spawn(async move |cx| {
+                let (server_name, results) =
+                    match route_read_blocks(&name, &server, &databases, &BlockQuery::All).await {
+                        Ok(results) => (name, Ok(results)),
+                        Err(error) => {
+                            log::error!("{}", error);
+                            (name, Err(error))
                         }
-                    }
-                })
-                .collect();
+                    };
 
-            let results = futures::future::join_all(handles).await;
-
-            for (name, result) in results {
-                if let Ok(blocks) = result {
+                if let Ok(blocks) = results {
                     match cx.update_global::<States, ()>(|this, _cx| {
-                        this.hard_update_blocks(&name, blocks);
+                        this.hard_update_blocks(&server_name, blocks);
                     }) {
                         Ok(_) => {}
                         Err(error) => log::error!("{}", error),
                     }
                 }
-            }
-        })
-        .detach();
+            })
+            .detach();
+        }
     }
 
     pub fn get_block(&self, block_id: &Uuid) -> Option<Block> {
@@ -271,4 +233,39 @@ impl States {
 
         selected_index
     }
+
+    pub fn update_servers(&mut self, servers: HashMap<String, RemoteServerConfiguration>) {
+        self.servers = build_servers(servers);
+    }
+}
+
+/// This will also include the local workspace as a server too.
+fn build_servers(
+    servers: HashMap<String, RemoteServerConfiguration>,
+) -> HashMap<SharedString, ServerStates> {
+    let mut servers: HashMap<SharedString, ServerStates> = servers
+        .into_iter()
+        .map(|(server_name, config)| {
+            (
+                server_name.into(),
+                ServerStates {
+                    connection_string: config.connection_string.into(),
+                    password: config.password.into(),
+                    shared_key: config.shared_key.clone(),
+                    blocks: HashMap::new(),
+                },
+            )
+        })
+        .collect();
+
+    servers.insert(
+        SharedString::new(LOCAL_SERVER_NAME),
+        ServerStates {
+            connection_string: SharedString::new(""),
+            password: SharedString::new(""),
+            shared_key: SharedKey::new([0u8; 32]),
+            blocks: HashMap::new(),
+        },
+    );
+    servers
 }

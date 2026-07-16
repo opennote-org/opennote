@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    vec,
-};
+use std::vec;
 
 use gpui::{ParentElement, SharedString, Styled, WeakEntity};
 use gpui_component::{
@@ -11,27 +8,44 @@ use gpui_component::{
     v_flex,
 };
 
-use opennote_data::{
-    database::enums::BlockQuery,
-    search::{SearchScope, models::RawSearchResult},
-};
+use opennote_data::search::{SearchScope, models::RawSearchResult};
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
     block::Block,
     configurations::search::SupportedSearchMethod,
     payload::{Payload, create_query},
 };
-use uuid::Uuid;
 
 use crate::{
     globals::{
-        actions::route_helpers::{self, route_read_blocks},
+        actions::route_helpers::{self},
         bootstrap::GlobalApplicationBootStrap,
         helpers::run_async_code,
-        states::States,
+        states::{ServerStates, States},
     },
     widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},
 };
+
+fn create_search_queries(
+    query: &str,
+    search_method: SupportedSearchMethod,
+    bootstrap: &GlobalApplicationBootStrap,
+) -> (Option<String>, Option<Vec<f32>>) {
+    let query_str = query.to_string();
+    let mut query_vector = Vec::new();
+
+    if search_method == SupportedSearchMethod::Semantic {
+        let Some(embedders) = &bootstrap.0.embedders else {
+            return (None, None);
+        };
+        let payload = create_query(query);
+        let payloads =
+            run_async_code(async { send_vectorization(vec![payload], embedders).await.unwrap() });
+        query_vector = payloads[0].vector.clone();
+    }
+
+    (Some(query_str), Some(query_vector))
+}
 
 /// Collect all available gpui actions / key bindings in this app
 ///
@@ -46,6 +60,14 @@ pub struct SearchResultsList {
     /// Searched block and the specific payload contains the result
     pub results: Vec<(Block, Payload, RawSearchResult)>,
 
+    /// Raw results from querying the search endpoint
+    pub raw_results: Vec<RawSearchResult>,
+
+    pub servers_to_retrieve: Vec<(SharedString, ServerStates)>,
+
+    /// Indicate which query is current active as the user types
+    pub active_query_id: usize,
+
     pub search_bar: WeakEntity<SearchBar>,
 
     ///
@@ -56,8 +78,11 @@ impl SearchResultsList {
     pub fn new(search_bar: WeakEntity<SearchBar>) -> Self {
         Self {
             results: Vec::new(),
+            raw_results: Vec::new(),
+            servers_to_retrieve: Vec::new(),
             selected_index: None,
             search_bar,
+            active_query_id: 0,
         }
     }
 }
@@ -124,6 +149,16 @@ impl ListDelegate for SearchResultsList {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> gpui::Task<()> {
+        // Create a query id for the observer to validate
+        // if this is the current query.
+        self.active_query_id += 1;
+        let query_id = self.active_query_id;
+
+        // Cleanup before searching
+        self.results.clear();
+        self.raw_results.clear();
+        self.servers_to_retrieve.clear();
+
         // Adopt the search method accordingly
         // Retrieve the search method from global state
         let bootstrap: &GlobalApplicationBootStrap = cx.global();
@@ -171,105 +206,55 @@ impl ListDelegate for SearchResultsList {
             ),
         };
 
-        let databases = &bootstrap.0.databases;
+        // Send the search operation to the background from here
+        // Store the raw results to a struct field
+        // Retrieve the raw results when raw results are updated
+        // Retreive the blocks, then save to the self.results
+
+        let databases = bootstrap.0.databases.clone();
         let search_method = configurations.user.search.default_search_method;
         let top_n = configurations.user.search.top_n;
 
-        let raw_results = run_async_code(async {
-            let query_str = Some(query.to_string());
-            let mut query_vector = None;
+        let (query_str, query_vector) = create_search_queries(query, search_method, bootstrap);
+        if query_str.is_none() && query_vector.is_none() {
+            self.results = Vec::new();
+            return gpui::Task::ready(());
+        }
 
-            if search_method == SupportedSearchMethod::Semantic {
-                let Some(embedders) = &bootstrap.0.embedders else {
-                    return Vec::new();
-                };
-                let payload = create_query(query);
-                let payloads = send_vectorization(vec![payload], embedders).await.unwrap();
-                query_vector = Some(payloads[0].vector.clone());
-            }
-
-            let mut results = Vec::new();
-            let mut handles = Vec::new();
-            for (name, server) in servers.iter() {
-                handles.push(route_helpers::route_search_blocks(
+        for (name, server) in servers.clone().into_iter() {
+            let block_ids = block_ids.clone();
+            let query_str = query_str.clone();
+            let query_vector = query_vector.clone();
+            let databases = databases.clone();
+            cx.spawn(async move |this, cx| {
+                let raw_results = match route_helpers::route_search_blocks(
                     &name,
                     &server,
                     &databases,
                     search_method,
-                    block_ids.clone(),
-                    query_str.clone(),
-                    query_vector.clone(),
+                    block_ids,
+                    query_str,
+                    query_vector,
                     top_n,
-                ));
-            }
-            let gathered = futures::future::join_all(handles).await;
-            for result in gathered {
-                results.extend(result.unwrap());
-            }
+                )
+                .await
+                {
+                    Ok(results) => results,
+                    Err(error) => panic!("{}", error),
+                };
 
-            results
-        });
-
-        // TODO: convert raw results to blocks and payloads
-        let mut results: HashMap<Uuid, Vec<RawSearchResult>> = HashMap::new();
-        let blocks = run_async_code(async {
-            // Get block ids for retrieving them
-            let mut block_ids = HashSet::new();
-
-            // Also save them to a hash map for pairing
-            for raw_result in raw_results {
-                let block_id = raw_result.block_id;
-
-                block_ids.insert(block_id);
-
-                // Insert payload id when block is there
-                if let Some(payloads) = results.get_mut(&block_id) {
-                    payloads.push(raw_result);
-                    continue;
-                }
-
-                // Insert payload id and block id when block is not there
-                if results.get(&block_id).is_none() {
-                    results.insert(block_id, vec![raw_result]);
-                }
-            }
-
-            let mut block_handles = Vec::new();
-            for (name, server) in &servers {
-                block_handles.push(async {
-                    let filter = BlockQuery::ByIds(block_ids.iter().cloned().collect());
-                    route_read_blocks(name, server, databases, &filter).await
+                let _ = this.update(cx, |this, cx| {
+                    // Cancel all old queries as the user types
+                    if query_id == this.delegate().active_query_id {
+                        this.delegate_mut().raw_results.extend(raw_results);
+                        cx.notify();
+                    }
                 });
-            }
-            let blocks_results = futures::future::join_all(block_handles).await;
-            let mut blocks = Vec::new();
-            for res in blocks_results {
-                blocks.extend(res.unwrap());
-            }
-
-            blocks
-        });
-
-        // Pair payloads with their blocks
-        self.results.clear();
-        for block in blocks {
-            let mut block = block;
-            let payloads = std::mem::take(&mut block.payloads);
-            let mut payloads: HashMap<Uuid, Payload> =
-                payloads.into_iter().map(|item| (item.id, item)).collect();
-
-            if let Some(need_payload_ids) = results.remove(&block.id) {
-                for need_payload_id in need_payload_ids {
-                    self.results.push((
-                        block.clone(),
-                        payloads.remove(&need_payload_id.payload_id).unwrap(),
-                        need_payload_id,
-                    ));
-                }
-            }
+            })
+            .detach();
         }
 
-        self.results.sort_by(|a, b| b.2.score.total_cmp(&a.2.score));
+        self.servers_to_retrieve = servers;
 
         gpui::Task::ready(())
     }

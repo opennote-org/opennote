@@ -9,6 +9,7 @@
   "workspace::ToggleCommandBar": "开关命令栏",
   "workspace::CreateOneBlock": "创建新笔记",
   "workspace::ToggleSearchBar": "开关搜索栏",
+  "workspace::ToggleSettingsPanel": "开关偏好设置",
   "new_note": "新笔记",
   "search": "搜索",
   "commands": "指令"

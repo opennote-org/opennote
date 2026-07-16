@@ -5,8 +5,11 @@ use crate::{
     globals::{states::States, tasks::tracker::TaskTracker},
     key_mappings::{
         key_contexts::WORKSPACE,
-        mappings::{CreateOneBlock, ToggleCommandBar, ToggleSearchBar, ToggleSidebar},
+        mappings::{
+            CreateOneBlock, ToggleCommandBar, ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
+        },
     },
+    views::settings::SettingsPanel,
     widgets::{
         command_bar::bar::CommandBar,
         pane::{pane::Pane, pane_group::PaneGroup},
@@ -23,6 +26,7 @@ pub struct Workspace {
     pub pane_group: Entity<PaneGroup>,
     pub command_bar: Entity<CommandBar>,
     pub search_bar: Entity<SearchBar>,
+    pub settings_panel: Entity<SettingsPanel>,
 
     is_initialization_succeeded: bool,
 
@@ -62,6 +66,7 @@ impl Workspace {
             }),
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window)),
+            settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
             is_initialization_succeeded: false,
             _subscriptions,
         })
@@ -186,6 +191,16 @@ impl Render for Workspace {
                     }
                 })
             }))
+            .on_action(
+                cx.listener(|this, _action: &ToggleSettingsPanel, window, cx| {
+                    let settings_panel = this.settings_panel.clone();
+                    let _ = cx
+                        .open_window(WindowOptions::default(), |_this, cx| {
+                            cx.new(|cx| Root::new(settings_panel, window, cx))
+                        })
+                        .unwrap();
+                }),
+            )
             .children(notification)
     }
 }
