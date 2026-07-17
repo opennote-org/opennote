@@ -13,10 +13,12 @@ use opennote_models::{
         READ_WORKSPACE_BLOCKS_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
         UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
     },
+    query::BlockQuery,
     server::{
         requests::{
             CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
-            SearchBlocksInWorkspaceRequest, UpdateBlocksInWorkspaceRequest, create_request,
+            ReadBlocksInWorkspaceRequest, SearchBlocksInWorkspaceRequest,
+            UpdateBlocksInWorkspaceRequest, create_request,
         },
         responses::parse_base_response,
     },
@@ -36,10 +38,19 @@ pub async fn read_remote_server_blocks(
     base_url: &str,
     password: &str,
     shared_key: &SharedKey,
+    filter: &BlockQuery,
+    has_vector: bool,
 ) -> Result<Vec<Block>> {
+    let payload = ReadBlocksInWorkspaceRequest {
+        block_query: filter.to_owned(),
+        has_vector,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
     let response = client
-        .get(build_url(base_url, READ_WORKSPACE_BLOCKS_ENDPOINT))
+        .post(build_url(base_url, READ_WORKSPACE_BLOCKS_ENDPOINT))
         .header(AUTHORIZATION.as_str(), password)
+        .body(body)
         .send()
         .await
         .context("Failed to send read request")?;

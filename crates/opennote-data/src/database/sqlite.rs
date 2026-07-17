@@ -9,10 +9,13 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use opennote_models::{block::Block, payload::Payload};
+use opennote_models::{
+    block::Block,
+    payload::Payload,
+    query::{BlockQuery, PayloadQuery},
+};
 
 use crate::database::{
-    enums::{BlockQuery, PayloadQuery},
     metadata::MetadataSettings,
     traits::{
         blocks::Blocks, database::Database, metadata::MetadataManagement, payloads::Payloads,
@@ -226,7 +229,9 @@ impl Blocks for SQLiteDatabase {
         loop {
             match block_id {
                 Some(id) => {
-                    let model = self.read_blocks(&BlockQuery::ByIds(vec![id])).await?;
+                    let model = self
+                        .read_blocks(&BlockQuery::ByIds(vec![id]), false)
+                        .await?;
 
                     if !model.is_empty() {
                         block_id = model[0].parent_id;
@@ -241,7 +246,7 @@ impl Blocks for SQLiteDatabase {
         Ok(path)
     }
 
-    async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>> {
+    async fn read_blocks(&self, filter: &BlockQuery, has_vector: bool) -> Result<Vec<Block>> {
         use opennote_entities::blocks;
         use opennote_entities::payloads;
 
@@ -278,7 +283,7 @@ impl Blocks for SQLiteDatabase {
 
         let blocks: Vec<Block> = Block::from_models(all_blocks_payloads_pairs);
 
-        match filter {
+        let mut blocks = match filter {
             BlockQuery::ChildrenOf(_) => {
                 let mut children: Vec<Block> = blocks;
                 let mut current_level_ids: Vec<Uuid> =
@@ -305,10 +310,20 @@ impl Blocks for SQLiteDatabase {
                     children.extend(converted_blocks);
                 }
 
-                Ok(children)
+                children
             }
-            _ => Ok(blocks),
+            _ => blocks,
+        };
+
+        if !has_vector {
+            blocks.iter_mut().for_each(|item| {
+                item.payloads
+                    .iter_mut()
+                    .for_each(|item| item.vector.clear())
+            });
         }
+
+        Ok(blocks)
     }
 
     /// TODO: pay attention to the payload updates & creations

@@ -1,4 +1,3 @@
-pub mod enums;
 pub mod metadata;
 pub mod shared;
 pub mod sqlite;

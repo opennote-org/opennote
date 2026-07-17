@@ -1,11 +1,11 @@
-pub mod route_helpers;
 pub mod chunking;
+pub mod route_helpers;
 
 use gpui::{SharedString, Window};
 use uuid::Uuid;
 
 use opennote_core_logics::payload::{PayloadContentParameters, build_payload};
-use opennote_data::{Databases, database::enums::BlockQuery};
+use opennote_data::Databases;
 use opennote_embedder::{
     entry::EmbedderEntry,
     vectorization::{send_vectorization, vectorize},
@@ -13,6 +13,7 @@ use opennote_embedder::{
 use opennote_models::{
     block::Block,
     configurations::system::{EmbedderConfig, VectorDatabaseConfig},
+    query::BlockQuery,
 };
 
 use crate::globals::{
@@ -471,6 +472,7 @@ pub fn update_parent(
                 &server,
                 &databases,
                 &BlockQuery::ByIds(block_ids),
+                true,
             )
             .await
             {

@@ -9,13 +9,11 @@ use opennote_embedder::{entry::EmbedderEntry, vectorization::vectorize};
 use opennote_models::{
     configurations::system::{SystemConfigurations, VectorDatabaseConfig},
     payload::Payload,
+    query::{BlockQuery, PayloadQuery},
 };
 
 use crate::{
-    database::{
-        enums::{BlockQuery, PayloadQuery},
-        traits::database::Database,
-    },
+    database::traits::database::Database,
     search::{keyword::KeywordSearch, semantic::SemanticSearch},
 };
 
@@ -48,7 +46,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
         database: &Arc<dyn Database>,
         embedder_entry: &EmbedderEntry,
     ) -> Result<()> {
-        let blocks = database.read_blocks(&BlockQuery::All).await?;
+        let blocks = database.read_blocks(&BlockQuery::All, true).await?;
         let mut block_ids = Vec::new();
         let payloads: Vec<Payload> = blocks
             .into_iter()
