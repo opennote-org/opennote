@@ -92,14 +92,22 @@ impl States {
         for (name, server) in servers {
             let databases = databases.clone();
             cx.spawn(async move |cx| {
-                let (server_name, results) =
-                    match route_read_blocks(&name, &server, &databases, &BlockQuery::All, false).await {
-                        Ok(results) => (name, Ok(results)),
-                        Err(error) => {
-                            log::error!("{}", error);
-                            (name, Err(error))
-                        }
-                    };
+                let (server_name, results) = match route_read_blocks(
+                    &name,
+                    &server,
+                    &databases,
+                    &BlockQuery::All,
+                    false,
+                    false,
+                )
+                .await
+                {
+                    Ok(results) => (name, Ok(results)),
+                    Err(error) => {
+                        log::error!("{}", error);
+                        (name, Err(error))
+                    }
+                };
 
                 if let Ok(blocks) = results {
                     match cx.update_global::<States, ()>(|this, _cx| {

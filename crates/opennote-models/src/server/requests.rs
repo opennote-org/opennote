@@ -38,6 +38,7 @@ pub fn decrypt_request<G: DeserializeOwned>(
 pub struct ReadBlocksInWorkspaceRequest {
     pub block_query: BlockQuery,
     pub has_vector: bool,
+    pub has_payload: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

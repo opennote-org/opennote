@@ -36,7 +36,13 @@ pub async fn read_workspace_blocks(
         };
 
     create_base_response(
-        read_blocks(&data.databases, &request.block_query, request.has_vector).await,
+        read_blocks(
+            &data.databases,
+            &request.block_query,
+            request.has_vector,
+            request.has_payload,
+        )
+        .await,
         &configurations.system.server.shared_key,
     )
 }

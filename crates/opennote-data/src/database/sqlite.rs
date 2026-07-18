@@ -230,7 +230,7 @@ impl Blocks for SQLiteDatabase {
             match block_id {
                 Some(id) => {
                     let model = self
-                        .read_blocks(&BlockQuery::ByIds(vec![id]), false)
+                        .read_blocks(&BlockQuery::ByIds(vec![id]), false, false)
                         .await?;
 
                     if !model.is_empty() {
@@ -246,7 +246,12 @@ impl Blocks for SQLiteDatabase {
         Ok(path)
     }
 
-    async fn read_blocks(&self, filter: &BlockQuery, has_vector: bool) -> Result<Vec<Block>> {
+    async fn read_blocks(
+        &self,
+        filter: &BlockQuery,
+        has_vector: bool,
+        has_payload: bool,
+    ) -> Result<Vec<Block>> {
         use opennote_entities::blocks;
         use opennote_entities::payloads;
 
@@ -275,13 +280,7 @@ impl Blocks for SQLiteDatabase {
             }
         };
 
-        let all_blocks_payloads_pairs = blocks::Entity::find()
-            .find_with_related(payloads::Entity)
-            .filter(conditions)
-            .all(&self.pool)
-            .await?;
-
-        let blocks: Vec<Block> = Block::from_models(all_blocks_payloads_pairs);
+        let blocks: Vec<Block> = read_blocks_with_payloads(&self.pool, conditions).await?;
 
         let mut blocks = match filter {
             BlockQuery::ChildrenOf(_) => {
@@ -315,12 +314,17 @@ impl Blocks for SQLiteDatabase {
             _ => blocks,
         };
 
-        if !has_vector {
-            blocks.iter_mut().for_each(|item| {
-                item.payloads
+        for block in blocks.iter_mut() {
+            if !has_payload {
+                block.payloads.truncate(1);
+            }
+
+            if !has_vector {
+                block
+                    .payloads
                     .iter_mut()
                     .for_each(|item| item.vector.clear())
-            });
+            }
         }
 
         Ok(blocks)
@@ -377,4 +381,21 @@ impl Blocks for SQLiteDatabase {
 
         Ok(())
     }
+}
+
+pub async fn read_blocks_with_payloads(
+    pool: &DatabaseConnection,
+    conditions: Condition,
+) -> Result<Vec<Block>> {
+    use opennote_entities::blocks;
+    use opennote_entities::payloads;
+
+    let all_blocks_payloads_pairs = blocks::Entity::find()
+        .order_by_id_asc()
+        .find_with_related(payloads::Entity)
+        .filter(conditions)
+        .all(pool)
+        .await?;
+
+    Ok(Block::from_models(all_blocks_payloads_pairs))
 }

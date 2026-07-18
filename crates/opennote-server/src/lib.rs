@@ -40,10 +40,12 @@ pub async fn read_remote_server_blocks(
     shared_key: &SharedKey,
     filter: &BlockQuery,
     has_vector: bool,
+    has_payload: bool,
 ) -> Result<Vec<Block>> {
     let payload = ReadBlocksInWorkspaceRequest {
         block_query: filter.to_owned(),
         has_vector,
+        has_payload,
     };
     let body = create_request(payload, shared_key)?.serialize();
 

@@ -12,7 +12,7 @@ use opennote_models::block::Block;
 
 use crate::{
     globals::{
-        actions::{chunking::chunk_block, update_n_blocks},
+        actions::{block::get_block_content, chunking::chunk_block, update_n_blocks},
         states::States,
         tasks::{
             task_result::{TaskResult, TaskType},
@@ -102,7 +102,7 @@ impl Editor {
                         return;
                     };
 
-                    let texts: String = block.get_text_content();
+                    let texts: String = get_block_content(&block.id, cx).unwrap();
 
                     if !Self::has_text_changed(&texts, state, cx) {
                         return;
@@ -219,7 +219,7 @@ impl Editor {
         let texts = if let Some(unsaved) = unsaved_content {
             unsaved
         } else {
-            block.get_text_content().into()
+            get_block_content(&block.id, cx).unwrap().into()
         };
 
         // Early return if the new block is identical with the opened one

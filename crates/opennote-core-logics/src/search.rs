@@ -41,7 +41,7 @@ async fn get_payload_ids_by_block_ids(
     block_ids: Vec<Uuid>,
 ) -> Result<Vec<Uuid>> {
     // get payloads
-    let blocks = read_blocks(databases, &BlockQuery::ByIds(block_ids), false).await?;
+    let blocks = read_blocks(databases, &BlockQuery::ByIds(block_ids), false, true).await?;
 
     Ok(blocks
         .iter()

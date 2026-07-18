@@ -37,8 +37,12 @@ pub async fn read_blocks(
     databases: &Databases,
     filter: &BlockQuery,
     has_vector: bool,
+    has_payload: bool,
 ) -> Result<Vec<Block>> {
-    databases.database.read_blocks(filter, has_vector).await
+    databases
+        .database
+        .read_blocks(filter, has_vector, has_payload)
+        .await
 }
 
 pub async fn update_blocks(

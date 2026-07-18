@@ -74,9 +74,10 @@ pub async fn route_read_blocks(
     databases: &Databases,
     filter: &BlockQuery,
     has_vector: bool,
+    has_payload: bool,
 ) -> Result<Vec<Block>> {
     if server_name == LOCAL_SERVER_NAME {
-        read_blocks(databases, filter, false).await
+        read_blocks(databases, filter, has_vector, has_payload).await
     } else {
         match read_remote_server_blocks(
             &Client::new(),
@@ -85,6 +86,7 @@ pub async fn route_read_blocks(
             &server_states.shared_key,
             filter,
             has_vector,
+            has_payload,
         )
         .await
         {

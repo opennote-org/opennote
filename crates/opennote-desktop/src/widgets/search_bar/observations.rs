@@ -72,9 +72,10 @@ pub fn observe_search_result_list(
                     let name = name;
                     let server = server;
                     let filter = BlockQuery::ByIds(block_ids.iter().cloned().collect());
-                    let blocks = route_read_blocks(&name, &server, &databases, &filter, false)
-                        .await
-                        .unwrap();
+                    let blocks =
+                        route_read_blocks(&name, &server, &databases, &filter, false, true)
+                            .await
+                            .unwrap();
 
                     for block in blocks {
                         let mut block = block;

@@ -1,3 +1,4 @@
+pub mod block;
 pub mod chunking;
 pub mod route_helpers;
 
@@ -472,6 +473,7 @@ pub fn update_parent(
                 &server,
                 &databases,
                 &BlockQuery::ByIds(block_ids),
+                true,
                 true,
             )
             .await

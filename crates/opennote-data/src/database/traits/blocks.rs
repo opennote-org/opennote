@@ -11,7 +11,12 @@ pub trait Blocks {
     async fn create_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>>;
 
     /// Get blocks with a query filter
-    async fn read_blocks(&self, filter: &BlockQuery, has_vector: bool) -> Result<Vec<Block>>;
+    async fn read_blocks(
+        &self,
+        filter: &BlockQuery,
+        has_vector: bool,
+        has_payload: bool,
+    ) -> Result<Vec<Block>>;
 
     /// Update blocks by passing the blocks to update
     async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()>;

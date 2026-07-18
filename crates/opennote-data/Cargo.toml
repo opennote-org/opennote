@@ -5,6 +5,13 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+
+# Internal dependencies
+migration = { path = "./crates/migration" }
+opennote-embedder = { workspace = true }
+opennote-models = { workspace = true }
+opennote-entities = { workspace = true }
+
 # External dependencies
 rusqlite = { version = "0.32.0", features = ["bundled", "load_extension"] }
 chrono = { version = "0.4.42", features = ["serde"] }
@@ -27,9 +34,3 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 reqwest = { workspace = true }
 schemars = { workspace = true }
-
-# Internal dependencies
-migration = { path = "./crates/migration" }
-opennote-embedder = { workspace = true }
-opennote-models = { workspace = true }
-opennote-entities = { workspace = true }
