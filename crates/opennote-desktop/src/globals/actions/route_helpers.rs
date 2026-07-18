@@ -4,10 +4,12 @@ use uuid::Uuid;
 
 use opennote_core_logics::block::{create_blocks, delete_blocks, read_blocks, update_blocks};
 use opennote_core_logics::search::{search_by_keyword, search_by_semantics};
-use opennote_data::{Databases, database::enums::BlockQuery, search::models::RawSearchResult};
+use opennote_data::{Databases, search::models::RawSearchResult};
 use opennote_models::{
-    block::Block, configurations::search::SupportedSearchMethod,
-    configurations::system::VectorDatabaseConfig, constants::LOCAL_SERVER_NAME,
+    block::Block,
+    configurations::{search::SupportedSearchMethod, system::VectorDatabaseConfig},
+    constants::LOCAL_SERVER_NAME,
+    query::BlockQuery,
 };
 use opennote_server::{
     create_remote_server_blocks, delete_remote_server_blocks, read_remote_server_blocks,
@@ -71,36 +73,25 @@ pub async fn route_read_blocks(
     server_states: &ServerStates,
     databases: &Databases,
     filter: &BlockQuery,
+    has_vector: bool,
+    has_payload: bool,
 ) -> Result<Vec<Block>> {
     if server_name == LOCAL_SERVER_NAME {
-        read_blocks(databases, filter).await
+        read_blocks(databases, filter, has_vector, has_payload).await
     } else {
-        let all_blocks = match read_remote_server_blocks(
+        match read_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
             &server_states.shared_key,
+            filter,
+            has_vector,
+            has_payload,
         )
         .await
         {
-            Ok(results) => results,
-            Err(_) => return Ok(Vec::new()),
-        };
-
-        match filter {
-            BlockQuery::ByIds(ids) => Ok(all_blocks
-                .into_iter()
-                .filter(|b| ids.contains(&b.id))
-                .collect()),
-            BlockQuery::ChildrenOf(ids) => Ok(all_blocks
-                .into_iter()
-                .filter(|b| b.parent_id.map_or(false, |pid| ids.contains(&pid)))
-                .collect()),
-            BlockQuery::Root => Ok(all_blocks
-                .into_iter()
-                .filter(|b| b.parent_id.is_none())
-                .collect()),
-            BlockQuery::All => Ok(all_blocks),
+            Ok(results) => Ok(results),
+            Err(_) => Ok(Vec::new()),
         }
     }
 }

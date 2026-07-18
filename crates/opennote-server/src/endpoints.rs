@@ -9,23 +9,40 @@ use opennote_core_logics::{
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
     search::{search_by_keyword, search_by_semantics},
 };
-use opennote_data::{database::enums::BlockQuery, search::models::RawSearchResult};
+use opennote_data::search::models::RawSearchResult;
 use opennote_models::{
     configurations::search::SupportedSearchMethod,
     server::{
         requests::{
             CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
-            SearchBlocksInWorkspaceRequest, UpdateBlocksInWorkspaceRequest, decrypt_request,
+            ReadBlocksInWorkspaceRequest, SearchBlocksInWorkspaceRequest,
+            UpdateBlocksInWorkspaceRequest, decrypt_request,
         },
         responses::{create_bad_response, create_base_response},
     },
 };
 
-/// Use this endpoint to retrieve all blocks in this workspace
-pub async fn read_workspace_blocks(data: Data<ApplicationBootStrap>) -> HttpResponse {
+/// Use this endpoint to retrieve blocks in this workspace
+pub async fn read_workspace_blocks(
+    data: Data<ApplicationBootStrap>,
+    request: Bytes,
+) -> HttpResponse {
     let configurations = data.configurations.lock().await;
+
+    let request: ReadBlocksInWorkspaceRequest =
+        match decrypt_request(request, &configurations.system.server.shared_key) {
+            Ok(req) => req,
+            Err(e) => return create_bad_response(format!("Failed to decrypt request: {}", e)),
+        };
+
     create_base_response(
-        read_blocks(&data.databases, &BlockQuery::All).await,
+        read_blocks(
+            &data.databases,
+            &request.block_query,
+            request.has_vector,
+            request.has_payload,
+        )
+        .await,
         &configurations.system.server.shared_key,
     )
 }

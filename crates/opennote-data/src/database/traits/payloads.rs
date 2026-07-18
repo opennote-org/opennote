@@ -3,9 +3,7 @@ use async_trait::async_trait;
 
 use uuid::Uuid;
 
-use crate::database::enums::PayloadQuery;
-
-use opennote_models::payload::Payload;
+use opennote_models::{payload::Payload, query::PayloadQuery};
 
 #[async_trait]
 pub trait Payloads {

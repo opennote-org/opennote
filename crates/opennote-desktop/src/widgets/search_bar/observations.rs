@@ -5,10 +5,10 @@ use std::{
 
 use gpui::{Context, Entity, Subscription};
 use gpui_component::list::ListState;
-
-use opennote_data::{database::enums::BlockQuery, search::models::RawSearchResult};
-use opennote_models::payload::Payload;
 use uuid::Uuid;
+
+use opennote_data::search::models::RawSearchResult;
+use opennote_models::{payload::Payload, query::BlockQuery};
 
 use crate::{
     globals::{actions::route_helpers::route_read_blocks, bootstrap::GlobalApplicationBootStrap},
@@ -72,9 +72,10 @@ pub fn observe_search_result_list(
                     let name = name;
                     let server = server;
                     let filter = BlockQuery::ByIds(block_ids.iter().cloned().collect());
-                    let blocks = route_read_blocks(&name, &server, &databases, &filter)
-                        .await
-                        .unwrap();
+                    let blocks =
+                        route_read_blocks(&name, &server, &databases, &filter, false, true)
+                            .await
+                            .unwrap();
 
                     for block in blocks {
                         let mut block = block;

@@ -14,7 +14,7 @@ pub fn configure_routes() -> Scope {
     web::scope(ROOT_ENDPOINT)
         .route(
             READ_WORKSPACE_BLOCKS_ENDPOINT,
-            web::get().to(read_workspace_blocks),
+            web::post().to(read_workspace_blocks),
         )
         .route(
             CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT,

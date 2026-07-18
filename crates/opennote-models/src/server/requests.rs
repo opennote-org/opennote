@@ -6,7 +6,7 @@ use serde_encrypt::{
 };
 use uuid::Uuid;
 
-use crate::{block::Block, configurations::search::SupportedSearchMethod};
+use crate::{block::Block, configurations::search::SupportedSearchMethod, query::BlockQuery};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BaseRequest<T> {
@@ -32,6 +32,13 @@ pub fn decrypt_request<G: DeserializeOwned>(
     let encrypted_message: EncryptedMessage = EncryptedMessage::deserialize(request.to_vec())?;
     let base_request: BaseRequest<G> = BaseRequest::decrypt_owned(&encrypted_message, shared_key)?;
     Ok(base_request.payload)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadBlocksInWorkspaceRequest {
+    pub block_query: BlockQuery,
+    pub has_vector: bool,
+    pub has_payload: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -3,12 +3,12 @@ use anyhow::Result;
 use futures::future::join;
 use uuid::Uuid;
 
-use opennote_data::{
-    Databases,
-    database::enums::{BlockQuery, PayloadQuery},
-};
+use opennote_data::Databases;
 use opennote_models::{
-    block::Block, configurations::system::VectorDatabaseConfig, payload::Payload,
+    block::Block,
+    configurations::system::VectorDatabaseConfig,
+    payload::Payload,
+    query::{BlockQuery, PayloadQuery},
 };
 
 pub async fn create_blocks(
@@ -32,9 +32,17 @@ pub async fn create_blocks(
     Ok(blocks?)
 }
 
-/// Read blocks from the database
-pub async fn read_blocks(databases: &Databases, filter: &BlockQuery) -> Result<Vec<Block>> {
-    databases.database.read_blocks(filter).await
+/// Read blocks from the database.
+pub async fn read_blocks(
+    databases: &Databases,
+    filter: &BlockQuery,
+    has_vector: bool,
+    has_payload: bool,
+) -> Result<Vec<Block>> {
+    databases
+        .database
+        .read_blocks(filter, has_vector, has_payload)
+        .await
 }
 
 pub async fn update_blocks(

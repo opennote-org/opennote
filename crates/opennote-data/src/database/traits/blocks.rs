@@ -2,9 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use opennote_models::block::Block;
-
-use crate::database::enums::BlockQuery;
+use opennote_models::{block::Block, query::BlockQuery};
 
 #[async_trait]
 pub trait Blocks {
@@ -13,7 +11,12 @@ pub trait Blocks {
     async fn create_blocks(&self, blocks: Vec<Block>) -> Result<Vec<Block>>;
 
     /// Get blocks with a query filter
-    async fn read_blocks(&self, filter: &BlockQuery) -> Result<Vec<Block>>;
+    async fn read_blocks(
+        &self,
+        filter: &BlockQuery,
+        has_vector: bool,
+        has_payload: bool,
+    ) -> Result<Vec<Block>>;
 
     /// Update blocks by passing the blocks to update
     async fn update_blocks(&self, blocks: Vec<Block>) -> Result<()>;

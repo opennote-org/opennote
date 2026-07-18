@@ -4,10 +4,10 @@ use gpui::{App, AppContext, Global, SharedString, WeakEntity};
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
-use opennote_data::{Databases, database::enums::BlockQuery, search::SearchScope};
+use opennote_data::{Databases, search::SearchScope};
 use opennote_models::{
     block::Block, configurations::remote_server::RemoteServerConfiguration,
-    constants::LOCAL_SERVER_NAME,
+    constants::LOCAL_SERVER_NAME, query::BlockQuery,
 };
 
 use crate::{
@@ -92,14 +92,22 @@ impl States {
         for (name, server) in servers {
             let databases = databases.clone();
             cx.spawn(async move |cx| {
-                let (server_name, results) =
-                    match route_read_blocks(&name, &server, &databases, &BlockQuery::All).await {
-                        Ok(results) => (name, Ok(results)),
-                        Err(error) => {
-                            log::error!("{}", error);
-                            (name, Err(error))
-                        }
-                    };
+                let (server_name, results) = match route_read_blocks(
+                    &name,
+                    &server,
+                    &databases,
+                    &BlockQuery::All,
+                    false,
+                    false,
+                )
+                .await
+                {
+                    Ok(results) => (name, Ok(results)),
+                    Err(error) => {
+                        log::error!("{}", error);
+                        (name, Err(error))
+                    }
+                };
 
                 if let Ok(blocks) = results {
                     match cx.update_global::<States, ()>(|this, _cx| {
