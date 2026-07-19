@@ -1,5 +1,6 @@
 use gpui::{DummyKeyboardMapper, KeyBinding, KeyBindingContextPredicate};
-use opennote_models::configurations::key_mappings::{KeyMapping, KeyMappings};
+
+use opennote_models::key_mappings::{KeyMapping, KeyMappings};
 
 use crate::key_mappings::{
     mappings::into_action,

@@ -1,6 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::{constants::KEY_MAPPINGS_FILE_NAME, traits::LoadFromAndSaveToFile};
+
 #[derive(
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord, JsonSchema,
 )]
@@ -28,6 +30,12 @@ pub struct KeyMapping {
     pub action: String,
     /// In which context, should this key binding is available
     pub context: String,
+}
+
+impl LoadFromAndSaveToFile for KeyMappings {
+    fn get_configuration_filename() -> &'static str {
+        KEY_MAPPINGS_FILE_NAME
+    }
 }
 
 impl Default for KeyMappings {

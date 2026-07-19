@@ -9253,7 +9253,6 @@ dependencies = [
  "opennote-data",
  "opennote-embedder",
  "opennote-models",
- "opennote-tasks-scheduler",
  "tokio",
 ]
 

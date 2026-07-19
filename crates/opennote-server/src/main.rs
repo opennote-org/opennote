@@ -9,7 +9,7 @@ use actix_web::web::Data;
 use anyhow::Result;
 use log::info;
 
-use opennote_bootstrap::ApplicationBootStrap;
+use opennote_bootstrap::ServerBootstrap;
 use opennote_models::constants::{
     SERVER_DATA_FOLDER_NAME,
     env_vars::{
@@ -39,16 +39,10 @@ async fn main() -> Result<()> {
     initialize_logger(&config);
 
     info!("Starting OpenNote Server...");
-    info!(
-        "Configuration: Server {}:{}",
-        config.system.server.host, config.system.server.port
-    );
+    info!("Configuration: Server {}:{}", config.host, config.port);
 
-    initialize_backend_api_service(
-        Data::new(ApplicationBootStrap::new(&config).await?),
-        &config,
-    )
-    .await?;
+    initialize_backend_api_service(Data::new(ServerBootstrap::new(&config).await?), &config)
+        .await?;
 
     Ok(())
 }

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use opennote_data::{Databases, search::SearchScope};
 use opennote_models::{
-    block::Block, configurations::remote_server::RemoteServerConfiguration,
+    block::Block, configurations::fields::remote_server::RemoteServerConfiguration,
     constants::LOCAL_SERVER_NAME, query::BlockQuery,
 };
 

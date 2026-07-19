@@ -10,7 +10,7 @@ where
     /// Implement this to get the load and save automatically implemented.
     fn get_configuration_filename() -> &'static str;
 
-    /// The path to the configuration file.
+    /// The path to the configuration file's directory.
     /// It will automatically add the configuration file name
     fn load_from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();

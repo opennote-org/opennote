@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::configurations::{
-    key_mappings::KeyMappings, language::UserInterfaceLanguage,
-    remote_server::RemoteServerConfiguration, search::UserSearchConfiguration,
+    fields::remote_server::RemoteServerConfiguration, language::UserInterfaceLanguage,
+    search::UserSearchConfiguration,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,10 +16,6 @@ pub struct UserConfigurations {
     /// Configurations for search functionality
     #[serde(default)]
     pub search: UserSearchConfiguration,
-
-    /// Configurations for key mappings
-    #[serde(default)]
-    pub key_mappings: KeyMappings,
 
     /// The language used in the user interface
     pub language: UserInterfaceLanguage,
@@ -33,7 +29,6 @@ impl Default for UserConfigurations {
     fn default() -> Self {
         Self {
             search: UserSearchConfiguration::default(),
-            key_mappings: KeyMappings::default(),
             language: UserInterfaceLanguage::default(),
             remote_servers: HashMap::new(),
         }

@@ -4,7 +4,7 @@ use actix_web::{
 };
 use anyhow::anyhow;
 
-use opennote_bootstrap::ApplicationBootStrap;
+use opennote_bootstrap::ServerBootstrap;
 use opennote_core_logics::{
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
     search::{search_by_keyword, search_by_semantics},
@@ -23,14 +23,11 @@ use opennote_models::{
 };
 
 /// Use this endpoint to retrieve blocks in this workspace
-pub async fn read_workspace_blocks(
-    data: Data<ApplicationBootStrap>,
-    request: Bytes,
-) -> HttpResponse {
+pub async fn read_workspace_blocks(data: Data<ServerBootstrap>, request: Bytes) -> HttpResponse {
     let configurations = data.configurations.lock().await;
 
     let request: ReadBlocksInWorkspaceRequest =
-        match decrypt_request(request, &configurations.system.server.shared_key) {
+        match decrypt_request(request, &configurations.shared_key) {
             Ok(req) => req,
             Err(e) => return create_bad_response(format!("Failed to decrypt request: {}", e)),
         };
@@ -43,19 +40,19 @@ pub async fn read_workspace_blocks(
             request.has_payload,
         )
         .await,
-        &configurations.system.server.shared_key,
+        &configurations.shared_key,
     )
 }
 
 /// It will create one new block with a default title payload.
 pub async fn create_blocks_in_workspace(
-    data: Data<ApplicationBootStrap>,
+    data: Data<ServerBootstrap>,
     request: Bytes,
 ) -> HttpResponse {
     let configurations = data.configurations.lock().await;
 
     let request: CreateBlocksInWorkspaceRequest =
-        match decrypt_request(request, &configurations.system.server.shared_key) {
+        match decrypt_request(request, &configurations.shared_key) {
             Ok(req) => req,
             Err(e) => return create_bad_response(format!("Failed to decrypt request: {}", e)),
         };
@@ -67,20 +64,20 @@ pub async fn create_blocks_in_workspace(
             request.blocks,
         )
         .await,
-        &configurations.system.server.shared_key,
+        &configurations.shared_key,
     )
 }
 
 /// Delete n blocks specified by their ids.
 /// This is a normal task that will only show up in the notification center on finish.
 pub async fn delete_blocks_in_workspace(
-    data: Data<ApplicationBootStrap>,
+    data: Data<ServerBootstrap>,
     request: Bytes,
 ) -> HttpResponse {
     let configurations = data.configurations.lock().await;
 
     let request: DeleteBlocksInWorkspaceRequest =
-        match decrypt_request(request, &configurations.system.server.shared_key) {
+        match decrypt_request(request, &configurations.shared_key) {
             Ok(req) => req,
             Err(e) => return create_bad_response(format!("Failed to decrypt request: {}", e)),
         };
@@ -92,19 +89,19 @@ pub async fn delete_blocks_in_workspace(
             request.block_ids,
         )
         .await,
-        &configurations.system.server.shared_key,
+        &configurations.shared_key,
     )
 }
 
 /// Update n blocks supplied in the parameter
 pub async fn update_blocks_in_workspace(
-    data: Data<ApplicationBootStrap>,
+    data: Data<ServerBootstrap>,
     request: Bytes,
 ) -> HttpResponse {
     let configurations = data.configurations.lock().await;
 
     let request: UpdateBlocksInWorkspaceRequest =
-        match decrypt_request(request, &configurations.system.server.shared_key) {
+        match decrypt_request(request, &configurations.shared_key) {
             Ok(req) => req,
             Err(e) => return create_bad_response(format!("Failed to decrypt request: {}", e)),
         };
@@ -116,18 +113,18 @@ pub async fn update_blocks_in_workspace(
             request.blocks,
         )
         .await,
-        &configurations.system.server.shared_key,
+        &configurations.shared_key,
     )
 }
 
 pub async fn search_blocks_in_workspace(
-    data: Data<ApplicationBootStrap>,
+    data: Data<ServerBootstrap>,
     request: Bytes,
 ) -> HttpResponse {
     let configurations = data.configurations.lock().await;
 
     let request: SearchBlocksInWorkspaceRequest =
-        match decrypt_request(request, &configurations.system.server.shared_key) {
+        match decrypt_request(request, &configurations.shared_key) {
             Ok(req) => req,
             Err(e) => return create_bad_response(format!("Failed to decrypt request: {}", e)),
         };
@@ -139,7 +136,7 @@ pub async fn search_blocks_in_workspace(
             } else {
                 return create_base_response::<Vec<RawSearchResult>>(
                     Err(anyhow!("No query found for the search")),
-                    &configurations.system.server.shared_key,
+                    &configurations.shared_key,
                 );
             }
         }
@@ -149,11 +146,11 @@ pub async fn search_blocks_in_workspace(
             } else {
                 return create_base_response::<Vec<RawSearchResult>>(
                     Err(anyhow!("No query found for the search")),
-                    &configurations.system.server.shared_key,
+                    &configurations.shared_key,
                 );
             }
         }
     };
 
-    create_base_response(results, &configurations.system.server.shared_key)
+    create_base_response(results, &configurations.shared_key)
 }

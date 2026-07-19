@@ -13,6 +13,7 @@ pub const SQLITE_VECTOR_DATABASE_FILE_EXTENSION: &str = "sqlite";
  */
 pub const APP_DATA_FOLDER_NAME: &str = "opennote";
 pub const LOCAL_SERVER_NAME: &str = "local";
+pub const KEY_MAPPINGS_FILE_NAME: &str = "key_mappings.json";
 
 /*
  * Server Only

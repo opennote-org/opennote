@@ -11,7 +11,9 @@ use gpui_component::{
 };
 
 use opennote_core_logics::configurations::{ApplicationType, get_configuration_folder_path};
-use opennote_models::{configurations::Configurations, traits::LoadFromAndSaveToFile};
+use opennote_models::{
+    configurations::desktop::DesktopConfigurations, traits::LoadFromAndSaveToFile,
+};
 
 use crate::{
     globals::{bootstrap::GlobalApplicationBootStrap, helpers::run_async_code, states::States},
@@ -69,14 +71,13 @@ impl SettingsPanel {
     }
 
     /// Parse JSON into `Configurations`, validate, and pretty-print on success.
-    fn parse_configs_json(json_text: &str) -> Result<(Configurations, String), String> {
-        let configs: Configurations =
+    fn parse_configs_json(json_text: &str) -> Result<(DesktopConfigurations, String), String> {
+        let configs: DesktopConfigurations =
             serde_json::from_str(json_text).map_err(|err| format!("Invalid JSON: {}", err))?;
-        configs
-            .validate()
-            .map_err(|err| format!("Validation error: {}", err))?;
+
         let pretty = serde_json::to_string_pretty(&configs)
             .map_err(|err| format!("Serialisation error: {}", err))?;
+
         Ok((configs, pretty))
     }
 
