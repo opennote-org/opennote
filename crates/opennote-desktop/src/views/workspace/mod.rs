@@ -1,14 +1,11 @@
 use gpui::{Context, *};
 use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
 
+mod actions;
+
 use crate::{
     globals::{states::States, tasks::tracker::TaskTracker},
-    key_mappings::{
-        key_contexts::WORKSPACE,
-        mappings::{
-            CreateOneBlock, ToggleCommandBar, ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
-        },
-    },
+    key_mappings::key_contexts::WORKSPACE,
     views::settings::SettingsPanel,
     widgets::{
         command_bar::bar::CommandBar,
@@ -122,85 +119,11 @@ impl Render for Workspace {
             )
             .child(self.command_bar.clone())
             .child(self.search_bar.clone())
-            .on_action(
-                cx.listener(|workspace, _action: &ToggleSidebar, window, cx| {
-                    workspace.sidebar.update(cx, |this, cx| {
-                        this.toggle(cx);
-
-                        // Manually shift the focus, otherwise it won't just focus automatically
-                        if !this.is_toggled() {
-                            window.focus(&workspace.focus_handle(cx));
-                        }
-
-                        if this.is_toggled() {
-                            let states: &States = cx.global();
-                            if let Some(tree_state) =
-                                this.get_tree_focus_handle(cx, &states.active_server)
-                            {
-                                window.focus(&tree_state);
-                            }
-                        }
-                    });
-
-                    cx.notify();
-                }),
-            )
-            .on_action(
-                cx.listener(|workspace, _action: &ToggleSearchBar, window, cx| {
-                    workspace.search_bar.update(cx, |this, cx| {
-                        this.is_toggled = !this.is_toggled;
-
-                        // Manually shift the focus, otherwise it won't just focus automatically
-                        if !this.is_toggled {
-                            window.focus(&workspace.focus_handle(cx));
-                        }
-
-                        if this.is_toggled {
-                            window.focus(&this.get_input_field_focus_handle(cx));
-                        }
-                    });
-
-                    cx.notify();
-                }),
-            )
-            .on_action(
-                cx.listener(|workspace, _action: &ToggleCommandBar, window, cx| {
-                    workspace.command_bar.update(cx, |this, cx| {
-                        this.is_toggled = !this.is_toggled;
-
-                        // Manually shift the focus, otherwise it won't just focus automatically
-                        if !this.is_toggled {
-                            window.focus(&workspace.focus_handle(cx));
-                        }
-
-                        if this.is_toggled {
-                            window.focus(&this.get_input_field_focus_handle(cx));
-                        }
-                    });
-
-                    cx.notify();
-                }),
-            )
-            .on_action(cx.listener(|this, _action: &CreateOneBlock, window, cx| {
-                this.sidebar.update(cx, |this, cx| {
-                    let states: &States = cx.global();
-                    let tree_state = this.get_tree_state(&states.active_server);
-
-                    if let Some(tree_state) = tree_state {
-                        this.handle_block_creation(window, cx, tree_state);
-                    }
-                })
-            }))
-            .on_action(
-                cx.listener(|this, _action: &ToggleSettingsPanel, window, cx| {
-                    let settings_panel = this.settings_panel.clone();
-                    let _ = cx
-                        .open_window(WindowOptions::default(), |_this, cx| {
-                            cx.new(|cx| Root::new(settings_panel, window, cx))
-                        })
-                        .unwrap();
-                }),
-            )
+            .on_action(cx.listener(Self::toggle_sidebar))
+            .on_action(cx.listener(Self::toggle_search_bar))
+            .on_action(cx.listener(Self::toggle_command_bar))
+            .on_action(cx.listener(Self::create_one_block))
+            .on_action(cx.listener(Self::toggle_settings_panel))
             .children(notification)
     }
 }

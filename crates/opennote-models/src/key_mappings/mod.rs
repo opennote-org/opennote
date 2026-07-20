@@ -73,10 +73,17 @@ impl Default for KeyMappings {
                 action: format!("CreateOneBlock"),
                 context: "workspace".to_string(),
             },
+            // Workspace Sidebar
             KeyMapping {
                 sequence: vec!["cmd".to_string(), "-".to_string(), "d".to_string()],
                 action: format!("DeleteBlocks"),
                 context: "workspace_sidebar".to_string(),
+            },
+            // Editor
+            KeyMapping {
+                sequence: vec!["cmd".to_string(), "-".to_string(), "s".to_string()],
+                action: format!("SaveDocument"),
+                context: "editor".to_string(),
             },
             // General
             KeyMapping {
@@ -100,9 +107,14 @@ impl Default for KeyMappings {
                 context: "general".to_string(),
             },
             KeyMapping {
-                sequence: vec!["cmd".to_string(), "-".to_string(), "s".to_string()],
-                action: format!("SaveDocument"),
-                context: "editor".to_string(),
+                sequence: vec!["enter".to_string()],
+                action: format!("Open"),
+                context: "general".to_string(),
+            },
+            KeyMapping {
+                sequence: vec!["backspace".to_string()],
+                action: format!("Delete"),
+                context: "general".to_string(),
             },
         ])
     }

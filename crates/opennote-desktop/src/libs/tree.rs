@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc, str::FromStr};
 
 use gpui::{
     App, Context, ElementId, Entity, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
@@ -9,9 +9,13 @@ use gpui::{
 use gpui_component::{StyledExt, list::ListItem, scroll::ScrollableElement};
 use uuid::Uuid;
 
-use crate::key_mappings::{
-    key_contexts::GENERAL,
-    mappings::{MoveDown, MoveUp},
+use crate::{
+    globals::actions::delete_n_blocks,
+    key_mappings::{
+        key_contexts::GENERAL,
+        mappings::{Delete, MoveDown, MoveUp, Open},
+    },
+    widgets::pane::helpers::open_block,
 };
 
 /// Create a [`Tree`].
@@ -327,6 +331,45 @@ impl TreeState {
         cx.notify();
     }
 
+    pub fn on_action_open(&mut self, _action: &Open, _window: &mut Window, cx: &mut Context<Self>) {
+        let Some(index) = self.selected_index else {
+            return;
+        };
+
+        let block_id = match Uuid::from_str(&self.entries[index].item().id) {
+            Ok(result) => result,
+            Err(error) => {
+                log::debug!("Failed to open a block with keyboard shortcut: {}", error);
+                return;
+            }
+        };
+
+        open_block(cx, block_id, None);
+        cx.notify();
+    }
+
+    pub fn on_action_delete(
+        &mut self,
+        _action: &Delete,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(index) = self.selected_index else {
+            return;
+        };
+
+        let block_id = match Uuid::from_str(&self.entries[index].item().id) {
+            Ok(result) => result,
+            Err(error) => {
+                log::debug!("Failed to open a block with keyboard shortcut: {}", error);
+                return;
+            }
+        };
+
+        delete_n_blocks(window, cx, vec![block_id]);
+        cx.notify();
+    }
+
     /// Alter the expansion state
     pub fn on_entry_click(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Self>) {
         self.toggle_expand(ix);
@@ -418,6 +461,8 @@ impl RenderOnce for Tree {
             .track_focus(&focus_handle)
             .on_action(window.listener_for(&self.state, TreeState::on_action_up))
             .on_action(window.listener_for(&self.state, TreeState::on_action_down))
+            .on_action(window.listener_for(&self.state, TreeState::on_action_open))
+            .on_action(window.listener_for(&self.state, TreeState::on_action_delete))
             .size_full()
             .child(self.state)
             .refine_style(&self.style)
