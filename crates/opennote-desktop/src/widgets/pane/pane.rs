@@ -345,6 +345,54 @@ impl Pane {
         !self.opened_block_ids.is_empty()
     }
 
+    /// Switch to the next tab (wrapping around).
+    pub fn activate_next_tab(&mut self, cx: &mut Context<Self>) {
+        let current_index = match self.acquire_block_index() {
+            Some(value) => value,
+            None => return,
+        };
+
+        let next_index = if current_index + 1 < self.opened_block_ids.len() {
+            current_index + 1
+        } else {
+            0
+        };
+
+        self.selected_block_id = Some(self.opened_block_ids[next_index]);
+        cx.notify();
+    }
+
+    /// Switch to the previous tab (wrapping around).
+    pub fn activate_previous_tab(&mut self, cx: &mut Context<Self>) {
+        let current_index = match self.acquire_block_index() {
+            Some(value) => value,
+            None => return,
+        };
+
+        let prev_index = if current_index > 0 {
+            current_index - 1
+        } else {
+            self.opened_block_ids.len().saturating_sub(1)
+        };
+
+        self.selected_block_id = Some(self.opened_block_ids[prev_index]);
+        cx.notify();
+    }
+
+    fn acquire_block_index(&mut self) -> Option<usize> {
+        let Some(selected_block_id) = self.selected_block_id else {
+            return None;
+        };
+        let current_index = self
+            .opened_block_ids
+            .iter()
+            .position(|id| *id == selected_block_id);
+        let Some(current_index) = current_index else {
+            return None;
+        };
+        Some(current_index)
+    }
+
     fn create_commmand_board(cx: &mut Context<'_, Pane>) -> Div {
         let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
 

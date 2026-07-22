@@ -7,13 +7,13 @@ use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::{
     configurations::{desktop::DesktopConfigurations, server::ServerConfigurations},
-    key_mappings::KeyMappings,
+    key_mappings::KeyMappingConfigurations,
 };
 
 #[derive(Clone)]
 pub struct DesktopBootstrap {
     pub configurations: Arc<Mutex<DesktopConfigurations>>,
-    pub key_mappings: Arc<Mutex<KeyMappings>>,
+    pub key_mappings: Arc<Mutex<KeyMappingConfigurations>>,
     pub databases: Databases,
     pub embedders: Option<EmbedderEntry>,
 }
@@ -22,7 +22,7 @@ pub struct DesktopBootstrap {
 impl DesktopBootstrap {
     pub async fn new(
         configurations: &DesktopConfigurations,
-        key_mappings: &KeyMappings,
+        key_mappings: &KeyMappingConfigurations,
     ) -> Result<Self> {
         let embedders = match EmbedderEntry::new(&configurations.system).await {
             Ok(result) => Some(result),

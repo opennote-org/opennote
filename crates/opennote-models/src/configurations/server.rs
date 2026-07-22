@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use serde_encrypt::shared_key::SharedKey;
 
 use crate::{
-    configurations::system::SystemConfigurations, constants::CONFIGURATIONS_FILE_NAME,
-    traits::LoadFromAndSaveToFile,
+    configurations::system::SystemConfigurations,
+    constants::CONFIGURATIONS_FILE_NAME,
+    traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,3 +46,5 @@ impl LoadFromAndSaveToFile for ServerConfigurations {
         CONFIGURATIONS_FILE_NAME
     }
 }
+
+impl MigrateConfigurationFileStructure for ServerConfigurations {}

@@ -9399,15 +9399,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "opennote-tasks-scheduler"
-version = "0.2.1"
-dependencies = [
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
 name = "opennote-texts-processing"
 version = "0.2.1"
 dependencies = [

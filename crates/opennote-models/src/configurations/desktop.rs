@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     configurations::{system::SystemConfigurations, user::UserConfigurations},
     constants::CONFIGURATIONS_FILE_NAME,
-    traits::LoadFromAndSaveToFile,
+    traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,3 +29,5 @@ impl LoadFromAndSaveToFile for DesktopConfigurations {
         CONFIGURATIONS_FILE_NAME
     }
 }
+
+impl MigrateConfigurationFileStructure for DesktopConfigurations {}

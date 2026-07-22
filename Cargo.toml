@@ -15,7 +15,6 @@ members = [
     "crates/opennote-mcp-server",
     "crates/opennote-server",
     "crates/opennote-texts-processing",
-    "crates/opennote-tasks-scheduler",
     "crates/opennote-bootstrap",
     "crates/opennote-core-logics",
     "crates/gpui-component",
@@ -34,7 +33,6 @@ opennote-embedder = { path = "crates/opennote-embedder" }
 opennote-models = { path = "crates/opennote-models" }
 opennote-entities = { path = "crates/opennote-entities" }
 opennote-texts-processing = { path = "crates/opennote-texts-processing" }
-opennote-tasks-scheduler = { path = "crates/opennote-tasks-scheduler" }
 opennote-bootstrap = { path = "crates/opennote-bootstrap" }
 opennote-core-logics = { path = "crates/opennote-core-logics" }
 

@@ -10,8 +10,8 @@ use opennote_core_logics::configurations::{
 use opennote_data::search::SearchScope;
 use opennote_models::{
     configurations::{desktop::DesktopConfigurations, search::SupportedSearchMethod},
-    key_mappings::KeyMappings,
-    traits::LoadFromAndSaveToFile,
+    key_mappings::KeyMappingConfigurations,
+    traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 
 use crate::{globals::helpers::run_async_code, key_mappings::traits::KeyMappingsUIExtension};
@@ -45,10 +45,14 @@ impl GlobalApplicationBootStrap {
         // Load configurations
         let configurations = DesktopConfigurations::load_from_file(&config_path)
             .context("Failed to load configurations on application start")
+            .unwrap()
+            .migrate(&config_path)
             .unwrap();
 
-        let key_mappings = KeyMappings::load_from_file(&config_path)
+        let key_mappings = KeyMappingConfigurations::load_from_file(&config_path)
             .context("Failed to load key mappings on application start")
+            .unwrap()
+            .migrate(&config_path)
             .unwrap();
 
         let bootstrap = run_async_code(async {
@@ -59,12 +63,16 @@ impl GlobalApplicationBootStrap {
         });
 
         let key_bindings = run_async_code(async {
-            bootstrap
+            // TODO: Add vim support
+            let conventional = bootstrap
                 .key_mappings
                 .lock()
                 .await
+                .conventional
                 .clone()
-                .into_keybindings()
+                .into_keybindings();
+
+            conventional
         });
         cx.bind_keys(key_bindings);
 

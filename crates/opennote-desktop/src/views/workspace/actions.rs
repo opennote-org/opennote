@@ -4,7 +4,8 @@ use gpui_component::Root;
 use crate::{
     globals::states::States,
     key_mappings::mappings::{
-        CreateOneBlock, ToggleCommandBar, ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
+        CloseActiveTab, CreateOneBlock, NextTab, PreviousTab, ToggleCommandBar, ToggleSearchBar,
+        ToggleSettingsPanel, ToggleSidebar,
     },
 };
 
@@ -113,5 +114,60 @@ impl Workspace {
                 cx.new(|cx| Root::new(settings_panel, window, cx))
             })
             .unwrap();
+    }
+
+    /// Switch to the next tab in the active pane.
+    pub fn next_tab(&mut self, _action: &NextTab, _window: &mut Window, cx: &mut Context<Self>) {
+        let states: &States = cx.global();
+        let Some(active_pane) = states.active_pane.clone() else {
+            return;
+        };
+
+        let _ = active_pane.update(cx, |this, cx| {
+            this.activate_next_tab(cx);
+        });
+    }
+
+    /// Switch to the previous tab in the active pane.
+    pub fn previous_tab(
+        &mut self,
+        _action: &PreviousTab,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let states: &States = cx.global();
+        let Some(active_pane) = states.active_pane.clone() else {
+            return;
+        };
+
+        let _ = active_pane.update(cx, |this, cx| {
+            this.activate_previous_tab(cx);
+        });
+    }
+
+    /// Close the active tab in the active pane.
+    pub fn close_active_tab(
+        &mut self,
+        _action: &CloseActiveTab,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let states: &States = cx.global();
+        let Some(active_pane) = states.active_pane.clone() else {
+            return;
+        };
+
+        let _ = active_pane.update(cx, |this, cx| {
+            if let Some(selected_block_id) = this.selected_block_id {
+                this.close_tab(&selected_block_id, cx);
+
+                let entity = cx.entity();
+                if !this.has_opened_blocks() {
+                    let _ = this.pane_group.update(cx, |this, cx| {
+                        this.cleanup_pane_without_tabs(entity, cx);
+                    });
+                }
+            }
+        });
     }
 }
