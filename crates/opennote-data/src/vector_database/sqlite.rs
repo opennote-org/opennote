@@ -9,15 +9,16 @@ use rusqlite::Connection;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+use opennote_models::{
+    configurations::fields::VectorDatabaseConfig, configurations::system::SystemConfigurations,
+    payload::Payload,
+};
+
 use crate::search::models::RawSearchResult;
 use crate::vector_database::models::IndexPayload;
 use crate::{
     search::{keyword::KeywordSearch, semantic::SemanticSearch},
     vector_database::traits::VectorDatabase,
-};
-use opennote_models::{
-    configurations::system::{SystemConfigurations, VectorDatabaseConfig},
-    payload::Payload,
 };
 
 const SQLITE_VECTOR_MACOS_ARM: &[u8] =

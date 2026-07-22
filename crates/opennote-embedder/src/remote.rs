@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use opennote_models::{
-    configurations::system::{EmbedderConfig, SystemConfigurations},
+    configurations::{fields::EmbedderConfig, system::SystemConfigurations},
     payload::Payload,
 };
 

@@ -6,23 +6,23 @@ use actix_web::{
 };
 use anyhow::{Context, Result};
 
-use opennote_bootstrap::ApplicationBootStrap;
+use opennote_bootstrap::ServerBootstrap;
 use opennote_core_logics::configurations::{
     ApplicationType, create_required_folders, get_configuration_folder_path,
 };
 use opennote_models::{
-    configurations::{Configurations, system::LoggingLevel},
+    configurations::{fields::LoggingLevel, server::ServerConfigurations},
     traits::LoadFromAndSaveToFile,
 };
 
 use crate::{middlewares::check_password, routes::configure_routes};
 
-pub fn load_configurations() -> Result<Configurations> {
+pub fn load_configurations() -> Result<ServerConfigurations> {
     let config_path = get_configuration_folder_path(ApplicationType::Server);
 
     create_required_folders(&config_path)?;
 
-    let configurations = Configurations::load_from_file(&config_path)?;
+    let configurations = ServerConfigurations::load_from_file(&config_path)?;
 
     log::info!(
         "Configuration at `{}` loaded successfully",
@@ -35,7 +35,7 @@ pub fn load_configurations() -> Result<Configurations> {
     Ok(configurations)
 }
 
-pub fn initialize_logger(config: &Configurations) {
+pub fn initialize_logger(config: &ServerConfigurations) {
     env_logger::Builder::from_default_env()
         .filter_level(match config.system.logging.level {
             LoggingLevel::Trace => log::LevelFilter::Trace,
@@ -48,14 +48,11 @@ pub fn initialize_logger(config: &Configurations) {
 }
 
 pub async fn initialize_backend_api_service(
-    bootstrap: Data<ApplicationBootStrap>,
-    config: &Configurations,
+    bootstrap: Data<ServerBootstrap>,
+    config: &ServerConfigurations,
 ) -> Result<()> {
     // Start HTTP server
-    let bind_address: String = format!(
-        "{}:{}",
-        config.system.server.host, config.system.server.port
-    );
+    let bind_address: String = format!("{}:{}", config.host, config.port);
     log::info!("Starting HTTP server on {}", bind_address);
 
     let server = HttpServer::new(move || {
@@ -71,10 +68,10 @@ pub async fn initialize_backend_api_service(
     });
 
     // Set number of workers if specified
-    log::info!("Using {} worker threads", config.system.server.workers);
+    log::info!("Using {} worker threads", config.workers);
 
     server
-        .workers(config.system.server.workers)
+        .workers(config.workers)
         .bind(&bind_address)
         .with_context(|| format!("Failed to bind to {}", bind_address))
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?

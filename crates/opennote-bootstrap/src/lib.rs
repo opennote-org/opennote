@@ -5,19 +5,25 @@ use tokio::sync::Mutex;
 
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
-use opennote_models::configurations::Configurations;
-use opennote_tasks_scheduler::TasksScheduler;
+use opennote_models::{
+    configurations::{desktop::DesktopConfigurations, server::ServerConfigurations},
+    key_mappings::KeyMappingConfigurations,
+};
 
 #[derive(Clone)]
-pub struct ApplicationBootStrap {
-    pub configurations: Arc<Mutex<Configurations>>,
+pub struct DesktopBootstrap {
+    pub configurations: Arc<Mutex<DesktopConfigurations>>,
+    pub key_mappings: Arc<Mutex<KeyMappingConfigurations>>,
     pub databases: Databases,
-    pub tasks_scheduler: Arc<Mutex<TasksScheduler>>,
     pub embedders: Option<EmbedderEntry>,
 }
 
-impl ApplicationBootStrap {
-    pub async fn new(configurations: &Configurations) -> Result<Self> {
+// TODO: Separate bootstraps for server and desktop
+impl DesktopBootstrap {
+    pub async fn new(
+        configurations: &DesktopConfigurations,
+        key_mappings: &KeyMappingConfigurations,
+    ) -> Result<Self> {
         let embedders = match EmbedderEntry::new(&configurations.system).await {
             Ok(result) => Some(result),
             Err(error) => {
@@ -28,7 +34,7 @@ impl ApplicationBootStrap {
 
         Ok(Self {
             configurations: Arc::new(Mutex::new(configurations.clone())),
-            tasks_scheduler: Arc::new(Mutex::new(TasksScheduler::new())),
+            key_mappings: Arc::new(Mutex::new(key_mappings.clone())),
             databases: Databases::new(&configurations.system).await?,
             embedders,
         })
@@ -41,5 +47,21 @@ impl ApplicationBootStrap {
         self.embedders = Some(EmbedderEntry::new(system).await?);
 
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct ServerBootstrap {
+    pub configurations: Arc<Mutex<ServerConfigurations>>,
+    pub databases: Databases,
+}
+
+// TODO: Separate bootstraps for server and desktop
+impl ServerBootstrap {
+    pub async fn new(configurations: &ServerConfigurations) -> Result<Self> {
+        Ok(Self {
+            configurations: Arc::new(Mutex::new(configurations.clone())),
+            databases: Databases::new(&configurations.system).await?,
+        })
     }
 }

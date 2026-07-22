@@ -14,10 +14,16 @@ actions!(
         ToggleCommandBar,
         ToggleSettingsPanel,
         CreateOneBlock,
+        NextTab,
+        PreviousTab,
+        CloseActiveTab,
     ]
 );
 actions!(sidebar, [DeleteBlocks]);
-actions!(general, [MoveUp, MoveDown, MoveLeft, MoveRight]);
+actions!(
+    general,
+    [MoveUp, MoveDown, MoveLeft, MoveRight, Open, Delete]
+);
 actions!(editor, [SaveDocument]);
 
 /// You will also need to add the action in `crates/opennote-models/src/configurations/key_mappings.rs`
@@ -29,6 +35,9 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
             "ToggleCommandBar" => Ok(Box::new(ToggleCommandBar)),
             "ToggleSettingsPanel" => Ok(Box::new(ToggleSettingsPanel)),
             "CreateOneBlock" => Ok(Box::new(CreateOneBlock)),
+            "NextTab" => Ok(Box::new(NextTab)),
+            "PreviousTab" => Ok(Box::new(PreviousTab)),
+            "CloseActiveTab" => Ok(Box::new(CloseActiveTab)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,
@@ -48,6 +57,8 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
             "MoveDown" => Ok(Box::new(MoveDown)),
             "MoveLeft" => Ok(Box::new(MoveLeft)),
             "MoveRight" => Ok(Box::new(MoveRight)),
+            "Open" => Ok(Box::new(Open)),
+            "Delete" => Ok(Box::new(Delete)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,

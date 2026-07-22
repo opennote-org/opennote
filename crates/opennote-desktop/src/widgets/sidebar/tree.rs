@@ -20,10 +20,7 @@ use crate::{
     },
     key_mappings::mappings::{CreateOneBlock, DeleteBlocks},
     libs::{tabs::drag::DraggedItem, tree::TreeState},
-    widgets::{
-        pane::helpers::open_block,
-        sidebar::{BlockState, OpenNoteSidebar, OpenNoteSidebarEvent},
-    },
+    widgets::sidebar::{BlockState, OpenNoteSidebar, OpenNoteSidebarEvent},
 };
 
 // Collect blocks to drag from both the single selection and the multi-selection.
@@ -221,18 +218,7 @@ fn handle_sidebar_item_double_click(
         sidebar_entity_on_mouse_click.update(app, |this, cx| {
             // Reset the mouse position
             this.mouse_position = None;
-
-            // Select the block
-            tree_state.update(cx, |this, cx| {
-                this.selected_blocks.clear();
-                this.selected_block = None;
-
-                open_block(cx, uuid, None);
-                cx.notify();
-            });
-
-            cx.notify();
-            return;
+            this.handle_block_open(uuid, cx, tree_state.clone());
         });
     }
 }

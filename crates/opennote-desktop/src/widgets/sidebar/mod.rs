@@ -24,10 +24,13 @@ use crate::{
         tree::{Tree, TreeState, tree},
         tree_view_sidebar::{DEFAULT_WIDTH, TreeViewSidebar},
     },
-    widgets::sidebar::{
-        blocks_tree::build_blocks_tree,
-        tab::create_sidebar_tabbar,
-        tree::{create_root_tree_list_item, create_tree_list_item},
+    widgets::{
+        pane::helpers::open_block,
+        sidebar::{
+            blocks_tree::build_blocks_tree,
+            tab::create_sidebar_tabbar,
+            tree::{create_root_tree_list_item, create_tree_list_item},
+        },
     },
 };
 
@@ -235,6 +238,25 @@ impl OpenNoteSidebar {
         log::debug!("About to create a block under: {:?}", parent_block_id);
         create_one_block(window, cx, parent_block_id);
         cx.notify();
+    }
+
+    pub fn handle_block_open(
+        &self,
+        block_id: Uuid,
+        cx: &mut Context<Self>,
+        tree_state: Entity<TreeState>,
+    ) {
+        // Select the block
+        tree_state.update(cx, |this, cx| {
+            this.selected_blocks.clear();
+            this.selected_block = None;
+
+            open_block(cx, block_id, None);
+            cx.notify();
+        });
+
+        cx.notify();
+        return;
     }
 }
 

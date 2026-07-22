@@ -2,6 +2,7 @@ pub mod block;
 pub mod configurations;
 pub mod constants;
 pub mod content_type;
+pub mod key_mappings;
 pub mod payload;
 pub mod providers;
 pub mod query;

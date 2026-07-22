@@ -13,7 +13,7 @@ use opennote_embedder::{
 };
 use opennote_models::{
     block::Block,
-    configurations::system::{EmbedderConfig, VectorDatabaseConfig},
+    configurations::fields::{EmbedderConfig, VectorDatabaseConfig},
     query::BlockQuery,
 };
 

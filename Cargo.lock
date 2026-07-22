@@ -9253,7 +9253,6 @@ dependencies = [
  "opennote-data",
  "opennote-embedder",
  "opennote-models",
- "opennote-tasks-scheduler",
  "tokio",
 ]
 
@@ -9395,15 +9394,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde-encrypt",
- "serde_json",
- "uuid",
-]
-
-[[package]]
-name = "opennote-tasks-scheduler"
-version = "0.2.1"
-dependencies = [
- "serde",
  "serde_json",
  "uuid",
 ]

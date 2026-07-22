@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use opennote_embedder::{entry::EmbedderEntry, vectorization::vectorize};
 use opennote_models::{
-    configurations::system::{SystemConfigurations, VectorDatabaseConfig},
+    configurations::{fields::VectorDatabaseConfig, system::SystemConfigurations},
     payload::Payload,
     query::{BlockQuery, PayloadQuery},
 };

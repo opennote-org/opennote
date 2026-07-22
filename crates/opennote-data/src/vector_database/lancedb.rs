@@ -25,7 +25,7 @@ use crate::{
 };
 use opennote_models::content_type::ContentType;
 use opennote_models::{
-    configurations::system::{SystemConfigurations, VectorDatabaseConfig},
+    configurations::{fields::VectorDatabaseConfig, system::SystemConfigurations},
     payload::Payload,
 };
 

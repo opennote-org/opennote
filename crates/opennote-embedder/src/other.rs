@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use opennote_models::{
-    configurations::system::{EmbedderConfig, SystemConfigurations},
+    configurations::{fields::EmbedderConfig, system::SystemConfigurations},
     payload::Payload,
 };
 

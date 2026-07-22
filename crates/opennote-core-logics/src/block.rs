@@ -6,7 +6,7 @@ use uuid::Uuid;
 use opennote_data::Databases;
 use opennote_models::{
     block::Block,
-    configurations::system::VectorDatabaseConfig,
+    configurations::fields::VectorDatabaseConfig,
     payload::Payload,
     query::{BlockQuery, PayloadQuery},
 };

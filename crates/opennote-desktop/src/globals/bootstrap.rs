@@ -3,14 +3,15 @@ use gpui::{App, Global};
 
 use tokio::sync::MutexGuard;
 
-use opennote_bootstrap::ApplicationBootStrap;
+use opennote_bootstrap::DesktopBootstrap;
 use opennote_core_logics::configurations::{
     ApplicationType, create_required_folders, get_configuration_folder_path,
 };
 use opennote_data::search::SearchScope;
 use opennote_models::{
-    configurations::{Configurations, search::SupportedSearchMethod},
-    traits::LoadFromAndSaveToFile,
+    configurations::{desktop::DesktopConfigurations, search::SupportedSearchMethod},
+    key_mappings::KeyMappingConfigurations,
+    traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 
 use crate::{globals::helpers::run_async_code, key_mappings::traits::KeyMappingsUIExtension};
@@ -26,9 +27,9 @@ pub const SEARCH_SCOPES_ENUMS: [SearchScope; 3] = [
     SearchScope::Userspace,
 ];
 
-/// This is a wrapper for ApplicationBootStrap
+/// This is a wrapper for DesktopBootstrap
 /// We don't want to implement the UI specific trait for the object itself
-pub struct GlobalApplicationBootStrap(pub ApplicationBootStrap);
+pub struct GlobalApplicationBootStrap(pub DesktopBootstrap);
 
 impl Global for GlobalApplicationBootStrap {}
 
@@ -42,26 +43,36 @@ impl GlobalApplicationBootStrap {
             .unwrap();
 
         // Load configurations
-        let configurations = Configurations::load_from_file(config_path)
+        let configurations = DesktopConfigurations::load_from_file(&config_path)
             .context("Failed to load configurations on application start")
+            .unwrap()
+            .migrate(&config_path)
+            .unwrap();
+
+        let key_mappings = KeyMappingConfigurations::load_from_file(&config_path)
+            .context("Failed to load key mappings on application start")
+            .unwrap()
+            .migrate(&config_path)
             .unwrap();
 
         let bootstrap = run_async_code(async {
-            ApplicationBootStrap::new(&configurations)
+            DesktopBootstrap::new(&configurations, &key_mappings)
                 .await
                 .context("Failed to bootstrap the application")
                 .unwrap()
         });
 
         let key_bindings = run_async_code(async {
-            bootstrap
-                .configurations
+            // TODO: Add vim support
+            let conventional = bootstrap
+                .key_mappings
                 .lock()
                 .await
-                .user
-                .key_mappings
+                .conventional
                 .clone()
-                .into_keybindings()
+                .into_keybindings();
+
+            conventional
         });
         cx.bind_keys(key_bindings);
 
@@ -69,7 +80,7 @@ impl GlobalApplicationBootStrap {
     }
 
     /// Get the configurations as a mutex guard with read-only capability
-    pub fn get_configurations(&self) -> MutexGuard<'_, Configurations> {
+    pub fn get_configurations(&self) -> MutexGuard<'_, DesktopConfigurations> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async { self.0.configurations.lock().await })
         })
