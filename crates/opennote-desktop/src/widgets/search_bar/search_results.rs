@@ -8,6 +8,7 @@ use gpui_component::{
     v_flex,
 };
 
+use opennote_core_logics::helpers::run_async_code;
 use opennote_data::search::{SearchScope, models::RawSearchResult};
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
@@ -20,7 +21,6 @@ use crate::{
     globals::{
         actions::route_helpers::{self},
         bootstrap::GlobalApplicationBootStrap,
-        helpers::run_async_code,
         states::{ServerStates, States},
     },
     widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},

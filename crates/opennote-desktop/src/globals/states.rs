@@ -4,6 +4,7 @@ use gpui::{App, AppContext, Global, SharedString, WeakEntity};
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
+use opennote_core_logics::helpers::run_async_code;
 use opennote_data::{Databases, search::SearchScope};
 use opennote_models::{
     block::Block, configurations::fields::remote_server::RemoteServerConfiguration,
@@ -14,7 +15,6 @@ use crate::{
     globals::{
         actions::route_helpers::route_read_blocks,
         bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
-        helpers::run_async_code,
     },
     widgets::pane::pane::Pane,
 };

@@ -2,13 +2,11 @@ use gpui::{
     App, AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
     ParentElement, Render, SharedString, Styled, Subscription, WeakEntity, div,
 };
-use gpui_component::{
-    WindowExt,
-    input::{Input, InputEvent, InputState},
-};
+use gpui_component::WindowExt;
 use uuid::Uuid;
 
 use opennote_models::block::Block;
+use opennote_velotype::editor::EditorEvent;
 
 use crate::{
     globals::{
@@ -29,7 +27,9 @@ use crate::{
 /// Text is always text in the editor
 pub struct Editor {
     focus_handle: FocusHandle,
-    state: Entity<InputState>,
+    state: Entity<opennote_velotype::editor::Editor>,
+
+    pub highlighted_text: Option<SharedString>,
     pub block: Option<Block>,
     loaded_block_id: Option<Uuid>,
 
@@ -42,6 +42,9 @@ pub struct Editor {
 impl Editor {
     pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window, pane: WeakEntity<Pane>) -> Self {
         let mut _subscriptions = Vec::new();
+
+        let state =
+            cx.new(|cx| opennote_velotype::editor::Editor::from_markdown(cx, "".to_string(), None));
 
         // Get updates from the normal task scheduler
         let pane_clone: WeakEntity<Pane> = pane.clone();
@@ -84,39 +87,25 @@ impl Editor {
             },
         ));
 
-        let state = cx.new(|cx| {
-            InputState::new(window, cx)
-                .code_editor("markdown")
-                .multi_line(true)
-                .line_number(true)
-                .searchable(true) // It will search with the backend instead
-        });
-
         let pane_clone: WeakEntity<Pane> = pane.clone();
         _subscriptions.push(cx.subscribe_in(
             &state,
             window,
-            move |view, state, event, _window, cx| match event {
-                InputEvent::Change => {
+            move |view, _state, event: &EditorEvent, _window, cx| match event {
+                EditorEvent::ContentChanged => {
                     let Some(block) = &view.block else {
                         return;
                     };
 
-                    let texts: String = get_block_content(&block.id, cx).unwrap();
-
-                    if !Self::has_text_changed(&texts, state, cx) {
-                        return;
-                    }
-
                     TabState::set_save_state(cx, pane_clone.clone(), block.id, false);
                 }
-                _ => {}
             },
         ));
 
         Self {
             focus_handle: cx.focus_handle(),
             state,
+            highlighted_text: None,
             block: None,
             loaded_block_id: None,
             pane,
@@ -142,25 +131,23 @@ impl Editor {
 
     /// Highlight a string in the editor.
     /// It will do nothing if the `highlighted_text` is None.
-    pub fn set_highlighted_text(
-        &mut self,
-        cx: &mut App,
-        window: &mut gpui::Window,
-        highlighted_text: Option<SharedString>,
-    ) {
-        let Some(string) = highlighted_text else {
-            return;
-        };
+    pub fn register_highlighted_text(&mut self, highlighted_text: Option<SharedString>) {
+        self.highlighted_text = highlighted_text;
+    }
 
+    fn apply_highlighted_text(&mut self, cx: &mut Context<'_, Editor>) {
+        let text_to_highlight = std::mem::take(&mut self.highlighted_text);
         self.state.update(cx, |this, cx| {
-            this.set_highlighted_text(cx, window, string);
+            if let Some(text_to_highlight) = text_to_highlight {
+                this.highlight_search_result(cx, text_to_highlight.into());
+            }
         });
     }
 
     fn save_unsaved_content_to_tab_state(&mut self, cx: &mut App) {
         let pane = self.pane.clone();
         let block_id = self.block.as_ref().map(|item| item.id);
-        let existing_block_content = self.state.read(cx).value();
+        let existing_block_content = self.state.read(cx).get_editor_value(cx).into();
 
         cx.defer(move |cx| {
             let _ = pane.update(cx, |this, _cx| {
@@ -173,10 +160,14 @@ impl Editor {
         });
     }
 
-    fn has_text_changed(block_texts: &str, input_state: &Entity<InputState>, cx: &mut App) -> bool {
-        let current_value = input_state.read(cx).value();
+    fn has_text_changed(
+        block_texts: &str,
+        input_state: &Entity<opennote_velotype::editor::Editor>,
+        cx: &mut App,
+    ) -> bool {
+        let current_value = input_state.read(cx).get_editor_value(cx);
 
-        if current_value.as_ref() == block_texts {
+        if &current_value == block_texts {
             return false;
         }
 
@@ -184,11 +175,7 @@ impl Editor {
     }
 
     /// Update the editor content with the new openned block's content
-    pub fn update_editor_content_with_new_block(
-        &mut self,
-        cx: &mut Context<Self>,
-        window: &mut gpui::Window,
-    ) {
+    pub fn update_editor_content_with_new_block(&mut self, cx: &mut Context<Self>) {
         let block = match &self.block {
             Some(block) => block,
             None => return,
@@ -197,6 +184,7 @@ impl Editor {
         // Skip if the block has already opened by this editor
         if let Some(loaded_block_id) = self.loaded_block_id {
             if loaded_block_id == block.id {
+                self.apply_highlighted_text(cx);
                 return;
             }
         }
@@ -227,8 +215,10 @@ impl Editor {
             return;
         }
 
-        self.state
-            .update(cx, |this, cx| this.set_value(texts, window, cx));
+        self.state.update(cx, |this, cx| {
+            this.update_editor_content(cx, texts.into());
+        });
+        self.apply_highlighted_text(cx);
     }
 }
 
@@ -243,21 +233,22 @@ impl Focusable for Editor {
 impl Render for Editor {
     fn render(
         &mut self,
-        window: &mut gpui::Window,
+        _window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
-        self.update_editor_content_with_new_block(cx, window);
+        self.update_editor_content_with_new_block(cx);
 
         div()
             .key_context(EDITOR)
             .track_focus(&self.focus_handle(cx))
             .h_full()
             .child(
-                Input::new(&self.state).h_full().bordered(false), // We need the input to display in full height
+                // Input::new(&self.state).h_full().bordered(false), // We need the input to display in full height
+                div().child(self.state.clone()).h_full().border_10(),
             )
             .on_action(cx.listener(|this, _action: &SaveDocument, window, cx| {
                 if let Some(block) = &mut this.block {
-                    let text = this.state.read(cx).value().to_string();
+                    let text = this.state.read(cx).get_editor_value(cx);
                     // Send the chunking task to the background.
                     // Once finished, editors will pull the results and do the saving.
                     chunk_block(window, cx, block.clone(), text);

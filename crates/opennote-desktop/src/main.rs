@@ -22,7 +22,7 @@ use opennote_models::constants::{
 use crate::{
     globals::{
         assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap, states::States,
-        tasks::tracker::TaskTracker,
+        tasks::tracker::TaskTracker, velotype::init_velotype,
     },
     libs::theme::adapt_theme_to_system,
     logs::UICustomLog,
@@ -60,6 +60,7 @@ async fn main() -> Result<()> {
             .context("Failed to load the assets on application start")
             .unwrap();
         States::init(cx);
+        init_velotype(cx);
 
         cx.spawn(async move |cx| {
             cx.open_window(WindowOptions::default(), |window, cx| {

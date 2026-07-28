@@ -2,11 +2,12 @@ use anyhow::Result;
 use gpui::App;
 use uuid::Uuid;
 
+use opennote_core_logics::helpers::run_async_code;
 use opennote_models::query::BlockQuery;
 
 use crate::globals::{
     actions::route_helpers::route_read_blocks, bootstrap::GlobalApplicationBootStrap,
-    helpers::run_async_code, states::States,
+    states::States,
 };
 
 pub fn get_block_content(block_id: &Uuid, cx: &mut App) -> Result<String> {

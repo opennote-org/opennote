@@ -420,11 +420,7 @@ impl Pane {
         )
     }
 
-    fn update_editor_with_selected_block(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<'_, Pane>,
-    ) {
+    fn update_editor_with_selected_block(&mut self, cx: &mut Context<'_, Pane>) {
         if let Some(selected_block_id) = self.selected_block_id {
             let states: &States = cx.global();
 
@@ -438,7 +434,8 @@ impl Pane {
                     // The backend is always the source of truth.
                     // We fetch the block from the backend with the current uuid.
                     this.register_block(cx, block);
-                    this.set_highlighted_text(cx, window, search_string);
+                    this.register_highlighted_text(search_string);
+                    cx.notify();
                 });
             }
         }
@@ -452,7 +449,7 @@ impl Focusable for Pane {
 }
 
 impl Render for Pane {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
 
         // Display search bar, command bar, new doc
@@ -478,7 +475,7 @@ impl Render for Pane {
             return base_div.child(tabs);
         };
 
-        self.update_editor_with_selected_block(window, cx);
+        self.update_editor_with_selected_block(cx);
 
         log::debug!("Rendering the pane... {:?}", self.drag_split_direction);
         base_div.h_full().child(tabs).child(

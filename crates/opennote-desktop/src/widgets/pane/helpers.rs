@@ -17,6 +17,7 @@ pub fn open_block(cx: &mut App, block_id: Uuid, highlighted_text: Option<SharedS
 
         if let Some(string) = highlighted_text {
             this.set_search_string(string.clone());
+            cx.notify();
             log::debug!("Highlighted block: {} at {}", block_id, &string);
         }
     });
