@@ -10,9 +10,6 @@ use crate::net::update::{self as update_check, UpdateCheckResult, UpdateVersionI
 
 impl Editor {
     pub(crate) fn request_check_updates(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.show_unsaved_changes_dialog {
-            return;
-        }
         if self.update_check_in_progress {
             self.show_info_dialog(InfoDialogKind::CheckForUpdates, cx);
             return;

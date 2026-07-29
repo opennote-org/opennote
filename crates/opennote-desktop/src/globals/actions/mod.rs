@@ -46,8 +46,6 @@ pub fn create_one_block(
 
     app_cx
         .spawn(async move |cx| {
-            log::debug!("Creating 1 block...");
-
             let task = TaskInformation::new("Creating 1 block", TaskType::Uncategorized, false);
 
             let task_id = task.id;
@@ -145,11 +143,6 @@ pub fn create_one_block(
                 }
             };
 
-            log::debug!(
-                "Block creation finished for {} blocks, preceed to refreshing the block list...",
-                num_blocks
-            );
-
             register_result(
                 window,
                 cx,
@@ -178,8 +171,6 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
 
     app_cx
         .spawn(async move |cx| {
-            log::debug!("Deleting {} blocks...", block_ids.len());
-
             let task = TaskInformation::new(
                 format!("Deleting {} blocks", block_ids.len()),
                 TaskType::Uncategorized,
@@ -237,8 +228,6 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
                 }
             }
 
-            log::debug!("Blocks deletion finished, preceed to refreshing the block list...");
-
             register_result(
                 window,
                 cx,
@@ -271,8 +260,6 @@ pub fn update_n_blocks(
     server_states: ServerStates,
     with_payload_changes: bool,
 ) {
-    log::debug!("Updating blocks: {:?}", blocks);
-
     let window = window.window_handle();
 
     app_cx
@@ -405,8 +392,6 @@ pub fn update_n_blocks(
                 }
             }
 
-            log::debug!("Blocks update finished, preceed to refreshing the block list...");
-
             register_long_running_result::<UpdateNBlocksNotification>(
                 window,
                 cx,
@@ -436,8 +421,6 @@ pub fn update_parent(
     new_parent_block_id: Option<Uuid>,
     block_ids: Vec<Uuid>,
 ) {
-    log::debug!("Updating blocks' parent...");
-
     let window = window.window_handle();
 
     app_cx
@@ -528,10 +511,6 @@ pub fn update_parent(
                     );
                 }
             };
-
-            log::debug!(
-                "Blocks parent id update finished, preceed to refreshing the block list..."
-            );
 
             register_result(
                 window,

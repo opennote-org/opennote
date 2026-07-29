@@ -8,9 +8,7 @@ use crate::{
     key_mappings::key_contexts::WORKSPACE,
     views::settings::SettingsPanel,
     widgets::{
-        command_bar::bar::CommandBar,
-        pane::{pane::Pane, pane_group::PaneGroup},
-        search_bar::bar::SearchBar,
+        command_bar::bar::CommandBar, pane::Pane, search_bar::bar::SearchBar,
         sidebar::OpenNoteSidebar,
     },
 };
@@ -19,8 +17,8 @@ use crate::{
 pub struct Workspace {
     focus_handle: FocusHandle,
 
+    pub pane: Entity<Pane>,
     pub sidebar: Entity<OpenNoteSidebar>,
-    pub pane_group: Entity<PaneGroup>,
     pub command_bar: Entity<CommandBar>,
     pub search_bar: Entity<SearchBar>,
     pub settings_panel: Entity<SettingsPanel>,
@@ -43,24 +41,18 @@ impl Workspace {
         let mut _subscriptions = vec![];
 
         let sidebar = cx.new(|cx| OpenNoteSidebar::new(cx));
+        let pane = cx.new(|cx| Pane::new(cx, window, sidebar.clone()));
+
+        // Set the active pane to be the one we have just created
+        cx.update_global::<States, ()>(|this, _cx| {
+            this.active_panes
+                .insert(window.window_handle().window_id(), pane.downgrade());
+        });
 
         Ok(Self {
             focus_handle: cx.focus_handle(),
             sidebar: sidebar.clone(),
-            pane_group: cx.new(|pane_group_cx| {
-                let entity = pane_group_cx.entity();
-
-                let pane_entity =
-                    pane_group_cx.new(|cx| Pane::new(cx, window, entity, sidebar.clone()));
-
-                // Set the active pane to be the one we have just created,
-                // so we don't have empty PaneGroup
-                pane_group_cx.update_global::<States, ()>(|this, _cx| {
-                    this.active_pane = Some(pane_entity.downgrade());
-                });
-
-                PaneGroup::new(pane_entity, sidebar.clone())
-            }),
+            pane,
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window)),
             settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
@@ -92,17 +84,16 @@ impl Render for Workspace {
         let notification = Root::render_notification_layer(window, cx);
         self.publish_initialization_successful_message(window, cx);
 
-        // Prevent the window from being closed when there are ongoing tasks
-        window.on_window_should_close(cx, |_this, cx| {
-            let task_tracker: &TaskTracker = cx.global();
-            if task_tracker.has_pending_items() {
-                return false;
-            }
+        // TODO: Add unsave caution
+        // // Prevent the window from being closed when there are ongoing tasks
+        // window.on_window_should_close(cx, |_this, cx| {
+        //     let task_tracker: &TaskTracker = cx.global();
+        //     if task_tracker.has_pending_items() {
+        //         return false;
+        //     }
 
-            true
-        });
-
-        log::debug!("Refreshing the workspace...");
+        //     true
+        // });
 
         div()
             .key_context(WORKSPACE)
@@ -115,7 +106,7 @@ impl Render for Workspace {
                     .flex()
                     .flex_row() // To display items in rows
                     .child(self.sidebar.clone()) // Left
-                    .child(self.pane_group.clone()), // Right
+                    .child(self.pane.clone()), // Right
             )
             .child(self.command_bar.clone())
             .child(self.search_bar.clone())
@@ -127,6 +118,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::next_tab))
             .on_action(cx.listener(Self::previous_tab))
             .on_action(cx.listener(Self::close_active_tab))
+            .on_action(cx.listener(Self::open_new_window))
             .children(notification)
     }
 }

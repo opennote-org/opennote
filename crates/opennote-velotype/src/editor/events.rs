@@ -2153,15 +2153,6 @@ impl Editor {
                     self.select_table_axis(block.entity_id(), *kind, *index, cx);
                 }
             }
-            BlockEvent::RequestOpenTableAxisMenu {
-                kind,
-                index,
-                position,
-            } => {
-                if block.read(cx).kind() == BlockKind::Table {
-                    self.open_table_axis_menu(block.entity_id(), *kind, *index, *position, cx);
-                }
-            }
             BlockEvent::RequestTableCellMoveHorizontal { .. }
             | BlockEvent::RequestTableCellMoveVertical { .. } => {}
             BlockEvent::RequestFocusPrev { preferred_x } => {

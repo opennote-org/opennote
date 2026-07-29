@@ -819,12 +819,6 @@ pub enum BlockEvent {
     },
     /// Select one native table row or column for batch operations.
     RequestSelectTableAxis { kind: TableAxisKind, index: usize },
-    /// Open the axis context menu for a native table row or column.
-    RequestOpenTableAxisMenu {
-        kind: TableAxisKind,
-        index: usize,
-        position: Point<Pixels>,
-    },
     /// Cursor reached the top of this block; move focus to the previous
     /// visible block, preserving the preferred horizontal position.
     RequestFocusPrev { preferred_x: Option<f32> },

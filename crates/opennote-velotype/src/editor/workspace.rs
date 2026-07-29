@@ -66,7 +66,6 @@ impl Editor {
             self.workspace.is_open = false;
         } else {
             self.close_menu_bar(cx);
-            self.dismiss_contextual_overlays(cx);
             self.workspace.is_open = true;
             self.sync_workspace_models(cx);
             window.activate_window();
@@ -175,9 +174,10 @@ impl Editor {
         cx.notify();
     }
 
+    /// DEPRECATED
     fn open_workspace_file(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         self.workspace.selected = Some(WorkspaceSelection::File(path.clone()));
-        self.request_dropped_markdown_replace(path, window, cx);
+        // self.request_dropped_markdown_replace(path, window, cx);
     }
 
     pub(super) fn render_workspace_panel(

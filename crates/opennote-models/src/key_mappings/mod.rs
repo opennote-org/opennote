@@ -89,6 +89,11 @@ impl KeyMappings {
                 context: "workspace".to_string(),
             },
             KeyMapping {
+                sequence: vec![" ".to_string(), "".to_string(), "O".to_string()],
+                action: format!("OpenNewWindow"),
+                context: "workspace".to_string(),
+            },
+            KeyMapping {
                 sequence: vec!["shift".to_string(), "-".to_string(), "k".to_string()],
                 action: format!("NextTab"),
                 context: "workspace".to_string(),
@@ -181,6 +186,11 @@ impl KeyMappings {
             KeyMapping {
                 sequence: vec!["cmd".to_string(), "-".to_string(), "n".to_string()],
                 action: format!("CreateOneBlock"),
+                context: "workspace".to_string(),
+            },
+            KeyMapping {
+                sequence: vec!["cmd".to_string(), "-".to_string(), "o".to_string()],
+                action: format!("OpenNewWindow"),
                 context: "workspace".to_string(),
             },
             KeyMapping {

@@ -331,7 +331,6 @@ impl Editor {
         self.redo_history.push(current);
         self.mark_dirty(cx);
         self.sync_table_axis_visuals(cx);
-        self.dismiss_contextual_overlays(cx);
         cx.notify();
     }
 
@@ -350,7 +349,6 @@ impl Editor {
         self.undo_history.push(current);
         self.mark_dirty(cx);
         self.sync_table_axis_visuals(cx);
-        self.dismiss_contextual_overlays(cx);
         cx.notify();
     }
 }

@@ -4,9 +4,10 @@ use gpui_component::Root;
 use crate::{
     globals::states::States,
     key_mappings::mappings::{
-        CloseActiveTab, CreateOneBlock, NextTab, PreviousTab, ToggleCommandBar, ToggleSearchBar,
-        ToggleSettingsPanel, ToggleSidebar,
+        CloseActiveTab, CreateOneBlock, NextTab, OpenNewWindow, PreviousTab, ToggleCommandBar,
+        ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
     },
+    libs::theme::adapt_theme_to_system,
 };
 
 use super::Workspace;
@@ -119,7 +120,7 @@ impl Workspace {
     /// Switch to the next tab in the active pane.
     pub fn next_tab(&mut self, _action: &NextTab, _window: &mut Window, cx: &mut Context<Self>) {
         let states: &States = cx.global();
-        let Some(active_pane) = states.active_pane.clone() else {
+        let Some(active_pane) = states.get_active_pane(cx) else {
             return;
         };
 
@@ -136,13 +137,34 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         let states: &States = cx.global();
-        let Some(active_pane) = states.active_pane.clone() else {
+        let Some(active_pane) = states.get_active_pane(cx) else {
             return;
         };
 
         let _ = active_pane.update(cx, |this, cx| {
             this.activate_previous_tab(cx);
         });
+    }
+
+    /// Open a new workspace window.
+    pub fn open_new_window(
+        &mut self,
+        _action: &OpenNewWindow,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.open_window(WindowOptions::default(), |window, cx| {
+            adapt_theme_to_system(cx);
+
+            let view = cx.new(|cx| {
+                let workspace =
+                    Workspace::new(window, cx).expect("Workspace initialization failed");
+                workspace
+            });
+
+            cx.new(|cx| Root::new(view, window, cx))
+        })
+        .expect("Failed to open window");
     }
 
     /// Close the active tab in the active pane.
@@ -153,20 +175,13 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         let states: &States = cx.global();
-        let Some(active_pane) = states.active_pane.clone() else {
+        let Some(active_pane) = states.get_active_pane(cx) else {
             return;
         };
 
         let _ = active_pane.update(cx, |this, cx| {
             if let Some(selected_block_id) = this.selected_block_id {
                 this.close_tab(&selected_block_id, cx);
-
-                let entity = cx.entity();
-                if !this.has_opened_blocks() {
-                    let _ = this.pane_group.update(cx, |this, cx| {
-                        this.cleanup_pane_without_tabs(entity, cx);
-                    });
-                }
             }
         });
     }

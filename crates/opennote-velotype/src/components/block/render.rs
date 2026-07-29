@@ -2522,19 +2522,6 @@ impl Render for Block {
                                                 });
                                             },
                                         )
-                                        .on_mouse_down(
-                                            MouseButton::Right,
-                                            move |event, _window, cx| {
-                                                let _ = menu_block.update(cx, |_block, cx| {
-                                                    cx.stop_propagation();
-                                                    cx.emit(BlockEvent::RequestOpenTableAxisMenu {
-                                                        kind: TableAxisKind::Column,
-                                                        index: column,
-                                                        position: event.position,
-                                                    });
-                                                });
-                                            },
-                                        )
                                         .block_mouse_except_scroll(),
                                 )
                         }),
@@ -2596,16 +2583,6 @@ impl Render for Block {
                                     });
                                 });
                             })
-                            .on_mouse_down(MouseButton::Right, move |event, _window, cx| {
-                                let _ = header_menu_block.update(cx, |_block, cx| {
-                                    cx.stop_propagation();
-                                    cx.emit(BlockEvent::RequestOpenTableAxisMenu {
-                                        kind: TableAxisKind::Row,
-                                        index: 0,
-                                        position: event.position,
-                                    });
-                                });
-                            })
                             .block_mouse_except_scroll(),
                     )
                     .children(header_cells.into_iter().enumerate().map(|(column, cell)| {
@@ -2649,16 +2626,6 @@ impl Render for Block {
                                             cx.emit(BlockEvent::RequestSelectTableAxis {
                                                 kind: TableAxisKind::Column,
                                                 index: column,
-                                            });
-                                        });
-                                    })
-                                    .on_mouse_down(MouseButton::Right, move |event, _window, cx| {
-                                        let _ = menu_block.update(cx, |_block, cx| {
-                                            cx.stop_propagation();
-                                            cx.emit(BlockEvent::RequestOpenTableAxisMenu {
-                                                kind: TableAxisKind::Column,
-                                                index: column,
-                                                position: event.position,
                                             });
                                         });
                                     })
@@ -2729,19 +2696,6 @@ impl Render for Block {
                                                     cx.emit(BlockEvent::RequestSelectTableAxis {
                                                         kind: TableAxisKind::Row,
                                                         index: visual_row,
-                                                    });
-                                                });
-                                            },
-                                        )
-                                        .on_mouse_down(
-                                            MouseButton::Right,
-                                            move |event, _window, cx| {
-                                                let _ = menu_block.update(cx, |_block, cx| {
-                                                    cx.stop_propagation();
-                                                    cx.emit(BlockEvent::RequestOpenTableAxisMenu {
-                                                        kind: TableAxisKind::Row,
-                                                        index: visual_row,
-                                                        position: event.position,
                                                     });
                                                 });
                                             },

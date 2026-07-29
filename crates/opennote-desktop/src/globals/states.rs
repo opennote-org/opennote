@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gpui::{App, AppContext, Global, SharedString, WeakEntity};
+use gpui::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
@@ -16,7 +16,7 @@ use crate::{
         actions::route_helpers::route_read_blocks,
         bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
     },
-    widgets::pane::pane::Pane,
+    widgets::pane::Pane,
 };
 
 #[derive(Debug, Clone)]
@@ -35,9 +35,9 @@ pub struct States {
     /// The active server
     pub active_server: SharedString,
 
-    /// The pane that is active.
-    /// It is optional because we can't create a pane when new.
-    pub active_pane: Option<WeakEntity<Pane>>,
+    /// The pane that is active for each workspace.
+    /// The key is a WindowId in u64.
+    pub active_panes: HashMap<WindowId, WeakEntity<Pane>>,
 
     pub search_scope: SearchScope,
 }
@@ -49,7 +49,7 @@ impl States {
         Self {
             active_server: SharedString::new(LOCAL_SERVER_NAME),
             servers: build_servers(servers),
-            active_pane: None,
+            active_panes: HashMap::new(),
             search_scope: SearchScope::Document,
         }
     }
@@ -73,6 +73,16 @@ impl States {
         cx.set_global(states);
     }
 
+    pub fn get_active_pane(&self, cx: &App) -> Option<WeakEntity<Pane>> {
+        let Some(active_window_handle) = cx.active_window() else {
+            return None;
+        };
+
+        self.active_panes
+            .get(&active_window_handle.window_id())
+            .cloned()
+    }
+
     /// Overwrite the existing blocks of a server in the states with the new blocks
     pub fn hard_update_blocks(&mut self, server_name: &SharedString, blocks: Vec<Block>) {
         if let Some(server) = self.servers.get_mut(server_name) {
@@ -82,8 +92,6 @@ impl States {
 
     /// It will refresh blocks across all servers
     pub fn refresh_blocks_list(&self, cx: &mut App) {
-        log::debug!("Refreshing blocks...");
-
         let servers = self.get_servers().to_owned();
         let databases = cx.read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
             this.0.databases.clone()

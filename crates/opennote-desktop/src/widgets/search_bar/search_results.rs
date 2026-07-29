@@ -100,15 +100,6 @@ impl ListDelegate for SearchResultsList {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> Option<Self::Item> {
-        log::debug!(
-            "Search results ranking: {:?}",
-            &self
-                .results
-                .iter()
-                .map(|item| item.2.score)
-                .collect::<Vec<f32>>()
-        );
-
         self.results
             .get(ix.row)
             .map(|(block, payload, _raw_search_result)| {
@@ -165,7 +156,7 @@ impl ListDelegate for SearchResultsList {
         let configurations = bootstrap.get_configurations();
 
         let states: &States = cx.global();
-        let Some(active_pane) = states.active_pane.clone() else {
+        let Some(active_pane) = states.get_active_pane(cx) else {
             return gpui::Task::ready(());
         };
 

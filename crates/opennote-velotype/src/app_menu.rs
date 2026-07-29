@@ -69,9 +69,8 @@ pub(crate) fn open_editor_window(
         .unwrap();
 
     handle
-        .update(cx, |editor, window, cx| {
+        .update(cx, |_editor, window, _cx| {
             window.activate_window();
-            editor.force_install_close_guard(cx, window);
         })
         .expect("newly opened editor window should be updateable");
 
@@ -448,57 +447,6 @@ fn current_window_candidates(cx: &mut App) -> Vec<AnyWindowHandle> {
     candidates
 }
 
-fn request_close_editor_window(window: AnyWindowHandle, cx: &mut App) -> bool {
-    let Some(window) = window.downcast::<Editor>() else {
-        return false;
-    };
-
-    window
-        .update(cx, |editor, window, cx| {
-            editor.request_close_current_window(window, cx);
-        })
-        .is_ok()
-}
-
-fn request_close_current_editor_window(cx: &mut App) {
-    let candidates = current_window_candidates(cx);
-    if candidates.is_empty() {
-        cx.quit();
-        return;
-    }
-
-    for window in candidates {
-        if request_close_editor_window(window, cx) {
-            return;
-        }
-    }
-}
-
-pub(crate) fn request_quit_application(cx: &mut App) {
-    let candidates = current_window_candidates(cx);
-    if candidates.is_empty() {
-        cx.quit();
-        return;
-    }
-
-    for window in candidates {
-        let Some(window) = window.downcast::<Editor>() else {
-            continue;
-        };
-
-        let should_close = window
-            .update(cx, |editor, window, cx| {
-                editor.on_window_should_close(window, cx)
-            })
-            .unwrap_or(false);
-        if !should_close {
-            return;
-        }
-    }
-
-    cx.quit();
-}
-
 /// Executes one of the app-menu actions against the current application state.
 pub(crate) fn dispatch_menu_action(action: &dyn Action, cx: &mut App) {
     if action.as_any().is::<NewWindow>() {
@@ -514,10 +462,6 @@ pub(crate) fn dispatch_menu_action(action: &dyn Action, cx: &mut App) {
         prompt_and_import_language_config(cx);
     } else if action.as_any().is::<AddThemeConfig>() {
         prompt_and_import_theme_config(cx);
-    } else if action.as_any().is::<SaveDocument>() {
-        let _ = with_active_editor(cx, |editor, window, cx| editor.save_document(window, cx));
-    } else if action.as_any().is::<SaveDocumentAs>() {
-        let _ = with_active_editor(cx, |editor, window, cx| editor.save_document_as(window, cx));
     } else if action.as_any().is::<ExportHtml>() {
         let _ = with_active_editor(cx, |editor, window, cx| {
             editor.export_document_via_prompt(ExportFormat::Html, window, cx)
@@ -572,10 +516,6 @@ pub(crate) fn dispatch_menu_action(action: &dyn Action, cx: &mut App) {
         let _ = with_active_editor(cx, |editor, window, cx| {
             editor.toggle_workspace_drawer(window, cx);
         });
-    } else if action.as_any().is::<QuitApplication>() {
-        request_quit_application(cx);
-    } else if action.as_any().is::<CloseWindow>() {
-        request_close_current_editor_window(cx);
     }
 }
 
@@ -611,23 +551,19 @@ pub(crate) fn dispatch_menu_action_for_editor(
         prompt_and_import_language_config_with_error_window(cx, current_window);
     } else if action.as_any().is::<AddThemeConfig>() {
         prompt_and_import_theme_config_with_error_window(cx, current_window);
-    } else if action.as_any().is::<SaveDocument>() {
-        let _ = target.update(cx, |editor, cx| editor.request_save_document(cx));
-    } else if action.as_any().is::<SaveDocumentAs>() {
-        let _ = target.update(cx, |editor, cx| editor.request_save_document_as(cx));
-    } else if action.as_any().is::<ExportHtml>() {
+    }
+    // else if action.as_any().is::<SaveDocument>() {
+    //     let _ = target.update(cx, |editor, cx| editor.request_save_document(cx));
+    // } else if action.as_any().is::<SaveDocumentAs>() {
+    //     let _ = target.update(cx, |editor, cx| editor.request_save_document_as(cx));
+    // }
+    else if action.as_any().is::<ExportHtml>() {
         let _ = target.update(cx, |editor, cx| {
             editor.export_document_via_prompt(ExportFormat::Html, window, cx);
         });
     } else if action.as_any().is::<ExportPdf>() {
         let _ = target.update(cx, |editor, cx| {
             editor.export_document_via_prompt(ExportFormat::Pdf, window, cx);
-        });
-    } else if action.as_any().is::<QuitApplication>() {
-        request_quit_application(cx);
-    } else if action.as_any().is::<CloseWindow>() {
-        let _ = target.update(cx, |editor, cx| {
-            editor.request_close_current_window(window, cx);
         });
     } else if action.as_any().is::<CheckForUpdates>() {
         let _ = target.update(cx, |editor, cx| {

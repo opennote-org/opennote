@@ -10,7 +10,7 @@ use crate::globals::states::States;
 use crate::libs::tabs::drag::DraggedItem;
 use crate::libs::tabs::tab::Tab;
 use crate::libs::tabs::tab_bar::TabBar;
-use crate::widgets::pane::pane::Pane;
+use crate::widgets::pane::Pane;
 
 pub struct TabState {
     /// It is saved when a document has just opened.
@@ -96,14 +96,6 @@ pub fn create_tab_bar_for_blocks(
                     .rounded(ButtonRounded::Medium)
                     .on_click(cx.listener(move |view, _, _, cx| {
                         view.close_tab(&id, cx);
-                        let entity = cx.entity();
-
-                        if !view.has_opened_blocks() {
-                            let _ = view.pane_group.update(cx, |this, cx| {
-                                this.cleanup_pane_without_tabs(entity, cx);
-                            });
-                        }
-
                         cx.stop_propagation();
                     })),
             )

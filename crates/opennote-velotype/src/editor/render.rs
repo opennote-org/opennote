@@ -12,7 +12,7 @@ use crate::components::CalloutVariant;
 use crate::components::{AddLanguageConfig, AddThemeConfig, Block, NoRecentFiles};
 use crate::i18n::{I18nManager, I18nStrings};
 use crate::theme::{Theme, ThemeDimensions, ThemeManager};
-use crate::window_chrome::{custom_titlebar_height, render_custom_titlebar};
+use crate::window_chrome::custom_titlebar_height;
 
 pub(crate) const ABOUT_GITHUB_URL: &str = "https://github.com/manyougz/velotype";
 
@@ -389,39 +389,6 @@ fn footnote_group_shell(
 }
 
 impl Editor {
-    fn on_titlebar_close(
-        &mut self,
-        event: &ClickEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if event.standard_click() {
-            self.request_close_current_window(window, cx);
-        }
-    }
-
-    pub(crate) fn install_close_guard(&mut self, cx: &mut Context<Self>, window: &mut Window) {
-        if self.close_guard_installed {
-            return;
-        }
-
-        self.force_install_close_guard(cx, window);
-    }
-
-    pub(crate) fn force_install_close_guard(
-        &mut self,
-        cx: &mut Context<Self>,
-        window: &mut Window,
-    ) {
-        let editor = cx.entity().downgrade();
-        window.on_window_should_close(cx, move |window, cx| {
-            editor
-                .update(cx, |this, cx| this.on_window_should_close(window, cx))
-                .unwrap_or(true)
-        });
-        self.close_guard_installed = true;
-    }
-
     fn apply_pending_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(entity_id) = self.pending_focus.take()
             && let Some(block) = self.focusable_entity_by_id(entity_id)
@@ -504,19 +471,19 @@ impl Editor {
         }));
     }
 
-    fn sync_pending_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.pending_save {
-            self.pending_save = false;
-            self.save_document(window, cx);
-        }
-    }
+    // fn sync_pending_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    //     if self.pending_save {
+    //         self.pending_save = false;
+    //         self.save_document(window, cx);
+    //     }
+    // }
 
-    fn sync_pending_save_as(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.pending_save_as {
-            self.pending_save_as = false;
-            self.save_document_as(window, cx);
-        }
-    }
+    // fn sync_pending_save_as(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    //     if self.pending_save_as {
+    //         self.pending_save_as = false;
+    //         self.save_document_as(window, cx);
+    //     }
+    // }
 
     fn sync_pending_open_link(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(link) = self.pending_open_link.take() else {
@@ -1055,272 +1022,6 @@ impl Editor {
         Some(layer.into_any_element())
     }
 
-    /// Builds the unsaved-changes dialog with backdrop, message, and three
-    /// action buttons (cancel, discard, save-and-close).
-    fn render_unsaved_changes_overlay(
-        &self,
-        theme: &Theme,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let c = &theme.colors;
-        let d = &theme.dimensions;
-        let t = &theme.typography;
-        let strings = cx.global::<I18nManager>().strings();
-
-        div()
-            .id("unsaved-changes-overlay")
-            .absolute()
-            .top_0()
-            .left_0()
-            .right_0()
-            .bottom_0()
-            .occlude()
-            .flex()
-            .items_center()
-            .justify_center()
-            .bg(c.dialog_backdrop)
-            .child(
-                div()
-                    .w_full()
-                    .px(px(d.editor_padding))
-                    .flex()
-                    .justify_center()
-                    .child(
-                        div()
-                            .id("unsaved-changes-dialog")
-                            .w(px(d.dialog_width))
-                            .max_w(relative(1.0))
-                            .flex()
-                            .flex_col()
-                            .gap(px(d.dialog_gap))
-                            .p(px(d.dialog_padding))
-                            .bg(c.dialog_surface)
-                            .border(px(d.dialog_border_width))
-                            .border_color(c.dialog_border)
-                            .rounded(px(d.dialog_radius))
-                            .shadow_lg()
-                            .child(
-                                div()
-                                    .text_size(px(t.dialog_title_size))
-                                    .font_weight(t.dialog_title_weight.to_font_weight())
-                                    .text_color(c.dialog_title)
-                                    .child(strings.unsaved_changes_title.clone()),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(t.dialog_body_size))
-                                    .font_weight(t.dialog_body_weight.to_font_weight())
-                                    .line_height(rems(t.text_line_height))
-                                    .text_color(c.dialog_body)
-                                    .child(strings.unsaved_changes_message.clone()),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .justify_end()
-                                    .gap(px(d.dialog_button_gap))
-                                    .child(
-                                        div()
-                                            .id("cancel-close-dialog")
-                                            .h(px(d.dialog_button_height))
-                                            .px(px(d.dialog_button_padding_x))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .rounded(px((d.dialog_radius - 4.0).max(0.0)))
-                                            .border(px(d.dialog_border_width))
-                                            .border_color(c.dialog_border)
-                                            .bg(c.dialog_secondary_button_bg)
-                                            .hover(|this| this.bg(c.dialog_secondary_button_hover))
-                                            .active(|this| this.opacity(0.92))
-                                            .cursor_pointer()
-                                            .text_size(px(t.dialog_button_size))
-                                            .font_weight(t.dialog_button_weight.to_font_weight())
-                                            .text_color(c.dialog_secondary_button_text)
-                                            .child(strings.unsaved_changes_cancel.clone())
-                                            .on_click(cx.listener(Self::on_cancel_close_dialog)),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("discard-and-close-dialog")
-                                            .h(px(d.dialog_button_height))
-                                            .px(px(d.dialog_button_padding_x))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .rounded(px((d.dialog_radius - 4.0).max(0.0)))
-                                            .border(px(d.dialog_border_width))
-                                            .border_color(c.dialog_border)
-                                            .bg(c.dialog_danger_button_bg)
-                                            .hover(|this| this.bg(c.dialog_danger_button_hover))
-                                            .active(|this| this.opacity(0.92))
-                                            .cursor_pointer()
-                                            .text_size(px(t.dialog_button_size))
-                                            .font_weight(t.dialog_button_weight.to_font_weight())
-                                            .text_color(c.dialog_danger_button_text)
-                                            .child(
-                                                strings.unsaved_changes_discard_and_close.clone(),
-                                            )
-                                            .on_click(cx.listener(Self::on_discard_and_close)),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("save-and-close-dialog")
-                                            .h(px(d.dialog_button_height))
-                                            .px(px(d.dialog_button_padding_x))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .rounded(px((d.dialog_radius - 4.0).max(0.0)))
-                                            .bg(c.dialog_primary_button_bg)
-                                            .hover(|this| this.bg(c.dialog_primary_button_hover))
-                                            .active(|this| this.opacity(0.92))
-                                            .cursor_pointer()
-                                            .text_size(px(t.dialog_button_size))
-                                            .font_weight(t.dialog_button_weight.to_font_weight())
-                                            .text_color(c.dialog_primary_button_text)
-                                            .child(strings.unsaved_changes_save_and_close.clone())
-                                            .on_click(cx.listener(Self::on_save_and_close)),
-                                    ),
-                            ),
-                    ),
-            )
-    }
-
-    /// Builds the dropped-file replacement dialog shown when the current
-    /// document has unsaved changes.
-    fn render_drop_replace_overlay(
-        &self,
-        theme: &Theme,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let c = &theme.colors;
-        let d = &theme.dimensions;
-        let t = &theme.typography;
-        let strings = cx.global::<I18nManager>().strings();
-
-        div()
-            .id("drop-replace-overlay")
-            .absolute()
-            .top_0()
-            .left_0()
-            .right_0()
-            .bottom_0()
-            .occlude()
-            .flex()
-            .items_center()
-            .justify_center()
-            .bg(c.dialog_backdrop)
-            .child(
-                div()
-                    .w_full()
-                    .px(px(d.editor_padding))
-                    .flex()
-                    .justify_center()
-                    .child(
-                        div()
-                            .id("drop-replace-dialog")
-                            .w(px(d.dialog_width))
-                            .max_w(relative(1.0))
-                            .flex()
-                            .flex_col()
-                            .gap(px(d.dialog_gap))
-                            .p(px(d.dialog_padding))
-                            .bg(c.dialog_surface)
-                            .border(px(d.dialog_border_width))
-                            .border_color(c.dialog_border)
-                            .rounded(px(d.dialog_radius))
-                            .shadow_lg()
-                            .child(
-                                div()
-                                    .text_size(px(t.dialog_title_size))
-                                    .font_weight(t.dialog_title_weight.to_font_weight())
-                                    .text_color(c.dialog_title)
-                                    .child(strings.drop_replace_title.clone()),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(t.dialog_body_size))
-                                    .font_weight(t.dialog_body_weight.to_font_weight())
-                                    .line_height(rems(t.text_line_height))
-                                    .text_color(c.dialog_body)
-                                    .child(strings.drop_replace_message.clone()),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .justify_end()
-                                    .gap(px(d.dialog_button_gap))
-                                    .child(
-                                        div()
-                                            .id("cancel-drop-replace-dialog")
-                                            .h(px(d.dialog_button_height))
-                                            .px(px(d.dialog_button_padding_x))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .rounded(px((d.dialog_radius - 4.0).max(0.0)))
-                                            .border(px(d.dialog_border_width))
-                                            .border_color(c.dialog_border)
-                                            .bg(c.dialog_secondary_button_bg)
-                                            .hover(|this| this.bg(c.dialog_secondary_button_hover))
-                                            .active(|this| this.opacity(0.92))
-                                            .cursor_pointer()
-                                            .text_size(px(t.dialog_button_size))
-                                            .font_weight(t.dialog_button_weight.to_font_weight())
-                                            .text_color(c.dialog_secondary_button_text)
-                                            .child(strings.drop_replace_cancel.clone())
-                                            .on_click(
-                                                cx.listener(Self::on_cancel_drop_replace_dialog),
-                                            ),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("discard-and-replace-drop-dialog")
-                                            .h(px(d.dialog_button_height))
-                                            .px(px(d.dialog_button_padding_x))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .rounded(px((d.dialog_radius - 4.0).max(0.0)))
-                                            .border(px(d.dialog_border_width))
-                                            .border_color(c.dialog_border)
-                                            .bg(c.dialog_danger_button_bg)
-                                            .hover(|this| this.bg(c.dialog_danger_button_hover))
-                                            .active(|this| this.opacity(0.92))
-                                            .cursor_pointer()
-                                            .text_size(px(t.dialog_button_size))
-                                            .font_weight(t.dialog_button_weight.to_font_weight())
-                                            .text_color(c.dialog_danger_button_text)
-                                            .child(strings.drop_replace_discard_and_replace.clone())
-                                            .on_click(
-                                                cx.listener(Self::on_discard_and_replace_drop),
-                                            ),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("save-and-replace-drop-dialog")
-                                            .h(px(d.dialog_button_height))
-                                            .px(px(d.dialog_button_padding_x))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .rounded(px((d.dialog_radius - 4.0).max(0.0)))
-                                            .bg(c.dialog_primary_button_bg)
-                                            .hover(|this| this.bg(c.dialog_primary_button_hover))
-                                            .active(|this| this.opacity(0.92))
-                                            .cursor_pointer()
-                                            .text_size(px(t.dialog_button_size))
-                                            .font_weight(t.dialog_button_weight.to_font_weight())
-                                            .text_color(c.dialog_primary_button_text)
-                                            .child(strings.drop_replace_save_and_replace.clone())
-                                            .on_click(cx.listener(Self::on_save_and_replace_drop)),
-                                    ),
-                            ),
-                    ),
-            )
-    }
-
     fn info_dialog_title<'a>(&self, strings: &'a I18nStrings, kind: InfoDialogKind) -> &'a str {
         match kind {
             InfoDialogKind::CheckForUpdates => &strings.help_check_updates_title,
@@ -1494,12 +1195,11 @@ impl Editor {
 
 impl Render for Editor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.install_close_guard(cx, window);
         self.apply_pending_focus(window, cx);
         self.apply_pending_scroll_into_view(window, cx);
         self.last_selection_snapshot = self.capture_source_selection_snapshot(cx);
-        self.sync_pending_save(window, cx);
-        self.sync_pending_save_as(window, cx);
+        // self.sync_pending_save(window, cx);
+        // self.sync_pending_save_as(window, cx);
         self.sync_pending_open_link(window, cx);
         self.sync_window_edited_state(window);
 
@@ -1591,19 +1291,6 @@ impl Render for Editor {
                                 .flex_shrink_0()
                                 .mt(px(footnote_row_top_gap(previous_footnote_row, d.block_gap)))
                                 .child(entity.clone());
-                            let row = if self.view_mode == super::ViewMode::Rendered {
-                                let row_editor = editor.clone();
-                                let entity_id = entity.entity_id();
-                                row.on_mouse_down(MouseButton::Right, move |event, window, cx| {
-                                    let _ = row_editor.update(cx, |editor, cx| {
-                                        editor.on_block_context_menu_mouse_down(
-                                            entity_id, event, window, cx,
-                                        );
-                                    });
-                                })
-                            } else {
-                                row
-                            };
                             footnote_children.push(row.into_any_element());
                             previous_footnote_row = Some(footnote_spacing);
                             footnote_end += 1;
@@ -1636,18 +1323,6 @@ impl Render for Editor {
                             d,
                         )))
                         .child(entity.clone());
-                    let row = if self.view_mode == super::ViewMode::Rendered {
-                        let row_editor = editor.clone();
-                        let entity_id = entity.entity_id();
-                        row.on_mouse_down(MouseButton::Right, move |event, window, cx| {
-                            let _ = row_editor.update(cx, |editor, cx| {
-                                editor
-                                    .on_block_context_menu_mouse_down(entity_id, event, window, cx);
-                            });
-                        })
-                    } else {
-                        row
-                    };
                     group_children.push(row.into_any_element());
                     previous_callout_row = Some(row_spacing);
                     group_end += 1;
@@ -1693,18 +1368,6 @@ impl Render for Editor {
                         .flex_shrink_0()
                         .mt(px(footnote_row_top_gap(previous_footnote_row, d.block_gap)))
                         .child(entity.clone());
-                    let row = if self.view_mode == super::ViewMode::Rendered {
-                        let row_editor = editor.clone();
-                        let entity_id = entity.entity_id();
-                        row.on_mouse_down(MouseButton::Right, move |event, window, cx| {
-                            let _ = row_editor.update(cx, |editor, cx| {
-                                editor
-                                    .on_block_context_menu_mouse_down(entity_id, event, window, cx);
-                            });
-                        })
-                    } else {
-                        row
-                    };
                     group_children.push(row.into_any_element());
                     previous_footnote_row = Some(row_spacing);
                     group_end += 1;
@@ -1733,17 +1396,6 @@ impl Render for Editor {
                 .flex_shrink_0()
                 .mt(px(top_gap))
                 .child(entity.clone());
-            let row = if self.view_mode == super::ViewMode::Rendered {
-                let row_editor = editor.clone();
-                let entity_id = entity.entity_id();
-                row.on_mouse_down(MouseButton::Right, move |event, window, cx| {
-                    let _ = row_editor.update(cx, |editor, cx| {
-                        editor.on_block_context_menu_mouse_down(entity_id, event, window, cx);
-                    });
-                })
-            } else {
-                row
-            };
             row_starts.push(index);
             row_top_gaps.push(top_gap);
             row_elements.push(row.into_any_element());
@@ -1894,14 +1546,6 @@ impl Render for Editor {
                 + scroll_trigger_padding
                 + scroll_beyond_bottom))
             .children(block_rows);
-        let scroll_content = if self.view_mode == super::ViewMode::Rendered {
-            scroll_content.on_mouse_down(
-                MouseButton::Right,
-                cx.listener(Self::on_editor_context_menu_mouse_down),
-            )
-        } else {
-            scroll_content
-        };
 
         let content_area = div()
             .id("editor-scroll")
@@ -2008,23 +1652,16 @@ impl Render for Editor {
             .capture_action(cx.listener(Self::on_delete_capture))
             .capture_action(cx.listener(Self::on_delete_back_capture))
             .capture_key_down(cx.listener(Self::on_editor_key_down_capture))
-            .can_drop(|dragged, _window, _cx| dragged.is::<ExternalPaths>())
-            .on_drop::<ExternalPaths>(cx.listener(Self::on_external_paths_drop))
             .on_action(cx.listener(Self::on_undo))
             .on_action(cx.listener(Self::on_redo))
-            .on_action(cx.listener(Self::on_save_document))
-            .on_action(cx.listener(Self::on_save_document_as))
             .on_action(cx.listener(Self::on_export_html))
             .on_action(cx.listener(Self::on_export_pdf))
-            .on_action(cx.listener(Self::on_quit_application))
-            .on_action(cx.listener(Self::on_close_window))
             .on_action(cx.listener(Self::on_toggle_view_mode_action))
             .on_action(cx.listener(Self::on_toggle_workspace_action))
             .on_action(cx.listener(Self::on_page_up))
             .on_action(cx.listener(Self::on_page_down))
             .on_action(cx.listener(Self::on_jump_to_top))
             .on_action(cx.listener(Self::on_jump_to_bottom))
-            .on_action(cx.listener(Self::on_dismiss_transient_ui))
             .on_action(cx.listener(Self::on_install_cli_tool))
             .on_action(cx.listener(Self::on_uninstall_cli_tool));
         // Fetch menus + collect labels once for both renderers; previously each
@@ -2040,21 +1677,6 @@ impl Render for Editor {
             .as_ref()
             .map(|m| m.iter().map(|menu| menu.name.clone()).collect())
             .unwrap_or_default();
-        // DEPRECATED
-        // let window_title =
-        //     Self::window_title(self.file_path.as_deref(), self.document_dirty, &strings);
-        // let base = if let Some(titlebar) = render_custom_titlebar(
-        //     "editor-titlebar",
-        //     window_title.into(),
-        //     &theme,
-        //     window,
-        //     cx,
-        //     Self::on_titlebar_close,
-        // ) {
-        //     base.child(titlebar)
-        // } else {
-        //     base
-        // };
         let base = if let Some(menu_bar) = self.render_in_window_menu_bar(
             &theme,
             cx,
@@ -2100,22 +1722,8 @@ impl Render for Editor {
         } else {
             base
         };
-        let base = if let Some(context_menu) = self.render_context_menu_overlay(&theme, cx) {
-            base.child(context_menu)
-        } else {
-            base
-        };
-        let base = if let Some(table_dialog) = self.render_table_insert_dialog_overlay(&theme, cx) {
-            base.child(table_dialog)
-        } else {
-            base
-        };
         if let Some(kind) = self.info_dialog {
             base.child(self.render_info_dialog_overlay(&theme, kind, cx))
-        } else if self.show_drop_replace_dialog {
-            base.child(self.render_drop_replace_overlay(&theme, cx))
-        } else if self.show_unsaved_changes_dialog {
-            base.child(self.render_unsaved_changes_overlay(&theme, cx))
         } else {
             base
         }

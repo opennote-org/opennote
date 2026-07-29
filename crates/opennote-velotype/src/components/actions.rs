@@ -152,15 +152,6 @@ pub(crate) enum ShortcutCommand {
     IndentBlock,
     OutdentBlock,
     ExitCodeBlock,
-    // SaveDocument,
-    // SaveDocumentAs,
-    // NewWindow,
-    // OpenFile,
-    // QuitApplication,
-    // CloseWindow,
-    // DismissTransientUi,
-    // ToggleViewMode,
-    // ToggleWorkspace,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -416,7 +407,7 @@ const SHORTCUT_DEFINITIONS: &[ShortcutDefinition] = &[
         command: ShortcutCommand::BoldSelection,
         id: "bold_selection",
         category: ShortcutCategory::Formatting,
-        default_keys: &["cmd-b", "ctrl-b"],
+        default_keys: &["cmd-shift-b", "ctrl-shift-b"],
         context: BLOCK_CONTEXT,
     },
     ShortcutDefinition {
@@ -867,33 +858,6 @@ mod tests {
         assert!(!normalized.contains_key("select_all_source_text"));
         assert!(!normalized.contains_key("select_focused_block_text_rendered"));
     }
-
-    // #[test]
-    // fn close_and_quit_defaults_are_platform_specific() {
-    //     #[cfg(target_os = "macos")]
-    //     {
-    //         assert_eq!(
-    //             resolved_shortcut_keys(&BTreeMap::new(), ShortcutCommand::CloseWindow),
-    //             vec!["cmd-w".to_string()]
-    //         );
-    //         assert_eq!(
-    //             resolved_shortcut_keys(&BTreeMap::new(), ShortcutCommand::QuitApplication),
-    //             vec!["cmd-q".to_string()]
-    //         );
-    //     }
-
-    //     #[cfg(not(target_os = "macos"))]
-    //     {
-    //         assert_eq!(
-    //             resolved_shortcut_keys(&BTreeMap::new(), ShortcutCommand::CloseWindow),
-    //             vec!["ctrl-q".to_string()]
-    //         );
-    //         assert!(
-    //             resolved_shortcut_keys(&BTreeMap::new(), ShortcutCommand::QuitApplication)
-    //                 .is_empty()
-    //         );
-    //     }
-    // }
 
     #[test]
     fn word_and_block_shortcuts_have_ctrl_and_alt_defaults() {

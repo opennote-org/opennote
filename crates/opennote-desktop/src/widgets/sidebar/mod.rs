@@ -80,7 +80,6 @@ impl OpenNoteSidebar {
         // Please avoid using update_global method as much as possible,
         // otherwise, GPUI will keep refreshing because update_global will trigger the observer.
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
-            log::debug!("Sidebar refreshes because the global state had changed");
             cx.notify();
         }));
 
@@ -134,7 +133,6 @@ impl OpenNoteSidebar {
         tree_state: Entity<TreeState>,
         blocks: Vec<Block>,
     ) -> Tree {
-        log::debug!("Building sidebar items...");
         let tree_items = build_blocks_tree(blocks, &mut self.blocks_state);
 
         tree_state.update(cx, |this, cx| {
@@ -235,7 +233,6 @@ impl OpenNoteSidebar {
             parent_block_id = Some(block)
         }
 
-        log::debug!("About to create a block under: {:?}", parent_block_id);
         create_one_block(window, cx, parent_block_id);
         cx.notify();
     }

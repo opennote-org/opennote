@@ -237,7 +237,6 @@ impl Editor {
         let last_len = last.entity.read(cx).visible_len();
 
         self.end_block_pointer_selection_sessions(cx);
-        self.dismiss_contextual_overlays(cx);
         self.clear_table_axis_preview(cx);
         self.clear_table_axis_selection(cx);
         for visible in &visible {
@@ -692,7 +691,6 @@ impl Editor {
         self.mark_dirty(cx);
         self.finalize_pending_undo_capture(cx);
         self.sync_table_axis_visuals(cx);
-        self.dismiss_contextual_overlays(cx);
         self.sync_cross_block_selection_visuals(cx);
         self.request_active_block_scroll_into_view(cx);
         cx.notify();
@@ -867,7 +865,6 @@ impl Editor {
         self.mark_dirty(cx);
         self.finalize_pending_undo_capture(cx);
         self.sync_table_axis_visuals(cx);
-        self.dismiss_contextual_overlays(cx);
         self.sync_cross_block_selection_visuals(cx);
         cx.notify();
         true

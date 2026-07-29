@@ -19,7 +19,7 @@ use crate::{
         },
     },
     key_mappings::{key_contexts::EDITOR, mappings::SaveDocument},
-    widgets::pane::{pane::Pane, tab::TabState},
+    widgets::pane::{Pane, tab::TabState},
 };
 
 /// Payload -> Text -> Payload
@@ -27,7 +27,7 @@ use crate::{
 /// Text is always text in the editor
 pub struct Editor {
     focus_handle: FocusHandle,
-    state: Entity<opennote_velotype::editor::Editor>,
+    pub state: Entity<opennote_velotype::editor::Editor>,
 
     pub highlighted_text: Option<SharedString>,
     pub block: Option<Block>,
@@ -51,18 +51,28 @@ impl Editor {
         _subscriptions.push(cx.observe_global_in::<TaskTracker>(
             window,
             move |this, window, cx| {
+                let Some(active_window) = cx.active_window() else {
+                    return;
+                };
+
                 let Some(block) = &this.block else {
                     return;
                 };
 
                 let scheduler: &TaskTracker = cx.global();
-                if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock(block.id))) {
+                if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock {
+                    block_id: block.id,
+                    window_id: active_window.window_id().as_u64(),
+                })) {
                     return;
                 }
 
                 let task_result =
                     cx.update_global::<TaskTracker, Option<TaskResult>>(|this, _cx| {
-                        this.get_task_result(TaskType::ChunkBlock(block.id))
+                        this.get_task_result(TaskType::ChunkBlock {
+                            block_id: block.id,
+                            window_id: active_window.window_id().as_u64(),
+                        })
                     });
 
                 if let Some(result) = task_result {
@@ -78,8 +88,6 @@ impl Editor {
                     let servers = states.get_servers_by_block_ids(&vec![block.id]).remove(0);
 
                     update_n_blocks(window, cx, vec![block], servers.0, servers.1, true);
-
-                    cx.notify();
                 }
 
                 // Alter the tab's save state to true

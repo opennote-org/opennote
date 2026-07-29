@@ -12,7 +12,6 @@ use std::time::{Duration, Instant};
 
 use gpui::*;
 
-use self::context_menu::{ContextMenuState, TableInsertDialogState};
 use self::tree::DocumentTree;
 use crate::components::{
     Block, BlockKind, BlockRecord, FootnoteDefinitionBinding, FootnoteReferenceLocation,
@@ -23,12 +22,9 @@ use crate::components::{
     TableAxisHighlight, TableAxisKind, TableAxisMarker, TableCellPosition, TableColumnAlignment,
     TableData, TableRuntime, UndoCaptureKind, serialize_table_cell_markdown,
 };
-mod close;
-mod context_menu;
 mod document;
 mod events;
 mod export;
-mod file_drop;
 mod history;
 mod persistence;
 mod render;
@@ -77,8 +73,6 @@ pub struct Editor {
     active_entity_id: Option<EntityId>,
     pending_scroll_active_block_into_view: bool,
     pending_scroll_recheck_after_layout: bool,
-    pending_save: bool,
-    pending_save_as: bool,
     pending_open_link: Option<PendingOpenLink>,
     pending_window_edited: bool,
     pending_window_title_refresh: bool,
@@ -98,24 +92,14 @@ pub struct Editor {
     /// their adjacent-top differences are valid footprints for the cache.
     prev_render_window: Option<(usize, usize)>,
     close_guard_installed: bool,
-    show_unsaved_changes_dialog: bool,
-    /// When true, the window will close after the next successful save.
-    pending_close_after_save: bool,
     /// Focus target to restore when the close dialog is dismissed.
     close_dialog_restore_focus: Option<EntityId>,
-    pending_drop_replace_path: Option<PathBuf>,
-    show_drop_replace_dialog: bool,
-    pending_drop_replace_after_save: bool,
-    drop_replace_restore_focus: Option<EntityId>,
     /// Optional informational dialog shown from the Help menu.
     info_dialog: Option<InfoDialogKind>,
     /// True while an online update check is running in the background.
     update_check_in_progress: bool,
     workspace: WorkspaceState,
     status_bar: StatusBarState,
-    context_menu: Option<ContextMenuState>,
-    table_insert_dialog: Option<TableInsertDialogState>,
-    context_menu_submenu_close_task: Option<Task<()>>,
     table_axis_preview: Option<TableAxisSelection>,
     table_axis_selection: Option<TableAxisSelection>,
     cross_block_selection: Option<CrossBlockSelection>,
@@ -283,8 +267,6 @@ impl Editor {
     pub fn highlight_search_result(&mut self, cx: &mut Context<Self>, highlighted_text: String) {
         let source_text = self.get_editor_value(cx);
         let text = source_text.as_str();
-        dbg!(&highlighted_text);
-        dbg!(text);
         if let Some(pos) = text.rfind(&highlighted_text) {
             let len = highlighted_text.len();
             let range = pos..pos.saturating_add(len);
@@ -345,8 +327,6 @@ impl Editor {
             active_entity_id: pending_focus,
             pending_scroll_active_block_into_view: true,
             pending_scroll_recheck_after_layout: true,
-            pending_save: false,
-            pending_save_as: false,
             pending_open_link: None,
             pending_window_edited: false,
             pending_window_title_refresh: false,
@@ -358,20 +338,11 @@ impl Editor {
             row_stride_cache: HashMap::new(),
             prev_render_window: None,
             close_guard_installed: false,
-            show_unsaved_changes_dialog: false,
-            pending_close_after_save: false,
             close_dialog_restore_focus: None,
-            pending_drop_replace_path: None,
-            show_drop_replace_dialog: false,
-            pending_drop_replace_after_save: false,
-            drop_replace_restore_focus: None,
             info_dialog: None,
             update_check_in_progress: false,
             workspace: WorkspaceState::default(),
             status_bar: StatusBarState::default(),
-            context_menu: None,
-            table_insert_dialog: None,
-            context_menu_submenu_close_task: None,
             table_axis_preview: None,
             table_axis_selection: None,
             cross_block_selection: None,

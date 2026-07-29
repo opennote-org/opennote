@@ -254,20 +254,6 @@ impl Editor {
         self.set_table_axis_selection(Some(selection), cx);
     }
 
-    pub(super) fn open_table_axis_menu(
-        &mut self,
-        table_block_id: EntityId,
-        kind: TableAxisKind,
-        index: usize,
-        position: Point<Pixels>,
-        cx: &mut Context<Self>,
-    ) {
-        self.select_table_axis(table_block_id, kind, index, cx);
-        if let Some(selection) = self.table_axis_selection {
-            self.open_table_axis_context_menu(position, selection, cx);
-        }
-    }
-
     pub(super) fn set_table_column_alignment(
         &mut self,
         table_block: &Entity<Block>,

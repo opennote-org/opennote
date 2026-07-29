@@ -2,7 +2,7 @@ use gpui::{Context, IntoElement, ParentElement, Render, SharedString, Styled, We
 use gpui_component::ActiveTheme;
 use uuid::Uuid;
 
-use crate::widgets::pane::pane::Pane;
+use crate::widgets::pane::Pane;
 
 // TODO:
 // - sidebar tabs can be dragged to re-order
