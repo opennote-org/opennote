@@ -22,10 +22,11 @@ pub fn create_sidebar_tabbar(
             let tab = Tab::new()
                 .label(server_name.clone())
                 .selected(has_selected)
-                .on_click(move |event: &gpui::ClickEvent, _window, cx| {
+                .on_click(move |event: &gpui::ClickEvent, window, cx| {
                     if !event.is_right_click() {
+                        let window_id = window.window_handle().window_id();
                         let _ = cx.update_global::<States, ()>(|states, cx| {
-                            states.set_active_remote_server(server_name.clone());
+                            states.set_active_server(window_id, server_name.clone());
                             states.refresh_blocks_list(cx);
                         });
                     }

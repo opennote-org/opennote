@@ -1,5 +1,6 @@
 use gpui::{Context, *};
 use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
+use opennote_models::constants::LOCAL_SERVER_NAME;
 
 mod actions;
 
@@ -46,10 +47,11 @@ impl Workspace {
         let sidebar = cx.new(|cx| OpenNoteSidebar::new(cx));
         let pane = cx.new(|cx| Pane::new(cx, window, sidebar.clone()));
 
-        // Set the active pane to be the one we have just created
+        // Set the active pane and server for the workspace we have just created.
         cx.update_global::<States, ()>(|this, _cx| {
-            this.active_panes
-                .insert(window.window_handle().window_id(), pane.downgrade());
+            let window_id = window.window_handle().window_id();
+            this.active_panes.insert(window_id, pane.downgrade());
+            this.set_active_server(window_id, SharedString::new(LOCAL_SERVER_NAME));
         });
 
         Ok(Self {

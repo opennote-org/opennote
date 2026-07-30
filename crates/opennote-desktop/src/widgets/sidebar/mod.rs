@@ -264,7 +264,7 @@ impl Focusable for OpenNoteSidebar {
 }
 
 impl Render for OpenNoteSidebar {
-    fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Return an empty div to toggle it off,
         // because .is_visible() is just invisible, therefore
         // it won't really disappear the sidebar, therefore,
@@ -275,17 +275,16 @@ impl Render for OpenNoteSidebar {
 
         let language_profile = get_language_profile(cx).unwrap();
         let entity_id = cx.entity_id();
+        let window_id = window.window_handle().window_id();
 
         let (active_server_name, blocks, remote_server_tab_bar) =
             cx.read_global::<States, (SharedString, Vec<Block>, TabBar)>(|states, _cx| {
+                let active_server_name = states.get_active_server_name(window_id);
                 let remote_server_tab_bar =
-                    create_sidebar_tabbar(states.active_server.clone(), states.get_servers());
+                    create_sidebar_tabbar(active_server_name.clone(), states.get_servers());
+                let blocks = states.get_all_blocks_by_server(&active_server_name);
 
-                (
-                    states.active_server.clone(),
-                    states.get_all_blocks_by_server(&states.active_server.clone()),
-                    remote_server_tab_bar,
-                )
+                (active_server_name, blocks, remote_server_tab_bar)
             });
 
         div()

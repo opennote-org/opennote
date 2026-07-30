@@ -74,7 +74,7 @@ pub fn create_one_block(
 
             let (server_name, server) = cx
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
-                    this.get_active_server()
+                    this.get_active_server(window.window_id())
                 })
                 .unwrap();
 
@@ -197,7 +197,7 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
 
             let (server_name, server) = cx
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
-                    this.get_active_server()
+                    this.get_active_server(window.window_id())
                 })
                 .unwrap();
 
@@ -447,7 +447,7 @@ pub fn update_parent(
 
             let (server_name, server) = app
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
-                    this.get_active_server()
+                    this.get_active_server(window.window_id())
                 })
                 .unwrap();
 

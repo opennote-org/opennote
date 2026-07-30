@@ -30,7 +30,9 @@ impl Workspace {
 
             if this.is_toggled() {
                 let states: &States = cx.global();
-                if let Some(tree_state) = this.get_tree_focus_handle(cx, &states.active_server) {
+                let active_server =
+                    states.get_active_server_name(window.window_handle().window_id());
+                if let Some(tree_state) = this.get_tree_focus_handle(cx, &active_server) {
                     window.focus(&tree_state);
                 }
             }
@@ -94,7 +96,8 @@ impl Workspace {
     ) {
         self.sidebar.update(cx, |this, cx| {
             let states: &States = cx.global();
-            let tree_state = this.get_tree_state(&states.active_server);
+            let active_server = states.get_active_server_name(window.window_handle().window_id());
+            let tree_state = this.get_tree_state(&active_server);
 
             if let Some(tree_state) = tree_state {
                 this.handle_block_creation(window, cx, tree_state);
