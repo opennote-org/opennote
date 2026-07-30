@@ -1,19 +1,26 @@
-use gpui::{AnyWindowHandle, App, AppContext, AsyncApp, Global};
+use std::collections::{HashMap, HashSet};
+
+use gpui::{AnyWindowHandle, App, AppContext, AsyncApp, Global, Subscription, WindowId};
 use gpui_component::{
     WindowExt,
     notification::{Notification, NotificationType},
 };
-use uuid::Uuid;
 
 use crate::globals::tasks::{
     task_information::TaskInformation,
     task_result::{TaskResult, TaskType},
 };
 
-/// It tracks the execution results of async tasks
+#[derive(Default)]
+struct WindowTaskState {
+    tasks: Vec<TaskInformation>,
+    results: Vec<TaskResult>,
+}
+
+/// It tracks the execution results of async tasks, grouped by their owning window.
 pub struct TaskTracker {
-    pub tasks: Vec<TaskInformation>,
-    pub results: Vec<TaskResult>,
+    windows: HashMap<WindowId, WindowTaskState>,
+    window_closed_subscription: Option<Subscription>,
 }
 
 impl Global for TaskTracker {}
@@ -21,68 +28,109 @@ impl Global for TaskTracker {}
 impl TaskTracker {
     pub fn new() -> Self {
         Self {
-            tasks: Vec::new(),
-            results: Vec::new(),
+            windows: HashMap::new(),
+            window_closed_subscription: None,
         }
     }
 
     pub fn init(cx: &mut App) {
         cx.set_global(TaskTracker::new());
+
+        let subscription = cx.on_window_closed(|cx| {
+            let open_windows: HashSet<WindowId> = cx
+                .windows()
+                .iter()
+                .map(|window| window.window_id())
+                .collect();
+            cx.global_mut::<TaskTracker>()
+                .windows
+                .retain(|window_id, _| open_windows.contains(window_id));
+        });
+        cx.global_mut::<TaskTracker>().window_closed_subscription = Some(subscription);
     }
 
-    pub fn has_pending_items(&self) -> bool {
-        !self.tasks.is_empty() || !self.results.is_empty()
+    pub fn has_pending_items(&self, window_id: WindowId) -> bool {
+        self.windows
+            .get(&window_id)
+            .is_some_and(|state| !state.tasks.is_empty() || !state.results.is_empty())
     }
 
     /// Specify a task type to check if that kind of task has pending results.
-    /// Input None to get task results of all kinds.
-    pub fn has_pending_task_results(&self, task_type: Option<TaskType>) -> bool {
-        if let Some(task_type) = task_type {
-            for result in self.results.iter() {
-                if result.task_type == task_type {
-                    return true;
-                }
-            }
+    /// Input None to check for task results of all kinds in the window.
+    pub fn has_pending_task_results(
+        &self,
+        window_id: WindowId,
+        task_type: Option<TaskType>,
+    ) -> bool {
+        let Some(state) = self.windows.get(&window_id) else {
+            return false;
+        };
+
+        task_type.map_or(!state.results.is_empty(), |task_type| {
+            state
+                .results
+                .iter()
+                .any(|result| result.task_type == task_type)
+        })
+    }
+
+    /// Register a task for getting its results back.
+    pub fn register(&mut self, window_id: WindowId, task_information: TaskInformation) {
+        self.windows
+            .entry(window_id)
+            .or_default()
+            .tasks
+            .push(task_information);
+    }
+
+    /// Complete a pending task and register its result in the same window.
+    pub fn register_result(&mut self, window_id: WindowId, task_result: TaskResult) {
+        let Some(state) = self.windows.get_mut(&window_id) else {
+            return;
+        };
+        let Some(task_index) = state
+            .tasks
+            .iter()
+            .position(|task| task.id == task_result.id)
+        else {
+            return;
+        };
+
+        state.tasks.remove(task_index);
+        state.results.push(task_result);
+    }
+
+    /// Get the first matching task result from a window.
+    pub fn get_task_result(
+        &mut self,
+        window_id: WindowId,
+        task_type: TaskType,
+    ) -> Option<TaskResult> {
+        let (result, state_is_empty) = {
+            let state = self.windows.get_mut(&window_id)?;
+            let result_index = state
+                .results
+                .iter()
+                .position(|result| result.task_type == task_type)?;
+            let result = state.results.remove(result_index);
+            let state_is_empty = state.tasks.is_empty() && state.results.is_empty();
+            (result, state_is_empty)
+        };
+
+        if state_is_empty {
+            self.windows.remove(&window_id);
         }
 
-        false
-    }
-
-    /// Register a task for getting its results back
-    pub fn register(&mut self, task_information: TaskInformation) {
-        self.tasks.push(task_information);
-    }
-
-    pub fn register_result(&mut self, task_result: TaskResult) {
-        self.results.push(task_result);
-    }
-
-    pub fn remove_task_by_id(&mut self, id: Uuid) {
-        self.tasks.retain(|item| item.id == id);
-    }
-
-    /// Get a specific task
-    pub fn get_task_result(&mut self, task_type: TaskType) -> Option<TaskResult> {
-        let mut result_index = None;
-        for (index, result) in self.results.iter().enumerate() {
-            if result.task_type == task_type {
-                result_index = Some(index);
-            }
-        }
-
-        if let Some(index) = result_index {
-            return Some(self.results.remove(index));
-        }
-
-        None
+        Some(result)
     }
 }
 
 pub fn register_task(window: AnyWindowHandle, cx: &mut AsyncApp, task: TaskInformation) {
     let message = task.message.clone();
+    let window_id = window.window_id();
 
     let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
-        this.register(task);
+        this.register(window_id, task);
     });
 
     let _ = cx.update_window(window, |_view, window, cx| {
@@ -96,9 +144,10 @@ pub fn register_long_running_task<T: 'static>(
     task: TaskInformation,
 ) {
     let message = task.message.clone();
+    let window_id = window.window_id();
 
     let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
-        this.register(task);
+        this.register(window_id, task);
     });
 
     let _ = cx.update_window(window, |_view, window, cx| {
@@ -110,10 +159,10 @@ pub fn register_long_running_task<T: 'static>(
 pub fn register_result(window: AnyWindowHandle, cx: &mut AsyncApp, task_result: TaskResult) {
     let notification_type = get_notification_type(task_result.status);
     let message = task_result.message.clone();
+    let window_id = window.window_id();
 
     let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
-        this.remove_task_by_id(task_result.id);
-        this.register_result(task_result);
+        this.register_result(window_id, task_result);
     });
 
     let _ = cx.update_window(window, |_view, window, cx| {
@@ -129,10 +178,10 @@ pub fn register_long_running_result<T: Sized + 'static>(
 ) {
     let notification_type = get_notification_type(task_result.status);
     let message = task_result.message.clone();
+    let window_id = window.window_id();
 
     let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
-        this.remove_task_by_id(task_result.id);
-        this.register_result(task_result);
+        this.register_result(window_id, task_result);
     });
 
     let _ = cx.update_window(window, |_view, window, cx| {

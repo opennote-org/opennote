@@ -1,13 +1,13 @@
 // @reference: https://d3js.org/d3-shape/line
 
 use gpui::{
-    px, quad, size, Background, BorderStyle, Bounds, Hsla, PaintQuad, Path, PathBuilder, Pixels,
-    Point, Window,
+    Background, BorderStyle, Bounds, Hsla, PaintQuad, Path, PathBuilder, Pixels, Point, Window, px,
+    quad, size,
 };
 
 use crate::{
-    plot::{origin_point, StrokeStyle},
     PixelsExt,
+    plot::{StrokeStyle, origin_point},
 };
 
 #[allow(clippy::type_complexity)]
@@ -210,7 +210,7 @@ impl<T> Line<T> {
 mod tests {
     use super::*;
 
-    use gpui::{point, px, Bounds};
+    use gpui::{Bounds, point, px};
 
     #[test]
     fn test_line_path() {

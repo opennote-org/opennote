@@ -8,7 +8,10 @@ use crate::{
     key_mappings::key_contexts::WORKSPACE,
     views::settings::SettingsPanel,
     widgets::{
-        command_bar::bar::CommandBar, pane::Pane, search_bar::bar::SearchBar,
+        command_bar::bar::CommandBar,
+        dialogue::{PENDING_TASKS_WARNING, open_warning_dialogue},
+        pane::Pane,
+        search_bar::bar::SearchBar,
         sidebar::OpenNoteSidebar,
     },
 };
@@ -82,18 +85,21 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let notification = Root::render_notification_layer(window, cx);
+        let dialogue = Root::render_dialog_layer(window, cx);
+
         self.publish_initialization_successful_message(window, cx);
 
-        // TODO: Add unsave caution
-        // // Prevent the window from being closed when there are ongoing tasks
-        // window.on_window_should_close(cx, |_this, cx| {
-        //     let task_tracker: &TaskTracker = cx.global();
-        //     if task_tracker.has_pending_items() {
-        //         return false;
-        //     }
+        // Prevent the window from being closed when it has ongoing tasks.
+        let window_id = window.window_handle().window_id();
+        window.on_window_should_close(cx, move |this, cx| {
+            let task_tracker: &TaskTracker = cx.global();
+            if task_tracker.has_pending_items(window_id) {
+                this.open_dialog(cx, open_warning_dialogue(PENDING_TASKS_WARNING));
+                return false;
+            }
 
-        //     true
-        // });
+            true
+        });
 
         div()
             .key_context(WORKSPACE)
@@ -120,5 +126,6 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::close_active_tab))
             .on_action(cx.listener(Self::open_new_window))
             .children(notification)
+            .children(dialogue)
     }
 }

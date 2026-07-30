@@ -220,7 +220,7 @@ impl Pane {
     }
 
     fn create_commmand_board(cx: &mut Context<'_, Pane>) -> Div {
-        let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+        let language_profile = get_language_profile(cx).unwrap();
 
         v_flex().size_full().child(
             div().w_48().my_auto().mx_auto().child(

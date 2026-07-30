@@ -7,7 +7,7 @@ use opennote_core_logics::search::{search_by_keyword, search_by_semantics};
 use opennote_data::{Databases, search::models::RawSearchResult};
 use opennote_models::{
     block::Block,
-    configurations::{search::SupportedSearchMethod, fields::VectorDatabaseConfig},
+    configurations::{fields::VectorDatabaseConfig, search::SupportedSearchMethod},
     constants::LOCAL_SERVER_NAME,
     query::BlockQuery,
 };

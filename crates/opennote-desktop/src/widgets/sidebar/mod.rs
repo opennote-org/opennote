@@ -151,7 +151,7 @@ impl OpenNoteSidebar {
         let tree = tree(&tree_state_clone, move |index, entry, _window, cx| {
             let id = entry.item().id.clone(); // This is a stringified uuid of a block
             let label = entry.item().label.clone();
-            let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+            let language_profile = get_language_profile(cx).unwrap();
             let sidebar = sidebar.clone();
             let tree_state = tree_state.clone();
 
@@ -273,7 +273,7 @@ impl Render for OpenNoteSidebar {
             return div();
         }
 
-        let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+        let language_profile = get_language_profile(cx).unwrap();
         let entity_id = cx.entity_id();
 
         let (active_server_name, blocks, remote_server_tab_bar) =

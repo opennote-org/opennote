@@ -132,7 +132,7 @@ impl Render for SearchBar {
         _window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
-        let language_profile = get_language_profile(cx.global(), cx.global())
+        let language_profile = get_language_profile(cx)
             .context("Getting language profile failed")
             .unwrap();
 

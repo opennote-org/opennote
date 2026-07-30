@@ -60,7 +60,7 @@ pub fn create_one_block(
                     Option<EmbedderEntry>,
                     VectorDatabaseConfig,
                 )>(|this, cx| {
-                    let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+                    let language_profile = get_language_profile(cx).unwrap();
 
                     let configurations = this.get_configurations();
 
@@ -116,7 +116,7 @@ pub fn create_one_block(
                 }
             }
 
-            let num_blocks = match route_helpers::route_create_blocks(
+            match route_helpers::route_create_blocks(
                 &server_name,
                 &server,
                 &databases,
@@ -125,7 +125,7 @@ pub fn create_one_block(
             )
             .await
             {
-                Ok(result) => result.len(),
+                Ok(_result) => {}
                 Err(error) => {
                     log::error!("{}", error);
                     register_result(

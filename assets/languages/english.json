@@ -14,5 +14,9 @@
   "new_note": "New Note",
   "new_window": "New Window",
   "search": "Search",
-  "commands": "Commands"
+  "commands": "Commands",
+  "pending_tasks_warning_title": "Tasks are still running",
+  "pending_tasks_warning_message": "Some changes are still in progress. Closing now may discard them.",
+  "pending_tasks_warning_cancel": "Cancel",
+  "pending_tasks_warning_discard": "Discard and close"
 }

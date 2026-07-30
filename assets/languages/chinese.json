@@ -14,5 +14,9 @@
   "new_note": "新笔记",
   "new_window": "新窗口",
   "search": "搜索",
-  "commands": "指令"
+  "commands": "指令",
+  "pending_tasks_warning_title": "任务仍在运行",
+  "pending_tasks_warning_message": "部分更改仍在进行中。现在关闭可能会丢弃这些更改。",
+  "pending_tasks_warning_cancel": "取消",
+  "pending_tasks_warning_discard": "放弃更改并关闭"
 }

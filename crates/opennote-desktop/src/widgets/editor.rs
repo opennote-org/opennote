@@ -55,24 +55,27 @@ impl Editor {
                     return;
                 };
 
+                let active_window_id = active_window.window_id();
+
+                // Global observers run for every window. Only the active window may consume
+                // results from its tracker group.
+                if window.window_handle().window_id() != active_window_id {
+                    return;
+                }
+
                 let Some(block) = &this.block else {
                     return;
                 };
 
+                let task_type = TaskType::ChunkBlock { block_id: block.id };
                 let scheduler: &TaskTracker = cx.global();
-                if !scheduler.has_pending_task_results(Some(TaskType::ChunkBlock {
-                    block_id: block.id,
-                    window_id: active_window.window_id().as_u64(),
-                })) {
+                if !scheduler.has_pending_task_results(active_window_id, Some(task_type)) {
                     return;
                 }
 
                 let task_result =
                     cx.update_global::<TaskTracker, Option<TaskResult>>(|this, _cx| {
-                        this.get_task_result(TaskType::ChunkBlock {
-                            block_id: block.id,
-                            window_id: active_window.window_id().as_u64(),
-                        })
+                        this.get_task_result(active_window_id, task_type)
                     });
 
                 if let Some(result) = task_result {

@@ -24,10 +24,7 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
         .spawn(async move |cx| {
             let task = TaskInformation::new(
                 "Chunking a block",
-                TaskType::ChunkBlock {
-                    block_id: block.id,
-                    window_id: window.window_id().as_u64(),
-                },
+                TaskType::ChunkBlock { block_id: block.id },
                 true,
             );
             let task_id = task.id;
@@ -61,10 +58,7 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
                             task_id,
                             false,
                             format!("Chunking failed: {}", error),
-                            TaskType::ChunkBlock {
-                                block_id: block.id,
-                                window_id: window.window_id().as_u64(),
-                            },
+                            TaskType::ChunkBlock { block_id: block.id },
                             None,
                         ),
                     );
@@ -82,10 +76,7 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
                     task_id,
                     true,
                     "Chunking completed",
-                    TaskType::ChunkBlock {
-                        block_id: block.id,
-                        window_id: window.window_id().as_u64(),
-                    },
+                    TaskType::ChunkBlock { block_id: block.id },
                     Some(serde_json::to_value(block).unwrap()),
                 ),
             );
