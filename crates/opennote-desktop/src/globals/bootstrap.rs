@@ -35,49 +35,46 @@ pub struct GlobalApplicationBootStrap(pub DesktopBootstrap);
 impl Global for GlobalApplicationBootStrap {}
 
 impl GlobalApplicationBootStrap {
-    pub fn init(cx: &mut App) {
-        let config_path: std::path::PathBuf =
-            get_configuration_folder_path(ApplicationType::Desktop);
+    pub async fn load() -> anyhow::Result<Self> {
+        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
+        let (configurations, key_mappings) = tokio::task::spawn_blocking(move || {
+            create_required_folders(&config_path).context("Failed to create required folders")?;
 
-        create_required_folders(&config_path)
-            .context("Failed to create required folders")
-            .unwrap();
+            let configurations = DesktopConfigurations::load_from_file(&config_path)
+                .context("Failed to load configurations on application start")?
+                .migrate(&config_path)
+                .context("Failed to migrate configurations on application start")?;
 
-        // Load configurations
-        let configurations = DesktopConfigurations::load_from_file(&config_path)
-            .context("Failed to load configurations on application start")
-            .unwrap()
-            .migrate(&config_path)
-            .unwrap();
+            let key_mappings = KeyMappingConfigurations::load_from_file(&config_path)
+                .context("Failed to load key mappings on application start")?
+                .migrate(&config_path)
+                .context("Failed to migrate key mappings on application start")?;
 
-        let key_mappings = KeyMappingConfigurations::load_from_file(&config_path)
-            .context("Failed to load key mappings on application start")
-            .unwrap()
-            .migrate(&config_path)
-            .unwrap();
+            Ok::<_, anyhow::Error>((configurations, key_mappings))
+        })
+        .await
+        .context("The resource loading task failed")??;
 
-        let bootstrap = run_async_code(async {
-            DesktopBootstrap::new(&configurations, &key_mappings)
-                .await
-                .context("Failed to bootstrap the application")
-                .unwrap()
-        });
+        let bootstrap = DesktopBootstrap::new(&configurations, &key_mappings)
+            .await
+            .context("Failed to bootstrap the application")?;
 
+        Ok(Self(bootstrap))
+    }
+
+    pub fn install(self, cx: &mut App) {
         let key_bindings = run_async_code(async {
             // TODO: Add vim support
-            let conventional = bootstrap
+            self.0
                 .key_mappings
                 .lock()
                 .await
                 .conventional
                 .clone()
-                .into_keybindings();
-
-            conventional
+                .into_keybindings()
         });
         cx.bind_keys(key_bindings);
-
-        cx.set_global(GlobalApplicationBootStrap(bootstrap));
+        cx.set_global(self);
     }
 
     /// Get the configurations as a mutex guard with read-only capability

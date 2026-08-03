@@ -57,7 +57,7 @@ pub fn create_one_block(
                 cx.read_global::<GlobalApplicationBootStrap, (
                     String,
                     Databases,
-                    Option<EmbedderEntry>,
+                    EmbedderEntry,
                     VectorDatabaseConfig,
                 )>(|this, cx| {
                     let language_profile = get_language_profile(cx).unwrap();
@@ -88,32 +88,10 @@ pub fn create_one_block(
                 },
             )?;
 
-            match &embedders {
-                Some(embedders) => {
-                    let mut vectorized_payloads =
-                        send_vectorization(vec![payload], &embedders).await?;
+            let mut vectorized_payloads = send_vectorization(vec![payload], &embedders).await?;
 
-                    if let Some(vectorized_payload) = vectorized_payloads.pop() {
-                        block.payloads.push(vectorized_payload);
-                    }
-                }
-                None => {
-                    log::error!(
-                        "No embedders available. Please load an embedder before proceeding"
-                    );
-                    register_result(
-                        window,
-                        cx,
-                        TaskResult::new(
-                            task_id,
-                            false,
-                            "No embedders available. Please load an embedder before proceeding",
-                            TaskType::Uncategorized,
-                            None,
-                        ),
-                    );
-                    return Err(anyhow::anyhow!("No embedders available"));
-                }
+            if let Some(vectorized_payload) = vectorized_payloads.pop() {
+                block.payloads.push(vectorized_payload);
             }
 
             match route_helpers::route_create_blocks(
@@ -280,7 +258,7 @@ pub fn update_n_blocks(
             let (databases, embedders, vector_database_config, embedders_config) =
                 cx.read_global::<GlobalApplicationBootStrap, (
                     Databases,
-                    Option<EmbedderEntry>,
+                    EmbedderEntry,
                     VectorDatabaseConfig,
                     EmbedderConfig,
                 )>(|this, _cx| {
@@ -295,72 +273,48 @@ pub fn update_n_blocks(
                 })?;
 
             if with_payload_changes {
-                match &embedders {
-                    Some(embedders) => {
-                        let executor = cx.background_executor();
-                        let tokio_handle = tokio::runtime::Handle::current();
-                        // TODO: make this concurrent
-                        for block in blocks.iter_mut() {
-                            let tokio_handle = tokio_handle.clone();
+                let executor = cx.background_executor();
+                let tokio_handle = tokio::runtime::Handle::current();
+                // TODO: make this concurrent
+                for block in blocks.iter_mut() {
+                    let tokio_handle = tokio_handle.clone();
 
-                            // Take the payloads out, and swap in a default value temporarily
-                            let payloads = std::mem::take(&mut block.payloads);
+                    // Take the payloads out, and swap in a default value temporarily
+                    let payloads = std::mem::take(&mut block.payloads);
 
-                            // Cheap clone
-                            let embedders = embedders.clone();
-                            let embedders_config = embedders_config.clone();
+                    // Cheap clone
+                    let embedders = embedders.clone();
+                    let embedders_config = embedders_config.clone();
 
-                            // TODO: improve the inference speed
-                            let vectorized_payloads = executor
+                    // TODO: improve the inference speed
+                    let vectorized_payloads = executor
+                        .spawn(async move {
+                            tokio_handle
                                 .spawn(async move {
-                                    tokio_handle
-                                        .spawn(async move {
-                                            vectorize(&embedders, &embedders_config, payloads).await
-                                        })
-                                        .await
-                                        .unwrap()
+                                    vectorize(&embedders, &embedders_config, payloads).await
                                 })
-                                .await;
+                                .await
+                                .unwrap()
+                        })
+                        .await;
 
-                            match vectorized_payloads {
-                                Ok(payloads) => block.payloads = payloads,
-                                Err(error) => {
-                                    // TODO: error message should not automatically closed
-                                    register_long_running_result::<UpdateNBlocksNotification>(
-                                        window,
-                                        cx,
-                                        TaskResult::new(
-                                            task_id,
-                                            false,
-                                            format!(
-                                                "Error has occurred when embedding texts: {}",
-                                                error
-                                            ),
-                                            TaskType::UpdateNBlocks,
-                                            None,
-                                        ),
-                                    );
-                                    return Err(anyhow::anyhow!("No embedders available"));
-                                }
-                            }
+                    match vectorized_payloads {
+                        Ok(payloads) => block.payloads = payloads,
+                        Err(error) => {
+                            // TODO: error message should not automatically closed
+                            register_long_running_result::<UpdateNBlocksNotification>(
+                                window,
+                                cx,
+                                TaskResult::new(
+                                    task_id,
+                                    false,
+                                    format!("Error has occurred when embedding texts: {}", error),
+                                    TaskType::UpdateNBlocks,
+                                    None,
+                                ),
+                            );
+                            return Err(anyhow::anyhow!("No embedders available"));
                         }
-                    }
-                    None => {
-                        log::error!(
-                            "No embedders available. Please load an embedder before proceeding"
-                        );
-                        register_long_running_result::<UpdateNBlocksNotification>(
-                            window,
-                            cx,
-                            TaskResult::new(
-                                task_id,
-                                false,
-                                "No embedders available. Please load an embedder before proceeding",
-                                TaskType::UpdateNBlocks,
-                                None,
-                            ),
-                        );
-                        return Err(anyhow::anyhow!("No embedders available"));
                     }
                 }
             }

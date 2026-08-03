@@ -35,12 +35,12 @@ fn create_search_queries(
     let mut query_vector = Vec::new();
 
     if search_method == SupportedSearchMethod::Semantic {
-        let Some(embedders) = &bootstrap.0.embedders else {
-            return (None, None);
-        };
         let payload = create_query(query);
-        let payloads =
-            run_async_code(async { send_vectorization(vec![payload], embedders).await.unwrap() });
+        let payloads = run_async_code(async {
+            send_vectorization(vec![payload], &bootstrap.0.embedders)
+                .await
+                .unwrap()
+        });
         query_vector = payloads[0].vector.clone();
     }
 

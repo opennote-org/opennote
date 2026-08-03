@@ -26,8 +26,18 @@ use crate::{
     },
     libs::theme::adapt_theme_to_system,
     logs::UICustomLog,
-    views::workspace::Workspace,
+    views::{resource_loading::ResourceLoadingView, workspace::Workspace},
 };
+
+async fn load_startup_resources() -> Result<(GlobalApplicationBootStrap, AssetsCollection)> {
+    let assets_task = tokio::task::spawn_blocking(AssetsCollection::load);
+    let bootstrap = GlobalApplicationBootStrap::load().await?;
+    let assets = assets_task
+        .await
+        .context("The asset loading task failed")??;
+
+    Ok((bootstrap, assets))
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -49,37 +59,64 @@ async fn main() -> Result<()> {
         )]),
     )?;
 
+    let tokio_handle = tokio::runtime::Handle::current();
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
         gpui_component::init(cx);
-
-        // Initialize the necessary services and resources for the app
-        // 
-        // TODO: Create a dedicated asset readiness panel to display the readiness, 
-        // either during the startup or on user's call
         TaskTracker::init(cx);
-        GlobalApplicationBootStrap::init(cx);
-        AssetsCollection::init(cx)
-            .context("Failed to load the assets on application start")
-            .unwrap();
-        States::init(cx);
-        init_velotype(cx);
+
+        let loading_window =
+            ResourceLoadingView::open(cx).expect("Failed to open the resource loading window");
 
         cx.spawn(async move |cx| {
-            cx.open_window(WindowOptions::default(), |window, cx| {
-                adapt_theme_to_system(cx);
+            let resources = tokio_handle
+                .spawn(load_startup_resources())
+                .await
+                .context("The startup resource task failed")
+                .and_then(|resources| resources);
 
-                let view = cx.new(|cx| {
-                    let workspace = Workspace::new(window, cx)
-                        .context("Workspace initialization failed")
-                        .unwrap();
-                    workspace
+            let (bootstrap, assets) = match resources {
+                Ok(resources) => resources,
+                Err(error) => {
+                    log::error!("Failed to initialize OpenNote: {error:#}");
+                    let message = format!("{error:#}");
+                    let _ = loading_window.update(cx, |view, _window, cx| {
+                        view.set_error(message, cx);
+                    });
+                    return;
+                }
+            };
+
+            let _ = loading_window.update(cx, move |loading_view, loading_window, cx| {
+                bootstrap.install(cx);
+                cx.set_global(assets);
+                States::init(cx);
+                init_velotype(cx);
+
+                let workspace_window = cx.open_window(WindowOptions::default(), |window, cx| {
+                    adapt_theme_to_system(cx);
+
+                    let view = cx.new(|cx| {
+                        Workspace::new(window, cx)
+                            .context("Workspace initialization failed")
+                            .unwrap()
+                    });
+
+                    // This first level on the window should be a Root.
+                    cx.new(|cx| Root::new(view, window, cx))
                 });
 
-                // This first level on the window, should be a Root.
-                cx.new(|cx| Root::new(view, window, cx))
-            })
-            .expect("Failed to open window");
+                match workspace_window {
+                    Ok(_) => loading_window.remove_window(),
+                    Err(error) => {
+                        log::error!("Failed to open the Workspace window: {error:#}");
+                        loading_view.set_error(
+                            format!("Failed to open the Workspace window: {error:#}"),
+                            cx,
+                        );
+                    }
+                }
+            });
         })
         .detach();
     });
