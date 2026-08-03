@@ -54,6 +54,9 @@ async fn main() -> Result<()> {
         gpui_component::init(cx);
 
         // Initialize the necessary services and resources for the app
+        // 
+        // TODO: Create a dedicated asset readiness panel to display the readiness, 
+        // either during the startup or on user's call
         TaskTracker::init(cx);
         GlobalApplicationBootStrap::init(cx);
         AssetsCollection::init(cx)

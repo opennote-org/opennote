@@ -18,7 +18,6 @@ pub struct DesktopBootstrap {
     pub embedders: Option<EmbedderEntry>,
 }
 
-// TODO: Separate bootstraps for server and desktop
 impl DesktopBootstrap {
     pub async fn new(
         configurations: &DesktopConfigurations,

@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, anyhow};
 use gpui::*;
+use opennote_core_logics::configurations::{ApplicationType, get_configuration_folder_path};
 
 use super::Editor;
 use crate::components::{

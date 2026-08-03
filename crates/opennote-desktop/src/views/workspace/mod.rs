@@ -54,8 +54,11 @@ impl Workspace {
             this.set_active_server(window_id, SharedString::new(LOCAL_SERVER_NAME));
         });
 
+        let focus_handle = cx.focus_handle();
+        window.focus(&focus_handle);
+
         Ok(Self {
-            focus_handle: cx.focus_handle(),
+            focus_handle,
             sidebar: sidebar.clone(),
             pane,
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),

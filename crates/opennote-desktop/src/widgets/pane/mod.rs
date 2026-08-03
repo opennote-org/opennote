@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use gpui::{
     Action, Context, Div, Entity, FocusHandle, Focusable, Render, SharedString, Subscription,
-    Window, div, prelude::*,
+    Window, div, prelude::*, px,
 };
 use gpui_component::{
     Sizable,
@@ -280,7 +280,9 @@ impl Focusable for Pane {
 
 impl Render for Pane {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let base_div = div().flex_1().flex_col(); // We need flex_1 to let the editor to take up the whole space after sidebar disappeared
+        // We need flex_1 to let the editor to take up the whole space after sidebar disappeared.
+        // The min_w is to prevent Velotype from shifting its document content to the right.
+        let base_div = div().flex_1().min_w(px(0.0)).flex_col();
 
         // Display search bar, command bar, new doc
         // and their keyboard shortcuts
