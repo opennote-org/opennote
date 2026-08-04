@@ -25,7 +25,7 @@ use crate::globals::{
         task_information::TaskInformation,
         task_result::{TaskResult, TaskType},
         tracker::{
-            register_long_running_result, register_long_running_task, register_result,
+            register_long_running_completion, register_long_running_task, register_result,
             register_task,
         },
         unique_notifications::UpdateNBlocksNotification,
@@ -302,7 +302,7 @@ pub fn update_n_blocks(
                         Ok(payloads) => block.payloads = payloads,
                         Err(error) => {
                             // TODO: error message should not automatically closed
-                            register_long_running_result::<UpdateNBlocksNotification>(
+                            register_long_running_completion::<UpdateNBlocksNotification>(
                                 window,
                                 cx,
                                 TaskResult::new(
@@ -331,7 +331,7 @@ pub fn update_n_blocks(
                 Ok(_) => {}
                 Err(error) => {
                     log::error!("{}", error);
-                    register_long_running_result::<UpdateNBlocksNotification>(
+                    register_long_running_completion::<UpdateNBlocksNotification>(
                         window,
                         cx,
                         TaskResult::new(
@@ -346,7 +346,7 @@ pub fn update_n_blocks(
                 }
             }
 
-            register_long_running_result::<UpdateNBlocksNotification>(
+            register_long_running_completion::<UpdateNBlocksNotification>(
                 window,
                 cx,
                 TaskResult::new(

@@ -68,31 +68,12 @@ impl Workspace {
             _subscriptions,
         })
     }
-
-    pub fn publish_initialization_successful_message(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !self.is_initialization_succeeded {
-            window.push_notification(
-                (
-                    NotificationType::Success,
-                    "Embedder model has been loaded successfully",
-                ),
-                cx,
-            );
-            self.is_initialization_succeeded = true;
-        }
-    }
 }
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let notification = Root::render_notification_layer(window, cx);
         let dialogue = Root::render_dialog_layer(window, cx);
-
-        self.publish_initialization_successful_message(window, cx);
 
         // Prevent the window from being closed when it has ongoing tasks.
         let window_id = window.window_handle().window_id();

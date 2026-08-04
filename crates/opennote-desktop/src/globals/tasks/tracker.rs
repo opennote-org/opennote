@@ -5,6 +5,7 @@ use gpui_component::{
     WindowExt,
     notification::{Notification, NotificationType},
 };
+use uuid::Uuid;
 
 use crate::globals::tasks::{
     task_information::TaskInformation,
@@ -83,21 +84,30 @@ impl TaskTracker {
             .push(task_information);
     }
 
+    /// Remove a task and its result.
+    /// Return false, if no task is found.
+    fn complete(&mut self, window_id: WindowId, task_id: Uuid) -> Option<TaskInformation> {
+        if let Some(state) = self.windows.get_mut(&window_id) {
+            let task_index = state.tasks.iter().position(|task| task.id == task_id);
+
+            match task_index {
+                Some(result) => return Some(state.tasks.remove(result)),
+                _ => return None,
+            }
+        }
+
+        None
+    }
+
     /// Complete a pending task and register its result in the same window.
     pub fn register_result(&mut self, window_id: WindowId, task_result: TaskResult) {
-        let Some(state) = self.windows.get_mut(&window_id) else {
-            return;
-        };
-        let Some(task_index) = state
-            .tasks
-            .iter()
-            .position(|task| task.id == task_result.id)
-        else {
-            return;
-        };
+        if self.complete(window_id, task_result.id).is_some() {
+            let Some(state) = self.windows.get_mut(&window_id) else {
+                return;
+            };
 
-        state.tasks.remove(task_index);
-        state.results.push(task_result);
+            state.results.push(task_result);
+        }
     }
 
     /// Get the first matching task result from a window.
@@ -182,6 +192,28 @@ pub fn register_long_running_result<T: Sized + 'static>(
 
     let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
         this.register_result(window_id, task_result);
+    });
+
+    let _ = cx.update_window(window, |_view, window, cx| {
+        window.remove_notification::<T>(cx);
+        window.push_notification((notification_type, message), cx);
+    });
+}
+
+/// It will remove the task information, but never register the result.
+pub fn register_long_running_completion<T: Sized + 'static>(
+    window: AnyWindowHandle,
+    cx: &mut AsyncApp,
+    task_result: TaskResult,
+) {
+    let notification_type = get_notification_type(task_result.status);
+    let message = task_result.message.clone();
+
+    let window_id = window.window_id();
+    let task_id = task_result.id;
+
+    let _ = cx.update_global::<TaskTracker, ()>(|tracker, _cx| {
+        tracker.complete(window_id, task_id);
     });
 
     let _ = cx.update_window(window, |_view, window, cx| {
