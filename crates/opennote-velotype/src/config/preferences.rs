@@ -507,6 +507,7 @@ pub(crate) fn save_app_preferences_with_dirs(
     std::fs::write(&path, text).with_context(|| format!("failed to write '{}'", path.display()))
 }
 
+#[allow(dead_code)]
 pub(crate) fn first_existing_recent_markdown_file() -> Option<PathBuf> {
     let recent_files = read_recent_files().ok()?;
     recent_files.into_iter().find(|path| path.is_file())

@@ -18,11 +18,12 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 ## Roadmap
 
 - [x] Self-hosted server for syncing documents across devices with encrypted communications
-- [ ] Multi-modal support
-- [ ] MCP server support
-- [ ] Import webpages, databases and files
+- [x] WYSIWYG markdown editor integration
 - [ ] Advanced NLP features to simplify document management (e.g., automatic categorization by semantic similarity)
 - [ ] LLM integrations — local-first, always
+- [ ] MCP server support
+- [ ] Import webpages, databases and files
+- [ ] Multi-modal support
 
 ## Getting Started
 
@@ -76,6 +77,8 @@ Thanks to [appify](https://github.com/akx/appify) for bundling the executable as
 Thanks to [sqlite](https://sqlite.org) for localizing relational database.
 
 Thanks to [sqlite-vector](https://github.com/sqliteai/sqlite-vector) for localizing vector storages.
+
+Thanks to [velotype](https://github.com/manyougz/velotype) for WYSIWYG markdown editor.
 
 ## License
 

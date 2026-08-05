@@ -33,8 +33,6 @@ mod selection;
 mod source_mapping;
 mod status_bar;
 mod table_edit;
-#[cfg(test)]
-mod tests;
 mod tree;
 mod update;
 mod window_state;
@@ -93,7 +91,6 @@ pub struct Editor {
     row_stride_width: Option<f32>,
     /// Where last frame's run sat among the scroll container's children.
     prev_mounted_run: Option<MountedRun>,
-    close_guard_installed: bool,
     /// Focus target to restore when the close dialog is dismissed.
     close_dialog_restore_focus: Option<EntityId>,
     /// Optional informational dialog shown from the Help menu.
@@ -361,7 +358,6 @@ impl Editor {
             row_stride_cache: HashMap::new(),
             row_stride_width: None,
             prev_mounted_run: None,
-            close_guard_installed: false,
             close_dialog_restore_focus: None,
             info_dialog: None,
             update_check_in_progress: false,

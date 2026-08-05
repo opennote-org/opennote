@@ -309,6 +309,7 @@ fn show_install_cli_error(cx: &mut App, detail: &str) {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn record_recent_file_from_editor(path: &Path, cx: &mut App) {
     record_recent_file_and_refresh(path, cx);
 }
@@ -421,6 +422,7 @@ fn is_window_context_menu_action(action: &dyn Action) -> bool {
         || is_editor_scoped_menu_action(action)
 }
 
+#[allow(dead_code)]
 fn current_window_candidates(cx: &mut App) -> Vec<AnyWindowHandle> {
     let mut candidates = Vec::new();
     let mut push_unique = |window: AnyWindowHandle| {

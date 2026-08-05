@@ -76,7 +76,7 @@ impl Editor {
         std::fs::write(path, bytes).with_context(|| format!("failed to write '{}'", path.display()))
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn export_document_to_path(
         &self,
         format: ExportFormat,

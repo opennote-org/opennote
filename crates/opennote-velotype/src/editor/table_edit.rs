@@ -254,6 +254,7 @@ impl Editor {
         self.set_table_axis_selection(Some(selection), cx);
     }
 
+    #[allow(dead_code)]
     pub(super) fn set_table_column_alignment(
         &mut self,
         table_block: &Entity<Block>,
@@ -291,6 +292,7 @@ impl Editor {
         cx.notify();
     }
 
+    #[allow(dead_code)]
     pub(super) fn move_table_row(
         &mut self,
         table_block: &Entity<Block>,
@@ -348,6 +350,7 @@ impl Editor {
         cx.notify();
     }
 
+    #[allow(dead_code)]
     pub(super) fn move_table_column(
         &mut self,
         table_block: &Entity<Block>,
@@ -403,6 +406,7 @@ impl Editor {
         cx.notify();
     }
 
+    #[allow(dead_code)]
     pub(super) fn delete_table_row(
         &mut self,
         table_block: &Entity<Block>,
@@ -464,6 +468,7 @@ impl Editor {
         cx.notify();
     }
 
+    #[allow(dead_code)]
     pub(super) fn delete_table_header_row(
         &mut self,
         table_block: &Entity<Block>,
@@ -499,6 +504,7 @@ impl Editor {
         cx.notify();
     }
 
+    #[allow(dead_code)]
     pub(super) fn delete_table_column(
         &mut self,
         table_block: &Entity<Block>,
@@ -549,6 +555,7 @@ impl Editor {
     /// Removes the table block entirely, leaving an empty paragraph in its place
     /// so the caret has somewhere to land. Used when deleting the last remaining
     /// row or column, which empties the table.
+    #[allow(dead_code)]
     pub(super) fn remove_table_block(
         &mut self,
         table_block: &Entity<Block>,

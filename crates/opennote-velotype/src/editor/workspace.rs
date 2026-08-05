@@ -82,6 +82,7 @@ impl Editor {
         self.toggle_workspace_drawer(window, cx);
     }
 
+    #[allow(dead_code)]
     pub(super) fn sync_workspace_after_document_path_change(&mut self, cx: &mut Context<Self>) {
         self.workspace.root = None;
         self.workspace.file_tree = None;
@@ -175,7 +176,7 @@ impl Editor {
     }
 
     /// DEPRECATED
-    fn open_workspace_file(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+    fn open_workspace_file(&mut self, path: PathBuf, _window: &mut Window, _cx: &mut Context<Self>) {
         self.workspace.selected = Some(WorkspaceSelection::File(path.clone()));
         // self.request_dropped_markdown_replace(path, window, cx);
     }
