@@ -1,5 +1,6 @@
 use gpui::{Context, *};
-use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
+use gpui_component::{Root, StyledExt, WindowExt};
+
 use opennote_models::constants::LOCAL_SERVER_NAME;
 
 mod actions;
@@ -26,8 +27,6 @@ pub struct Workspace {
     pub command_bar: Entity<CommandBar>,
     pub search_bar: Entity<SearchBar>,
     pub settings_panel: Entity<SettingsPanel>,
-
-    is_initialization_succeeded: bool,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -64,7 +63,6 @@ impl Workspace {
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window)),
             settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
-            is_initialization_succeeded: false,
             _subscriptions,
         })
     }
