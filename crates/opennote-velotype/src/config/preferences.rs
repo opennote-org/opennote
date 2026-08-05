@@ -45,7 +45,7 @@ pub(crate) struct StatusBarPreferences {
 impl Default for StatusBarPreferences {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             show_word_count: true,
             show_cursor_position: true,
             show_sidebar_toggle: true,
