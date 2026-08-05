@@ -48,12 +48,30 @@ impl Editor {
         max_scroll_y * progress
     }
 
-    /// Picks the contiguous run of rows to mount; the culled runs become two
-    /// spacers and the focused row stays mounted. `strides[i]` is row `i`'s
-    /// footprint (height plus trailing gap); being scroll-invariant, their running
-    /// sum places each row against a band from the current scroll offset.
-    /// Unmeasured rows use a lower-bound estimate, so the window never lands on a
-    /// spacer. Pure, so it is unit-tested headlessly.
+    /// Whether last frame's child indices still address the same children.
+    /// Footprints are read back by index, so anything added to the scroll column
+    /// would otherwise pair the wrong rows silently; a changed child count means
+    /// the recorded indices are stale and the refresh must be skipped.
+    pub(super) fn mounted_run_is_addressable(&self, run: MountedRun) -> bool {
+        run.child_count > 0
+            && self
+                .scroll_handle
+                .bounds_for_item(run.child_count - 1)
+                .is_some()
+            && self
+                .scroll_handle
+                .bounds_for_item(run.child_count)
+                .is_none()
+    }
+
+    /// Picks the contiguous run of rows to mount; the culled runs become
+    /// spacers and the focused row stays mounted, on its own island when it
+    /// falls outside the run. `strides[i]` is row `i`'s footprint (height plus
+    /// trailing gap); being scroll-invariant, their running sum places each row
+    /// against a band from the current scroll offset.
+    /// Unmeasured rows use a lower-bound estimate; where that falls short of the
+    /// scroll offset the trailing run is mounted instead, so the window never
+    /// lands on a spacer. Pure, so it is unit-tested headlessly.
     pub(super) fn rendered_window(
         strides: &[f32],
         scroll_y: f32,
@@ -68,6 +86,7 @@ impl Editor {
                 run_end: 0,
                 top_h: 0.0,
                 bottom_h: 0.0,
+                focus_island: None,
             };
         }
 
@@ -94,34 +113,56 @@ impl Editor {
         }
         let total = cursor;
 
-        // Nothing hit the band (float edge, or estimate short of scroll): mount
-        // the last row so the viewport never lands on a spacer.
+        // Nothing hit the band: the scroll offset is past everything the strides
+        // account for, because rows the window has yet to mount are still lower
+        // bounds. Fall back to the trailing run rather than a single row, so the
+        // viewport stays filled while the remaining heights are learned.
         if run_start >= run_end {
-            run_start = n - 1;
             run_end = n;
-            top_of_start = total - strides[n - 1].max(0.0);
             bottom_of_end = total;
+            run_start = n - 1;
+            top_of_start = total - strides[n - 1].max(0.0);
+            let floor = (total - viewport_height - overdraw).max(0.0);
+            while run_start > 0 && top_of_start > floor {
+                run_start -= 1;
+                top_of_start -= strides[run_start].max(0.0);
+            }
         }
 
-        // Keep the focused row mounted; GPUI blurs an unmounted caret. Reaching a
-        // far focus row widens the run, but autoscroll makes that rare.
-        if let Some(focus_row) = focus_row {
-            let focus_row = focus_row.min(n - 1);
+        // Keep the focused row mounted; GPUI blurs an unmounted caret. It goes on
+        // its own island rather than widening the run, so a caret left behind
+        // while reading does not drag every row between it and the viewport on
+        // screen with it.
+        let mut top_h = top_of_start;
+        let mut bottom_h = total - bottom_of_end;
+        let mut focus_island = None;
+        if let Some(focus_row) = focus_row.map(|row| row.min(n - 1)) {
+            let focus_top: f32 = strides[..focus_row].iter().map(|s| s.max(0.0)).sum();
+            let focus_bottom = focus_top + strides[focus_row].max(0.0);
             if focus_row < run_start {
-                run_start = focus_row;
-                top_of_start = strides[..focus_row].iter().map(|s| s.max(0.0)).sum();
-            }
-            if focus_row + 1 > run_end {
-                run_end = focus_row + 1;
-                bottom_of_end = strides[..=focus_row].iter().map(|s| s.max(0.0)).sum();
+                focus_island = Some(FocusIsland {
+                    row: focus_row,
+                    lead_h: focus_top,
+                });
+                top_h = top_of_start - focus_bottom;
+            } else if focus_row >= run_end {
+                focus_island = Some(FocusIsland {
+                    row: focus_row,
+                    lead_h: focus_top - bottom_of_end,
+                });
+                bottom_h = total - focus_bottom;
             }
         }
 
         RenderWindow {
             run_start,
             run_end,
-            top_h: top_of_start.max(0.0),
-            bottom_h: (total - bottom_of_end).max(0.0),
+            top_h: top_h.max(0.0),
+            bottom_h: bottom_h.max(0.0),
+            focus_island: focus_island.map(|island| FocusIsland {
+                lead_h: island.lead_h.max(0.0),
+                ..island
+            }),
         }
     }
 
@@ -270,7 +311,7 @@ impl Editor {
             self.pending_window_edited = true;
             self.pending_window_title_refresh = true;
         }
-        
+
         cx.notify();
         cx.emit(EditorEvent::ContentChanged);
     }

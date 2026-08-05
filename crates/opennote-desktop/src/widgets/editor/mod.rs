@@ -1,25 +1,24 @@
+mod observations;
+mod subscriptions;
+
 use gpui::{
-    App, AppContext, BorrowAppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement,
-    ParentElement, Render, SharedString, Styled, Subscription, WeakEntity, div,
+    App, AppContext, Context, Entity, FocusHandle, Focusable, InteractiveElement, ParentElement,
+    Render, SharedString, Styled, Subscription, WeakEntity, div,
 };
-use gpui_component::WindowExt;
 use uuid::Uuid;
 
 use opennote_models::block::Block;
-use opennote_velotype::editor::EditorEvent;
 
 use crate::{
     globals::{
-        actions::{block::get_block_content, chunking::chunk_block, update_n_blocks},
-        states::States,
-        tasks::{
-            task_result::{TaskResult, TaskType},
-            tracker::TaskTracker,
-            unique_notifications::ChunkBlockNotification,
-        },
+        actions::{block::get_block_content, chunking::chunk_block},
+        tasks::tracker::TaskTracker,
     },
     key_mappings::{key_contexts::EDITOR, mappings::SaveDocument},
-    widgets::pane::{Pane, tab::TabState},
+    widgets::{
+        editor::{observations::observe_chunk_block, subscriptions::subscribe_editor_events},
+        pane::Pane,
+    },
 };
 
 /// Payload -> Text -> Payload
@@ -47,71 +46,9 @@ impl Editor {
             cx.new(|cx| opennote_velotype::editor::Editor::from_markdown(cx, "".to_string(), None));
 
         // Get updates from the normal task scheduler
-        let pane_clone: WeakEntity<Pane> = pane.clone();
-        _subscriptions.push(cx.observe_global_in::<TaskTracker>(
-            window,
-            move |this, window, cx| {
-                let Some(active_window) = cx.active_window() else {
-                    return;
-                };
+        _subscriptions.push(cx.observe_global_in::<TaskTracker>(window, observe_chunk_block));
 
-                let active_window_id = active_window.window_id();
-
-                // Global observers run for every window. Only the active window may consume
-                // results from its tracker group.
-                if window.window_handle().window_id() != active_window_id {
-                    return;
-                }
-
-                let Some(block) = &this.block else {
-                    return;
-                };
-
-                let task_type = TaskType::ChunkBlock { block_id: block.id };
-                let scheduler: &TaskTracker = cx.global();
-                if !scheduler.has_pending_task_results(active_window_id, Some(task_type)) {
-                    return;
-                }
-
-                let task_result =
-                    cx.update_global::<TaskTracker, Option<TaskResult>>(|this, _cx| {
-                        this.get_task_result(active_window_id, task_type)
-                    });
-
-                if let Some(result) = task_result {
-                    window.remove_notification::<ChunkBlockNotification>(cx);
-
-                    let block: Block = if let Some(data) = result.data {
-                        serde_json::from_value(data).unwrap()
-                    } else {
-                        return;
-                    };
-
-                    let states: &States = cx.global();
-                    let servers = states.get_servers_by_block_ids(&vec![block.id]).remove(0);
-
-                    update_n_blocks(window, cx, vec![block], servers.0, servers.1, true);
-                }
-
-                // Alter the tab's save state to true
-                TabState::set_save_state(cx, pane_clone.clone(), block.id, true);
-            },
-        ));
-
-        let pane_clone: WeakEntity<Pane> = pane.clone();
-        _subscriptions.push(cx.subscribe_in(
-            &state,
-            window,
-            move |view, _state, event: &EditorEvent, _window, cx| match event {
-                EditorEvent::ContentChanged => {
-                    let Some(block) = &view.block else {
-                        return;
-                    };
-
-                    TabState::set_save_state(cx, pane_clone.clone(), block.id, false);
-                }
-            },
-        ));
+        _subscriptions.push(cx.subscribe_in(&state, window, subscribe_editor_events));
 
         Self {
             focus_handle: cx.focus_handle(),
@@ -254,8 +191,7 @@ impl Render for Editor {
             .track_focus(&self.focus_handle(cx))
             .h_full()
             .child(
-                // Input::new(&self.state).h_full().bordered(false), // We need the input to display in full height
-                div().child(self.state.clone()).h_full().border_10(),
+                div().child(self.state.clone()).h_full().border_10(), // We need the input to display in full height
             )
             .on_action(cx.listener(|this, _action: &SaveDocument, window, cx| {
                 if let Some(block) = &mut this.block {
