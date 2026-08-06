@@ -1,8 +1,8 @@
 // @reference: https://d3js.org/d3-shape/area
 
-use gpui::{px, Background, Bounds, Path, PathBuilder, Pixels, Point, Window};
+use gpui::{Background, Bounds, Path, PathBuilder, Pixels, Point, Window, px};
 
-use crate::plot::{origin_point, StrokeStyle};
+use crate::plot::{StrokeStyle, origin_point};
 
 #[allow(clippy::type_complexity)]
 pub struct Area<T> {

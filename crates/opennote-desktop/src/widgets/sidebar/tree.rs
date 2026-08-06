@@ -319,8 +319,6 @@ fn handle_sidebar_delete_item(
                 }
             });
 
-            log::debug!("About to delete blocks: {:?}", to_delete);
-
             delete_n_blocks(window, cx, to_delete.clone());
 
             cx.emit(OpenNoteSidebarEvent::BlocksDeleted(to_delete));

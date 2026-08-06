@@ -25,7 +25,7 @@ use crate::globals::{
         task_information::TaskInformation,
         task_result::{TaskResult, TaskType},
         tracker::{
-            register_long_running_result, register_long_running_task, register_result,
+            register_long_running_completion, register_long_running_task, register_result,
             register_task,
         },
         unique_notifications::UpdateNBlocksNotification,
@@ -46,8 +46,6 @@ pub fn create_one_block(
 
     app_cx
         .spawn(async move |cx| {
-            log::debug!("Creating 1 block...");
-
             let task = TaskInformation::new("Creating 1 block", TaskType::Uncategorized, false);
 
             let task_id = task.id;
@@ -59,10 +57,10 @@ pub fn create_one_block(
                 cx.read_global::<GlobalApplicationBootStrap, (
                     String,
                     Databases,
-                    Option<EmbedderEntry>,
+                    EmbedderEntry,
                     VectorDatabaseConfig,
                 )>(|this, cx| {
-                    let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+                    let language_profile = get_language_profile(cx).unwrap();
 
                     let configurations = this.get_configurations();
 
@@ -76,7 +74,7 @@ pub fn create_one_block(
 
             let (server_name, server) = cx
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
-                    this.get_active_server()
+                    this.get_active_server(window.window_id())
                 })
                 .unwrap();
 
@@ -90,35 +88,13 @@ pub fn create_one_block(
                 },
             )?;
 
-            match &embedders {
-                Some(embedders) => {
-                    let mut vectorized_payloads =
-                        send_vectorization(vec![payload], &embedders).await?;
+            let mut vectorized_payloads = send_vectorization(vec![payload], &embedders).await?;
 
-                    if let Some(vectorized_payload) = vectorized_payloads.pop() {
-                        block.payloads.push(vectorized_payload);
-                    }
-                }
-                None => {
-                    log::error!(
-                        "No embedders available. Please load an embedder before proceeding"
-                    );
-                    register_result(
-                        window,
-                        cx,
-                        TaskResult::new(
-                            task_id,
-                            false,
-                            "No embedders available. Please load an embedder before proceeding",
-                            TaskType::Uncategorized,
-                            None,
-                        ),
-                    );
-                    return Err(anyhow::anyhow!("No embedders available"));
-                }
+            if let Some(vectorized_payload) = vectorized_payloads.pop() {
+                block.payloads.push(vectorized_payload);
             }
 
-            let num_blocks = match route_helpers::route_create_blocks(
+            match route_helpers::route_create_blocks(
                 &server_name,
                 &server,
                 &databases,
@@ -127,7 +103,7 @@ pub fn create_one_block(
             )
             .await
             {
-                Ok(result) => result.len(),
+                Ok(_result) => {}
                 Err(error) => {
                     log::error!("{}", error);
                     register_result(
@@ -144,11 +120,6 @@ pub fn create_one_block(
                     return Err(error);
                 }
             };
-
-            log::debug!(
-                "Block creation finished for {} blocks, preceed to refreshing the block list...",
-                num_blocks
-            );
 
             register_result(
                 window,
@@ -178,8 +149,6 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
 
     app_cx
         .spawn(async move |cx| {
-            log::debug!("Deleting {} blocks...", block_ids.len());
-
             let task = TaskInformation::new(
                 format!("Deleting {} blocks", block_ids.len()),
                 TaskType::Uncategorized,
@@ -206,7 +175,7 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
 
             let (server_name, server) = cx
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
-                    this.get_active_server()
+                    this.get_active_server(window.window_id())
                 })
                 .unwrap();
 
@@ -236,8 +205,6 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
                     return Err(error);
                 }
             }
-
-            log::debug!("Blocks deletion finished, preceed to refreshing the block list...");
 
             register_result(
                 window,
@@ -271,8 +238,6 @@ pub fn update_n_blocks(
     server_states: ServerStates,
     with_payload_changes: bool,
 ) {
-    log::debug!("Updating blocks: {:?}", blocks);
-
     let window = window.window_handle();
 
     app_cx
@@ -293,7 +258,7 @@ pub fn update_n_blocks(
             let (databases, embedders, vector_database_config, embedders_config) =
                 cx.read_global::<GlobalApplicationBootStrap, (
                     Databases,
-                    Option<EmbedderEntry>,
+                    EmbedderEntry,
                     VectorDatabaseConfig,
                     EmbedderConfig,
                 )>(|this, _cx| {
@@ -308,72 +273,48 @@ pub fn update_n_blocks(
                 })?;
 
             if with_payload_changes {
-                match &embedders {
-                    Some(embedders) => {
-                        let executor = cx.background_executor();
-                        let tokio_handle = tokio::runtime::Handle::current();
-                        // TODO: make this concurrent
-                        for block in blocks.iter_mut() {
-                            let tokio_handle = tokio_handle.clone();
+                let executor = cx.background_executor();
+                let tokio_handle = tokio::runtime::Handle::current();
+                // TODO: make this concurrent
+                for block in blocks.iter_mut() {
+                    let tokio_handle = tokio_handle.clone();
 
-                            // Take the payloads out, and swap in a default value temporarily
-                            let payloads = std::mem::take(&mut block.payloads);
+                    // Take the payloads out, and swap in a default value temporarily
+                    let payloads = std::mem::take(&mut block.payloads);
 
-                            // Cheap clone
-                            let embedders = embedders.clone();
-                            let embedders_config = embedders_config.clone();
+                    // Cheap clone
+                    let embedders = embedders.clone();
+                    let embedders_config = embedders_config.clone();
 
-                            // TODO: improve the inference speed
-                            let vectorized_payloads = executor
+                    // TODO: improve the inference speed
+                    let vectorized_payloads = executor
+                        .spawn(async move {
+                            tokio_handle
                                 .spawn(async move {
-                                    tokio_handle
-                                        .spawn(async move {
-                                            vectorize(&embedders, &embedders_config, payloads).await
-                                        })
-                                        .await
-                                        .unwrap()
+                                    vectorize(&embedders, &embedders_config, payloads).await
                                 })
-                                .await;
+                                .await
+                                .unwrap()
+                        })
+                        .await;
 
-                            match vectorized_payloads {
-                                Ok(payloads) => block.payloads = payloads,
-                                Err(error) => {
-                                    // TODO: error message should not automatically closed
-                                    register_long_running_result::<UpdateNBlocksNotification>(
-                                        window,
-                                        cx,
-                                        TaskResult::new(
-                                            task_id,
-                                            false,
-                                            format!(
-                                                "Error has occurred when embedding texts: {}",
-                                                error
-                                            ),
-                                            TaskType::UpdateNBlocks,
-                                            None,
-                                        ),
-                                    );
-                                    return Err(anyhow::anyhow!("No embedders available"));
-                                }
-                            }
+                    match vectorized_payloads {
+                        Ok(payloads) => block.payloads = payloads,
+                        Err(error) => {
+                            // TODO: error message should not automatically closed
+                            register_long_running_completion::<UpdateNBlocksNotification>(
+                                window,
+                                cx,
+                                TaskResult::new(
+                                    task_id,
+                                    false,
+                                    format!("Error has occurred when embedding texts: {}", error),
+                                    TaskType::UpdateNBlocks,
+                                    None,
+                                ),
+                            );
+                            return Err(anyhow::anyhow!("No embedders available"));
                         }
-                    }
-                    None => {
-                        log::error!(
-                            "No embedders available. Please load an embedder before proceeding"
-                        );
-                        register_long_running_result::<UpdateNBlocksNotification>(
-                            window,
-                            cx,
-                            TaskResult::new(
-                                task_id,
-                                false,
-                                "No embedders available. Please load an embedder before proceeding",
-                                TaskType::UpdateNBlocks,
-                                None,
-                            ),
-                        );
-                        return Err(anyhow::anyhow!("No embedders available"));
                     }
                 }
             }
@@ -390,7 +331,7 @@ pub fn update_n_blocks(
                 Ok(_) => {}
                 Err(error) => {
                     log::error!("{}", error);
-                    register_long_running_result::<UpdateNBlocksNotification>(
+                    register_long_running_completion::<UpdateNBlocksNotification>(
                         window,
                         cx,
                         TaskResult::new(
@@ -405,9 +346,7 @@ pub fn update_n_blocks(
                 }
             }
 
-            log::debug!("Blocks update finished, preceed to refreshing the block list...");
-
-            register_long_running_result::<UpdateNBlocksNotification>(
+            register_long_running_completion::<UpdateNBlocksNotification>(
                 window,
                 cx,
                 TaskResult::new(
@@ -436,8 +375,6 @@ pub fn update_parent(
     new_parent_block_id: Option<Uuid>,
     block_ids: Vec<Uuid>,
 ) {
-    log::debug!("Updating blocks' parent...");
-
     let window = window.window_handle();
 
     app_cx
@@ -464,7 +401,7 @@ pub fn update_parent(
 
             let (server_name, server) = app
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
-                    this.get_active_server()
+                    this.get_active_server(window.window_id())
                 })
                 .unwrap();
 
@@ -528,10 +465,6 @@ pub fn update_parent(
                     );
                 }
             };
-
-            log::debug!(
-                "Blocks parent id update finished, preceed to refreshing the block list..."
-            );
 
             register_result(
                 window,

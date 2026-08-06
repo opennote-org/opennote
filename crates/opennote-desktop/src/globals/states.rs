@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use gpui::{App, AppContext, Global, SharedString, WeakEntity};
+use gpui::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
+use opennote_core_logics::helpers::run_async_code;
 use opennote_data::{Databases, search::SearchScope};
 use opennote_models::{
     block::Block, configurations::fields::remote_server::RemoteServerConfiguration,
@@ -14,9 +15,8 @@ use crate::{
     globals::{
         actions::route_helpers::route_read_blocks,
         bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
-        helpers::run_async_code,
     },
-    widgets::pane::pane::Pane,
+    widgets::pane::Pane,
 };
 
 #[derive(Debug, Clone)]
@@ -32,12 +32,13 @@ pub struct States {
     /// States of the remote servers
     servers: HashMap<SharedString, ServerStates>,
 
-    /// The active server
-    pub active_server: SharedString,
+    /// The active server for each workspace.
+    /// The key is a WindowId.
+    active_servers: HashMap<WindowId, SharedString>,
 
-    /// The pane that is active.
-    /// It is optional because we can't create a pane when new.
-    pub active_pane: Option<WeakEntity<Pane>>,
+    /// The pane that is active for each workspace.
+    /// The key is a WindowId.
+    pub active_panes: HashMap<WindowId, WeakEntity<Pane>>,
 
     pub search_scope: SearchScope,
 }
@@ -47,9 +48,9 @@ impl Global for States {}
 impl States {
     pub fn new(servers: HashMap<String, RemoteServerConfiguration>) -> Self {
         Self {
-            active_server: SharedString::new(LOCAL_SERVER_NAME),
+            active_servers: HashMap::new(),
             servers: build_servers(servers),
-            active_pane: None,
+            active_panes: HashMap::new(),
             search_scope: SearchScope::Document,
         }
     }
@@ -73,6 +74,16 @@ impl States {
         cx.set_global(states);
     }
 
+    pub fn get_active_pane(&self, cx: &App) -> Option<WeakEntity<Pane>> {
+        let Some(active_window_handle) = cx.active_window() else {
+            return None;
+        };
+
+        self.active_panes
+            .get(&active_window_handle.window_id())
+            .cloned()
+    }
+
     /// Overwrite the existing blocks of a server in the states with the new blocks
     pub fn hard_update_blocks(&mut self, server_name: &SharedString, blocks: Vec<Block>) {
         if let Some(server) = self.servers.get_mut(server_name) {
@@ -82,8 +93,6 @@ impl States {
 
     /// It will refresh blocks across all servers
     pub fn refresh_blocks_list(&self, cx: &mut App) {
-        log::debug!("Refreshing blocks...");
-
         let servers = self.get_servers().to_owned();
         let databases = cx.read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
             this.0.databases.clone()
@@ -211,15 +220,23 @@ impl States {
         involved_servers
     }
 
-    /// Get the active server.
-    /// Return the local server if there are no remote ones.
-    pub fn get_active_server(&self) -> (SharedString, ServerStates) {
-        let active_server: &ServerStates = self.servers.get(&self.active_server).unwrap();
-        (self.active_server.clone(), active_server.clone())
+    /// Get the active server for a window.
+    /// Return the local server if the window has no active server yet.
+    pub fn get_active_server(&self, window_id: WindowId) -> (SharedString, ServerStates) {
+        let active_server_name = self.get_active_server_name(window_id);
+        let active_server: &ServerStates = self.servers.get(&active_server_name).unwrap();
+        (active_server_name, active_server.clone())
     }
 
-    pub fn set_active_remote_server(&mut self, server_name: SharedString) {
-        self.active_server = server_name;
+    pub fn get_active_server_name(&self, window_id: WindowId) -> SharedString {
+        self.active_servers
+            .get(&window_id)
+            .cloned()
+            .unwrap_or_else(|| SharedString::new(LOCAL_SERVER_NAME))
+    }
+
+    pub fn set_active_server(&mut self, window_id: WindowId, server_name: SharedString) {
+        self.active_servers.insert(window_id, server_name);
     }
 
     pub fn set_search_scope(&mut self, search_scope: SearchScope) {

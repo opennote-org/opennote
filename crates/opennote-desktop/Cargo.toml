@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+
 # Internal dependencies
 opennote-bootstrap = { workspace = true }
 opennote-models = { workspace = true }
@@ -11,6 +12,7 @@ opennote-core-logics = { workspace = true }
 opennote-data = { workspace = true }
 opennote-embedder = { workspace = true }
 opennote-server = { workspace = true }
+opennote-velotype = { workspace = true }
 gpui-component = { workspace = true }
 gpui-component-assets = { workspace = true }
 

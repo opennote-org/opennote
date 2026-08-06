@@ -338,8 +338,7 @@ impl TreeState {
 
         let block_id = match Uuid::from_str(&self.entries[index].item().id) {
             Ok(result) => result,
-            Err(error) => {
-                log::debug!("Failed to open a block with keyboard shortcut: {}", error);
+            Err(_error) => {
                 return;
             }
         };
@@ -360,8 +359,7 @@ impl TreeState {
 
         let block_id = match Uuid::from_str(&self.entries[index].item().id) {
             Ok(result) => result,
-            Err(error) => {
-                log::debug!("Failed to open a block with keyboard shortcut: {}", error);
+            Err(_error) => {
                 return;
             }
         };

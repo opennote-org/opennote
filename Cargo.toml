@@ -17,6 +17,7 @@ members = [
     "crates/opennote-texts-processing",
     "crates/opennote-bootstrap",
     "crates/opennote-core-logics",
+    "crates/opennote-velotype",
     "crates/gpui-component",
     "crates/gpui-component-macros",
     "crates/gpui-component-assets",
@@ -35,6 +36,7 @@ opennote-entities = { path = "crates/opennote-entities" }
 opennote-texts-processing = { path = "crates/opennote-texts-processing" }
 opennote-bootstrap = { path = "crates/opennote-bootstrap" }
 opennote-core-logics = { path = "crates/opennote-core-logics" }
+opennote-velotype = { path = "crates/opennote-velotype" }
 
 gpui-component = { path = "crates/gpui-component" }
 gpui-component-macros = { path = "crates/gpui-component-macros" }
@@ -61,6 +63,7 @@ actix-web = "4.14.0"
 serde-encrypt = "0.7.0"
 
 # External dependencies largely used in gpui-component
+tree-sitter = "0.26.9"
 notify = "7.0.0"
 ropey = { version = "=2.0.0-beta.1", features = [
     "metric_lines_lf",

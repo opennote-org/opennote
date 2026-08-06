@@ -8,6 +8,7 @@ use gpui_component::{
     v_flex,
 };
 
+use opennote_core_logics::helpers::run_async_code;
 use opennote_data::search::{SearchScope, models::RawSearchResult};
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
@@ -20,7 +21,6 @@ use crate::{
     globals::{
         actions::route_helpers::{self},
         bootstrap::GlobalApplicationBootStrap,
-        helpers::run_async_code,
         states::{ServerStates, States},
     },
     widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},
@@ -35,12 +35,12 @@ fn create_search_queries(
     let mut query_vector = Vec::new();
 
     if search_method == SupportedSearchMethod::Semantic {
-        let Some(embedders) = &bootstrap.0.embedders else {
-            return (None, None);
-        };
         let payload = create_query(query);
-        let payloads =
-            run_async_code(async { send_vectorization(vec![payload], embedders).await.unwrap() });
+        let payloads = run_async_code(async {
+            send_vectorization(vec![payload], &bootstrap.0.embedders)
+                .await
+                .unwrap()
+        });
         query_vector = payloads[0].vector.clone();
     }
 
@@ -100,15 +100,6 @@ impl ListDelegate for SearchResultsList {
         _window: &mut gpui::Window,
         cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
     ) -> Option<Self::Item> {
-        log::debug!(
-            "Search results ranking: {:?}",
-            &self
-                .results
-                .iter()
-                .map(|item| item.2.score)
-                .collect::<Vec<f32>>()
-        );
-
         self.results
             .get(ix.row)
             .map(|(block, payload, _raw_search_result)| {
@@ -165,7 +156,7 @@ impl ListDelegate for SearchResultsList {
         let configurations = bootstrap.get_configurations();
 
         let states: &States = cx.global();
-        let Some(active_pane) = states.active_pane.clone() else {
+        let Some(active_pane) = states.get_active_pane(cx) else {
             return gpui::Task::ready(());
         };
 

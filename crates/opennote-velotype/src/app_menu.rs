@@ -1,0 +1,1455 @@
+//! Native application menu, app-level actions, and window close routing.
+//!
+//! This module owns menu construction and the actions that operate on the
+//! active editor window. The Quit action is routed to the current window so the
+//! existing unsaved-changes dialog remains authoritative for that window.
+
+use std::path::{Path, PathBuf};
+
+use anyhow::Context as _;
+use gpui::*;
+
+use crate::components::{
+    AddLanguageConfig, AddThemeConfig, CheckForUpdates, CloseWindow, ExportHtml, ExportPdf,
+    InstallCliTool, NewWindow, NoRecentFiles, OpenFile, OpenPreferences, OpenRecentFile,
+    QuitApplication, SaveDocument, SaveDocumentAs, SelectLanguage, SelectTheme, ShowAbout,
+    ToggleWorkspace, UninstallCliTool,
+};
+use crate::config::{
+    apply_configured_language, apply_configured_theme, import_language_config_and_select,
+    import_theme_config_and_select, open_preferences_window, read_recent_files, record_recent_file,
+    remove_recent_file,
+};
+use crate::editor::{Editor, InfoDialogKind};
+use crate::export::ExportFormat;
+use crate::i18n::I18nManager;
+use crate::theme::ThemeManager;
+use crate::window_chrome::velotype_window_options;
+
+/// Global app-menu state for platform menu lifecycle hooks.
+#[derive(Default)]
+pub(crate) struct AppMenuState {
+    window_closed_subscription: Option<Subscription>,
+}
+
+impl Global for AppMenuState {}
+
+fn window_title(file_path: Option<&Path>) -> SharedString {
+    if let Some(path) = file_path {
+        // OsStr::to_string_lossy returns Cow<str>; calling .to_string() on
+        // it always allocates a fresh String, even for the valid-UTF-8 path
+        // (the common case). Borrow the Cow directly into format! — its
+        // Display impl writes the borrowed bytes straight into the output
+        // String, no intermediate allocation.
+        format!(
+            "Velotype - {}",
+            path.file_name()
+                .map(|name| name.to_string_lossy())
+                .unwrap_or_else(|| path.to_string_lossy())
+        )
+        .into()
+    } else {
+        SharedString::new("Velotype")
+    }
+}
+
+/// Opens an editor window for the given Markdown content and optional path.
+pub(crate) fn open_editor_window(
+    cx: &mut App,
+    markdown: String,
+    file_path: Option<PathBuf>,
+) -> WindowHandle<Editor> {
+    let bounds = Bounds::centered(None, size(px(1080.), px(720.)), cx);
+    let title = window_title(file_path.as_deref());
+    let handle = cx
+        .open_window(
+            velotype_window_options(title, bounds),
+            move |_window, cx| cx.new(move |cx| Editor::from_markdown(cx, markdown, file_path)),
+        )
+        .unwrap();
+
+    handle
+        .update(cx, |_editor, window, _cx| {
+            window.activate_window();
+        })
+        .expect("newly opened editor window should be updateable");
+
+    handle
+}
+
+pub(crate) fn open_file_in_new_window(cx: &mut App, path: &Path) -> anyhow::Result<()> {
+    let markdown = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read '{}'", path.display()))?;
+    open_editor_window(cx, markdown, Some(path.to_path_buf()));
+    record_recent_file_and_refresh(path, cx);
+    Ok(())
+}
+
+fn record_recent_file_and_refresh(path: &Path, cx: &mut App) {
+    if let Err(err) = record_recent_file(path) {
+        eprintln!("failed to update recent file history: {err}");
+        return;
+    }
+    install_menus(cx);
+    cx.refresh_windows();
+}
+
+#[cfg(target_os = "macos")]
+/// Check whether `/usr/local/bin/velotype` is correctly installed for this app.
+///
+/// Returns `true` only if the symlink exists **and** resolves (directly or via
+/// one level of canonicalization) to the currently running executable.
+fn is_cli_symlink_current_app() -> bool {
+    let link = std::path::Path::new("/usr/local/bin/velotype");
+    let Ok(target) = std::fs::read_link(link) else {
+        return false; // does not exist or not a symlink
+    };
+    let resolved = if target.is_absolute() {
+        // Canonicalize the target itself (may fail if dangling).
+        std::fs::canonicalize(&target).unwrap_or(target)
+    } else {
+        // Relative — resolve from symlink's parent directory.
+        link.parent()
+            .unwrap_or(std::path::Path::new("/"))
+            .join(&target)
+            .canonicalize()
+            .unwrap_or(target)
+    };
+    match std::env::current_exe() {
+        Ok(exe) => resolved == exe,
+        Err(_) => false,
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn applescript_string_literal(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len() + 2);
+    escaped.push('"');
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped.push('"');
+    escaped
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn install_cli_tool(cx: &mut App) {
+    use std::process::Command;
+
+    let bin_link = "/usr/local/bin/velotype";
+    let strings = cx.global::<I18nManager>().strings();
+
+    let current_exe = match std::env::current_exe() {
+        Ok(path) => path,
+        Err(err) => {
+            show_install_cli_error(cx, &format!("Failed to get executable path: {err}"));
+            return;
+        }
+    };
+
+    // Only allow from a portable .app bundle (e.g. drag-installed to /Applications)
+    if !current_exe
+        .to_string_lossy()
+        .contains(".app/Contents/MacOS/")
+    {
+        show_install_cli_error(
+            cx,
+            "Command-line tool installation requires running from an .app bundle.\n\n\
+             If the app was installed via the `.pkg` installer,\n\
+             the CLI command is configured automatically.",
+        );
+        return;
+    }
+
+    let exe_path = applescript_string_literal(&current_exe.to_string_lossy());
+    let link_path = applescript_string_literal(bin_link);
+    let script = format!(
+        r#"set exePath to {exe_path}
+set linkPath to {link_path}
+do shell script "rm -f " & quoted form of linkPath & linefeed & "ln -s " & quoted form of exePath & space & quoted form of linkPath with administrator privileges"#
+    );
+
+    match Command::new("osascript").arg("-e").arg(&script).output() {
+        Ok(output) => {
+            if output.status.success() {
+                let title = "CLI Command Installed";
+                let detail = format!(
+                    "Successfully installed! You can now use 'velotype' from the terminal:\n\n\
+                     \x1b[1mvelotype README.md\x1b[0m\n\
+                     \x1b[1mvelotype file1.md file2.md\x1b[0m\n\n\
+                     Location: {bin_link}\n\n\
+                     Note: If you move or delete Velotype.app,\n\
+                     the 'velotype' command will stop working\n\
+                     automatically (no cleanup needed)."
+                );
+                if let Some(window) = cx.active_window() {
+                    let ok = strings.info_dialog_ok.clone();
+                    let _ = window.update(cx, |_view, window, cx| {
+                        let _ = window.prompt(
+                            PromptLevel::Info,
+                            &title,
+                            Some(&detail),
+                            &[ok.as_str()],
+                            cx,
+                        );
+                    });
+                }
+            } else {
+                // User pressed Cancel on the admin password dialog
+                // or the link creation failed for another reason.
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let detail = if stderr.contains("User canceled") || stderr.contains("(-128)") {
+                    "Installation cancelled.".to_string()
+                } else {
+                    format!("Installation failed: {stderr}")
+                };
+                show_install_cli_error(cx, &detail);
+            }
+        }
+        Err(err) => {
+            show_install_cli_error(cx, &format!("Failed to run installer: {err}"));
+        }
+    }
+    // Refresh menus so the label changes between Install -> Uninstall.
+    install_menus(cx);
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn uninstall_cli_tool(cx: &mut App) {
+    use std::process::Command;
+
+    let bin_link = "/usr/local/bin/velotype";
+    let strings = cx.global::<I18nManager>().strings();
+
+    if !is_cli_symlink_current_app() {
+        show_install_cli_error(cx, "CLI command is not installed for this app.");
+        return;
+    }
+
+    let link_path = applescript_string_literal(bin_link);
+    let script = format!(
+        r#"set linkPath to {link_path}
+do shell script "rm -f " & quoted form of linkPath with administrator privileges"#
+    );
+
+    match Command::new("osascript").arg("-e").arg(&script).output() {
+        Ok(output) => {
+            if output.status.success() {
+                let title = "CLI Command Uninstalled";
+                let detail = "CLI command has been removed successfully.".to_string();
+                if let Some(window) = cx.active_window() {
+                    let ok = strings.info_dialog_ok.clone();
+                    let _ = window.update(cx, |_view, window, cx| {
+                        let _ = window.prompt(
+                            PromptLevel::Info,
+                            &title,
+                            Some(&detail),
+                            &[ok.as_str()],
+                            cx,
+                        );
+                    });
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let detail = if stderr.contains("User canceled") || stderr.contains("(-128)") {
+                    "Uninstall cancelled.".to_string()
+                } else {
+                    format!("Uninstall failed: {stderr}")
+                };
+                show_install_cli_error(cx, &detail);
+            }
+        }
+        Err(err) => {
+            show_install_cli_error(cx, &format!("Failed to run uninstaller: {err}"));
+        }
+    }
+    // Refresh menus so the label changes between Install -> Uninstall.
+    install_menus(cx);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn install_cli_tool(cx: &mut App) {
+    show_install_cli_error(
+        cx,
+        "Command-line tool installation is only available on macOS.",
+    );
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn uninstall_cli_tool(cx: &mut App) {
+    show_install_cli_error(
+        cx,
+        "Command-line tool uninstallation is only available on macOS.",
+    );
+}
+
+fn show_install_cli_error(cx: &mut App, detail: &str) {
+    let strings = cx.global::<I18nManager>().strings();
+    let title = "Install Command-Line Tool Failed";
+
+    if let Some(window) = cx.active_window() {
+        let ok = strings.info_dialog_ok.clone();
+        let _ = window.update(cx, |_view, window, cx| {
+            let _ = window.prompt(
+                PromptLevel::Critical,
+                title,
+                Some(detail),
+                &[ok.as_str()],
+                cx,
+            );
+        });
+    } else {
+        eprintln!("{title}: {detail}");
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn record_recent_file_from_editor(path: &Path, cx: &mut App) {
+    record_recent_file_and_refresh(path, cx);
+}
+
+fn show_window_prompt(window: Option<AnyWindowHandle>, title: &str, detail: &str, cx: &mut App) {
+    if let Some(window) = window {
+        let ok = cx.global::<I18nManager>().strings().info_dialog_ok.clone();
+        let _ = window.update(cx, |_view, window, cx| {
+            let buttons = [ok.as_str()];
+            let _ = window.prompt(PromptLevel::Critical, title, Some(detail), &buttons, cx);
+        });
+    } else {
+        eprintln!("{title}: {detail}");
+    }
+}
+
+fn with_active_editor<R>(
+    cx: &mut App,
+    update: impl FnOnce(&mut Editor, &mut Window, &mut Context<Editor>) -> R,
+) -> Option<R> {
+    let window = cx.active_window()?.downcast::<Editor>()?;
+    window.update(cx, update).ok()
+}
+
+fn show_info_dialog_on_active_editor(cx: &mut App, kind: InfoDialogKind) {
+    let _ = with_active_editor(cx, move |editor, _window, cx| {
+        editor.show_info_dialog(kind, cx);
+    });
+}
+
+fn request_update_check_on_active_editor(cx: &mut App) {
+    let _ = with_active_editor(cx, |editor, window, cx| {
+        editor.request_check_updates(window, cx);
+    });
+}
+
+fn recent_files_for_menu() -> Vec<PathBuf> {
+    match read_recent_files() {
+        Ok(paths) => paths,
+        Err(err) => {
+            eprintln!("failed to read recent file history: {err}");
+            Vec::new()
+        }
+    }
+}
+
+fn open_recent_file(cx: &mut App, path: PathBuf) {
+    let error_window = cx.active_window();
+    open_recent_file_with_error_window(cx, path, error_window);
+}
+
+fn open_recent_file_with_error_window(
+    cx: &mut App,
+    path: PathBuf,
+    error_window: Option<AnyWindowHandle>,
+) {
+    if !path.is_file() {
+        if let Err(err) = remove_recent_file(&path) {
+            eprintln!("failed to remove missing recent file: {err}");
+        }
+        install_menus(cx);
+        cx.refresh_windows();
+        let strings = cx.global::<I18nManager>().strings().clone();
+        let detail = strings
+            .recent_file_missing_message_template
+            .replace("{path}", &path.to_string_lossy());
+        show_window_prompt(
+            error_window,
+            &strings.recent_file_missing_title,
+            &detail,
+            cx,
+        );
+        return;
+    }
+
+    if let Err(err) = open_file_in_new_window(cx, &path) {
+        let title = cx
+            .global::<I18nManager>()
+            .strings()
+            .open_failed_title
+            .clone();
+        show_window_prompt(error_window, &title, &err.to_string(), cx);
+    }
+}
+
+fn is_editor_scoped_menu_action(action: &dyn Action) -> bool {
+    action.as_any().is::<SaveDocument>()
+        || action.as_any().is::<SaveDocumentAs>()
+        || action.as_any().is::<ExportHtml>()
+        || action.as_any().is::<ExportPdf>()
+        || action.as_any().is::<QuitApplication>()
+        || action.as_any().is::<CloseWindow>()
+        || action.as_any().is::<CheckForUpdates>()
+        || action.as_any().is::<ShowAbout>()
+        || action.as_any().is::<InstallCliTool>()
+        || action.as_any().is::<UninstallCliTool>()
+        || action.as_any().is::<ToggleWorkspace>()
+}
+
+fn is_window_context_menu_action(action: &dyn Action) -> bool {
+    action.as_any().is::<NewWindow>()
+        || action.as_any().is::<OpenFile>()
+        || action.as_any().is::<OpenPreferences>()
+        || action.as_any().is::<OpenRecentFile>()
+        || action.as_any().is::<NoRecentFiles>()
+        || action.as_any().is::<AddLanguageConfig>()
+        || action.as_any().is::<AddThemeConfig>()
+        || action.as_any().is::<InstallCliTool>()
+        || action.as_any().is::<UninstallCliTool>()
+        || is_editor_scoped_menu_action(action)
+}
+
+#[allow(dead_code)]
+fn current_window_candidates(cx: &mut App) -> Vec<AnyWindowHandle> {
+    let mut candidates = Vec::new();
+    let mut push_unique = |window: AnyWindowHandle| {
+        if candidates
+            .iter()
+            .all(|candidate: &AnyWindowHandle| candidate.window_id() != window.window_id())
+        {
+            candidates.push(window);
+        }
+    };
+
+    if let Some(window) = cx.active_window() {
+        push_unique(window);
+    }
+    if let Some(windows) = cx.window_stack() {
+        for window in windows {
+            push_unique(window);
+        }
+    }
+    for window in cx.windows() {
+        push_unique(window);
+    }
+
+    candidates
+}
+
+/// Executes one of the app-menu actions against the current application state.
+pub(crate) fn dispatch_menu_action(action: &dyn Action, cx: &mut App) {
+    if action.as_any().is::<NewWindow>() {
+        open_editor_window(cx, String::new(), None);
+    } else if action.as_any().is::<OpenFile>() {
+        prompt_and_open_files(cx);
+    } else if action.as_any().is::<OpenPreferences>() {
+        open_preferences_window(cx);
+    } else if let Some(action) = action.as_any().downcast_ref::<OpenRecentFile>() {
+        open_recent_file(cx, PathBuf::from(&action.path));
+    } else if action.as_any().is::<NoRecentFiles>() {
+    } else if action.as_any().is::<AddLanguageConfig>() {
+        prompt_and_import_language_config(cx);
+    } else if action.as_any().is::<AddThemeConfig>() {
+        prompt_and_import_theme_config(cx);
+    } else if action.as_any().is::<ExportHtml>() {
+        let _ = with_active_editor(cx, |editor, window, cx| {
+            editor.export_document_via_prompt(ExportFormat::Html, window, cx)
+        });
+    } else if action.as_any().is::<ExportPdf>() {
+        let _ = with_active_editor(cx, |editor, window, cx| {
+            editor.export_document_via_prompt(ExportFormat::Pdf, window, cx)
+        });
+    } else if let Some(action) = action.as_any().downcast_ref::<SelectTheme>() {
+        match apply_configured_theme(cx, &action.theme_id) {
+            Ok(changed) => {
+                if changed {
+                    install_menus(cx);
+                    cx.refresh_windows();
+                }
+            }
+            Err(err) => {
+                let title = cx
+                    .global::<I18nManager>()
+                    .strings()
+                    .preferences_save_failed_title
+                    .clone();
+                show_window_prompt(cx.active_window(), &title, &err.to_string(), cx);
+            }
+        }
+    } else if let Some(action) = action.as_any().downcast_ref::<SelectLanguage>() {
+        match apply_configured_language(cx, &action.language_id) {
+            Ok(changed) => {
+                if changed {
+                    install_menus(cx);
+                    cx.refresh_windows();
+                }
+            }
+            Err(err) => {
+                let title = cx
+                    .global::<I18nManager>()
+                    .strings()
+                    .preferences_save_failed_title
+                    .clone();
+                show_window_prompt(cx.active_window(), &title, &err.to_string(), cx);
+            }
+        }
+    } else if action.as_any().is::<CheckForUpdates>() {
+        request_update_check_on_active_editor(cx);
+    } else if action.as_any().is::<ShowAbout>() {
+        show_info_dialog_on_active_editor(cx, InfoDialogKind::About);
+    } else if action.as_any().is::<InstallCliTool>() {
+        install_cli_tool(cx);
+    } else if action.as_any().is::<UninstallCliTool>() {
+        uninstall_cli_tool(cx);
+    } else if action.as_any().is::<ToggleWorkspace>() {
+        let _ = with_active_editor(cx, |editor, window, cx| {
+            editor.toggle_workspace_drawer(window, cx);
+        });
+    }
+}
+
+/// Executes a menu action against a specific editor when the action is
+/// editor-scoped, falling back to app-wide behavior for global actions.
+pub(crate) fn dispatch_menu_action_for_editor(
+    action: &dyn Action,
+    target: &WeakEntity<Editor>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    if !is_window_context_menu_action(action) {
+        let deferred_action = action.boxed_clone();
+        cx.defer(move |cx| {
+            dispatch_menu_action(deferred_action.as_ref(), cx);
+        });
+        return;
+    }
+
+    window.activate_window();
+    let current_window = Some(window.window_handle());
+
+    if action.as_any().is::<NewWindow>() {
+        open_editor_window(cx, String::new(), None);
+    } else if action.as_any().is::<OpenFile>() {
+        prompt_and_open_files_with_error_window(cx, current_window);
+    } else if action.as_any().is::<OpenPreferences>() {
+        open_preferences_window(cx);
+    } else if let Some(action) = action.as_any().downcast_ref::<OpenRecentFile>() {
+        open_recent_file_with_error_window(cx, PathBuf::from(&action.path), current_window);
+    } else if action.as_any().is::<NoRecentFiles>() {
+    } else if action.as_any().is::<AddLanguageConfig>() {
+        prompt_and_import_language_config_with_error_window(cx, current_window);
+    } else if action.as_any().is::<AddThemeConfig>() {
+        prompt_and_import_theme_config_with_error_window(cx, current_window);
+    }
+    // else if action.as_any().is::<SaveDocument>() {
+    //     let _ = target.update(cx, |editor, cx| editor.request_save_document(cx));
+    // } else if action.as_any().is::<SaveDocumentAs>() {
+    //     let _ = target.update(cx, |editor, cx| editor.request_save_document_as(cx));
+    // }
+    else if action.as_any().is::<ExportHtml>() {
+        let _ = target.update(cx, |editor, cx| {
+            editor.export_document_via_prompt(ExportFormat::Html, window, cx);
+        });
+    } else if action.as_any().is::<ExportPdf>() {
+        let _ = target.update(cx, |editor, cx| {
+            editor.export_document_via_prompt(ExportFormat::Pdf, window, cx);
+        });
+    } else if action.as_any().is::<CheckForUpdates>() {
+        let _ = target.update(cx, |editor, cx| {
+            editor.request_check_updates(window, cx);
+        });
+    } else if action.as_any().is::<ShowAbout>() {
+        let _ = target.update(cx, |editor, cx| {
+            editor.show_info_dialog(InfoDialogKind::About, cx)
+        });
+    } else if action.as_any().is::<InstallCliTool>() {
+        install_cli_tool(cx);
+    } else if action.as_any().is::<UninstallCliTool>() {
+        uninstall_cli_tool(cx);
+    } else if action.as_any().is::<ToggleWorkspace>() {
+        let _ = target.update(cx, |editor, cx| {
+            editor.toggle_workspace_drawer(window, cx);
+        });
+    }
+}
+
+fn build_menus(
+    theme_manager: &ThemeManager,
+    i18n_manager: &I18nManager,
+    recent_files: &[PathBuf],
+) -> Vec<Menu> {
+    let current_theme_id = theme_manager.current_theme_id().to_string();
+    let current_language_id = i18n_manager.current_language_id().to_string();
+    let strings = i18n_manager.strings().clone();
+    let mut theme_items = theme_manager
+        .available_themes()
+        .iter()
+        .map(|entry| {
+            let label = if entry.id.as_str() == current_theme_id {
+                format!("\u{2713} {}", entry.name)
+            } else {
+                entry.name.to_string()
+            };
+            MenuItem::action(
+                label,
+                SelectTheme {
+                    theme_id: entry.id.to_string(),
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    theme_items.push(MenuItem::separator());
+    theme_items.push(MenuItem::action(
+        strings.menu_add_theme_config.clone(),
+        AddThemeConfig,
+    ));
+
+    let mut language_items = i18n_manager
+        .available_languages()
+        .iter()
+        .map(|entry| {
+            let name = entry.name.to_string();
+            let label = if entry.id.as_str() == current_language_id {
+                format!("\u{2713} {name}")
+            } else {
+                name
+            };
+            MenuItem::action(
+                label,
+                SelectLanguage {
+                    language_id: entry.id.to_string(),
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    language_items.push(MenuItem::separator());
+    language_items.push(MenuItem::action(
+        strings.menu_add_language_config.clone(),
+        AddLanguageConfig,
+    ));
+
+    let recent_items = if recent_files.is_empty() {
+        vec![MenuItem::action(
+            strings.menu_no_recent_files.clone(),
+            NoRecentFiles,
+        )]
+    } else {
+        recent_files
+            .iter()
+            .map(|path| {
+                // into_owned on a Cow<str> reuses the Cow::Owned variant
+                // (no copy) when the OS string is valid UTF-8 — the common
+                // case — and only allocates for the lossy fallback. The
+                // previous .to_string_lossy().to_string() always allocated.
+                let label = path.to_string_lossy().into_owned();
+                MenuItem::action(label.clone(), OpenRecentFile { path: label })
+            })
+            .collect()
+    };
+
+    #[cfg(target_os = "macos")]
+    let initial_menus = {
+        // On macOS, the first menu is the app menu (macOS overrides its title
+        // with the app name). File operations go in a separate "File" menu to
+        // match standard macOS conventions.
+        vec![
+            Menu {
+                name: "Velotype".into(),
+                items: vec![
+                    MenuItem::action(strings.menu_preferences.clone(), OpenPreferences),
+                    MenuItem::separator(),
+                    MenuItem::action(strings.menu_quit.clone(), QuitApplication),
+                ],
+            },
+            Menu {
+                name: strings.menu_file.into(),
+                items: vec![
+                    MenuItem::action(strings.menu_new_window.clone(), NewWindow),
+                    MenuItem::action(strings.menu_close_window.clone(), CloseWindow),
+                    MenuItem::action(strings.menu_open_file.clone(), OpenFile),
+                    MenuItem::submenu(Menu {
+                        name: strings.menu_open_recent_file.clone().into(),
+                        items: recent_items,
+                    }),
+                    MenuItem::separator(),
+                    MenuItem::action(strings.menu_save.clone(), SaveDocument),
+                    MenuItem::action(strings.menu_save_as.clone(), SaveDocumentAs),
+                ],
+            },
+        ]
+    };
+
+    #[cfg(not(target_os = "macos"))]
+    let initial_menus = {
+        vec![Menu {
+            name: strings.menu_file.into(),
+            items: vec![
+                MenuItem::action(strings.menu_new_window.clone(), NewWindow),
+                MenuItem::action(strings.menu_close_window.clone(), CloseWindow),
+                MenuItem::action(strings.menu_open_file.clone(), OpenFile),
+                MenuItem::submenu(Menu {
+                    name: strings.menu_open_recent_file.clone().into(),
+                    items: recent_items,
+                }),
+                MenuItem::action(strings.menu_preferences.clone(), OpenPreferences),
+                MenuItem::separator(),
+                MenuItem::action(strings.menu_save.clone(), SaveDocument),
+                MenuItem::action(strings.menu_save_as.clone(), SaveDocumentAs),
+                MenuItem::separator(),
+                MenuItem::action(strings.menu_quit.clone(), QuitApplication),
+            ],
+        }]
+    };
+
+    #[cfg(target_os = "macos")]
+    let help_items = {
+        // Show different menu item depending on whether CLI is already
+        // installed pointing to the current app.  Only portable
+        // installations (drag-installed .app bundles) need this —
+        // pkg-installed apps manage the symlink via postinstall.
+        let cli_installed = is_cli_symlink_current_app();
+        let mut items = vec![
+            MenuItem::action(strings.menu_check_updates.clone(), CheckForUpdates),
+            MenuItem::separator(),
+        ];
+        if cli_installed {
+            items.push(MenuItem::action(
+                SharedString::new(strings.menu_uninstall_cli_tool.as_str()),
+                UninstallCliTool,
+            ));
+        } else {
+            items.push(MenuItem::action(
+                SharedString::new(strings.menu_install_cli_tool.as_str()),
+                InstallCliTool,
+            ));
+        }
+        items.push(MenuItem::separator());
+        items.push(MenuItem::action(strings.menu_about.clone(), ShowAbout));
+        items
+    };
+    #[cfg(not(target_os = "macos"))]
+    let help_items = vec![
+        MenuItem::action(strings.menu_check_updates.clone(), CheckForUpdates),
+        MenuItem::separator(),
+        MenuItem::action(strings.menu_about.clone(), ShowAbout),
+    ];
+
+    let mut menus = initial_menus;
+    menus.extend([
+        Menu {
+            name: strings.menu_export.into(),
+            items: vec![
+                MenuItem::action(strings.menu_export_html.clone(), ExportHtml),
+                MenuItem::action(strings.menu_export_pdf.clone(), ExportPdf),
+            ],
+        },
+        Menu {
+            name: strings.menu_language.into(),
+            items: language_items,
+        },
+        Menu {
+            name: strings.menu_theme.into(),
+            items: theme_items,
+        },
+        Menu {
+            name: strings.menu_workspace.into(),
+            items: vec![MenuItem::action(
+                strings.menu_toggle_workspace.clone(),
+                ToggleWorkspace,
+            )],
+        },
+        Menu {
+            name: strings.menu_help.into(),
+            items: help_items,
+        },
+    ]);
+    menus
+}
+
+pub(crate) fn install_menus(cx: &mut App) {
+    let recent_files = recent_files_for_menu();
+    let menus = build_menus(
+        cx.global::<ThemeManager>(),
+        cx.global::<I18nManager>(),
+        &recent_files,
+    );
+    cx.set_menus(menus);
+}
+
+fn prompt_and_open_files(cx: &mut App) {
+    let error_window = cx.active_window();
+    prompt_and_open_files_with_error_window(cx, error_window);
+}
+
+fn prompt_and_open_files_with_error_window(cx: &mut App, error_window: Option<AnyWindowHandle>) {
+    let prompt_title = cx
+        .global::<I18nManager>()
+        .strings()
+        .open_markdown_files_prompt
+        .clone();
+    let prompt = cx.prompt_for_paths(PathPromptOptions {
+        files: true,
+        directories: false,
+        multiple: true,
+        prompt: Some(prompt_title.into()),
+    });
+
+    cx.spawn(async move |cx| match prompt.await {
+        Ok(Ok(Some(paths))) => {
+            let _ = cx.update(move |cx| {
+                for path in paths {
+                    if let Err(err) = open_file_in_new_window(cx, &path) {
+                        let title = cx
+                            .global::<I18nManager>()
+                            .strings()
+                            .open_failed_title
+                            .clone();
+                        show_window_prompt(error_window, &title, &err.to_string(), cx);
+                    }
+                }
+            });
+        }
+        Ok(Err(err)) => {
+            let detail = err.to_string();
+            let _ = cx.update(move |cx| {
+                let title = cx
+                    .global::<I18nManager>()
+                    .strings()
+                    .open_failed_title
+                    .clone();
+                show_window_prompt(error_window, &title, &detail, cx);
+            });
+        }
+        Ok(Ok(None)) | Err(_) => {}
+    })
+    .detach();
+}
+
+fn prompt_and_import_language_config(cx: &mut App) {
+    let error_window = cx.active_window();
+    prompt_and_import_language_config_with_error_window(cx, error_window);
+}
+
+fn prompt_and_import_language_config_with_error_window(
+    cx: &mut App,
+    error_window: Option<AnyWindowHandle>,
+) {
+    let prompt_title = cx
+        .global::<I18nManager>()
+        .strings()
+        .add_language_config_prompt
+        .clone();
+    let prompt = cx.prompt_for_paths(PathPromptOptions {
+        files: true,
+        directories: false,
+        multiple: false,
+        prompt: Some(prompt_title.into()),
+    });
+
+    cx.spawn(async move |cx| match prompt.await {
+        Ok(Ok(Some(paths))) => {
+            let Some(path) = paths.into_iter().next() else {
+                return;
+            };
+            let _ = cx.update(move |cx| {
+                let result = import_language_config_and_select(cx, &path);
+                match result {
+                    Ok(_) => {
+                        install_menus(cx);
+                        cx.refresh_windows();
+                    }
+                    Err(err) => {
+                        let title = cx
+                            .global::<I18nManager>()
+                            .strings()
+                            .config_import_failed_title
+                            .clone();
+                        show_window_prompt(error_window, &title, &err.to_string(), cx);
+                    }
+                }
+            });
+        }
+        Ok(Err(err)) => {
+            let detail = err.to_string();
+            let _ = cx.update(move |cx| {
+                let title = cx
+                    .global::<I18nManager>()
+                    .strings()
+                    .config_import_failed_title
+                    .clone();
+                show_window_prompt(error_window, &title, &detail, cx);
+            });
+        }
+        Ok(Ok(None)) | Err(_) => {}
+    })
+    .detach();
+}
+
+fn prompt_and_import_theme_config(cx: &mut App) {
+    let error_window = cx.active_window();
+    prompt_and_import_theme_config_with_error_window(cx, error_window);
+}
+
+fn prompt_and_import_theme_config_with_error_window(
+    cx: &mut App,
+    error_window: Option<AnyWindowHandle>,
+) {
+    let prompt_title = cx
+        .global::<I18nManager>()
+        .strings()
+        .add_theme_config_prompt
+        .clone();
+    let prompt = cx.prompt_for_paths(PathPromptOptions {
+        files: true,
+        directories: false,
+        multiple: false,
+        prompt: Some(prompt_title.into()),
+    });
+
+    cx.spawn(async move |cx| match prompt.await {
+        Ok(Ok(Some(paths))) => {
+            let Some(path) = paths.into_iter().next() else {
+                return;
+            };
+            let _ = cx.update(move |cx| {
+                let result = import_theme_config_and_select(cx, &path);
+                match result {
+                    Ok(_) => {
+                        install_menus(cx);
+                        cx.refresh_windows();
+                    }
+                    Err(err) => {
+                        let title = cx
+                            .global::<I18nManager>()
+                            .strings()
+                            .config_import_failed_title
+                            .clone();
+                        show_window_prompt(error_window, &title, &err.to_string(), cx);
+                    }
+                }
+            });
+        }
+        Ok(Err(err)) => {
+            let detail = err.to_string();
+            let _ = cx.update(move |cx| {
+                let title = cx
+                    .global::<I18nManager>()
+                    .strings()
+                    .config_import_failed_title
+                    .clone();
+                show_window_prompt(error_window, &title, &detail, cx);
+            });
+        }
+        Ok(Ok(None)) | Err(_) => {}
+    })
+    .detach();
+}
+
+fn handle_window_closed(cx: &mut App) {
+    if cx.windows().is_empty() {
+        cx.quit();
+    }
+}
+
+/// Installs menu state, action handlers, and the native menu bar.
+pub fn init(cx: &mut App) {
+    cx.set_global(AppMenuState::default());
+    let subscription = cx.on_window_closed(handle_window_closed);
+    cx.global_mut::<AppMenuState>().window_closed_subscription = Some(subscription);
+
+    cx.on_action(|_: &NewWindow, cx| {
+        dispatch_menu_action(&NewWindow, cx);
+    });
+    cx.on_action(|_: &OpenFile, cx| {
+        dispatch_menu_action(&OpenFile, cx);
+    });
+    cx.on_action(|_: &OpenPreferences, cx| {
+        dispatch_menu_action(&OpenPreferences, cx);
+    });
+    cx.on_action(|action: &OpenRecentFile, cx| {
+        dispatch_menu_action(action, cx);
+    });
+    cx.on_action(|_: &NoRecentFiles, cx| {
+        dispatch_menu_action(&NoRecentFiles, cx);
+    });
+    cx.on_action(|_: &AddLanguageConfig, cx| {
+        dispatch_menu_action(&AddLanguageConfig, cx);
+    });
+    cx.on_action(|_: &AddThemeConfig, cx| {
+        dispatch_menu_action(&AddThemeConfig, cx);
+    });
+    cx.on_action(|_: &SaveDocument, cx| {
+        dispatch_menu_action(&SaveDocument, cx);
+    });
+    cx.on_action(|_: &SaveDocumentAs, cx| {
+        dispatch_menu_action(&SaveDocumentAs, cx);
+    });
+    cx.on_action(|_: &ExportHtml, cx| {
+        dispatch_menu_action(&ExportHtml, cx);
+    });
+    cx.on_action(|_: &ExportPdf, cx| {
+        dispatch_menu_action(&ExportPdf, cx);
+    });
+    cx.on_action(|action: &SelectTheme, cx| {
+        dispatch_menu_action(action, cx);
+    });
+    cx.on_action(|action: &SelectLanguage, cx| {
+        dispatch_menu_action(action, cx);
+    });
+    cx.on_action(|_: &CheckForUpdates, cx| {
+        dispatch_menu_action(&CheckForUpdates, cx);
+    });
+    cx.on_action(|_: &ShowAbout, cx| {
+        dispatch_menu_action(&ShowAbout, cx);
+    });
+    cx.on_action(|_: &ToggleWorkspace, cx| {
+        dispatch_menu_action(&ToggleWorkspace, cx);
+    });
+    cx.on_action(|_: &QuitApplication, cx| {
+        dispatch_menu_action(&QuitApplication, cx);
+    });
+    cx.on_action(|_: &CloseWindow, cx| {
+        dispatch_menu_action(&CloseWindow, cx);
+    });
+
+    install_menus(cx);
+    cx.activate(true);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{applescript_string_literal, build_menus};
+    use crate::components::{
+        AddLanguageConfig, AddThemeConfig, CheckForUpdates, CloseWindow, ExportHtml, ExportPdf,
+        NewWindow, NoRecentFiles, OpenFile, OpenPreferences, OpenRecentFile, QuitApplication,
+        SaveDocument, SelectLanguage, SelectTheme, ShowAbout,
+    };
+    use crate::i18n::I18nManager;
+    use crate::theme::ThemeManager;
+    use gpui::MenuItem;
+    use std::path::PathBuf;
+
+    fn action_name(item: &MenuItem) -> &str {
+        match item {
+            MenuItem::Action { name, .. } => name.as_ref(),
+            _ => panic!("expected action menu item"),
+        }
+    }
+
+    fn submenu(item: &MenuItem) -> &gpui::Menu {
+        match item {
+            MenuItem::Submenu(menu) => menu,
+            _ => panic!("expected submenu item"),
+        }
+    }
+
+    #[test]
+    fn applescript_string_literal_escapes_special_characters() {
+        assert_eq!(
+            applescript_string_literal(
+                r#"/Applications/Velotype "Test".app/Contents/MacOS/velotype"#
+            ),
+            r#""/Applications/Velotype \"Test\".app/Contents/MacOS/velotype""#
+        );
+        assert_eq!(
+            applescript_string_literal(r#"/Applications/O'Brien\Velotype.app"#),
+            r#""/Applications/O'Brien\\Velotype.app""#
+        );
+    }
+
+    // On macOS the menu bar is: [Velotype app menu, File, Export, Language, Theme, Workspace, Help]
+    // On other platforms:       [File, Export, Language, Theme, Workspace, Help]
+    #[cfg(target_os = "macos")]
+    const EXPORT_IDX: usize = 2;
+    #[cfg(not(target_os = "macos"))]
+    const EXPORT_IDX: usize = 1;
+
+    #[cfg(target_os = "macos")]
+    const LANGUAGE_IDX: usize = 3;
+    #[cfg(not(target_os = "macos"))]
+    const LANGUAGE_IDX: usize = 2;
+
+    #[cfg(target_os = "macos")]
+    const THEME_IDX: usize = 4;
+    #[cfg(not(target_os = "macos"))]
+    const THEME_IDX: usize = 3;
+
+    #[cfg(target_os = "macos")]
+    const WORKSPACE_IDX: usize = 5;
+    #[cfg(not(target_os = "macos"))]
+    const WORKSPACE_IDX: usize = 4;
+
+    #[cfg(target_os = "macos")]
+    const HELP_IDX: usize = 6;
+    #[cfg(not(target_os = "macos"))]
+    const HELP_IDX: usize = 5;
+
+    #[test]
+    fn build_menus_uses_english_fallback_by_default() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+
+        let menu_names = menus
+            .iter()
+            .map(|menu| menu.name.to_string())
+            .collect::<Vec<_>>();
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            menu_names,
+            vec![
+                "Velotype",
+                "File",
+                "Export",
+                "Language",
+                "Theme",
+                "Workspace",
+                "Help"
+            ]
+        );
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(
+            menu_names,
+            vec!["File", "Export", "Language", "Theme", "Workspace", "Help"]
+        );
+
+        // New Window belongs with file operations on macOS and remains the
+        // first File menu item on other platforms.
+        #[cfg(target_os = "macos")]
+        assert_eq!(action_name(&menus[1].items[0]), "New Window");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(action_name(&menus[0].items[0]), "New Window");
+
+        // Open Recent File submenu location differs by platform.
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            submenu(&menus[1].items[3]).name.to_string(),
+            "Open Recent File"
+        );
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(
+            submenu(&menus[0].items[3]).name.to_string(),
+            "Open Recent File"
+        );
+
+        // Close Window is colocated with New Window in the File menu.
+        #[cfg(target_os = "macos")]
+        assert_eq!(action_name(&menus[1].items[1]), "Close Window");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(action_name(&menus[0].items[1]), "Close Window");
+
+        // Preferences location differs by platform.
+        #[cfg(target_os = "macos")]
+        assert_eq!(action_name(&menus[0].items[0]), "Preferences");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(action_name(&menus[0].items[4]), "Preferences");
+
+        assert_eq!(action_name(&menus[EXPORT_IDX].items[0]), "HTML");
+        assert_eq!(action_name(&menus[EXPORT_IDX].items[1]), "PDF");
+        assert_eq!(action_name(&menus[LANGUAGE_IDX].items[0]), "简体中文");
+        assert_eq!(
+            action_name(&menus[LANGUAGE_IDX].items[1]),
+            "\u{2713} English"
+        );
+        assert_eq!(
+            action_name(&menus[WORKSPACE_IDX].items[0]),
+            "Toggle Workspace"
+        );
+    }
+
+    #[test]
+    fn build_menus_uses_chinese_language_when_selected() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::new_with_language_id("zh-CN");
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            submenu(&menus[1].items[3]).name.to_string(),
+            i18n_manager.strings().menu_open_recent_file.as_str()
+        );
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(
+            submenu(&menus[0].items[3]).name.to_string(),
+            i18n_manager.strings().menu_open_recent_file.as_str()
+        );
+
+        let menu_names = menus
+            .iter()
+            .map(|menu| menu.name.to_string())
+            .collect::<Vec<_>>();
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            menu_names,
+            vec!["Velotype", "文件", "导出", "语言", "主题", "工作区", "帮助"]
+        );
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(
+            menu_names,
+            vec!["文件", "导出", "语言", "主题", "工作区", "帮助"]
+        );
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(action_name(&menus[1].items[0]), "新建窗口");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(action_name(&menus[0].items[0]), "新建窗口");
+        assert_eq!(action_name(&menus[EXPORT_IDX].items[0]), "HTML");
+        assert_eq!(action_name(&menus[EXPORT_IDX].items[1]), "PDF");
+        assert_eq!(
+            action_name(&menus[LANGUAGE_IDX].items[0]),
+            "\u{2713} 简体中文"
+        );
+        assert_eq!(action_name(&menus[LANGUAGE_IDX].items[1]), "English");
+        assert_eq!(action_name(&menus[WORKSPACE_IDX].items[0]), "切换工作区");
+    }
+
+    #[test]
+    fn export_menu_items_dispatch_export_actions() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+
+        match &menus[EXPORT_IDX].items[0] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<ExportHtml>());
+            }
+            _ => panic!("expected export html action item"),
+        }
+
+        match &menus[EXPORT_IDX].items[1] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<ExportPdf>());
+            }
+            _ => panic!("expected export pdf action item"),
+        }
+    }
+
+    #[test]
+    fn language_menu_items_dispatch_select_language_actions() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+
+        match &menus[LANGUAGE_IDX].items[0] {
+            MenuItem::Action { action, .. } => {
+                let action = action
+                    .as_any()
+                    .downcast_ref::<SelectLanguage>()
+                    .expect("language item should dispatch SelectLanguage");
+                assert_eq!(action.language_id, "zh-CN");
+            }
+            _ => panic!("expected language action item"),
+        }
+    }
+
+    #[test]
+    fn recent_files_submenu_uses_empty_state_when_history_is_empty() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+
+        // On macOS: File menu is index 1, Open Recent is item 3 within it.
+        // On other platforms: File menu is index 0, Open Recent is item 3.
+        #[cfg(target_os = "macos")]
+        let recent_menu = submenu(&menus[1].items[3]);
+        #[cfg(not(target_os = "macos"))]
+        let recent_menu = submenu(&menus[0].items[3]);
+
+        assert_eq!(recent_menu.name.to_string(), "Open Recent File");
+        assert_eq!(recent_menu.items.len(), 1);
+        assert_eq!(action_name(&recent_menu.items[0]), "No Recent Files");
+        match &recent_menu.items[0] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<NoRecentFiles>());
+            }
+            _ => panic!("expected empty recent-file action item"),
+        }
+    }
+
+    #[test]
+    fn recent_files_submenu_dispatches_path_actions() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let recent_files = vec![
+            PathBuf::from(r"C:\docs\one.md"),
+            PathBuf::from(r"D:\notes\two.markdown"),
+        ];
+        let menus = build_menus(&theme_manager, &i18n_manager, &recent_files);
+
+        #[cfg(target_os = "macos")]
+        let recent_menu = submenu(&menus[1].items[3]);
+        #[cfg(not(target_os = "macos"))]
+        let recent_menu = submenu(&menus[0].items[3]);
+
+        assert_eq!(recent_menu.items.len(), 2);
+        assert_eq!(action_name(&recent_menu.items[0]), r"C:\docs\one.md");
+        match &recent_menu.items[0] {
+            MenuItem::Action { action, .. } => {
+                let action = action
+                    .as_any()
+                    .downcast_ref::<OpenRecentFile>()
+                    .expect("recent file should dispatch OpenRecentFile");
+                assert_eq!(action.path, r"C:\docs\one.md");
+            }
+            _ => panic!("expected recent-file action item"),
+        }
+    }
+
+    #[test]
+    fn fallback_menu_routes_window_context_actions_without_app_defer() {
+        assert!(super::is_window_context_menu_action(&NewWindow));
+        assert!(super::is_window_context_menu_action(&OpenFile));
+        assert!(super::is_window_context_menu_action(&OpenPreferences));
+        assert!(super::is_window_context_menu_action(&OpenRecentFile {
+            path: "notes.md".into(),
+        }));
+        assert!(super::is_window_context_menu_action(&NoRecentFiles));
+        assert!(super::is_window_context_menu_action(&AddLanguageConfig));
+        assert!(super::is_window_context_menu_action(&AddThemeConfig));
+        assert!(super::is_window_context_menu_action(&SaveDocument));
+        assert!(super::is_window_context_menu_action(&QuitApplication));
+        assert!(super::is_window_context_menu_action(&CloseWindow));
+        assert!(!super::is_window_context_menu_action(&SelectTheme {
+            theme_id: "velotype".into(),
+        }));
+        assert!(!super::is_window_context_menu_action(&SelectLanguage {
+            language_id: "en-US".into(),
+        }));
+    }
+
+    #[test]
+    fn config_import_items_are_bottom_menu_actions() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+
+        let language_items = &menus[LANGUAGE_IDX].items;
+        assert!(matches!(
+            language_items[language_items.len() - 2],
+            MenuItem::Separator
+        ));
+        assert_eq!(
+            action_name(&language_items[language_items.len() - 1]),
+            "Add Language Config"
+        );
+        match &language_items[language_items.len() - 1] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<AddLanguageConfig>());
+            }
+            _ => panic!("expected add language config action item"),
+        }
+
+        let theme_items = &menus[THEME_IDX].items;
+        assert_eq!(action_name(&theme_items[0]), "\u{2713} Velotype");
+        assert_eq!(action_name(&theme_items[1]), "Velotype Light");
+        assert!(matches!(
+            theme_items[theme_items.len() - 2],
+            MenuItem::Separator
+        ));
+        assert_eq!(
+            action_name(&theme_items[theme_items.len() - 1]),
+            "Add Theme Config"
+        );
+        match &theme_items[0] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<SelectTheme>());
+            }
+            _ => panic!("expected select theme action item"),
+        }
+        match &theme_items[theme_items.len() - 1] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<AddThemeConfig>());
+            }
+            _ => panic!("expected add theme config action item"),
+        }
+    }
+
+    #[test]
+    fn theme_menu_marks_selected_builtin_light_theme() {
+        let mut theme_manager = ThemeManager::default();
+        assert!(theme_manager.set_theme_by_id("velotype-light"));
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+        let theme_items = &menus[THEME_IDX].items;
+
+        assert_eq!(action_name(&theme_items[0]), "Velotype");
+        assert_eq!(action_name(&theme_items[1]), "\u{2713} Velotype Light");
+        match &theme_items[1] {
+            MenuItem::Action { action, .. } => {
+                let action = action
+                    .as_any()
+                    .downcast_ref::<SelectTheme>()
+                    .expect("light theme item should dispatch SelectTheme");
+                assert_eq!(action.theme_id, "velotype-light");
+            }
+            _ => panic!("expected light theme action item"),
+        }
+    }
+
+    #[test]
+    fn help_menu_first_item_is_check_for_updates() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+        let help_items = &menus[HELP_IDX].items;
+
+        match &help_items[0] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<CheckForUpdates>());
+            }
+            _ => panic!("expected check updates action item"),
+        }
+        assert!(matches!(help_items[1], MenuItem::Separator));
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn help_menu_contains_update_and_about_only() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+        let help_items = &menus[HELP_IDX].items;
+
+        assert_eq!(help_items.len(), 3);
+        match &help_items[2] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<ShowAbout>());
+            }
+            _ => panic!("expected about action item"),
+        }
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn help_menu_contains_cli_and_about_on_macos() {
+        let theme_manager = ThemeManager::default();
+        let i18n_manager = I18nManager::default();
+        let menus = build_menus(&theme_manager, &i18n_manager, &[]);
+        let help_items = &menus[HELP_IDX].items;
+
+        // CheckForUpdates, separator, Install/Uninstall CLI, separator, About
+        assert_eq!(help_items.len(), 5);
+        assert!(matches!(help_items[3], MenuItem::Separator));
+        match &help_items[4] {
+            MenuItem::Action { action, .. } => {
+                assert!(action.as_any().is::<ShowAbout>());
+            }
+            _ => panic!("expected about action item"),
+        }
+    }
+}

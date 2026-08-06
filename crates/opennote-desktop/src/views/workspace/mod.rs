@@ -1,5 +1,7 @@
 use gpui::{Context, *};
-use gpui_component::{Root, StyledExt, WindowExt, notification::NotificationType};
+use gpui_component::{Root, StyledExt, WindowExt};
+
+use opennote_models::constants::LOCAL_SERVER_NAME;
 
 mod actions;
 
@@ -9,7 +11,8 @@ use crate::{
     views::settings::SettingsPanel,
     widgets::{
         command_bar::bar::CommandBar,
-        pane::{pane::Pane, pane_group::PaneGroup},
+        dialogue::{PENDING_TASKS_WARNING, open_warning_dialogue},
+        pane::Pane,
         search_bar::bar::SearchBar,
         sidebar::OpenNoteSidebar,
     },
@@ -19,13 +22,11 @@ use crate::{
 pub struct Workspace {
     focus_handle: FocusHandle,
 
+    pub pane: Entity<Pane>,
     pub sidebar: Entity<OpenNoteSidebar>,
-    pub pane_group: Entity<PaneGroup>,
     pub command_bar: Entity<CommandBar>,
     pub search_bar: Entity<SearchBar>,
     pub settings_panel: Entity<SettingsPanel>,
-
-    is_initialization_succeeded: bool,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -43,66 +44,46 @@ impl Workspace {
         let mut _subscriptions = vec![];
 
         let sidebar = cx.new(|cx| OpenNoteSidebar::new(cx));
+        let pane = cx.new(|cx| Pane::new(cx, window, sidebar.clone()));
+
+        // Set the active pane and server for the workspace we have just created.
+        cx.update_global::<States, ()>(|this, _cx| {
+            let window_id = window.window_handle().window_id();
+            this.active_panes.insert(window_id, pane.downgrade());
+            this.set_active_server(window_id, SharedString::new(LOCAL_SERVER_NAME));
+        });
+
+        let focus_handle = cx.focus_handle();
+        window.focus(&focus_handle);
 
         Ok(Self {
-            focus_handle: cx.focus_handle(),
+            focus_handle,
             sidebar: sidebar.clone(),
-            pane_group: cx.new(|pane_group_cx| {
-                let entity = pane_group_cx.entity();
-
-                let pane_entity =
-                    pane_group_cx.new(|cx| Pane::new(cx, window, entity, sidebar.clone()));
-
-                // Set the active pane to be the one we have just created,
-                // so we don't have empty PaneGroup
-                pane_group_cx.update_global::<States, ()>(|this, _cx| {
-                    this.active_pane = Some(pane_entity.downgrade());
-                });
-
-                PaneGroup::new(pane_entity, sidebar.clone())
-            }),
+            pane,
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window)),
             settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
-            is_initialization_succeeded: false,
             _subscriptions,
         })
-    }
-
-    pub fn publish_initialization_successful_message(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if !self.is_initialization_succeeded {
-            window.push_notification(
-                (
-                    NotificationType::Success,
-                    "Embedder model has been loaded successfully",
-                ),
-                cx,
-            );
-            self.is_initialization_succeeded = true;
-        }
     }
 }
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let notification = Root::render_notification_layer(window, cx);
-        self.publish_initialization_successful_message(window, cx);
+        let dialogue = Root::render_dialog_layer(window, cx);
 
-        // Prevent the window from being closed when there are ongoing tasks
-        window.on_window_should_close(cx, |_this, cx| {
+        // Prevent the window from being closed when it has ongoing tasks.
+        let window_id = window.window_handle().window_id();
+        window.on_window_should_close(cx, move |this, cx| {
             let task_tracker: &TaskTracker = cx.global();
-            if task_tracker.has_pending_items() {
+            if task_tracker.has_pending_items(window_id) {
+                this.open_dialog(cx, open_warning_dialogue(PENDING_TASKS_WARNING));
                 return false;
             }
 
             true
         });
-
-        log::debug!("Refreshing the workspace...");
 
         div()
             .key_context(WORKSPACE)
@@ -115,7 +96,7 @@ impl Render for Workspace {
                     .flex()
                     .flex_row() // To display items in rows
                     .child(self.sidebar.clone()) // Left
-                    .child(self.pane_group.clone()), // Right
+                    .child(self.pane.clone()), // Right
             )
             .child(self.command_bar.clone())
             .child(self.search_bar.clone())
@@ -127,6 +108,8 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::next_tab))
             .on_action(cx.listener(Self::previous_tab))
             .on_action(cx.listener(Self::close_active_tab))
+            .on_action(cx.listener(Self::open_new_window))
             .children(notification)
+            .children(dialogue)
     }
 }

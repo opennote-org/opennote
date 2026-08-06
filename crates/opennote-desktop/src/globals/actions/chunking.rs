@@ -14,8 +14,6 @@ use crate::globals::{
 };
 
 pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block, text: String) {
-    log::debug!("Chunking block: {:?}", block.id);
-
     let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
     let configurations = bootstrap.get_configurations();
 
@@ -24,8 +22,11 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
 
     app_cx
         .spawn(async move |cx| {
-            let task =
-                TaskInformation::new("Chunking a block", TaskType::ChunkBlock(block.id), true);
+            let task = TaskInformation::new(
+                "Chunking a block",
+                TaskType::ChunkBlock { block_id: block.id },
+                true,
+            );
             let task_id = task.id;
 
             // Register task in the scheduler.
@@ -57,7 +58,7 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
                             task_id,
                             false,
                             format!("Chunking failed: {}", error),
-                            TaskType::ChunkBlock(block.id),
+                            TaskType::ChunkBlock { block_id: block.id },
                             None,
                         ),
                     );
@@ -75,7 +76,7 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
                     task_id,
                     true,
                     "Chunking completed",
-                    TaskType::ChunkBlock(block.id),
+                    TaskType::ChunkBlock { block_id: block.id },
                     Some(serde_json::to_value(block).unwrap()),
                 ),
             );

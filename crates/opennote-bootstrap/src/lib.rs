@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use tokio::sync::Mutex;
 
 use opennote_data::Databases;
@@ -15,21 +15,17 @@ pub struct DesktopBootstrap {
     pub configurations: Arc<Mutex<DesktopConfigurations>>,
     pub key_mappings: Arc<Mutex<KeyMappingConfigurations>>,
     pub databases: Databases,
-    pub embedders: Option<EmbedderEntry>,
+    pub embedders: EmbedderEntry,
 }
 
-// TODO: Separate bootstraps for server and desktop
 impl DesktopBootstrap {
     pub async fn new(
         configurations: &DesktopConfigurations,
         key_mappings: &KeyMappingConfigurations,
     ) -> Result<Self> {
         let embedders = match EmbedderEntry::new(&configurations.system).await {
-            Ok(result) => Some(result),
-            Err(error) => {
-                log::warn!("Error when loading an embedding model: {}", error);
-                None
-            }
+            Ok(result) => result,
+            Err(error) => return Err(anyhow!("Error when loading an embedding model: {}", error)),
         };
 
         Ok(Self {
@@ -38,15 +34,6 @@ impl DesktopBootstrap {
             databases: Databases::new(&configurations.system).await?,
             embedders,
         })
-    }
-
-    /// Reload an embedder model during  the runtime based on the lastest system configurations
-    pub async fn reload_embedder(&mut self) -> Result<()> {
-        let system = &self.configurations.lock().await.system;
-
-        self.embedders = Some(EmbedderEntry::new(system).await?);
-
-        Ok(())
     }
 }
 

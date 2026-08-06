@@ -8,7 +8,7 @@ pub enum TaskType {
     /// Tasks that haven't yet been categorized
     Uncategorized,
     /// Chunk block
-    ChunkBlock(Uuid),
+    ChunkBlock { block_id: Uuid },
     /// Update n blocks
     UpdateNBlocks,
 }

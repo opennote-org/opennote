@@ -89,6 +89,11 @@ impl KeyMappings {
                 context: "workspace".to_string(),
             },
             KeyMapping {
+                sequence: vec![" ".to_string(), "".to_string(), "O".to_string()],
+                action: format!("OpenNewWindow"),
+                context: "workspace".to_string(),
+            },
+            KeyMapping {
                 sequence: vec!["shift".to_string(), "-".to_string(), "k".to_string()],
                 action: format!("NextTab"),
                 context: "workspace".to_string(),
@@ -153,13 +158,13 @@ impl KeyMappings {
         Self(vec![
             // Workspace
             KeyMapping {
-                sequence: vec!["cmd".to_string(), "-".to_string(), "b".to_string()],
+                sequence: vec![get_platform_meta_key(), "-".to_string(), "b".to_string()],
                 action: format!("ToggleSidebar"),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![
-                    "cmd".to_string(),
+                    get_platform_meta_key(),
                     "-".to_string(),
                     "shift".to_string(),
                     "-".to_string(),
@@ -169,18 +174,23 @@ impl KeyMappings {
                 context: "workspace".to_string(),
             },
             KeyMapping {
-                sequence: vec!["cmd".to_string(), "-".to_string(), ":".to_string()],
+                sequence: vec![get_platform_meta_key(), "-".to_string(), ":".to_string()],
                 action: format!("ToggleCommandBar"),
                 context: "workspace".to_string(),
             },
             KeyMapping {
-                sequence: vec!["cmd".to_string(), "-".to_string(), ";".to_string()],
+                sequence: vec![get_platform_meta_key(), "-".to_string(), ";".to_string()],
                 action: format!("ToggleSettingsPanel"),
                 context: "workspace".to_string(),
             },
             KeyMapping {
-                sequence: vec!["cmd".to_string(), "-".to_string(), "n".to_string()],
+                sequence: vec![get_platform_meta_key(), "-".to_string(), "n".to_string()],
                 action: format!("CreateOneBlock"),
+                context: "workspace".to_string(),
+            },
+            KeyMapping {
+                sequence: vec![get_platform_meta_key(), "-".to_string(), "o".to_string()],
+                action: format!("OpenNewWindow"),
                 context: "workspace".to_string(),
             },
             KeyMapping {
@@ -206,13 +216,13 @@ impl KeyMappings {
             },
             // Workspace Sidebar
             KeyMapping {
-                sequence: vec!["cmd".to_string(), "-".to_string(), "d".to_string()],
+                sequence: vec![get_platform_meta_key(), "-".to_string(), "d".to_string()],
                 action: format!("DeleteBlocks"),
                 context: "workspace_sidebar".to_string(),
             },
             // Editor
             KeyMapping {
-                sequence: vec!["cmd".to_string(), "-".to_string(), "s".to_string()],
+                sequence: vec![get_platform_meta_key(), "-".to_string(), "s".to_string()],
                 action: format!("SaveDocument"),
                 context: "editor".to_string(),
             },
@@ -249,4 +259,12 @@ impl KeyMappings {
             },
         ])
     }
+}
+
+fn get_platform_meta_key() -> String {
+    if cfg!(target_os = "macos") {
+        return "cmd".to_string();
+    }
+
+    "ctrl".to_string()
 }

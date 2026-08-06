@@ -80,7 +80,6 @@ impl OpenNoteSidebar {
         // Please avoid using update_global method as much as possible,
         // otherwise, GPUI will keep refreshing because update_global will trigger the observer.
         _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
-            log::debug!("Sidebar refreshes because the global state had changed");
             cx.notify();
         }));
 
@@ -134,7 +133,6 @@ impl OpenNoteSidebar {
         tree_state: Entity<TreeState>,
         blocks: Vec<Block>,
     ) -> Tree {
-        log::debug!("Building sidebar items...");
         let tree_items = build_blocks_tree(blocks, &mut self.blocks_state);
 
         tree_state.update(cx, |this, cx| {
@@ -153,7 +151,7 @@ impl OpenNoteSidebar {
         let tree = tree(&tree_state_clone, move |index, entry, _window, cx| {
             let id = entry.item().id.clone(); // This is a stringified uuid of a block
             let label = entry.item().label.clone();
-            let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+            let language_profile = get_language_profile(cx).unwrap();
             let sidebar = sidebar.clone();
             let tree_state = tree_state.clone();
 
@@ -235,7 +233,6 @@ impl OpenNoteSidebar {
             parent_block_id = Some(block)
         }
 
-        log::debug!("About to create a block under: {:?}", parent_block_id);
         create_one_block(window, cx, parent_block_id);
         cx.notify();
     }
@@ -267,7 +264,7 @@ impl Focusable for OpenNoteSidebar {
 }
 
 impl Render for OpenNoteSidebar {
-    fn render(&mut self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Return an empty div to toggle it off,
         // because .is_visible() is just invisible, therefore
         // it won't really disappear the sidebar, therefore,
@@ -276,19 +273,18 @@ impl Render for OpenNoteSidebar {
             return div();
         }
 
-        let language_profile = get_language_profile(cx.global(), cx.global()).unwrap();
+        let language_profile = get_language_profile(cx).unwrap();
         let entity_id = cx.entity_id();
+        let window_id = window.window_handle().window_id();
 
         let (active_server_name, blocks, remote_server_tab_bar) =
             cx.read_global::<States, (SharedString, Vec<Block>, TabBar)>(|states, _cx| {
+                let active_server_name = states.get_active_server_name(window_id);
                 let remote_server_tab_bar =
-                    create_sidebar_tabbar(states.active_server.clone(), states.get_servers());
+                    create_sidebar_tabbar(active_server_name.clone(), states.get_servers());
+                let blocks = states.get_all_blocks_by_server(&active_server_name);
 
-                (
-                    states.active_server.clone(),
-                    states.get_all_blocks_by_server(&states.active_server.clone()),
-                    remote_server_tab_bar,
-                )
+                (active_server_name, blocks, remote_server_tab_bar)
             });
 
         div()

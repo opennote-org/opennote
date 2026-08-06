@@ -1,0 +1,60 @@
+[package]
+name = "opennote-velotype"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+
+# Internal dependencies
+opennote-core-logics = { workspace = true }
+
+# External dependencies
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
+uuid = { workspace = true }
+schemars = { workspace = true }
+gpui = { workspace = true }
+reqwest = { workspace = true }
+futures.workspace = true
+base64 = "0.22.1"
+unicode-segmentation = "1.13"
+semver = "1"
+toml = "1"
+chromiumoxide = { version = "0.9.1", default-features = false, features = ["bytes"] }
+url = "2"
+pulldown-cmark = "0.13"
+cssparser = "0.37"
+directories = "6"
+ratex-layout = "0.1.9"
+ratex-parser = "0.1.9"
+ratex-svg = { version = "0.1.9", features = ["embed-fonts", "standalone"] }
+mermaid-rs-renderer = { version = "0.3.0", default-features = false }
+sys-locale = "0.3"
+
+tree-sitter = { workspace = true }
+tree-sitter-highlight = "0.26.9"
+tree-sitter-rust = "0.24"
+tree-sitter-javascript = "0.25"
+tree-sitter-typescript = "0.23"
+tree-sitter-json = "0.24"
+tree-sitter-md = "0.5"
+tree-sitter-bash = "0.25"
+tree-sitter-c = "0.24"
+tree-sitter-cpp = "0.23"
+tree-sitter-c-sharp = "0.23"
+tree-sitter-css = "0.25"
+tree-sitter-go = "0.25"
+tree-sitter-html = "0.23"
+tree-sitter-java = "0.23"
+tree-sitter-php = "0.24"
+tree-sitter-python = "0.25"
+tree-sitter-ruby = "0.23"
+tree-sitter-yaml = "0.7"
+adot-tree-sitter-toml = "0.1"
+
+[build-dependencies]
+embed-resource = "3"

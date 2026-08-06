@@ -1,9 +1,9 @@
 use gpui::{
-    div, prelude::FluentBuilder, px, AnyElement, App, Div, Hsla, IntoElement, ParentElement,
-    Pixels, Point, RenderOnce, StyleRefinement, Styled, Window,
+    AnyElement, App, Div, Hsla, IntoElement, ParentElement, Pixels, Point, RenderOnce,
+    StyleRefinement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 
-use crate::{v_flex, ActiveTheme};
+use crate::{ActiveTheme, v_flex};
 
 #[derive(Default)]
 pub enum CrossLineAxis {

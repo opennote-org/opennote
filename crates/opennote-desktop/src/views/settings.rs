@@ -10,13 +10,16 @@ use gpui_component::{
     v_flex,
 };
 
-use opennote_core_logics::configurations::{ApplicationType, get_configuration_folder_path};
+use opennote_core_logics::{
+    configurations::{ApplicationType, get_configuration_folder_path},
+    helpers::run_async_code,
+};
 use opennote_models::{
     configurations::desktop::DesktopConfigurations, traits::LoadFromAndSaveToFile,
 };
 
 use crate::{
-    globals::{bootstrap::GlobalApplicationBootStrap, helpers::run_async_code, states::States},
+    globals::{bootstrap::GlobalApplicationBootStrap, states::States},
     widgets::sidebar::OpenNoteSidebar,
 };
 
