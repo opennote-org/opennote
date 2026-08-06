@@ -106,7 +106,7 @@ impl InlineStyle {
 pub struct InlineFragment {
     pub text: String,
     pub style: InlineStyle,
-    pub html_style: Option<HtmlInlineStyle>,
+    pub(crate) html_style: Option<HtmlInlineStyle>,
     pub link: Option<InlineLink>,
     pub footnote: Option<InlineFootnoteReference>,
     pub math: Option<InlineMath>,
@@ -248,7 +248,7 @@ pub struct TextCursor {
 pub struct InlineSpan {
     pub range: Range<usize>,
     pub style: InlineStyle,
-    pub html_style: Option<HtmlInlineStyle>,
+    pub(crate) html_style: Option<HtmlInlineStyle>,
     pub link: Option<InlineLinkHit>,
     pub footnote: Option<InlineFootnoteHit>,
     pub math: Option<InlineMath>,
@@ -258,7 +258,7 @@ pub struct InlineSpan {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct InlineInsertionAttributes {
     pub style: InlineStyle,
-    pub html_style: Option<HtmlInlineStyle>,
+    pub(crate) html_style: Option<HtmlInlineStyle>,
     pub link: Option<InlineLink>,
     pub footnote: Option<InlineFootnoteReference>,
     pub math: Option<InlineMath>,
@@ -386,7 +386,7 @@ impl InlineRenderCache {
     }
 
     #[allow(dead_code)]
-    pub fn html_style_at(&self, offset: usize) -> Option<HtmlInlineStyle> {
+    pub(crate) fn html_style_at(&self, offset: usize) -> Option<HtmlInlineStyle> {
         self.spans
             .iter()
             .find(|span| span.range.start <= offset && offset < span.range.end)
@@ -459,7 +459,7 @@ impl InlineTextTree {
         Self::from_markdown_with_link_references(markdown, &LinkReferenceDefinitions::default())
     }
 
-    pub fn from_markdown_with_link_references(
+    pub(crate) fn from_markdown_with_link_references(
         markdown: &str,
         reference_definitions: &LinkReferenceDefinitions,
     ) -> Self {
@@ -1031,7 +1031,7 @@ impl InlineTextTree {
         self.toggle_style(range, StyleFlag::Code)
     }
 
-    pub fn unwrap_styles_on_fragments(&mut self, targets: &[(usize, StyleFlag)]) {
+    pub(crate) fn unwrap_styles_on_fragments(&mut self, targets: &[(usize, StyleFlag)]) {
         if targets.is_empty() {
             return;
         }
@@ -1059,7 +1059,7 @@ impl InlineTextTree {
         )
     }
 
-    pub fn replace_visible_range_with_link_references(
+    pub(crate) fn replace_visible_range_with_link_references(
         &self,
         range: Range<usize>,
         new_text: &str,
@@ -1130,7 +1130,7 @@ impl InlineTextTree {
         self.normalize_inline_syntax_with_link_references(&LinkReferenceDefinitions::default())
     }
 
-    pub fn normalize_inline_syntax_with_link_references(
+    pub(crate) fn normalize_inline_syntax_with_link_references(
         &self,
         reference_definitions: &LinkReferenceDefinitions,
     ) -> InlineEditResult {

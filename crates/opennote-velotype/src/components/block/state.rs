@@ -7,7 +7,7 @@
 use std::ops::Range;
 use std::path::PathBuf;
 
-use gpui::{Image, Pixels, Point, SharedString};
+use gpui::{Image, SharedString};
 use uuid::Uuid;
 
 use crate::components::markdown::html::{HtmlDocument, parse_html_document};
@@ -487,7 +487,7 @@ pub struct BlockRecord {
     pub kind: BlockKind,
     pub title: InlineTextTree,
     pub table: Option<TableData>,
-    pub html: Option<HtmlDocument>,
+    pub(crate) html: Option<HtmlDocument>,
     pub parent: Option<Uuid>,
     pub content: Vec<Uuid>,
     pub raw_fallback: Option<String>,

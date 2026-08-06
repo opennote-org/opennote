@@ -2468,7 +2468,6 @@ impl Render for Block {
                         header_cells.iter().enumerate().map(|(column, _cell)| {
                             let hover_block = weak_table_block.clone();
                             let select_block = weak_table_block.clone();
-                            let menu_block = weak_table_block.clone();
                             let marker = crate::components::TableAxisMarker {
                                 kind: TableAxisKind::Column,
                                 index: column,
@@ -2530,7 +2529,6 @@ impl Render for Block {
 
                 let header_hover_block = weak_table_block.clone();
                 let header_select_block = weak_table_block.clone();
-                let header_menu_block = weak_table_block.clone();
                 // The header is visual row 0; its handle uses a more opaque
                 // version of the body-row color to signal its distinct role.
                 let header_marker = crate::components::TableAxisMarker {
@@ -2588,7 +2586,6 @@ impl Render for Block {
                     .children(header_cells.into_iter().enumerate().map(|(column, cell)| {
                         let hover_block = weak_table_block.clone();
                         let select_block = weak_table_block.clone();
-                        let menu_block = weak_table_block.clone();
                         div()
                             .relative()
                             .flex_none()
@@ -2642,7 +2639,6 @@ impl Render for Block {
                         .map(|(body_row_index, row)| {
                             let hover_block = weak_table_block.clone();
                             let select_block = weak_table_block.clone();
-                            let menu_block = weak_table_block.clone();
                             // Row selections are addressed by visual index, where
                             // the header is `0` and body rows follow at `1..`.
                             let visual_row = body_row_index + 1;

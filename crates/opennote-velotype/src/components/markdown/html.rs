@@ -8,7 +8,6 @@ use std::ops::Range;
 
 use cssparser::color::{parse_hash_color, parse_named_color};
 
-#[cfg(feature = "html-native")]
 use tree_sitter::Parser;
 
 /// Safety classification for an HTML fragment.
@@ -1142,7 +1141,6 @@ fn is_void_tag(name: &str) -> bool {
     matches!(name, "br" | "hr" | "img")
 }
 
-#[cfg(feature = "html-native")]
 fn tree_sitter_reports_error(raw_source: &str) -> bool {
     let mut parser = Parser::new();
     if parser
@@ -1154,11 +1152,6 @@ fn tree_sitter_reports_error(raw_source: &str) -> bool {
     parser
         .parse(raw_source, None)
         .is_none_or(|tree| tree.root_node().has_error())
-}
-
-#[cfg(not(feature = "html-native"))]
-fn tree_sitter_reports_error(_: &str) -> bool {
-    true
 }
 
 #[cfg(test)]

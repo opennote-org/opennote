@@ -110,13 +110,13 @@ impl ImagePasteBehavior {
 /// User preferences persisted under the app config directory.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AppPreferences {
-    pub startup_open: StartupOpenPreference,
+    pub(crate) startup_open: StartupOpenPreference,
     pub default_language_id: String,
     pub default_theme_id: String,
     pub show_table_headers: bool,
-    pub image_paste_behavior: ImagePasteBehavior,
+    pub(crate) image_paste_behavior: ImagePasteBehavior,
     pub keybindings: BTreeMap<String, Vec<String>>,
-    pub status_bar: StatusBarPreferences,
+    pub(crate) status_bar: StatusBarPreferences,
 }
 
 impl Default for AppPreferences {
@@ -206,7 +206,7 @@ impl EditorSettings {
         }
     }
 
-    pub fn status_bar_preferences(cx: &App) -> StatusBarPreferences {
+    pub(crate) fn status_bar_preferences(cx: &App) -> StatusBarPreferences {
         cx.try_global::<Self>()
             .map(|s| StatusBarPreferences {
                 enabled: s.status_bar_settings.status_bar_enabled,
