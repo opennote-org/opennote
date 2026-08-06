@@ -12,7 +12,8 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 
 - **Keyword and semantic search** — find notes instantly, or let your documents answer your questions.
 - **Fully local** — everything runs on your machine. Your data stays private.
-- **Self-host Server** — you can opt to run a self-hosted server to sync data across all of your devices with encrypted communications. 🔥🔥🔥newly added🔥🔥🔥
+- **Self-host server** — you can opt to run a self-hosted server to sync data across all of your devices with encrypted communications.
+- **WYSIWYG Markdown Editor** — editor and render your markdown in real-time.
 - **Blazing fast** — built for performance from the ground up.
 
 ## Roadmap
