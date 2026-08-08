@@ -5,19 +5,19 @@ extern crate intel_mkl_src;
 extern crate accelerate_src;
 
 use crate::{
-    embeddings::{embed::EmbeddingResult, normalize_l2, select_device, utils::tokenize_batch},
+    embeddings::{
+        embed::EmbeddingResult, hub::HubModelRepo, normalize_l2, select_device,
+        utils::tokenize_batch,
+    },
     models::qwen3::{Config, Model},
 };
 use anyhow::Error;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
-use hf_hub::{Repo, api::sync::ApiBuilder};
+
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
-use super::{
-    colpali::hub_load_safetensors,
-    pooling::{ModelOutput, PooledOutputType, Pooling},
-};
+use super::pooling::{ModelOutput, PooledOutputType, Pooling};
 
 pub trait Qwen3Embed {
     fn embed(
@@ -41,26 +41,12 @@ impl Qwen3Embedder {
         token: Option<&str>,
         dtype: Option<crate::Dtype>,
     ) -> Result<Self, anyhow::Error> {
-        let api = ApiBuilder::from_env()
-            .with_token(token.map(|s| s.to_string()))
-            .build()
-            .unwrap();
-
-        let repo = match revision {
-            Some(rev) => api.repo(Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev,
-            )),
-            None => api.repo(hf_hub::Repo::new(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-            )),
-        };
+        let repo = HubModelRepo::new(model_id, revision.as_deref(), token)?;
         let (config_filename, tokenizer_filename, weights_filename) = {
             let config = repo.get("config.json")?;
             let tokenizer = repo.get("tokenizer.json")?;
-            let weights = repo.get("model.safetensors");
+            let weights =
+                repo.first_available(&["model.safetensors", "model.safetensors.index.json"])?;
 
             (config, tokenizer, weights)
         };
@@ -93,15 +79,12 @@ impl Qwen3Embedder {
             _ => DType::F32,
         };
 
-        let vb = match weights_filename {
-            Ok(weights) => unsafe {
-                VarBuilder::from_mmaped_safetensors(&[weights], dtype, &device)?
-            },
-            Err(_) => {
-                let weights = hub_load_safetensors(&repo, "model.safetensors.index.json")?;
-                unsafe { VarBuilder::from_mmaped_safetensors(&weights, dtype, &device)? }
-            }
+        let weights = if weights_filename.ends_with("model.safetensors") {
+            vec![weights_filename]
+        } else {
+            repo.safetensor_shards("model.safetensors.index.json")?
         };
+        let vb = unsafe { VarBuilder::from_mmaped_safetensors(&weights, dtype, &device)? };
 
         let model = Model::new(&config, vb)?;
 

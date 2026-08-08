@@ -1,6 +1,6 @@
 use crate::Dtype;
+use crate::embeddings::hub::HubClient;
 use anyhow::{Result, anyhow};
-use hf_hub::Repo;
 
 use super::text::{TextEmbed, TextEmbedder};
 use super::types::{EmbedData, EmbeddingResult};
@@ -30,18 +30,10 @@ impl Embedder {
         token: Option<&str>,
         dtype: Option<Dtype>,
     ) -> Result<Self> {
-        let api = hf_hub::api::sync::ApiBuilder::from_env()
-            .with_token(token.map(|s| s.to_string()))
-            .build()?;
-        let api = match revision {
-            Some(rev) => api.repo(Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(Repo::new(model_id.to_string(), hf_hub::RepoType::Model)),
-        };
-        let config_filename = api.get("config.json")?;
+        let client = HubClient::new(token)?;
+        let repo = client.model(model_id, revision);
+        let config_filename = repo.get("config.json")?;
+
         let config = std::fs::read_to_string(config_filename)?;
         let config: serde_json::Value = serde_json::from_str(&config)?;
 

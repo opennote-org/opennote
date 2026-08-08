@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use crate::embeddings::hub::{HubClient, HubModelRepo};
 use anyhow::{Error, Ok};
-use hf_hub::{api::sync::Api, Repo, RepoType};
-use image::{imageops::FilterType, DynamicImage, GenericImageView, RgbImage};
-use ndarray::{s, Array2};
+use image::{DynamicImage, GenericImageView, RgbImage, imageops::FilterType};
+use ndarray::{Array2, s};
 use regex::Regex;
 use serde::Deserialize;
 use tokenizers::{AddedToken, PaddingParams, Tokenizer, TruncationParams};
@@ -65,11 +65,13 @@ impl Idefics3ImageProcessor {
     }
 
     pub fn from_pretrained(model_id: &str) -> Result<Self, anyhow::Error> {
-        let api = Api::new()?;
-        let repo = api.repo(Repo::new(model_id.to_string(), RepoType::Model));
-        let config_file = repo.get("preprocessor_config.json").unwrap();
-        let processor: Idefics3ImageProcessor =
-            serde_json::from_slice(&std::fs::read(config_file).unwrap()).unwrap();
+        let repo = HubModelRepo::new(model_id, None, None)?;
+        Self::from_repo(&repo)
+    }
+
+    fn from_repo(repo: &HubModelRepo) -> Result<Self, anyhow::Error> {
+        let config_file = repo.get("preprocessor_config.json")?;
+        let processor = serde_json::from_slice(&std::fs::read(config_file)?)?;
         Ok(processor)
     }
 
@@ -495,8 +497,11 @@ pub struct Idefics3Processor {
 
 impl Idefics3Processor {
     pub fn from_pretrained(model_id: &str) -> anyhow::Result<Self> {
-        let image_processor = Idefics3ImageProcessor::from_pretrained(model_id)?;
-        let mut tokenizer = Tokenizer::from_pretrained(model_id, None)
+        let hub = HubClient::new(None)?;
+        let repo = hub.model(model_id, None);
+        let image_processor = Idefics3ImageProcessor::from_repo(&repo)?;
+        let tokenizer_file = repo.get("tokenizer.json")?;
+        let mut tokenizer = Tokenizer::from_file(tokenizer_file)
             .map_err(|e| anyhow::anyhow!("Tokenizer error: {}", e))?;
         let fake_image_token = AddedToken::from("<fake_token_around_image>", true);
         let image_token = AddedToken::from("<image>", true);
@@ -692,8 +697,6 @@ fn normalize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hf_hub::api::sync::Api;
-    use hf_hub::{Repo, RepoType};
     use image::RgbImage;
 
     #[test]
@@ -701,11 +704,7 @@ mod tests {
         let image = image::open("/home/akshay/projects/EmbedAnything/test.jpg").unwrap();
         let image_array = image.to_rgb8().into_raw();
 
-        let api = Api::new().unwrap();
-        let repo = api.repo(Repo::new(
-            "onnx-community/colSmol-256M-ONNX".to_string(),
-            RepoType::Model,
-        ));
+        let repo = HubModelRepo::new("onnx-community/colSmol-256M-ONNX", None, None).unwrap();
         let config_file = repo.get("preprocessor_config.json").unwrap();
         let processor: Idefics3ImageProcessor =
             serde_json::from_slice(&std::fs::read(config_file).unwrap()).unwrap();

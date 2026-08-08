@@ -1,5 +1,5 @@
+use crate::embeddings::hub::{HubClient, HubModelRepo};
 use candle_core::{DType, Device, Tensor};
-use hf_hub::{Repo, RepoType, api::sync::Api};
 use image::{DynamicImage, GenericImageView, RgbImage, imageops::FilterType};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -503,8 +503,11 @@ impl Idefics3ImageProcessor {
     }
 
     pub fn from_pretrained(model_id: &str) -> Result<Self, anyhow::Error> {
-        let api = Api::new()?;
-        let repo = api.repo(Repo::new(model_id.to_string(), RepoType::Model));
+        let repo = HubModelRepo::new(model_id, None, None)?;
+        Self::from_repo(&repo)
+    }
+
+    fn from_repo(repo: &HubModelRepo) -> Result<Self, anyhow::Error> {
         let config_file = repo.get("preprocessor_config.json")?;
         let processor: Idefics3ImageProcessor =
             serde_json::from_slice(&std::fs::read(config_file)?)
@@ -524,10 +527,13 @@ pub struct Idefics3Processor {
 
 impl Idefics3Processor {
     pub fn from_pretrained(model_id: &str) -> anyhow::Result<Self> {
-        let image_processor = Idefics3ImageProcessor::from_pretrained(model_id)?;
-        let api = Api::new()?;
-        let repo = api.repo(Repo::new(model_id.to_string(), RepoType::Model));
+        let hub = HubClient::new(None)?;
+        let repo = hub.model(model_id, None);
+        Self::from_repo(&repo)
+    }
 
+    pub(crate) fn from_repo(repo: &HubModelRepo) -> anyhow::Result<Self> {
+        let image_processor = Idefics3ImageProcessor::from_repo(repo)?;
         let processor_config_file = repo.get("processor_config.json")?;
         let processor_config: serde_json::Value =
             serde_json::from_slice(&std::fs::read(processor_config_file)?)?;

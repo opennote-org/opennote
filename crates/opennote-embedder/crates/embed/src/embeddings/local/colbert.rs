@@ -7,7 +7,6 @@ extern crate accelerate_src;
 use std::{ops::Mul, sync::RwLock};
 
 use anyhow::{Error as E, Result};
-use hf_hub::{Repo, api::sync::Api};
 use ndarray::{Array2, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
@@ -16,7 +15,7 @@ use ort::{
 };
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
-use crate::embeddings::{embed::EmbeddingResult, utils::tokenize_batch_ndarray};
+use crate::embeddings::{embed::EmbeddingResult, hub::HubModelRepo, utils::tokenize_batch_ndarray};
 
 use super::bert::{BertEmbed, TokenizerConfig};
 
@@ -52,24 +51,13 @@ impl OrtColbertEmbedder {
         };
 
         let (_, tokenizer_filename, weights_filename, tokenizer_config_filename, data_filename) = {
-            let api = Api::new().unwrap();
-            let api = match revision {
-                Some(rev) => api.repo(Repo::with_revision(
-                    hf_model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                    rev.to_string(),
-                )),
-                None => api.repo(hf_hub::Repo::new(
-                    hf_model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                )),
-            };
-            let config = api.get("config.json")?;
-            let tokenizer = api.get("tokenizer.json")?;
-            let tokenizer_config = api.get("tokenizer_config.json")?;
+            let repo = HubModelRepo::new(hf_model_id, revision, None)?;
+            let config = repo.get("config.json")?;
+            let tokenizer = repo.get("tokenizer.json")?;
+            let tokenizer_config = repo.get("tokenizer_config.json")?;
 
-            let weights = api.get(path_in_repo);
-            let data = api.get(format!("{path_in_repo}_data").as_str());
+            let weights = repo.get(path_in_repo);
+            let data = repo.optional(format!("{path_in_repo}_data").as_str())?;
 
             (config, tokenizer, weights, tokenizer_config, data)
         };
@@ -84,7 +72,7 @@ impl OrtColbertEmbedder {
             }
         };
 
-        let _ = data_filename.ok();
+        let _ = data_filename;
 
         let tokenizer_config = std::fs::read_to_string(tokenizer_config_filename)?;
         let tokenizer_config: TokenizerConfig = serde_json::from_str(&tokenizer_config)?;

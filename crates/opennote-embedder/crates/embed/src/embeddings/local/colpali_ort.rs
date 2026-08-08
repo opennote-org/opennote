@@ -14,6 +14,7 @@ use rayon::prelude::*;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use crate::embeddings::embed::{EmbedData, EmbeddingResult};
+use crate::embeddings::hub::HubModelRepo;
 
 use super::colpali::{ColPaliEmbed, get_images_from_pdf};
 
@@ -31,32 +32,17 @@ impl OrtColPaliEmbedder {
         revision: Option<&str>,
         path_in_repo: Option<&str>,
     ) -> Result<Self, E> {
-        let api = hf_hub::api::sync::Api::new()?;
-        let repo: hf_hub::api::sync::ApiRepo = match revision {
-            Some(rev) => api.repo(hf_hub::Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(hf_hub::Repo::new(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-            )),
-        };
+        let repo = HubModelRepo::new(model_id, revision, None)?;
 
         let mut path_in_repo = path_in_repo.unwrap_or_default().to_string();
         if !path_in_repo.is_empty() {
             path_in_repo.push('/');
         }
         let (_, tokenizer_filename, weights_filename, _) = {
-            let config = repo
-                .get("config.json")
-                .unwrap_or(repo.get("preprocessor_config.json")?);
+            let config = repo.first_available(&["config.json", "preprocessor_config.json"])?;
             let tokenizer = repo.get("tokenizer.json")?;
             let weights = repo.get(format!("{}model.onnx", path_in_repo).as_str())?;
-            let data = repo
-                .get(format!("{}model.onnx_data", path_in_repo).as_str())
-                .ok();
+            let data = repo.optional(format!("{}model.onnx_data", path_in_repo).as_str())?;
 
             (config, tokenizer, weights, data)
         };

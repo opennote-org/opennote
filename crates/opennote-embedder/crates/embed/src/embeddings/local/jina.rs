@@ -6,6 +6,7 @@ extern crate accelerate_src;
 
 use super::bert::TokenizerConfig;
 use super::pooling::{ModelOutput, PooledOutputType, Pooling};
+use crate::embeddings::hub::HubModelRepo;
 use crate::embeddings::select_device;
 use crate::embeddings::utils::tokenize_batch;
 use crate::embeddings::{embed::EmbeddingResult, normalize_l2};
@@ -13,7 +14,6 @@ use crate::models::jina_bert::{BertModel, Config};
 use anyhow::Error as E;
 use candle_core::{DType, Tensor};
 use candle_nn::{Module, VarBuilder};
-use hf_hub::Repo;
 
 use tokenizers::Tokenizer;
 
@@ -50,21 +50,11 @@ impl Default for JinaEmbedder {
 
 impl JinaEmbedder {
     pub fn new(model_id: &str, revision: Option<&str>, token: Option<&str>) -> Result<Self, E> {
-        let api = hf_hub::api::sync::ApiBuilder::from_env()
-            .with_token(token.map(|s| s.to_string()))
-            .build()?;
-        let api = match revision {
-            Some(rev) => api.repo(Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(Repo::new(model_id.to_string(), hf_hub::RepoType::Model)),
-        };
+        let repo = HubModelRepo::new(model_id, revision, token)?;
 
-        let config_filename = api.get("config.json")?;
-        let tokenizer_filename = api.get("tokenizer.json")?;
-        let tokenizer_config_filename = api.get("tokenizer_config.json")?;
+        let config_filename = repo.get("config.json")?;
+        let tokenizer_filename = repo.get("tokenizer.json")?;
+        let tokenizer_config_filename = repo.get("tokenizer_config.json")?;
         let mut tokenizer = Tokenizer::from_file(tokenizer_filename).map_err(E::msg)?;
 
         let tokenizer_config = std::fs::read_to_string(tokenizer_config_filename)?;
@@ -84,19 +74,13 @@ impl JinaEmbedder {
         let config = std::fs::read_to_string(config_filename)?;
         let config: Config = serde_json::from_str(&config)?;
         let device = select_device();
-        let vb = match api.get("model.safetensors") {
-            Ok(safetensors) => unsafe {
-                VarBuilder::from_mmaped_safetensors(&[safetensors], DType::F32, &device)?
-            },
-            Err(_) => match api.get("pytorch_model.bin") {
-                Ok(pytorch_model) => VarBuilder::from_pth(pytorch_model, DType::F32, &device)?,
-                Err(e) => {
-                    return Err(anyhow::Error::msg(format!(
-                        "Model weights not found. The weights should either be a `model.safetensors` or `pytorch_model.bin` file.  Error: {}",
-                        e
-                    )));
-                }
-            },
+        let weights_filename = repo.first_available(&["model.safetensors", "pytorch_model.bin"])?;
+        let vb = if weights_filename.ends_with("model.safetensors") {
+            unsafe {
+                VarBuilder::from_mmaped_safetensors(&[weights_filename], DType::F32, &device)?
+            }
+        } else {
+            VarBuilder::from_pth(weights_filename, DType::F32, &device)?
         };
         let model = BertModel::new(vb, &config)?;
         // let mut tokenizer = Self::get_tokenizer(None)?;

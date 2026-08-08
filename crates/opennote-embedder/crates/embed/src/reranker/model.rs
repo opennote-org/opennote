@@ -2,7 +2,6 @@ use std::sync::RwLock;
 
 use anyhow::{Error as E, Result};
 use candle_core::{Device, Tensor};
-use hf_hub::{Repo, api::sync::Api};
 use ndarray::Array2;
 use ort::{
     execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
@@ -11,7 +10,10 @@ use ort::{
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use crate::Dtype;
-use crate::{embeddings::local::bert::TokenizerConfig, reranker::qwen3};
+use crate::{
+    embeddings::{hub::HubModelRepo, local::bert::TokenizerConfig},
+    reranker::qwen3,
+};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -41,37 +43,26 @@ impl Reranker {
         path_in_repo: Option<&str>,
     ) -> Result<Self, E> {
         let (config_filename, tokenizer_filename, weights_filename, tokenizer_config_filename) = {
-            let api = Api::new().unwrap();
-            let api = match revision {
-                Some(rev) => api.repo(Repo::with_revision(
-                    model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                    rev.to_string(),
-                )),
-                None => api.repo(hf_hub::Repo::new(
-                    model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                )),
-            };
-            let config = api.get("config.json")?;
-            let tokenizer = api.get("tokenizer.json")?;
-            let tokenizer_config = api.get("tokenizer_config.json")?;
+            let repo = HubModelRepo::new(model_id, revision, None)?;
+            let config = repo.get("config.json")?;
+            let tokenizer = repo.get("tokenizer.json")?;
+            let tokenizer_config = repo.get("tokenizer_config.json")?;
 
             let mut path_in_repo = path_in_repo.unwrap_or_default().to_string();
             if !path_in_repo.is_empty() {
                 path_in_repo.push('/');
             }
             let weights = match dtype {
-                Dtype::Q4F16 => api.get(format!("{}model_q4f16.onnx", path_in_repo).as_str())?,
-                Dtype::F16 => api.get(format!("{}model_fp16.onnx", path_in_repo).as_str())?,
-                Dtype::INT8 => api.get(format!("{}model_int8.onnx", path_in_repo).as_str())?,
-                Dtype::Q4 => api.get(format!("{}model_q4.onnx", path_in_repo).as_str())?,
-                Dtype::UINT8 => api.get(format!("{}model_uint8.onnx", path_in_repo).as_str())?,
-                Dtype::BNB4 => api.get(format!("{}model_bnb4.onnx", path_in_repo).as_str())?,
-                Dtype::F32 => api.get(format!("{}model.onnx", path_in_repo).as_str())?,
-                Dtype::BF16 => api.get(format!("{}model_bf16.onnx", path_in_repo).as_str())?,
+                Dtype::Q4F16 => repo.get(format!("{}model_q4f16.onnx", path_in_repo).as_str())?,
+                Dtype::F16 => repo.get(format!("{}model_fp16.onnx", path_in_repo).as_str())?,
+                Dtype::INT8 => repo.get(format!("{}model_int8.onnx", path_in_repo).as_str())?,
+                Dtype::Q4 => repo.get(format!("{}model_q4.onnx", path_in_repo).as_str())?,
+                Dtype::UINT8 => repo.get(format!("{}model_uint8.onnx", path_in_repo).as_str())?,
+                Dtype::BNB4 => repo.get(format!("{}model_bnb4.onnx", path_in_repo).as_str())?,
+                Dtype::F32 => repo.get(format!("{}model.onnx", path_in_repo).as_str())?,
+                Dtype::BF16 => repo.get(format!("{}model_bf16.onnx", path_in_repo).as_str())?,
                 Dtype::QUANTIZED => {
-                    api.get(format!("{}model_quantized.onnx", path_in_repo).as_str())?
+                    repo.get(format!("{}model_quantized.onnx", path_in_repo).as_str())?
                 }
             };
             (config, tokenizer, weights, tokenizer_config)

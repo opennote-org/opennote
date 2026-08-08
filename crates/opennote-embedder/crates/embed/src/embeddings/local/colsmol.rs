@@ -8,6 +8,7 @@ use candle_nn::VarBuilder;
 use image::ImageFormat;
 
 use crate::embeddings::embed::{EmbedData, EmbeddingResult};
+use crate::embeddings::hub::HubClient;
 use crate::embeddings::local::colpali::{ColPaliEmbed, get_images_from_pdf};
 use crate::embeddings::select_device;
 use crate::models::idefics3::model::{ColIdefics3Model, Idefics3Config};
@@ -21,18 +22,8 @@ pub struct ColSmolEmbedder {
 
 impl ColSmolEmbedder {
     pub fn new(model_id: &str, revision: Option<&str>) -> Result<Self, anyhow::Error> {
-        let api = hf_hub::api::sync::Api::new()?;
-        let repo: hf_hub::api::sync::ApiRepo = match revision {
-            Some(rev) => api.repo(hf_hub::Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(hf_hub::Repo::new(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-            )),
-        };
+        let hub = HubClient::new(None)?;
+        let repo = hub.model(model_id, revision);
 
         let model_file = repo.get("model.safetensors")?;
         let device = select_device();
@@ -45,7 +36,8 @@ impl ColSmolEmbedder {
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[model_file], dtype, &device)? };
         let config_file = repo.get("config.json")?;
 
-        let processor = Idefics3Processor::from_pretrained("akshayballal/colSmol-256M-merged")?;
+        let processor_repo = hub.model("akshayballal/colSmol-256M-merged", None);
+        let processor = Idefics3Processor::from_repo(&processor_repo)?;
         let config: Idefics3Config = serde_json::from_slice(&std::fs::read(config_file)?)?;
 
         let model = ColIdefics3Model::load(&config, false, vb)?;

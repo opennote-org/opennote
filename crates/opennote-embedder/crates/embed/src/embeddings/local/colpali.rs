@@ -3,6 +3,7 @@ use std::sync::RwLock;
 use std::{collections::HashMap, path::Path};
 
 use crate::embeddings::embed::{EmbedData, EmbeddingResult};
+use crate::embeddings::hub::HubClient;
 use crate::embeddings::select_device;
 use crate::models::{colpali::Model, paligemma};
 use anyhow::Error as E;
@@ -43,27 +44,13 @@ pub struct ColPaliEmbedder {
 
 impl ColPaliEmbedder {
     pub fn new(model_id: &str, revision: Option<&str>) -> Result<Self, anyhow::Error> {
-        let api = hf_hub::api::sync::Api::new()?;
-        let repo: hf_hub::api::sync::ApiRepo = match revision {
-            Some(rev) => api.repo(hf_hub::Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(hf_hub::Repo::new(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-            )),
-        };
-
-        let tokenizer_api = api.repo(hf_hub::Repo::new(
-            "vidore/colpali".to_string(),
-            hf_hub::RepoType::Model,
-        ));
+        let hub = HubClient::new(None)?;
+        let repo = hub.model(model_id, revision);
+        let tokenizer_repo = hub.model("vidore/colpali", None);
 
         let (tokenizer_filename, weights_filename) = {
-            let tokenizer = tokenizer_api.get("tokenizer.json")?;
-            let weights = hub_load_safetensors(&repo, "model.safetensors.index.json")?;
+            let tokenizer = tokenizer_repo.get("tokenizer.json")?;
+            let weights = repo.safetensor_shards("model.safetensors.index.json")?;
 
             (tokenizer, weights)
         };
@@ -294,32 +281,6 @@ fn tokenize_batch(
         .collect::<candle_core::Result<Vec<_>>>()?;
 
     Ok(Tensor::stack(&token_ids, 0)?)
-}
-
-pub fn hub_load_safetensors(
-    repo: &hf_hub::api::sync::ApiRepo,
-    json_file: &str,
-) -> Result<Vec<std::path::PathBuf>, E> {
-    let json_file = repo.get(json_file).map_err(candle_core::Error::wrap)?;
-    let json_file = std::fs::File::open(json_file)?;
-    let json: serde_json::Value =
-        serde_json::from_reader(&json_file).map_err(candle_core::Error::wrap)?;
-    let weight_map = match json.get("weight_map") {
-        None => anyhow::bail!("no weight map in {json_file:?}"),
-        Some(serde_json::Value::Object(map)) => map,
-        Some(_) => anyhow::bail!("weight map in {json_file:?} is not a map"),
-    };
-    let mut safetensors_files = std::collections::HashSet::new();
-    for value in weight_map.values() {
-        if let Some(file) = value.as_str() {
-            safetensors_files.insert(file.to_string());
-        }
-    }
-    let safetensors_files = safetensors_files
-        .iter()
-        .map(|v| repo.get(v).map_err(candle_core::Error::wrap))
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(safetensors_files)
 }
 
 pub fn load_image<T: AsRef<std::path::Path>>(

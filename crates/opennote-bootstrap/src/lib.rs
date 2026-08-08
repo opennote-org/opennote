@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result};
 use tokio::sync::Mutex;
 
 use opennote_data::Databases;
@@ -23,10 +23,9 @@ impl DesktopBootstrap {
         configurations: &DesktopConfigurations,
         key_mappings: &KeyMappingConfigurations,
     ) -> Result<Self> {
-        let embedders = match EmbedderEntry::new(&configurations.system).await {
-            Ok(result) => result,
-            Err(error) => return Err(anyhow!("Error when loading an embedding model: {}", error)),
-        };
+        let embedders = EmbedderEntry::new(&configurations.system)
+            .await
+            .context("Error when loading an embedding model")?;
 
         Ok(Self {
             configurations: Arc::new(Mutex::new(configurations.clone())),

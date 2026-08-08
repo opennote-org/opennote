@@ -2,6 +2,7 @@ use std::sync::RwLock;
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::embeddings::embed::{EmbedData, EmbeddingResult};
+use crate::embeddings::hub::HubModelRepo;
 use crate::embeddings::local::colpali::ColPaliEmbed;
 use crate::models::idefics3::array_processing::Idefics3Processor;
 use crate::models::paligemma;
@@ -11,13 +12,12 @@ use half::f16;
 use image::ImageFormat;
 use ndarray::prelude::*;
 use ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider};
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
+use ort::session::builder::GraphOptimizationLevel;
 use rayon::prelude::*;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use super::colpali::get_images_from_pdf;
-
 
 pub struct OrtColSmolEmbedder {
     pub model: RwLock<Session>,
@@ -34,32 +34,17 @@ impl OrtColSmolEmbedder {
         revision: Option<&str>,
         path_in_repo: Option<&str>,
     ) -> Result<Self, E> {
-        let api = hf_hub::api::sync::Api::new()?;
-        let repo: hf_hub::api::sync::ApiRepo = match revision {
-            Some(rev) => api.repo(hf_hub::Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(hf_hub::Repo::new(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-            )),
-        };
+        let repo = HubModelRepo::new(model_id, revision, None)?;
 
         let mut path_in_repo = path_in_repo.unwrap_or_default().to_string();
         if !path_in_repo.is_empty() {
             path_in_repo.push('/');
         }
-        let (_, tokenizer_filename, weights_filename, _, processing_config_filename,) = {
-            let config = repo
-                .get("config.json")
-                .unwrap_or(repo.get("preprocessor_config.json")?);
+        let (_, tokenizer_filename, weights_filename, _, processing_config_filename) = {
+            let config = repo.first_available(&["config.json", "preprocessor_config.json"])?;
             let tokenizer = repo.get("tokenizer.json")?;
             let weights = repo.get(format!("{}model.onnx", path_in_repo).as_str())?;
-            let data = repo
-                .get(format!("{}model.onnx_data", path_in_repo).as_str())
-                .ok();
+            let data = repo.optional(format!("{}model.onnx_data", path_in_repo).as_str())?;
             let processing_config = repo.get("preprocessor_config.json")?;
 
             (config, tokenizer, weights, data, processing_config)
@@ -68,7 +53,7 @@ impl OrtColSmolEmbedder {
         let config: paligemma::Config = paligemma::Config::paligemma_3b_448();
         let image_size = config.vision_config.image_size;
         let num_channels = config.vision_config.num_channels;
-        
+
         let mut tokenizer = Tokenizer::from_pretrained(model_id, None).map_err(E::msg)?;
 
         let pp = PaddingParams {
@@ -87,7 +72,6 @@ impl OrtColSmolEmbedder {
             .with_padding(Some(pp))
             .with_truncation(Some(trunc))
             .unwrap();
-
 
         let cuda = CUDAExecutionProvider::default();
 
@@ -293,7 +277,8 @@ impl ColPaliEmbed for OrtColSmolEmbedder {
             let start_page = index * batch_size + 1;
             let end_page = start_page + batch.len();
             let page_numbers = (start_page..=end_page).collect::<Vec<_>>();
-            let (input_ids, attention_mask, page_images, pixel_attention_mask) = self.processor.preprocess(&batch)?;
+            let (input_ids, attention_mask, page_images, pixel_attention_mask) =
+                self.processor.preprocess(&batch)?;
 
             let image_embeddings = self.run_model(
                 input_ids,
@@ -337,8 +322,9 @@ impl ColPaliEmbed for OrtColSmolEmbedder {
         metadata: Option<std::collections::HashMap<String, String>>,
     ) -> anyhow::Result<EmbedData> {
         let image = image::open(&image_path)?;
-        let (input_ids, attention_mask, image_array, pixel_attention_mask) = self.processor.preprocess(&[image])?;
-   
+        let (input_ids, attention_mask, image_array, pixel_attention_mask) =
+            self.processor.preprocess(&[image])?;
+
         println!("image array shape: {:?}", image_array.shape());
         println!("input ids {:?}", input_ids);
         let e = self
@@ -362,7 +348,8 @@ impl ColPaliEmbed for OrtColSmolEmbedder {
             .iter()
             .map(|path| image::open(path).unwrap())
             .collect::<Vec<_>>();
-        let (input_ids, attention_mask, image_array, pixel_attention_mask) = self.processor.preprocess(&images)?;
+        let (input_ids, attention_mask, image_array, pixel_attention_mask) =
+            self.processor.preprocess(&images)?;
 
         let e = self
             .run_model(
