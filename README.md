@@ -36,6 +36,8 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 
 **For mac users**: I don't have an Apple Developer Account yet, so I can't codesign the mac app. You may need to run the following command in Terminal, after pasting the app file to the `Applications` folder:
 
+**For first-time installation**: The app will try downloading `models--sentence-transformers--all-MiniLM-L6-v2` from `https://huggingface.co` by default. However, in case if the official site fails, it will switch to use a mirror site, which is `https://hf-mirror.com`.
+
 ```bash
 sudo xattr -r -d com.apple.quarantine /Applications/opennote.app
 ```

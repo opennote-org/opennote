@@ -7,6 +7,7 @@ use candle_core::{Device, Tensor};
 
 pub mod cloud;
 pub mod embed;
+pub(crate) mod hub;
 pub mod local;
 pub mod utils;
 

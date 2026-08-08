@@ -9,7 +9,7 @@ use std::{collections::HashMap, fs};
 use anyhow::Error as E;
 
 use crate::{
-    embeddings::{embed::EmbeddingResult, select_device},
+    embeddings::{embed::EmbeddingResult, hub::HubModelRepo, select_device},
     models::{
         clip::div_l2_norm,
         clip::{self, ClipConfig},
@@ -77,43 +77,24 @@ impl Default for ClipEmbedder {
 
 impl ClipEmbedder {
     pub fn new(model_id: String, revision: Option<&str>, token: Option<&str>) -> Result<Self, E> {
-        let api = hf_hub::api::sync::ApiBuilder::from_env()
-            .with_token(token.map(|s| s.to_string()))
-            .build()?;
-
-        let api = match revision {
-            Some(rev) => api.repo(hf_hub::Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(hf_hub::Repo::new(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-            )),
-        };
+        let repo = HubModelRepo::new(&model_id, revision, token)?;
 
         let device = select_device();
 
-        let vb = match api.get("model.safetensors") {
-            Ok(safetensors) => unsafe {
-                VarBuilder::from_mmaped_safetensors(&[safetensors], DType::F32, &device)?
-            },
-            Err(_) => match api.get("pytorch_model.bin") {
-                Ok(pytorch_model) => VarBuilder::from_pth(pytorch_model, DType::F32, &device)?,
-                Err(e) => {
-                    return Err(anyhow::Error::msg(format!(
-                        "Model weights not found. The weights should either be a `model.safetensors` or `pytorch_model.bin` file.  Error: {}",
-                        e
-                    )));
-                }
-            },
+        let weights_filename = repo.first_available(&["model.safetensors", "pytorch_model.bin"])?;
+        let vb = if weights_filename.ends_with("model.safetensors") {
+            unsafe {
+                VarBuilder::from_mmaped_safetensors(&[weights_filename], DType::F32, &device)?
+            }
+        } else {
+            VarBuilder::from_pth(weights_filename, DType::F32, &device)?
         };
-        let config_filename = api.get("config.json")?;
+        let config_filename = repo.get("config.json")?;
         let config_str = std::fs::read_to_string(config_filename)?;
         let config_json: serde_json::Value = serde_json::from_str(&config_str)?;
 
-        let mut tokenizer = Self::get_tokenizer(None, model_id, revision)?;
+        let tokenizer_filename = repo.get("tokenizer.json")?;
+        let mut tokenizer = Tokenizer::from_file(tokenizer_filename).map_err(E::msg)?;
         let pp = PaddingParams {
             strategy: tokenizers::PaddingStrategy::BatchLongest,
             ..Default::default()
@@ -204,18 +185,7 @@ impl ClipEmbedder {
         revision: Option<&str>,
     ) -> anyhow::Result<Tokenizer> {
         let tokenizer = match tokenizer {
-            None => {
-                let api = hf_hub::api::sync::Api::new()?;
-                let api = match revision {
-                    Some(rev) => api.repo(hf_hub::Repo::with_revision(
-                        model_id,
-                        hf_hub::RepoType::Model,
-                        rev.to_string(),
-                    )),
-                    None => api.repo(hf_hub::Repo::new(model_id, hf_hub::RepoType::Model)),
-                };
-                api.get("tokenizer.json")?
-            }
+            None => HubModelRepo::new(&model_id, revision, None)?.get("tokenizer.json")?,
             Some(file) => file.into(),
         };
 

@@ -4,10 +4,9 @@ use super::pooling::{ModelOutput, PooledOutputType, Pooling};
 use super::text_embedding::{ONNXModel, models_map};
 use crate::Dtype;
 use crate::embeddings::embed::EmbeddingResult;
+use crate::embeddings::hub::HubModelRepo;
 use crate::embeddings::utils::tokenize_batch_ndarray;
 use anyhow::Error as E;
-use hf_hub::Repo;
-use hf_hub::api::sync::Api;
 use ndarray::prelude::*;
 use std::sync::RwLock;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
@@ -63,21 +62,10 @@ impl OrtJinaEmbedder {
         };
 
         let (_, tokenizer_filename, weights_filename, tokenizer_config_filename) = {
-            let api = Api::new().unwrap();
-            let api = match revision {
-                Some(rev) => api.repo(Repo::with_revision(
-                    hf_model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                    rev.to_string(),
-                )),
-                None => api.repo(hf_hub::Repo::new(
-                    hf_model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                )),
-            };
-            let config = api.get("config.json")?;
-            let tokenizer = api.get("tokenizer.json")?;
-            let tokenizer_config = api.get("tokenizer_config.json")?;
+            let repo = HubModelRepo::new(hf_model_id, revision, None)?;
+            let config = repo.get("config.json")?;
+            let tokenizer = repo.get("tokenizer.json")?;
+            let tokenizer_config = repo.get("tokenizer_config.json")?;
             let mut base_path = path
                 .rsplit_once('/')
                 .map(|(p, _)| p.to_string())
@@ -97,8 +85,8 @@ impl OrtJinaEmbedder {
                 Some(Dtype::BF16) => format!("{base_path}model_bf16.onnx"),
                 None => path.to_string(),
             };
-            let weights = api.get(model_path.as_str());
-            let _ = api.get(format!("{path}_data").as_str());
+            let weights = repo.get(model_path.as_str());
+            let _ = repo.optional(format!("{path}_data").as_str())?;
 
             (config, tokenizer, weights, tokenizer_config)
         };

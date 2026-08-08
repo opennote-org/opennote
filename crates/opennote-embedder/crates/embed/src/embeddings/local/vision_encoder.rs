@@ -9,7 +9,7 @@ use std::{collections::HashMap, fs};
 use anyhow::Error as E;
 
 use crate::{
-    embeddings::{embed::EmbeddingResult, select_device},
+    embeddings::{embed::EmbeddingResult, hub::HubModelRepo, select_device},
     models::clip::div_l2_norm,
 };
 use candle_core::{DType, Device, Tensor};
@@ -43,43 +43,23 @@ impl Default for VisionEncoderEmbedder {
 
 impl VisionEncoderEmbedder {
     pub fn new(model_id: &str, revision: Option<&str>, token: Option<&str>) -> Result<Self, E> {
-        let api = hf_hub::api::sync::ApiBuilder::from_env()
-            .with_token(token.map(|s| s.to_string()))
-            .build()?;
-
-        let api = match revision {
-            Some(rev) => api.repo(hf_hub::Repo::with_revision(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-                rev.to_string(),
-            )),
-            None => api.repo(hf_hub::Repo::new(
-                model_id.to_string(),
-                hf_hub::RepoType::Model,
-            )),
-        };
+        let repo = HubModelRepo::new(model_id, revision, token)?;
 
         let device = select_device();
 
-        let vb = match api.get("model.safetensors") {
-            Ok(safetensors) => unsafe {
-                VarBuilder::from_mmaped_safetensors(&[safetensors], DType::F32, &device)?
-            },
-            Err(_) => match api.get("pytorch_model.bin") {
-                Ok(pytorch_model) => VarBuilder::from_pth(pytorch_model, DType::F32, &device)?,
-                Err(e) => {
-                    return Err(anyhow::Error::msg(format!(
-                        "Model weights not found. The weights should either be a `model.safetensors` or `pytorch_model.bin` file.  Error: {}",
-                        e
-                    )));
-                }
-            },
+        let weights_filename = repo.first_available(&["model.safetensors", "pytorch_model.bin"])?;
+        let vb = if weights_filename.ends_with("model.safetensors") {
+            unsafe {
+                VarBuilder::from_mmaped_safetensors(&[weights_filename], DType::F32, &device)?
+            }
+        } else {
+            VarBuilder::from_pth(weights_filename, DType::F32, &device)?
         };
-        let config_filename = api.get("config.json")?;
+        let config_filename = repo.get("config.json")?;
         let config_str = std::fs::read_to_string(config_filename)?;
         let config_json: serde_json::Value = serde_json::from_str(&config_str)?;
 
-        let preprocessor_config_filename = api.get("preprocessor_config.json")?;
+        let preprocessor_config_filename = repo.get("preprocessor_config.json")?;
         let preprocessor_config_str = std::fs::read_to_string(preprocessor_config_filename)?;
         let preprocessor_config_json: serde_json::Value =
             serde_json::from_str(&preprocessor_config_str)?;

@@ -7,6 +7,7 @@ extern crate accelerate_src;
 use std::collections::HashMap;
 
 use crate::embeddings::embed::EmbeddingResult;
+use crate::embeddings::hub::HubModelRepo;
 use crate::embeddings::local::text_embedding::get_model_info_by_hf_id;
 use crate::embeddings::utils::tokenize_batch;
 use crate::embeddings::{normalize_l2, select_device};
@@ -14,8 +15,6 @@ use anyhow::Error as E;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertForMaskedLM, BertModel, Config, DTYPE};
-use hf_hub::Repo;
-use hf_hub::api::sync::ApiBuilder;
 
 use serde::Deserialize;
 use tokenizers::{AddedToken, PaddingParams, Tokenizer, TruncationParams};
@@ -77,31 +76,10 @@ impl BertEmbedder {
         };
 
         let (config_filename, tokenizer_filename, weights_filename) = {
-            let api = ApiBuilder::from_env()
-                .with_token(token.map(|s| s.to_string()))
-                .build()
-                .unwrap();
-            let api = match revision {
-                Some(rev) => api.repo(Repo::with_revision(model_id, hf_hub::RepoType::Model, rev)),
-                None => api.repo(hf_hub::Repo::new(
-                    model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                )),
-            };
-            let config = api.get("config.json")?;
-            let tokenizer = api.get("tokenizer.json")?;
-            let weights = match api.get("model.safetensors") {
-                Ok(safetensors) => safetensors,
-                Err(_) => match api.get("pytorch_model.bin") {
-                    Ok(pytorch_model) => pytorch_model,
-                    Err(e) => {
-                        return Err(anyhow::Error::msg(format!(
-                            "Model weights not found. The weights should either be a `model.safetensors` or `pytorch_model.bin` file.  Error: {}",
-                            e
-                        )));
-                    }
-                },
-            };
+            let repo = HubModelRepo::new(&model_id, revision.as_deref(), token)?;
+            let config = repo.get("config.json")?;
+            let tokenizer = repo.get("tokenizer.json")?;
+            let weights = repo.first_available(&["model.safetensors", "pytorch_model.bin"])?;
 
             (config, tokenizer, weights)
         };
@@ -299,31 +277,10 @@ pub struct SparseBertEmbedder {
 impl SparseBertEmbedder {
     pub fn new(model_id: String, revision: Option<String>, token: Option<&str>) -> Result<Self, E> {
         let (config_filename, tokenizer_filename, weights_filename) = {
-            let api = ApiBuilder::from_env()
-                .with_token(token.map(|s| s.to_string()))
-                .build()
-                .unwrap();
-            let api = match revision {
-                Some(rev) => api.repo(Repo::with_revision(model_id, hf_hub::RepoType::Model, rev)),
-                None => api.repo(hf_hub::Repo::new(
-                    model_id.to_string(),
-                    hf_hub::RepoType::Model,
-                )),
-            };
-            let config = api.get("config.json")?;
-            let tokenizer = api.get("tokenizer.json")?;
-            let weights = match api.get("model.safetensors") {
-                Ok(safetensors) => safetensors,
-                Err(_) => match api.get("pytorch_model.bin") {
-                    Ok(pytorch_model) => pytorch_model,
-                    Err(e) => {
-                        return Err(anyhow::Error::msg(format!(
-                            "Model weights not found. The weights should either be a `model.safetensors` or `pytorch_model.bin` file.  Error: {}",
-                            e
-                        )));
-                    }
-                },
-            };
+            let repo = HubModelRepo::new(&model_id, revision.as_deref(), token)?;
+            let config = repo.get("config.json")?;
+            let tokenizer = repo.get("tokenizer.json")?;
+            let weights = repo.first_available(&["model.safetensors", "pytorch_model.bin"])?;
 
             (config, tokenizer, weights)
         };
