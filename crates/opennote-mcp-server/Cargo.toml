@@ -5,3 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+# Internal dependencies
+
+# External dependencies
+actix-web.workspace = true
+tokio.workspace = true
+rmcp = { version = "3.1.2", features = ["server", "transport-io", "transport-streamable-http-server"] }
+anyhow.workspace = true
+rmcp-actix-web = { path = "./rmcp-actix-web" }

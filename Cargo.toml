@@ -18,6 +18,7 @@ members = [
     "crates/opennote-bootstrap",
     "crates/opennote-core-logics",
     "crates/opennote-velotype",
+    "crates/opennote-mcp-server",
     "crates/gpui-component",
     "crates/gpui-component-macros",
     "crates/gpui-component-assets",
