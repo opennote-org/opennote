@@ -1,13 +1,26 @@
+pub mod traits;
+
+mod requests;
+mod responses;
+mod service;
+
 use std::sync::Arc;
 
 use actix_web::{App, HttpServer, web};
+use anyhow::Result;
 use rmcp_actix_web::transport::{LocalSessionManager, StreamableHttpService};
 
-#[actix_web::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+use crate::{service::OpenNoteMCPService, traits::OpenNoteMCPServiceImplementation};
+
+pub async fn run_mcp_server(
+    address: &str,
+    mcp_implementation: Arc<dyn OpenNoteMCPServiceImplementation>,
+) -> Result<()> {
+    let service = OpenNoteMCPService::new(mcp_implementation);
+
     // StreamableHttp service with builder pattern (shared across workers)
     let http_service = StreamableHttpService::builder()
-        .service_factory(Arc::new(|| Ok(MyMcpService::new())))
+        .service_factory(Arc::new(move || Ok(service.clone())))
         .session_manager(Arc::new(LocalSessionManager::default()))
         .stateful_mode(true)
         .build();
@@ -19,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Mount MCP service at custom path
             .service(web::scope("/mcp").service(http_service.clone().scope()))
     })
-    .bind("127.0.0.1:8080")?
+    .bind(address)?
     .run()
     .await?;
 

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use uuid::Uuid;
 
-use opennote_data::{Databases, search::models::RawSearchResult};
-use opennote_models::query::BlockQuery;
+use opennote_data::Databases;
+use opennote_models::{query::BlockQuery, search::RawSearchResult};
 
 use crate::block::read_blocks;
 

@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{database::traits::database::Database, search::models::RawSearchResult};
+use opennote_models::search::RawSearchResult;
+
+use crate::database::traits::database::Database;
 
 #[async_trait]
 pub trait KeywordSearch {

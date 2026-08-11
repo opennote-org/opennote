@@ -10,15 +10,14 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use opennote_models::{
-    configurations::fields::VectorDatabaseConfig, configurations::system::SystemConfigurations,
+    configurations::{fields::VectorDatabaseConfig, system::SystemConfigurations},
     payload::Payload,
+    search::RawSearchResult,
 };
 
-use crate::search::models::RawSearchResult;
-use crate::vector_database::models::IndexPayload;
 use crate::{
     search::{keyword::KeywordSearch, semantic::SemanticSearch},
-    vector_database::traits::VectorDatabase,
+    vector_database::{models::IndexPayload, traits::VectorDatabase},
 };
 
 const SQLITE_VECTOR_MACOS_ARM: &[u8] =

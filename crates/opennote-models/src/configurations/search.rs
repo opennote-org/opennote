@@ -1,8 +1,9 @@
 use std::{fmt::Display, str::FromStr};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportedSearchMethod {
     Keyword,
