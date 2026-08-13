@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 
 # Internal dependencies
+opennote-mcp-server = { workspace = true }
 opennote-bootstrap = { workspace = true }
 opennote-models = { workspace = true }
 opennote-core-logics = { workspace = true }
@@ -33,3 +34,4 @@ rust-embed = "8.11.0"
 fast_log = "1.7.7"
 smallvec = "1.15.1"
 dark-light = "2.0.0"
+async-trait.workspace = true

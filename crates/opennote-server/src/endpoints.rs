@@ -9,9 +9,9 @@ use opennote_core_logics::{
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
     search::{search_by_keyword, search_by_semantics},
 };
-use opennote_data::search::models::RawSearchResult;
 use opennote_models::{
     configurations::search::SupportedSearchMethod,
+    search::RawSearchResult,
     server::{
         requests::{
             CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,

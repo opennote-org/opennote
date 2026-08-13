@@ -76,14 +76,6 @@ impl HubModelRepo {
             .send()
     }
 
-    pub(crate) fn optional(&self, filename: &str) -> hf_hub::HFResult<Option<PathBuf>> {
-        match self.get(filename) {
-            Ok(path) => Ok(Some(path)),
-            Err(HFError::EntryNotFound { .. }) => Ok(None),
-            Err(error) => Err(error),
-        }
-    }
-
     /// Returns the first existing file, falling through only when a file is absent.
     pub(crate) fn first_available(&self, filenames: &[&str]) -> hf_hub::HFResult<PathBuf> {
         let mut last_missing = None;

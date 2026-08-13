@@ -9833,6 +9833,7 @@ name = "opennote-desktop"
 version = "0.2.3"
 dependencies = [
  "anyhow",
+ "async-trait",
  "dark-light",
  "fast_log",
  "futures",
@@ -9844,6 +9845,7 @@ dependencies = [
  "opennote-core-logics",
  "opennote-data",
  "opennote-embedder",
+ "opennote-mcp-server",
  "opennote-models",
  "opennote-server",
  "opennote-velotype",

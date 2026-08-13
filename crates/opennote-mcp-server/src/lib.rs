@@ -1,7 +1,7 @@
+pub mod requests;
+pub mod responses;
 pub mod traits;
 
-mod requests;
-mod responses;
 mod service;
 
 use std::sync::Arc;

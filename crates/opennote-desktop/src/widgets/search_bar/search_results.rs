@@ -9,19 +9,21 @@ use gpui_component::{
 };
 
 use opennote_core_logics::helpers::run_async_code;
-use opennote_data::search::{SearchScope, models::RawSearchResult};
+use opennote_data::search::SearchScope;
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
     block::Block,
     configurations::search::SupportedSearchMethod,
     payload::{Payload, create_query},
+    search::RawSearchResult,
 };
 
 use crate::{
     globals::{
         actions::route_helpers::{self},
         bootstrap::GlobalApplicationBootStrap,
-        states::{ServerStates, States},
+        server_registry::ServerStates,
+        states::States,
     },
     widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},
 };

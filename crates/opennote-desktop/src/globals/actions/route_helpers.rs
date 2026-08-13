@@ -1,10 +1,13 @@
 use anyhow::Result;
+use opennote_models::search::RawSearchResult;
 use reqwest::Client;
 use uuid::Uuid;
 
-use opennote_core_logics::block::{create_blocks, delete_blocks, read_blocks, update_blocks};
-use opennote_core_logics::search::{search_by_keyword, search_by_semantics};
-use opennote_data::{Databases, search::models::RawSearchResult};
+use opennote_core_logics::{
+    block::{create_blocks, delete_blocks, read_blocks, update_blocks},
+    search::{search_by_keyword, search_by_semantics},
+};
+use opennote_data::Databases;
 use opennote_models::{
     block::Block,
     configurations::{fields::VectorDatabaseConfig, search::SupportedSearchMethod},
@@ -16,7 +19,7 @@ use opennote_server::{
     search_remote_server_blocks, update_remote_server_blocks,
 };
 
-use crate::globals::states::ServerStates;
+use crate::globals::server_registry::ServerStates;
 
 pub async fn route_create_blocks(
     server_name: &str,

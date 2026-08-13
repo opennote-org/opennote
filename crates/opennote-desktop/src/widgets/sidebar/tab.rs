@@ -4,7 +4,7 @@ use gpui::{BorrowAppContext, SharedString};
 use gpui_component::Selectable;
 
 use crate::{
-    globals::states::{ServerStates, States},
+    globals::{server_registry::ServerStates, states::States},
     libs::tabs::{tab::Tab, tab_bar::TabBar},
 };
 
