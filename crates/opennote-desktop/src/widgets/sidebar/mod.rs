@@ -70,7 +70,7 @@ impl OpenNoteSidebar {
         );
 
         let _ = cx.update_global::<States, ()>(|states, cx| {
-            for (name, _remote_server_states) in states.get_servers() {
+            for (name, _remote_server_states) in states.get_servers().iter() {
                 tree_states.insert(name.clone(), cx.new(|cx| TreeState::new(cx)));
             }
         });
@@ -280,8 +280,10 @@ impl Render for OpenNoteSidebar {
         let (active_server_name, blocks, remote_server_tab_bar) =
             cx.read_global::<States, (SharedString, Vec<Block>, TabBar)>(|states, _cx| {
                 let active_server_name = states.get_active_server_name(window_id);
-                let remote_server_tab_bar =
-                    create_sidebar_tabbar(active_server_name.clone(), states.get_servers());
+                let remote_server_tab_bar = create_sidebar_tabbar(
+                    active_server_name.clone(),
+                    &states.get_servers().to_owned(),
+                );
                 let blocks = states.get_all_blocks_by_server(&active_server_name);
 
                 (active_server_name, blocks, remote_server_tab_bar)

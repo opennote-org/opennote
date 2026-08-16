@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::try_join_all;
+use gpui::{App, Global};
 use uuid::Uuid;
 
 use opennote_bootstrap::DesktopBootstrap;
@@ -12,22 +11,35 @@ use opennote_mcp_server::{
     traits::OpenNoteMCPServiceImplementation,
 };
 use opennote_models::{
-    block::Block, configurations::search::SupportedSearchMethod, payload::create_query,
+    block::Block, configurations::fields::search::SupportedSearchMethod, payload::create_query,
     query::BlockQuery, search::RawSearchResult,
 };
 
 use crate::globals::{
     actions::route_helpers::{route_read_blocks, route_search_blocks},
+    bootstrap::GlobalApplicationBootStrap,
     server_registry::ServerRegistry,
+    states::States,
 };
 
 pub struct DesktopMCPServer {
-    server_registry: Arc<ServerRegistry>,
+    server_registry: ServerRegistry,
     bootstrap: DesktopBootstrap,
 }
 
+impl Global for DesktopMCPServer {}
+
 impl DesktopMCPServer {
-    pub fn new(server_registry: Arc<ServerRegistry>, bootstrap: DesktopBootstrap) -> Self {
+    pub fn init(cx: &mut App) {
+        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let states: &States = cx.global();
+
+        let mcp_server = DesktopMCPServer::new(states.get_server_registry(), bootstrap.0.clone());
+
+        cx.set_global(mcp_server);
+    }
+
+    pub fn new(server_registry: ServerRegistry, bootstrap: DesktopBootstrap) -> Self {
         Self {
             server_registry,
             bootstrap,
@@ -70,8 +82,10 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             }
         };
 
-        let mut results: Vec<_> = try_join_all(self.server_registry.get_servers().iter().map(
-            |(server_name, server_states)| {
+        let servers = self.server_registry.get_servers_connections();
+
+        let mut results: Vec<_> =
+            try_join_all(servers.iter().map(|(server_name, server_states)| {
                 route_search_blocks(
                     server_name,
                     server_states,
@@ -82,12 +96,11 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                     query_vector.clone(),
                     top_n,
                 )
-            },
-        ))
-        .await?
-        .into_iter()
-        .flatten()
-        .collect();
+            }))
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
 
         results.sort_by(|left, right| right.score.total_cmp(&left.score));
         results.truncate(top_n);
@@ -103,18 +116,18 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             false => BlockQuery::ByIds(block_ids),
         };
 
-        let blocks = try_join_all(self.server_registry.get_servers().iter().map(
-            |(server_name, server_states)| {
-                route_read_blocks(
-                    server_name,
-                    server_states,
-                    &self.bootstrap.databases,
-                    &filter,
-                    false,
-                    true,
-                )
-            },
-        ))
+        let servers = self.server_registry.get_servers_connections();
+
+        let blocks = try_join_all(servers.iter().map(|(server_name, server_states)| {
+            route_read_blocks(
+                server_name,
+                server_states,
+                &self.bootstrap.databases,
+                &filter,
+                false,
+                true,
+            )
+        }))
         .await?
         .into_iter()
         .flatten()

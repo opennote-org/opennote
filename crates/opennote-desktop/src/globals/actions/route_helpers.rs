@@ -10,7 +10,7 @@ use opennote_core_logics::{
 use opennote_data::Databases;
 use opennote_models::{
     block::Block,
-    configurations::{fields::VectorDatabaseConfig, search::SupportedSearchMethod},
+    configurations::fields::{VectorDatabaseConfig, search::SupportedSearchMethod},
     constants::LOCAL_SERVER_NAME,
     query::BlockQuery,
 };

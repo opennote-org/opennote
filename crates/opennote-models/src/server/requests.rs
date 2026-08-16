@@ -6,7 +6,7 @@ use serde_encrypt::{
 };
 use uuid::Uuid;
 
-use crate::{block::Block, configurations::search::SupportedSearchMethod, query::BlockQuery};
+use crate::{block::Block, configurations::fields::search::SupportedSearchMethod, query::BlockQuery};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BaseRequest<T> {

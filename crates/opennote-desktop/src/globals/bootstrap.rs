@@ -10,7 +10,7 @@ use opennote_core_logics::{
 };
 use opennote_data::search::SearchScope;
 use opennote_models::{
-    configurations::{desktop::DesktopConfigurations, search::SupportedSearchMethod},
+    configurations::{desktop::DesktopConfigurations, fields::search::SupportedSearchMethod},
     key_mappings::KeyMappingConfigurations,
     traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };

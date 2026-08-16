@@ -13,7 +13,7 @@ use opennote_data::search::SearchScope;
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
     block::Block,
-    configurations::search::SupportedSearchMethod,
+    configurations::fields::search::SupportedSearchMethod,
     payload::{Payload, create_query},
     search::RawSearchResult,
 };

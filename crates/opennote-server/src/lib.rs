@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use opennote_models::{
     block::Block,
-    configurations::search::SupportedSearchMethod,
+    configurations::fields::search::SupportedSearchMethod,
     constants::{
         CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
         READ_WORKSPACE_BLOCKS_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,

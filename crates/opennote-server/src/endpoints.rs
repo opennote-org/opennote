@@ -10,7 +10,7 @@ use opennote_core_logics::{
     search::{search_by_keyword, search_by_semantics},
 };
 use opennote_models::{
-    configurations::search::SupportedSearchMethod,
+    configurations::fields::search::SupportedSearchMethod,
     search::RawSearchResult,
     server::{
         requests::{

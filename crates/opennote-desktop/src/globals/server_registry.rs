@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
 use gpui::SharedString;
 use serde_encrypt::shared_key::SharedKey;
@@ -10,7 +13,7 @@ use opennote_models::{
 };
 
 #[derive(Debug, Clone)]
-pub struct ServerRegistry(HashMap<SharedString, ServerStates>);
+pub struct ServerRegistry(Arc<RwLock<HashMap<SharedString, ServerStates>>>);
 
 impl ServerRegistry {
     /// This will also include the local workspace as a server too.
@@ -40,15 +43,39 @@ impl ServerRegistry {
             },
         );
 
-        Self(servers)
+        Self(Arc::new(RwLock::new(servers)))
     }
 
-    pub fn get_servers(&self) -> &HashMap<SharedString, ServerStates> {
-        &self.0
+    /// It will return a hash map of the server states but without blocks cache
+    pub fn get_servers_connections(&self) -> HashMap<SharedString, ServerStates> {
+        self.0
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(name, state)| {
+                (
+                    name.clone(),
+                    ServerStates {
+                        connection_string: state.connection_string.clone(),
+                        password: state.password.clone(),
+                        shared_key: state.shared_key.clone(),
+                        blocks: HashMap::new(),
+                    },
+                )
+            })
+            .collect()
     }
 
-    pub fn get_servers_mut(&mut self) -> &mut HashMap<SharedString, ServerStates> {
-        &mut self.0
+    pub fn get_servers(
+        &self,
+    ) -> std::sync::RwLockReadGuard<'_, HashMap<SharedString, ServerStates>> {
+        self.0.read().unwrap()
+    }
+
+    pub fn get_servers_mut(
+        &self,
+    ) -> std::sync::RwLockWriteGuard<'_, HashMap<SharedString, ServerStates>> {
+        self.0.write().unwrap()
     }
 }
 

@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
 
-use opennote_models::configurations::search::SupportedSearchMethod;
+use opennote_models::configurations::fields::search::SupportedSearchMethod;
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct MCPSearchRequest {

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use gpui::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
 use uuid::Uuid;
@@ -188,8 +188,15 @@ impl States {
         blocks
     }
 
-    pub fn get_servers(&self) -> &HashMap<SharedString, ServerStates> {
-        &self.servers.get_servers()
+    pub fn get_servers(
+        &self,
+    ) -> std::sync::RwLockReadGuard<'_, HashMap<SharedString, ServerStates>> {
+        self.servers.get_servers()
+    }
+
+    /// Cheap clone the ServerRegistry
+    pub fn get_server_registry(&self) -> ServerRegistry {
+        self.servers.clone()
     }
 
     /// Default to return the local server only.
@@ -216,7 +223,11 @@ impl States {
     /// Return the local server if the window has no active server yet.
     pub fn get_active_server(&self, window_id: WindowId) -> (SharedString, ServerStates) {
         let active_server_name = self.get_active_server_name(window_id);
-        let active_server: &ServerStates = self.get_servers().get(&active_server_name).unwrap();
+        let active_server: ServerStates = self
+            .get_servers()
+            .get(&active_server_name)
+            .unwrap()
+            .to_owned();
         (active_server_name, active_server.clone())
     }
 
