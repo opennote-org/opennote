@@ -1,25 +1,26 @@
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::try_join_all;
-use gpui::{App, Global};
+use gpui::{App, AppContext, BorrowAppContext, Global};
+use opennote_core_logics::helpers::run_async_code;
 use uuid::Uuid;
 
 use opennote_bootstrap::DesktopBootstrap;
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_mcp_server::{
     requests::{MCPReadBlocksRequest, MCPSearchRequest},
+    run_mcp_server,
     traits::OpenNoteMCPServiceImplementation,
 };
 use opennote_models::{
     block::Block, configurations::fields::search::SupportedSearchMethod, payload::create_query,
-    query::BlockQuery, search::RawSearchResult,
+    query::BlockQuery,
 };
 
 use crate::globals::{
     actions::route_helpers::{route_read_blocks, route_search_blocks},
     bootstrap::GlobalApplicationBootStrap,
-    server_registry::ServerRegistry,
-    states::States,
+    states::{States, server_registry::ServerRegistry},
 };
 
 pub struct DesktopMCPServer {
@@ -32,11 +33,37 @@ impl Global for DesktopMCPServer {}
 impl DesktopMCPServer {
     pub fn init(cx: &mut App) {
         let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let configurations = run_async_code(async {
+            bootstrap
+                .0
+                .configurations
+                .lock()
+                .await
+                .user
+                .mcp_server
+                .clone()
+        });
+
+        if !configurations.enabled {
+            return;
+        }
+
         let states: &States = cx.global();
 
         let mcp_server = DesktopMCPServer::new(states.get_server_registry(), bootstrap.0.clone());
 
-        cx.set_global(mcp_server);
+        let server = run_mcp_server(
+            &configurations.get_mcp_server_address(),
+            configurations.workers,
+            std::sync::Arc::new(mcp_server),
+        )
+        .unwrap();
+
+        cx.background_spawn(async {
+            let runtime = tokio::runtime::Runtime::new().unwrap();
+            runtime.block_on(async { server.await.unwrap() })
+        })
+        .detach();
     }
 
     pub fn new(server_registry: ServerRegistry, bootstrap: DesktopBootstrap) -> Self {
@@ -58,7 +85,7 @@ impl DesktopMCPServer {
 
 #[async_trait]
 impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
-    async fn search(&self, request: MCPSearchRequest) -> Result<Vec<RawSearchResult>> {
+    async fn search(&self, request: MCPSearchRequest) -> Result<Vec<Block>> {
         let MCPSearchRequest {
             search_method,
             block_ids,
@@ -84,9 +111,9 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
 
         let servers = self.server_registry.get_servers_connections();
 
-        let mut results: Vec<_> =
-            try_join_all(servers.iter().map(|(server_name, server_states)| {
-                route_search_blocks(
+        let results: Vec<_> =
+            try_join_all(servers.iter().map(async |(server_name, server_states)| {
+                let mut results = route_search_blocks(
                     server_name,
                     server_states,
                     &self.bootstrap.databases,
@@ -96,14 +123,27 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                     query_vector.clone(),
                     top_n,
                 )
+                .await?;
+
+                results.sort_by(|left, right| right.score.total_cmp(&left.score));
+                results.truncate(top_n);
+
+                let filter = BlockQuery::ByIds(results.iter().map(|item| item.block_id).collect());
+
+                route_read_blocks(
+                    &server_name,
+                    &server_states,
+                    &self.bootstrap.databases,
+                    &filter,
+                    false,
+                    true,
+                )
+                .await
             }))
             .await?
             .into_iter()
             .flatten()
             .collect();
-
-        results.sort_by(|left, right| right.score.total_cmp(&left.score));
-        results.truncate(top_n);
 
         Ok(results)
     }
@@ -125,7 +165,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 &self.bootstrap.databases,
                 &filter,
                 false,
-                true,
+                request.has_payload,
             )
         }))
         .await?

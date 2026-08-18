@@ -6,4 +6,3 @@ pub mod states;
 pub mod tasks;
 pub mod velotype;
 pub mod mcp_server;
-pub mod server_registry;

@@ -1,13 +1,11 @@
 use gpui::*;
 use gpui_component::Root;
-use opennote_core_logics::helpers::run_async_code;
-use opennote_mcp_server::run_mcp_server;
 
 use crate::{
-    globals::{bootstrap::GlobalApplicationBootStrap, mcp_server::DesktopMCPServer, states::States},
+    globals::states::States,
     key_mappings::mappings::{
         CloseActiveTab, CreateOneBlock, NextTab, OpenNewWindow, PreviousTab, ToggleCommandBar,
-        ToggleMCPServer, ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
+        ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
     },
     libs::theme::adapt_theme_to_system,
 };
@@ -87,25 +85,6 @@ impl Workspace {
         });
 
         cx.notify();
-    }
-
-    /// Toggle the command bar and shift focus accordingly.
-    pub fn toggle_mcp_server(
-        &mut self,
-        _action: &ToggleMCPServer,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        // TODO:
-        // - Implement toggle mcp server
-
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
-        let mcp_server: &DesktopMCPServer = cx.global();
-
-        let configurations =
-            run_async_code(async { bootstrap.0.configurations.lock().await.user.mcp_server });
-
-        run_mcp_server(&configurations.get_mcp_server_address(), mcp_implementation);
     }
 
     /// Create a new block in the active server's tree.

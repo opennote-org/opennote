@@ -29,6 +29,7 @@ schemars = { workspace = true }
 gpui = { workspace = true }
 reqwest = { workspace = true }
 futures.workspace = true
+actix-web.workspace = true
 
 rust-embed = "8.11.0"
 fast_log = "1.7.7"

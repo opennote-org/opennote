@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MCPServerConfig {
+    /// Whether the MCP is enabled
+    pub enabled: bool,
+
     /// Which address should the server be listening on
     pub host: String,
 
@@ -15,6 +18,7 @@ pub struct MCPServerConfig {
 impl Default for MCPServerConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             host: "localhost".to_string(),
             port: 8080,
             workers: 2,

@@ -1,4 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+pub mod server_registry;
+
+use std::collections::HashMap;
 
 use gpui::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
 use uuid::Uuid;
@@ -14,7 +16,7 @@ use crate::{
     globals::{
         actions::route_helpers::route_read_blocks,
         bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
-        server_registry::{ServerRegistry, ServerStates},
+        states::server_registry::{ServerRegistry, ServerStates},
     },
     widgets::pane::Pane,
 };

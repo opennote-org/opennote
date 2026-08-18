@@ -22,8 +22,7 @@ use crate::{
     globals::{
         actions::route_helpers::{self},
         bootstrap::GlobalApplicationBootStrap,
-        server_registry::ServerStates,
-        states::States,
+        states::{server_registry::ServerStates, States},
     },
     widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},
 };

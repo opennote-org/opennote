@@ -20,8 +20,7 @@ use opennote_models::{
 use crate::globals::{
     bootstrap::GlobalApplicationBootStrap,
     helpers::get_language_profile,
-    server_registry::ServerStates,
-    states::States,
+    states::{States, server_registry::ServerStates},
     tasks::{
         task_information::TaskInformation,
         task_result::{TaskResult, TaskType},

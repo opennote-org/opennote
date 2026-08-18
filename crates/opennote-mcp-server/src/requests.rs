@@ -24,4 +24,9 @@ pub struct MCPReadBlocksRequest {
         description = "search across a list of blocks. specify their ids here. Leave if empty to get all data. "
     )]
     pub block_ids: Vec<String>,
+
+    #[schemars(
+        description = "set to true if you want to see the full content of the specified blocks. never set to true if the block_ids is empty."
+    )]
+    pub has_payload: bool,
 }

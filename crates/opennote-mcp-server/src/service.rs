@@ -10,6 +10,7 @@ use rmcp::{
 };
 
 use crate::{
+    instructions::INSTRUCTIONS,
     requests::{MCPReadBlocksRequest, MCPSearchRequest},
     responses::MCPServiceGenericResponse,
     traits::OpenNoteMCPServiceImplementation,
@@ -26,7 +27,9 @@ impl OpenNoteMCPService {
         Self { mcp_implementation }
     }
 
-    #[tool(description = "search the user's OpenNote documents")]
+    #[tool(
+        description = "search the user's OpenNote documents. you should read blocks to get block_ids before making a search"
+    )]
     pub async fn search(
         &self,
         Parameters(MCPSearchRequest {
@@ -62,11 +65,17 @@ impl OpenNoteMCPService {
     #[tool(description = "read user's OpenNote blocks")]
     pub async fn read_blocks(
         &self,
-        Parameters(MCPReadBlocksRequest { block_ids }): Parameters<MCPReadBlocksRequest>,
+        Parameters(MCPReadBlocksRequest {
+            block_ids,
+            has_payload,
+        }): Parameters<MCPReadBlocksRequest>,
     ) -> Json<MCPServiceGenericResponse> {
         match self
             .mcp_implementation
-            .read_blocks(MCPReadBlocksRequest { block_ids })
+            .read_blocks(MCPReadBlocksRequest {
+                block_ids,
+                has_payload,
+            })
             .await
         {
             Ok(result) => {
@@ -87,7 +96,7 @@ impl OpenNoteMCPService {
 impl ServerHandler for OpenNoteMCPService {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions("Offer access to user's OpenNote. A notebook of the user.")
+            .with_instructions(INSTRUCTIONS)
     }
 
     async fn initialize(

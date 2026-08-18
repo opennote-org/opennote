@@ -19,7 +19,7 @@ use opennote_server::{
     search_remote_server_blocks, update_remote_server_blocks,
 };
 
-use crate::globals::server_registry::ServerStates;
+use crate::globals::states::server_registry::ServerStates;
 
 pub async fn route_create_blocks(
     server_name: &str,
