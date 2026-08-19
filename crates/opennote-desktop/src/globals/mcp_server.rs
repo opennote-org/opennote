@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::try_join_all;
-use gpui::{App, AppContext, BorrowAppContext, Global};
+use gpui::{App, AppContext, Global};
 use opennote_core_logics::helpers::run_async_code;
 use uuid::Uuid;
 
