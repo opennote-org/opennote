@@ -9893,7 +9893,7 @@ dependencies = [
  "opennote-bootstrap",
  "opennote-models",
  "rmcp 3.1.2",
- "rmcp-actix-web 0.12.16",
+ "rmcp-actix-web 0.2.3",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -12079,25 +12079,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-actix-web"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f88703b727576959ccb3abc4b818b16881aaa79c57c6b225cfca1f710fa38e7a"
-dependencies = [
- "actix-web",
- "async-stream",
- "bon",
- "futures",
- "rmcp 0.15.0",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tracing",
-]
-
-[[package]]
-name = "rmcp-actix-web"
-version = "0.12.16"
+version = "0.2.3"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -12120,6 +12102,24 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "rmcp-actix-web"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f88703b727576959ccb3abc4b818b16881aaa79c57c6b225cfca1f710fa38e7a"
+dependencies = [
+ "actix-web",
+ "async-stream",
+ "bon",
+ "futures",
+ "rmcp 0.15.0",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]

@@ -1,9 +1,9 @@
 [package]
 name = "rmcp-actix-web"
-version = "0.12.16"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 description = "actix-web transport implementations for RMCP (Rust Model Context Protocol)"
-license = "MIT"
 repository = "https://gitlab.com/lx-industries/rmcp-actix-web"
 homepage = "https://gitlab.com/lx-industries/rmcp-actix-web"
 readme = "README.md"
