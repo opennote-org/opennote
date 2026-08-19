@@ -4,16 +4,16 @@ use reqwest::Client;
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
-use opennote_data::search::models::RawSearchResult;
 use opennote_models::{
     block::Block,
-    configurations::search::SupportedSearchMethod,
+    configurations::fields::search::SupportedSearchMethod,
     constants::{
         CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
         READ_WORKSPACE_BLOCKS_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
         UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
     },
     query::BlockQuery,
+    search::RawSearchResult,
     server::{
         requests::{
             CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,

@@ -1,7 +1,8 @@
+pub mod server_registry;
+
 use std::collections::HashMap;
 
 use gpui::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
-use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 
 use opennote_core_logics::helpers::run_async_code;
@@ -15,22 +16,15 @@ use crate::{
     globals::{
         actions::route_helpers::route_read_blocks,
         bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
+        states::server_registry::{ServerRegistry, ServerStates},
     },
     widgets::pane::Pane,
 };
 
-#[derive(Debug, Clone)]
-pub struct ServerStates {
-    pub connection_string: SharedString,
-    pub password: SharedString,
-    pub shared_key: SharedKey,
-    pub blocks: HashMap<Uuid, Block>,
-}
-
 /// It manages general global states
 pub struct States {
     /// States of the remote servers
-    servers: HashMap<SharedString, ServerStates>,
+    servers: ServerRegistry,
 
     /// The active server for each workspace.
     /// The key is a WindowId.
@@ -49,7 +43,7 @@ impl States {
     pub fn new(servers: HashMap<String, RemoteServerConfiguration>) -> Self {
         Self {
             active_servers: HashMap::new(),
-            servers: build_servers(servers),
+            servers: ServerRegistry::build_servers(servers),
             active_panes: HashMap::new(),
             search_scope: SearchScope::Document,
         }
@@ -86,7 +80,7 @@ impl States {
 
     /// Overwrite the existing blocks of a server in the states with the new blocks
     pub fn hard_update_blocks(&mut self, server_name: &SharedString, blocks: Vec<Block>) {
-        if let Some(server) = self.servers.get_mut(server_name) {
+        if let Some(server) = self.servers.get_servers_mut().get_mut(server_name) {
             server.blocks = HashMap::from_iter(blocks.into_iter().map(|item| (item.id, item)));
         }
     }
@@ -132,7 +126,7 @@ impl States {
     }
 
     pub fn get_block(&self, block_id: &Uuid) -> Option<Block> {
-        for (_name, server) in self.servers.iter() {
+        for (_name, server) in self.get_servers().iter() {
             match server.blocks.get(&block_id) {
                 Some(block) => return Some(block.clone()),
                 _ => {}
@@ -146,7 +140,7 @@ impl States {
     pub fn get_all_blocks_ids(&self) -> Vec<Uuid> {
         let mut block_ids = Vec::new();
 
-        for (_name, server) in self.servers.iter() {
+        for (_name, server) in self.get_servers().iter() {
             block_ids.extend(
                 server
                     .blocks
@@ -161,7 +155,7 @@ impl States {
 
     /// Return an empty vec if nothing is found
     pub fn get_all_blocks_by_server(&self, server_name: &SharedString) -> Vec<Block> {
-        for (name, server) in self.servers.iter() {
+        for (name, server) in self.get_servers().iter() {
             if server_name == name {
                 return server
                     .blocks
@@ -177,7 +171,7 @@ impl States {
     pub fn find_block_children_ids(&self, block_id: Uuid) -> Vec<Uuid> {
         let mut blocks = Vec::new();
 
-        for (_name, server) in self.servers.iter() {
+        for (_name, server) in self.get_servers().iter() {
             blocks.extend(
                 server
                     .blocks
@@ -196,8 +190,15 @@ impl States {
         blocks
     }
 
-    pub fn get_servers(&self) -> &HashMap<SharedString, ServerStates> {
-        &self.servers
+    pub fn get_servers(
+        &self,
+    ) -> std::sync::RwLockReadGuard<'_, HashMap<SharedString, ServerStates>> {
+        self.servers.get_servers()
+    }
+
+    /// Cheap clone the ServerRegistry
+    pub fn get_server_registry(&self) -> ServerRegistry {
+        self.servers.clone()
     }
 
     /// Default to return the local server only.
@@ -207,7 +208,7 @@ impl States {
     ) -> Vec<(SharedString, ServerStates)> {
         let mut involved_servers = Vec::new();
 
-        for (name, server) in self.servers.iter() {
+        for (name, server) in self.get_servers().iter() {
             let any_block_id_contained = block_ids
                 .iter()
                 .any(|item| server.blocks.contains_key(item));
@@ -224,7 +225,11 @@ impl States {
     /// Return the local server if the window has no active server yet.
     pub fn get_active_server(&self, window_id: WindowId) -> (SharedString, ServerStates) {
         let active_server_name = self.get_active_server_name(window_id);
-        let active_server: &ServerStates = self.servers.get(&active_server_name).unwrap();
+        let active_server: ServerStates = self
+            .get_servers()
+            .get(&active_server_name)
+            .unwrap()
+            .to_owned();
         (active_server_name, active_server.clone())
     }
 
@@ -260,37 +265,6 @@ impl States {
     }
 
     pub fn update_servers(&mut self, servers: HashMap<String, RemoteServerConfiguration>) {
-        self.servers = build_servers(servers);
+        self.servers = ServerRegistry::build_servers(servers);
     }
-}
-
-/// This will also include the local workspace as a server too.
-fn build_servers(
-    servers: HashMap<String, RemoteServerConfiguration>,
-) -> HashMap<SharedString, ServerStates> {
-    let mut servers: HashMap<SharedString, ServerStates> = servers
-        .into_iter()
-        .map(|(server_name, config)| {
-            (
-                server_name.into(),
-                ServerStates {
-                    connection_string: config.connection_string.into(),
-                    password: config.password.into(),
-                    shared_key: config.shared_key.clone(),
-                    blocks: HashMap::new(),
-                },
-            )
-        })
-        .collect();
-
-    servers.insert(
-        SharedString::new(LOCAL_SERVER_NAME),
-        ServerStates {
-            connection_string: SharedString::new(""),
-            password: SharedString::new(""),
-            shared_key: SharedKey::new([0u8; 32]),
-            blocks: HashMap::new(),
-        },
-    );
-    servers
 }

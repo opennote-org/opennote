@@ -6,9 +6,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::configurations::{
-    fields::remote_server::RemoteServerConfiguration, language::UserInterfaceLanguage,
-    search::UserSearchConfiguration,
+use crate::configurations::fields::{
+    language::UserInterfaceLanguage, mcp_server::MCPServerConfig,
+    remote_server::RemoteServerConfiguration, search::UserSearchConfiguration,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +23,9 @@ pub struct UserConfigurations {
     /// The remote servers to connect to
     #[serde(default)]
     pub remote_servers: HashMap<String, RemoteServerConfiguration>,
+
+    /// Confugre how the opennote mcp server behaves
+    pub mcp_server: MCPServerConfig,
 }
 
 impl Default for UserConfigurations {
@@ -31,6 +34,7 @@ impl Default for UserConfigurations {
             search: UserSearchConfiguration::default(),
             language: UserInterfaceLanguage::default(),
             remote_servers: HashMap::new(),
+            mcp_server: MCPServerConfig::default(),
         }
     }
 }

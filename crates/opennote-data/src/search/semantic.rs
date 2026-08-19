@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::search::models::RawSearchResult;
+use opennote_models::search::RawSearchResult;
 
 #[async_trait]
 pub trait SemanticSearch {

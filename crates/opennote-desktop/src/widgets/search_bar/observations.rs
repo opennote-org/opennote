@@ -7,8 +7,7 @@ use gpui::{Context, Entity, Subscription};
 use gpui_component::list::ListState;
 use uuid::Uuid;
 
-use opennote_data::search::models::RawSearchResult;
-use opennote_models::{payload::Payload, query::BlockQuery};
+use opennote_models::{payload::Payload, query::BlockQuery, search::RawSearchResult};
 
 use crate::{
     globals::{actions::route_helpers::route_read_blocks, bootstrap::GlobalApplicationBootStrap},

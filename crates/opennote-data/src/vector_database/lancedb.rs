@@ -17,16 +17,17 @@ use serde::{Deserialize, Serialize};
 use serde_arrow::schema::{SchemaLike, TracingOptions};
 use uuid::Uuid;
 
-use crate::search::models::RawSearchResult;
+use opennote_models::{
+    configurations::{fields::VectorDatabaseConfig, system::SystemConfigurations},
+    content_type::ContentType,
+    payload::Payload,
+    search::RawSearchResult,
+};
+
 use crate::{
     database::traits::database::Database,
     search::{keyword::KeywordSearch, semantic::SemanticSearch},
     vector_database::traits::VectorDatabase,
-};
-use opennote_models::content_type::ContentType;
-use opennote_models::{
-    configurations::{fields::VectorDatabaseConfig, system::SystemConfigurations},
-    payload::Payload,
 };
 
 pub struct LanceDB {

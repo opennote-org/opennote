@@ -1,5 +1,4 @@
 pub mod keyword;
-pub mod models;
 pub mod semantic;
 
 use std::{fmt::Display, str::FromStr};

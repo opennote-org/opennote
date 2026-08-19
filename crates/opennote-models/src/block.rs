@@ -10,7 +10,6 @@ use crate::payload::Payload;
 /// and efficiency.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct Block {
-    #[serde(with = "uuid::serde::compact")]
     pub id: Uuid,
     /// Parent ID of this block. Root blocks don't have parent ids.
     pub parent_id: Option<Uuid>,

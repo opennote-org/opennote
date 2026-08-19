@@ -22,7 +22,7 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 - [x] WYSIWYG markdown editor integration
 - [ ] Advanced NLP features to simplify document management (e.g., automatic categorization by semantic similarity)
 - [ ] LLM integrations — local-first, always
-- [ ] MCP server support
+- [x] MCP server support
 - [ ] Import webpages, databases and files
 - [ ] Multi-modal support
 
@@ -62,6 +62,35 @@ However, you may also open the configuration editor by pressing `CMD + ;` on mac
 ### Setup Remote Server
 
 You may host a remote server for syncing across different computers securely. To achieve this, refer to [README.md of opennote-server](crates/opennote-server/README.md).
+
+### Use the MCP Server
+
+The MCP server is **enabled by default** and listens on `http://localhost:8080/`. Toggle it and change its address in `configurations.json` under `user.mcp_server`, or open the configuration editor with `Cmd + ;` on macOS / `Ctrl + ;` on Windows and Linux:
+
+```json
+{
+  "mcp_server": {
+    "enabled": true, // start the MCP server when the app launches (default `true`)
+    "host": "localhost", // address the server binds to (default `localhost:8080`)
+    "port": 8080,
+    "workers": 2 // number of actix-web worker threads (default `2`)
+  }
+}
+```
+
+Point any MCP client that supports the Streamable HTTP transport at the server's URL. For example, add this to your client's MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "opennote": {
+      "url": "http://localhost:8080/"
+    }
+  }
+}
+```
+
+The server is loopback-only by default: it accepts requests whose `Host` header is a loopback address, which protects the locally running server from DNS-rebinding attacks. It is intended to be used from the same machine that runs OpenNote. The desktop MCP server does not require authentication.
 
 ## Contributing
 

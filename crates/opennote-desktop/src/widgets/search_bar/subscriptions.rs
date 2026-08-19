@@ -7,7 +7,7 @@ use gpui_component::{
 };
 
 use opennote_data::search::SearchScope;
-use opennote_models::configurations::search::SupportedSearchMethod;
+use opennote_models::configurations::fields::search::SupportedSearchMethod;
 
 use crate::{
     globals::{bootstrap::GlobalApplicationBootStrap, states::States},

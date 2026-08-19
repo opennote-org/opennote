@@ -6,5 +6,6 @@ pub mod key_mappings;
 pub mod payload;
 pub mod providers;
 pub mod query;
+pub mod search;
 pub mod server;
 pub mod traits;

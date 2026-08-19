@@ -1,0 +1,63 @@
+[package]
+name = "rmcp-actix-web"
+version = "0.12.16"
+edition = "2024"
+description = "actix-web transport implementations for RMCP (Rust Model Context Protocol)"
+license = "MIT"
+repository = "https://gitlab.com/lx-industries/rmcp-actix-web"
+homepage = "https://gitlab.com/lx-industries/rmcp-actix-web"
+readme = "README.md"
+keywords = ["mcp", "actix", "actix-web", "protocol", "llm"]
+categories = ["network-programming", "web-programming"]
+
+[features]
+default = ["transport-streamable-http"]
+transport-streamable-http = ["rmcp/transport-streamable-http-server", "dep:tokio-util"]
+
+# The hand-written actix-web transport that predates delegation to rmcp's own
+# StreamableHttpService. Retained for deployments depending on its flat
+# `on_request` extension shape. Not enabled by default; see README.md.
+legacy-transport = ["transport-streamable-http"]
+
+# Enable this if your MCP service will forward tokens to upstream APIs (non-compliant).
+# This violates MCP specifications but may be necessary for proxy architectures.
+# See SECURITY.md for important security implications.
+authorization-token-passthrough = []
+
+[dependencies]
+rmcp = { version = "3.0.0", features = ["base64", "server"] }
+actix-web = { version = "4", default-features = false }
+async-stream = "0.3"
+bon = "3.7.1"
+tokio = { version = "1", features = [
+    "sync",
+    "macros",
+    "rt",
+    "time",
+    "process",
+] }
+futures = "0.3"
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["preserve_order"] }
+tokio-stream = "0.1"
+bytes = "1"
+http = "1"
+http-body = "1"
+http-body-util = "0.1"
+tokio-util = { version = "0.7.19", optional = true }
+
+[dev-dependencies]
+actix-web = "4"
+rmcp = { version = "3.0.0", default-features = false, features = [
+    "base64",
+    "macros",
+    "server",
+    "transport-streamable-http-server",
+] }
+anyhow = "1"
+reqwest = { version = "0.13", features = ["json", "stream"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = "0.4"
+insta = { version = "1.41", features = ["json"] }
+async-trait = "0.1.91"

@@ -1,0 +1,95 @@
+---
+source: tests/test_with_js.rs
+expression: responses
+---
+[
+  {
+    "tools": [
+      {
+        "name": "sub",
+        "description": "Calculate the sub of two numbers",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "description": "the left hand side number",
+              "type": "integer",
+              "format": "int32"
+            },
+            "b": {
+              "description": "the right hand side number",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "$schema": "https://json-schema.org/draft/2020-12/schema"
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "description": "the result of the operation",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "$schema": "https://json-schema.org/draft/2020-12/schema"
+        }
+      },
+      {
+        "name": "sum",
+        "description": "Calculate the sum of two numbers",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "description": "the left hand side number",
+              "type": "integer",
+              "format": "int32"
+            },
+            "b": {
+              "description": "The right hand side number to add",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "$schema": "https://json-schema.org/draft/2020-12/schema"
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "description": "the result of the operation",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "$schema": "https://json-schema.org/draft/2020-12/schema"
+        }
+      }
+    ]
+  },
+  {
+    "resources": []
+  },
+  {
+    "resourceTemplates": []
+  },
+  {
+    "prompts": []
+  }
+]
