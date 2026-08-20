@@ -859,7 +859,6 @@ impl PreferencesWindow {
         }
         cx.clear_key_bindings();
         install_keybindings(cx, &preferences.keybindings);
-        crate::app_menu::install_menus(cx);
         cx.update_global::<EditorSettings, _>(|settings, _cx| {
             settings.status_bar_settings.status_bar_enabled = preferences.status_bar.enabled;
             settings.status_bar_settings.status_bar_show_word_count =
