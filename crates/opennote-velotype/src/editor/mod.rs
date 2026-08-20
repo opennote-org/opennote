@@ -31,14 +31,12 @@ mod render;
 mod runtime_context;
 mod selection;
 mod source_mapping;
-mod status_bar;
 mod table_edit;
 mod tree;
 mod update;
 mod window_state;
 mod workspace;
 
-use self::status_bar::StatusBarState;
 use self::workspace::WorkspaceState;
 
 pub enum EditorEvent {
@@ -98,7 +96,6 @@ pub struct Editor {
     /// True while an online update check is running in the background.
     update_check_in_progress: bool,
     workspace: WorkspaceState,
-    status_bar: StatusBarState,
     table_axis_preview: Option<TableAxisSelection>,
     table_axis_selection: Option<TableAxisSelection>,
     cross_block_selection: Option<CrossBlockSelection>,
@@ -362,7 +359,6 @@ impl Editor {
             info_dialog: None,
             update_check_in_progress: false,
             workspace: WorkspaceState::default(),
-            status_bar: StatusBarState::default(),
             table_axis_preview: None,
             table_axis_selection: None,
             cross_block_selection: None,

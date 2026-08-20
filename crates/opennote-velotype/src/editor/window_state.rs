@@ -245,24 +245,6 @@ impl Editor {
         self.export_document_via_prompt(crate::export::ExportFormat::Pdf, window, cx);
     }
 
-    pub(crate) fn on_install_cli_tool(
-        &mut self,
-        _: &crate::components::InstallCliTool,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        crate::app_menu::install_cli_tool(cx);
-    }
-
-    pub(crate) fn on_uninstall_cli_tool(
-        &mut self,
-        _: &crate::components::UninstallCliTool,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        crate::app_menu::uninstall_cli_tool(cx);
-    }
-
     pub(crate) fn toggle_view_mode(&mut self, cx: &mut Context<Self>) {
         self.end_block_pointer_selection_sessions(cx);
         let selection_snapshot = self.capture_source_selection_snapshot(cx);

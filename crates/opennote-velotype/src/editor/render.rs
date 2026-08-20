@@ -1694,9 +1694,7 @@ impl Render for Editor {
             .on_action(cx.listener(Self::on_page_up))
             .on_action(cx.listener(Self::on_page_down))
             .on_action(cx.listener(Self::on_jump_to_top))
-            .on_action(cx.listener(Self::on_jump_to_bottom))
-            .on_action(cx.listener(Self::on_install_cli_tool))
-            .on_action(cx.listener(Self::on_uninstall_cli_tool));
+            .on_action(cx.listener(Self::on_jump_to_bottom));
         // Fetch menus + collect labels once for both renderers; previously each
         // of render_in_window_menu_bar / render_in_window_menu_panel called
         // cx.get_menus() and walked menus.iter().map(|m| m.name.to_string())
@@ -1738,11 +1736,6 @@ impl Render for Editor {
             main_content
         };
         let base = base.child(main_content.child(content_area));
-        let base = if let Some(status_bar) = self.render_status_bar(&theme, &strings, window, cx) {
-            base.child(status_bar)
-        } else {
-            base
-        };
         let base = if let Some(menu_panel) = self.render_in_window_menu_panel(
             &theme,
             cx,

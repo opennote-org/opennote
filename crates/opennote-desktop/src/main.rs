@@ -21,7 +21,9 @@ use opennote_models::constants::{
 
 use crate::{
     globals::{
-        assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap, mcp_server::DesktopMCPServer, states::States, tasks::tracker::TaskTracker, velotype::init_velotype
+        assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap,
+        mcp_server::DesktopMCPServer, states::States, tasks::tracker::TaskTracker,
+        velotype::init_velotype,
     },
     libs::theme::adapt_theme_to_system,
     logs::UICustomLog,
@@ -90,8 +92,16 @@ async fn main() -> Result<()> {
                 bootstrap.install(cx);
                 cx.set_global(assets);
                 States::init(cx);
-                init_velotype(cx);
-                DesktopMCPServer::init(cx);
+
+                match init_velotype(cx) {
+                    Ok(_) => {}
+                    Err(error) => loading_view.set_error(error.to_string(), cx),
+                };
+
+                match DesktopMCPServer::init(cx) {
+                    Ok(_) => {}
+                    Err(error) => loading_view.set_error(error.to_string(), cx),
+                };
 
                 let workspace_window = cx.open_window(WindowOptions::default(), |window, cx| {
                     adapt_theme_to_system(cx);

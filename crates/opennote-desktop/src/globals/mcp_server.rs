@@ -31,7 +31,7 @@ pub struct DesktopMCPServer {
 impl Global for DesktopMCPServer {}
 
 impl DesktopMCPServer {
-    pub fn init(cx: &mut App) {
+    pub fn init(cx: &mut App) -> Result<()> {
         let bootstrap: &GlobalApplicationBootStrap = cx.global();
         let configurations = run_async_code(async {
             bootstrap
@@ -45,7 +45,7 @@ impl DesktopMCPServer {
         });
 
         if !configurations.enabled {
-            return;
+            return Ok(());
         }
 
         let states: &States = cx.global();
@@ -56,14 +56,15 @@ impl DesktopMCPServer {
             &configurations.get_mcp_server_address(),
             configurations.workers,
             std::sync::Arc::new(mcp_server),
-        )
-        .unwrap();
+        )?;
 
         cx.background_spawn(async {
             let runtime = tokio::runtime::Runtime::new().unwrap();
             runtime.block_on(async { server.await.unwrap() })
         })
         .detach();
+
+        Ok(())
     }
 
     pub fn new(server_registry: ServerRegistry, bootstrap: DesktopBootstrap) -> Self {
