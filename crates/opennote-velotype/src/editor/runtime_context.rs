@@ -3,6 +3,14 @@
 use super::*;
 
 impl Editor {
+    /// A public method for requesting the Velotype editor to transfer the focus.
+    pub fn request_focus(&mut self, cx: &mut Context<Self>) {
+        if let Some(entity_id) = self.current_edit_target_entity_id_from_state(cx) {
+            self.focus_block(entity_id);
+            cx.notify();
+        }
+    }
+
     pub(super) fn current_edit_target_entity_id_from_state(&self, cx: &App) -> Option<EntityId> {
         self.active_entity_id
             .filter(|entity_id| self.focusable_entity_by_id(*entity_id).is_some())

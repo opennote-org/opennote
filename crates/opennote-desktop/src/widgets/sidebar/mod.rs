@@ -47,6 +47,8 @@ pub enum OpenNoteSidebarEvent {
 pub struct OpenNoteSidebar {
     focus_handle: FocusHandle,
     is_toggled: bool,
+
+    // Store tree structure's states
     tree_states: HashMap<SharedString, Entity<TreeState>>,
 
     // Store blocks' UI states, like expansion

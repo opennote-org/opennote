@@ -30,6 +30,11 @@ pub struct Workspace {
     pub search_bar: Entity<SearchBar>,
     pub settings_panel: Entity<SettingsPanel>,
 
+    /// Store the previous focus.
+    /// Useful when closing an UI component,
+    /// and restoring the focus to a preivous one.
+    pub previous_focuses: Vec<FocusHandle>,
+
     _subscriptions: Vec<Subscription>,
 }
 
@@ -88,7 +93,8 @@ impl Workspace {
         }));
 
         Ok(Self {
-            focus_handle,
+            focus_handle: focus_handle.clone(),
+            previous_focuses: Vec::new(),
             sidebar: sidebar.clone(),
             pane,
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
@@ -96,6 +102,24 @@ impl Workspace {
             settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
             _subscriptions,
         })
+    }
+
+    /// Return the focus to a previous UI component.
+    pub fn return_focus(&mut self, window: &mut Window) {
+        // Return to the previously stored focus.
+        // Focus on Workspace if nothing remained.
+        match self.previous_focuses.pop() {
+            Some(handle) => window.focus(&handle),
+            None => window.focus(&self.focus_handle),
+        }
+    }
+
+    /// Add new focus to the focus list.
+    pub fn advance_focus(&mut self, window: &mut Window, cx: &App) {
+        match window.focused(cx) {
+            Some(result) => self.previous_focuses.push(result),
+            None => {}
+        }
     }
 }
 
