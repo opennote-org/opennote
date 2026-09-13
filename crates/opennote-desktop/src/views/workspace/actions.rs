@@ -44,15 +44,17 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.sidebar.update(cx, |this, cx| {
+        self.sidebar.clone().update(cx, |this, cx| {
             this.toggle(cx);
 
             // Manually shift the focus, otherwise it won't just focus automatically
             if !this.is_toggled() {
-                window.focus(&self.focus_handle(cx));
+                self.return_focus(window);
             }
 
             if this.is_toggled() {
+                self.advance_focus(window, cx);
+
                 let states = get_states(cx);
                 let active_server =
                     states.get_active_server_name(window.window_handle().window_id());
@@ -72,15 +74,17 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.search_bar.update(cx, |this, cx| {
+        self.search_bar.clone().update(cx, |this, cx| {
             this.is_toggled = !this.is_toggled;
 
             // Manually shift the focus, otherwise it won't just focus automatically
             if !this.is_toggled {
-                window.focus(&self.focus_handle(cx));
+                self.return_focus(window);
             }
 
             if this.is_toggled {
+                self.advance_focus(window, cx);
+
                 let mut selected_text = None;
 
                 let _ = this.editor.update(cx, |this, cx| {
@@ -113,15 +117,16 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.command_bar.update(cx, |this, cx| {
+        self.command_bar.clone().update(cx, |this, cx| {
             this.is_toggled = !this.is_toggled;
 
             // Manually shift the focus, otherwise it won't just focus automatically
             if !this.is_toggled {
-                window.focus(&self.focus_handle(cx));
+                self.return_focus(window);
             }
 
             if this.is_toggled {
+                self.advance_focus(window, cx);
                 window.focus(&this.get_input_field_focus_handle(cx));
             }
         });

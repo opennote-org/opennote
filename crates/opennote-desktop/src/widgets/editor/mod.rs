@@ -31,6 +31,7 @@ pub struct Editor {
     focus_handle: FocusHandle,
     pub state: Entity<opennote_velotype::editor::Editor>,
 
+    focus_requested: bool,
     pub highlighted_text: Option<SharedString>,
     pub block: Option<Block>,
     loaded_block_id: Option<Uuid>,
@@ -63,6 +64,7 @@ impl Editor {
             loaded_block_id: None,
             pane,
             _subscriptions,
+            focus_requested: false,
         }
     }
 
@@ -172,6 +174,12 @@ impl Editor {
         });
         self.apply_highlighted_text(cx);
     }
+
+    /// Request the editor to focus itself
+    pub fn request_editor_to_focus(&mut self, cx: &mut Context<Self>) {
+        self.focus_requested = true;
+        cx.notify();
+    }
 }
 
 impl Focusable for Editor {
@@ -189,6 +197,14 @@ impl Render for Editor {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         self.update_editor_content_with_new_block(cx);
+
+        // On re-rendering, this will read the `self.focus_requested` var for whether the focus will be transfered.
+        // The `request_editor_to_focus` is made by a call site, so the call site decide whether to focus.
+        if std::mem::take(&mut self.focus_requested) {
+            self.state.update(cx, |this, cx| {
+                this.request_focus(cx);
+            });
+        }
 
         div()
             .key_context(EDITOR)
