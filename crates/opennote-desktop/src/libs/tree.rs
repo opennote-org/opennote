@@ -353,7 +353,7 @@ impl TreeState {
         cx.notify();
     }
 
-    pub fn on_action_open(&mut self, _action: &Open, _window: &mut Window, cx: &mut Context<Self>) {
+    pub fn on_action_open(&mut self, _action: &Open, window: &mut Window, cx: &mut Context<Self>) {
         let Some(index) = self.selected_index else {
             return;
         };
@@ -365,7 +365,7 @@ impl TreeState {
             }
         };
 
-        open_block(cx, block_id, None);
+        open_block(cx, window, block_id, None);
         cx.notify();
     }
 

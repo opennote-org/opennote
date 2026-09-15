@@ -1,6 +1,10 @@
 pub mod helpers;
 pub mod tab;
 
+mod editor;
+mod observations;
+mod subscriptions;
+
 use gpui::{
     Action, Context, Div, Entity, FocusHandle, Focusable, Render, SharedString, Subscription,
     Window, div, prelude::*, px,
@@ -13,34 +17,37 @@ use gpui_component::{
 use uuid::Uuid;
 
 use crate::{
-    globals::{helpers::get_language_profile, states::helpers::get_states},
+    globals::{helpers::get_language_profile, tasks::tracker::TaskTracker},
     key_mappings::{
         helpers::get_keystrokes_as_shared_string,
         mappings::{CreateOneBlock, OpenNewWindow, ToggleCommandBar, ToggleSearchBar},
     },
     libs::tabs::tab_bar::TabBar,
     widgets::{
-        editor::Editor,
-        pane::tab::{TabStates, create_tab_bar_for_blocks},
+        pane::{
+            observations::{observe_chunk_block, observe_theme_change},
+            tab::{TabStates, create_tab_bar_for_blocks},
+        },
         sidebar::{OpenNoteSidebar, OpenNoteSidebarEvent},
     },
 };
 
-/// A container for 0 to many items that are open in the workspace.
-/// Treats all items uniformly via the [`ItemHandle`] trait, whether it's an editor, search results multibuffer, terminal or something else,
-/// responsible for managing item tabs, focus and zoom states and drag and drop features.
-/// Can be split, see `PaneGroup` for more details.
 pub struct Pane {
     pub id: Uuid,
 
+    /// The block that is registered as a selected block.
+    /// Operations will most likely be performed on this one.
     pub selected_block_id: Option<Uuid>,
+
     pub opened_block_ids: Vec<Uuid>,
     pub opened_tab_states: TabStates,
     /// The string that will highlighted in the editor
     pub search_string: Option<SharedString>,
 
     focus_handle: FocusHandle,
-    pub(crate) editor: Entity<Editor>,
+
+    /// The active editor.
+    pub(crate) editor: Option<Entity<opennote_velotype::editor::Editor>>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -73,14 +80,17 @@ impl Pane {
             },
         ));
 
-        let pane_ref = cx.weak_entity();
+        // Get updates from the normal task scheduler
+        _subscriptions.push(cx.observe_global_in::<TaskTracker>(window, observe_chunk_block));
+
+        _subscriptions.push(cx.observe_window_appearance(window, observe_theme_change));
 
         Self {
             id: Uuid::new_v4(),
             focus_handle: cx.focus_handle(),
             selected_block_id: None,
             search_string: None,
-            editor: cx.new(|cx| Editor::new(cx, window, pane_ref)),
+            editor: None,
             opened_block_ids: Vec::new(),
             opened_tab_states: TabStates::new(),
             _subscriptions,
@@ -124,7 +134,7 @@ impl Pane {
 
                 // Move the focus only when the active block has been closed
                 if selected_block_id == block_id {
-                    self.selected_block_id = Some(block_to_be_selected.clone())
+                    self.open_or_activate_tab(*block_to_be_selected, cx, window);
                 }
             }
 
@@ -140,6 +150,7 @@ impl Pane {
             self.opened_block_ids.clear();
             self.opened_tab_states.remove_all_tab_state(window);
             self.selected_block_id = None;
+            self.editor = None;
 
             cx.notify();
         }
@@ -156,18 +167,36 @@ impl Pane {
         self.search_string.take()
     }
 
-    pub fn set_selected_block_by_block_id(&mut self, block_id: Uuid, cx: &mut Context<Self>) {
-        for opened_block_id in self.opened_block_ids.iter() {
-            if *opened_block_id == block_id {
-                self.selected_block_id = Some(*opened_block_id);
-                cx.notify();
-                return;
+    /// Open a new tab in this Pane.
+    /// Activate an existing one if that tab exists already.
+    pub fn open_or_activate_tab(
+        &mut self,
+        block_id: Uuid,
+        cx: &mut Context<Self>,
+        window: &mut gpui::Window,
+    ) {
+        // Create a new editor if no editor is openning,
+        // otherwise, swap in the preserved editor.
+        let editor_to_open = match self.opened_tab_states.get_tab_state_editor(&block_id) {
+            Some(result) => result,
+            None => {
+                self.opened_block_ids.push(block_id);
+                self.opened_tab_states
+                    .create_tab_state(&block_id, cx, window);
+                self.opened_tab_states
+                    .get_tab_state_editor(&block_id)
+                    .unwrap()
             }
-        }
+        };
 
-        self.opened_block_ids.push(block_id);
-        self.opened_tab_states.create_tab_state(&block_id);
+        // Move the focus to the editor.
+        editor_to_open.update(cx, |this, cx| {
+            this.request_focus(cx);
+        });
+
+        self.editor = Some(editor_to_open);
         self.selected_block_id = Some(block_id);
+
         cx.notify();
     }
 
@@ -176,7 +205,7 @@ impl Pane {
     }
 
     /// Switch to the next tab (wrapping around).
-    pub fn activate_next_tab(&mut self, cx: &mut Context<Self>) {
+    pub fn activate_next_tab(&mut self, cx: &mut Context<Self>, window: &mut gpui::Window) {
         let current_index = match self.acquire_block_index() {
             Some(value) => value,
             None => return,
@@ -188,12 +217,14 @@ impl Pane {
             0
         };
 
-        self.selected_block_id = Some(self.opened_block_ids[next_index]);
-        cx.notify();
+        let block_id = self.opened_block_ids[next_index];
+
+        self.selected_block_id = Some(block_id);
+        self.open_or_activate_tab(block_id, cx, window);
     }
 
     /// Switch to the previous tab (wrapping around).
-    pub fn activate_previous_tab(&mut self, cx: &mut Context<Self>) {
+    pub fn activate_previous_tab(&mut self, cx: &mut Context<Self>, window: &mut gpui::Window) {
         let current_index = match self.acquire_block_index() {
             Some(value) => value,
             None => return,
@@ -205,8 +236,10 @@ impl Pane {
             self.opened_block_ids.len().saturating_sub(1)
         };
 
-        self.selected_block_id = Some(self.opened_block_ids[prev_index]);
-        cx.notify();
+        let block_id = self.opened_block_ids[prev_index];
+
+        self.selected_block_id = Some(block_id);
+        self.open_or_activate_tab(block_id, cx, window);
     }
 
     fn acquire_block_index(&mut self) -> Option<usize> {
@@ -266,24 +299,17 @@ impl Pane {
             )
     }
 
-    fn update_editor_with_selected_block(&mut self, cx: &mut Context<'_, Pane>) {
-        if let Some(selected_block_id) = self.selected_block_id {
-            let states = get_states(cx);
-
-            let block = states.get_block(&selected_block_id);
-
-            if let Some(block) = block {
-                let block = block.to_owned();
-                let search_string = self.pop_search_string();
-
-                self.editor.update(cx, |this, cx| {
-                    // The backend is always the source of truth.
-                    // We fetch the block from the backend with the current uuid.
-                    this.register_block(cx, block);
-                    this.register_highlighted_text(search_string);
-                    cx.notify();
-                });
-            }
+    fn apply_highlighted_text(
+        &mut self,
+        cx: &mut Context<Self>,
+        highlighted_text: Option<SharedString>,
+    ) {
+        if let Some(editor) = &self.editor {
+            editor.update(cx, |this, cx| {
+                if let Some(highlighted_text) = highlighted_text {
+                    this.highlight_search_result(cx, highlighted_text.into());
+                }
+            });
         }
     }
 }
@@ -318,16 +344,12 @@ impl Render for Pane {
             &self.opened_tab_states,
         );
 
-        // Open editor only when there is an active block
-        if self.selected_block_id.is_none() {
-            return base_div.child(tabs);
-        };
-
-        self.update_editor_with_selected_block(cx);
+        let highlighted_text = self.pop_search_string();
+        self.apply_highlighted_text(cx, highlighted_text);
 
         base_div
             .h_full()
             .child(tabs)
-            .child(div().h_full().child(self.editor.clone()))
+            .child(div().h_full().child(self.render_editor(cx)))
     }
 }

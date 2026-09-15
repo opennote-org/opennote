@@ -87,10 +87,12 @@ impl Workspace {
 
                 let mut selected_text = None;
 
-                let _ = this.editor.update(cx, |this, cx| {
-                    let _ = this.state.update(cx, |this, cx| {
-                        selected_text = this.selected_markdown_text(cx);
-                    });
+                let _ = this.pane.update(cx, |this, cx| {
+                    if let Some(editor) = &this.editor {
+                        let _ = editor.update(cx, |this, cx| {
+                            selected_text = this.selected_markdown_text(cx);
+                        });
+                    }
                 });
 
                 if let Some(query) = selected_text {
@@ -173,14 +175,14 @@ impl Workspace {
     }
 
     /// Switch to the next tab in the active pane.
-    pub fn next_tab(&mut self, _action: &NextTab, _window: &mut Window, cx: &mut Context<Self>) {
+    pub fn next_tab(&mut self, _action: &NextTab, window: &mut Window, cx: &mut Context<Self>) {
         let states = get_states(cx);
         let Some(active_pane) = states.get_active_pane(cx) else {
             return;
         };
 
         let _ = active_pane.update(cx, |this, cx| {
-            this.activate_next_tab(cx);
+            this.activate_next_tab(cx, window);
         });
     }
 
@@ -188,7 +190,7 @@ impl Workspace {
     pub fn previous_tab(
         &mut self,
         _action: &PreviousTab,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let states = get_states(cx);
@@ -197,7 +199,7 @@ impl Workspace {
         };
 
         let _ = active_pane.update(cx, |this, cx| {
-            this.activate_previous_tab(cx);
+            this.activate_previous_tab(cx, window);
         });
     }
 

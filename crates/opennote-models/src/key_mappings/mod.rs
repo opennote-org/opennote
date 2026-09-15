@@ -210,7 +210,7 @@ impl KeyMappings {
                 context: "workspace".to_string(),
             },
             KeyMapping {
-                sequence: vec!["ctrl".to_string(), "-".to_string(), "w".to_string()],
+                sequence: vec![get_platform_meta_key(), "-".to_string(), "w".to_string()],
                 action: format!("CloseActiveTab"),
                 context: "workspace".to_string(),
             },
