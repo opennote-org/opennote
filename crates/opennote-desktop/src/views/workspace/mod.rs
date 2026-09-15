@@ -58,7 +58,7 @@ impl Workspace {
         // An editor is owned by a pane.
         // The editor creation is handled by the pane.
         let pane = cx.new(|cx| Pane::new(cx, window, sidebar.clone()));
-        let editor = pane.read(cx).editor.downgrade();
+        let pane_weak_ref = pane.downgrade();
 
         // Set the active pane and server for the workspace we have just created.
         cx.update_global::<States, ()>(|this, _cx| {
@@ -98,7 +98,7 @@ impl Workspace {
             sidebar: sidebar.clone(),
             pane,
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
-            search_bar: cx.new(|cx| SearchBar::new(cx, window, editor)),
+            search_bar: cx.new(|cx| SearchBar::new(cx, window, pane_weak_ref)),
             settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
             _subscriptions,
         })

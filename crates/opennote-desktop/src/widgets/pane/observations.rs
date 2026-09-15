@@ -13,13 +13,13 @@ use crate::{
             unique_notifications::ChunkBlockNotification,
         },
     },
-    widgets::editor::Editor,
+    widgets::pane::Pane,
 };
 
 pub fn observe_theme_change(
-    this: &mut Editor,
+    this: &mut Pane,
     window: &mut gpui::Window,
-    cx: &mut Context<'_, Editor>,
+    cx: &mut Context<'_, Pane>,
 ) {
     let theme_mode = ThemeMode::from(window.appearance());
 
@@ -28,21 +28,17 @@ pub fn observe_theme_change(
         ThemeMode::Light => false,
     };
 
-    this.state.update(cx, |_this, cx| {
-        opennote_velotype::editor::Editor::switch_theme(cx, switch_to_dark_mode);
-    });
+    if let Some(editor) = &this.editor {
+        editor.update(cx, |_this, cx| {
+            opennote_velotype::editor::Editor::switch_theme(cx, switch_to_dark_mode);
+        });
+    }
 }
 
-pub fn observe_chunk_block(
-    this: &mut Editor,
-    window: &mut gpui::Window,
-    cx: &mut Context<'_, Editor>,
-) {
+pub fn observe_chunk_block(this: &mut Pane, window: &mut gpui::Window, cx: &mut Context<'_, Pane>) {
     let Some(active_window) = cx.active_window() else {
         return;
     };
-
-    let pane_clone = this.pane.clone();
 
     let active_window_id = active_window.window_id();
 
@@ -52,11 +48,13 @@ pub fn observe_chunk_block(
         return;
     }
 
-    let Some(block) = &this.block else {
+    let Some(block_id) = &this.selected_block_id else {
         return;
     };
 
-    let task_type = TaskType::ChunkBlock { block_id: block.id };
+    let task_type = TaskType::ChunkBlock {
+        block_id: *block_id,
+    };
     let scheduler: &TaskTracker = cx.global();
     if !scheduler.has_pending_task_results(active_window_id, Some(task_type)) {
         return;
@@ -76,14 +74,12 @@ pub fn observe_chunk_block(
         };
 
         let states = get_states(cx);
-        let servers = states.get_servers_by_block_ids(&vec![block.id]).remove(0);
+        let servers = states.get_servers_by_block_ids(&vec![*block_id]).remove(0);
 
         update_n_blocks(window, cx, vec![block], servers.0, servers.1, true);
     }
 
     // Alter the tab's save state to true
-    let _ = pane_clone.update(cx, |this, _cx| {
-        this.opened_tab_states
-            .update_tab_save_state(window, &block.id, true);
-    });
+    this.opened_tab_states
+        .update_tab_save_state(window, &block_id, true);
 }

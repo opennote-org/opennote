@@ -115,8 +115,8 @@ impl ListDelegate for SearchResultsList {
                     .selected(Some(ix) == self.selected_index)
                     .h_64()
                     .child(content)
-                    .on_click(cx.listener(move |_this, _event, _window, cx| {
-                        open_block(cx, block_id, Some(texts.clone()));
+                    .on_click(cx.listener(move |_this, _event, window, cx| {
+                        open_block(cx, window, block_id, Some(texts.clone()));
                         let _ = search_bar.update(cx, |this, cx| {
                             this.is_toggled = false;
                             cx.notify();

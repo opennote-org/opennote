@@ -1,16 +1,19 @@
 use std::collections::HashMap;
 
-use gpui::{Context, Window, prelude::*};
+use gpui::{Context, Entity, Subscription, Window, prelude::*};
 use gpui::{ElementId, SharedString, WeakEntity};
 use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
 use gpui_component::{IconName, Selectable, Sizable};
 use uuid::Uuid;
 
-use crate::globals::states::helpers::get_states;
-use crate::libs::tabs::drag::DraggedItem;
-use crate::libs::tabs::tab::Tab;
-use crate::libs::tabs::tab_bar::TabBar;
-use crate::widgets::pane::Pane;
+use crate::globals::actions::block::get_block_content;
+use crate::widgets::pane::subscriptions::subscribe_editor_events;
+use crate::{
+    globals::states::helpers::get_states,
+    libs::tabs::{drag::DraggedItem, tab::Tab, tab_bar::TabBar},
+    widgets::pane::Pane,
+};
+use opennote_velotype::editor::Editor;
 
 pub struct TabState {
     /// It is saved when a document has just opened.
@@ -21,16 +24,11 @@ pub struct TabState {
     /// this becomes true
     pub has_saved: bool,
 
-    pub unsaved_content: Option<SharedString>,
-}
+    /// Store the editor in the TabState.
+    pub editor: Entity<Editor>,
 
-impl Default for TabState {
-    fn default() -> Self {
-        Self {
-            has_saved: true,
-            unsaved_content: None,
-        }
-    }
+    /// A subscription to the state change events emitted by the editor.
+    _editor_events_subscription: Subscription,
 }
 
 /// Key: block_id
@@ -54,13 +52,41 @@ impl TabStates {
         }
     }
 
-    pub fn create_tab_state(&mut self, block_id: &Uuid) {
+    pub fn create_tab_state(
+        &mut self,
+        block_id: &Uuid,
+        cx: &mut Context<'_, Pane>,
+        window: &mut Window,
+    ) {
+        let texts = get_block_content(block_id, cx).unwrap();
+
+        let editor =
+            cx.new(|cx| opennote_velotype::editor::Editor::from_markdown(cx, texts.into(), None));
+
+        let owned_block_id = *block_id;
+
         self.0.insert(
             *block_id,
             TabState {
-                ..Default::default()
+                has_saved: true,
+                editor: editor.clone(),
+                _editor_events_subscription: cx.subscribe_in(
+                    &editor,
+                    window,
+                    move |view, state, event, window, cx| {
+                        subscribe_editor_events(owned_block_id, view, state, event, window, cx);
+                    },
+                ),
             },
         );
+    }
+
+    pub fn get_tab_state_editor(&self, block_id: &Uuid) -> Option<Entity<Editor>> {
+        if let Some(tab_state) = self.0.get(block_id) {
+            return Some(tab_state.editor.clone());
+        }
+
+        None
     }
 
     pub fn update_tab_save_state(&mut self, window: &mut Window, block_id: &Uuid, has_saved: bool) {
@@ -87,20 +113,6 @@ impl TabStates {
         if !has_unsaved_contents {
             window.set_window_edited(false);
         }
-    }
-
-    pub fn store_unsaved_content(&mut self, block_id: &Uuid, unsaved: SharedString) {
-        if let Some(tab_state) = self.0.get_mut(&block_id) {
-            tab_state.unsaved_content = Some(unsaved);
-        }
-    }
-
-    pub fn take_tab_content(&mut self, block_id: &Uuid) -> Option<SharedString> {
-        if let Some(tab_state) = self.0.get_mut(block_id) {
-            return tab_state.unsaved_content.take();
-        }
-
-        None
     }
 
     pub fn remove_tab_state(&mut self, block_id: &Uuid, window: &mut Window) {
@@ -170,9 +182,9 @@ pub fn create_tab_bar_for_blocks(
                     })),
             )
             .on_click(
-                cx.listener(move |view, event: &gpui::ClickEvent, _window, _cx| {
+                cx.listener(move |view, event: &gpui::ClickEvent, window, cx| {
                     if !event.is_right_click() {
-                        view.selected_block_id = Some(id)
+                        view.open_or_activate_tab(id, cx, window);
                     }
                 }),
             )

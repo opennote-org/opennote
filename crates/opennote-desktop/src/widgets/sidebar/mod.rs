@@ -241,6 +241,7 @@ impl OpenNoteSidebar {
         &self,
         block_id: Uuid,
         cx: &mut Context<Self>,
+        window: &mut Window,
         tree_state: Entity<TreeState>,
     ) {
         // Select the block
@@ -248,7 +249,7 @@ impl OpenNoteSidebar {
             this.selected_blocks.clear();
             this.selected_block = None;
 
-            open_block(cx, block_id, None);
+            open_block(cx, window, block_id, None);
             cx.notify();
         });
 

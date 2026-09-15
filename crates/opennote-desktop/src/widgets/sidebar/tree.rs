@@ -249,11 +249,11 @@ fn handle_sidebar_item_double_click(
     tree_state: Entity<TreeState>,
     sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
 ) -> impl Fn(&ClickEvent, &mut gpui::Window, &mut App) {
-    move |_event, _window, app| {
+    move |_event, window, app| {
         sidebar_entity_on_mouse_click.update(app, |this, cx| {
             // Reset the mouse position
             this.mouse_position = None;
-            this.handle_block_open(uuid, cx, tree_state.clone());
+            this.handle_block_open(uuid, cx, window, tree_state.clone());
         });
     }
 }

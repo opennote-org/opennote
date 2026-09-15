@@ -17,8 +17,8 @@ use crate::{
         states::helpers::get_states,
     },
     widgets::{
-        editor::Editor,
         floating::create_float_palette,
+        pane::Pane,
         search_bar::{
             observations::observe_search_result_list,
             search_results::SearchResultsList,
@@ -37,15 +37,11 @@ pub struct SearchBar {
     pub focus_handle: FocusHandle,
     pub _subscriptions: Vec<Subscription>,
 
-    pub editor: WeakEntity<Editor>,
+    pub pane: WeakEntity<Pane>,
 }
 
 impl SearchBar {
-    pub fn new(
-        cx: &mut Context<Self>,
-        window: &mut gpui::Window,
-        editor: WeakEntity<Editor>,
-    ) -> Self {
+    pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window, pane: WeakEntity<Pane>) -> Self {
         let mut _subscriptions = Vec::new();
         let search_bar_weak_entity = cx.weak_entity();
 
@@ -119,7 +115,7 @@ impl SearchBar {
             search_method_state,
             search_scope_state,
             _subscriptions,
-            editor,
+            pane,
         }
     }
 
