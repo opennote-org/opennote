@@ -49,12 +49,10 @@ impl Workspace {
 
             // Manually shift the focus, otherwise it won't just focus automatically
             if !this.is_toggled() {
-                self.return_focus(window);
+                self.return_focus(cx, window);
             }
 
             if this.is_toggled() {
-                self.advance_focus(window, cx);
-
                 let states = get_states(cx);
                 let active_server =
                     states.get_active_server_name(window.window_handle().window_id());
@@ -79,12 +77,10 @@ impl Workspace {
 
             // Manually shift the focus, otherwise it won't just focus automatically
             if !this.is_toggled {
-                self.return_focus(window);
+                self.return_focus(cx, window);
             }
 
             if this.is_toggled {
-                self.advance_focus(window, cx);
-
                 let mut selected_text = None;
 
                 let _ = this.pane.update(cx, |this, cx| {
@@ -124,11 +120,10 @@ impl Workspace {
 
             // Manually shift the focus, otherwise it won't just focus automatically
             if !this.is_toggled {
-                self.return_focus(window);
+                self.return_focus(cx, window);
             }
 
             if this.is_toggled {
-                self.advance_focus(window, cx);
                 window.focus(&this.get_input_field_focus_handle(cx));
             }
         });
