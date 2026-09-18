@@ -13,7 +13,7 @@ use crate::{
     widgets::{
         command_bar::bar::CommandBar,
         dialogue::{PENDING_TASKS_WARNING, open_warning_dialogue},
-        pane::Pane,
+        pane::{Pane, PaneEvent},
         search_bar::bar::SearchBar,
         sidebar::{OpenNoteSidebar, block_states::BlockStates},
     },
@@ -29,11 +29,6 @@ pub struct Workspace {
     pub command_bar: Entity<CommandBar>,
     pub search_bar: Entity<SearchBar>,
     pub settings_panel: Entity<SettingsPanel>,
-
-    /// Store the previous focus.
-    /// Useful when closing an UI component,
-    /// and restoring the focus to a preivous one.
-    pub previous_focuses: Vec<FocusHandle>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -92,9 +87,19 @@ impl Workspace {
             this.update_window_title(window, cx);
         }));
 
+        _subscriptions.push(
+            cx.subscribe_in(&pane, window, |this, pane, event, window, cx| {
+                match event {
+                    PaneEvent::ReleaseFocus => this.return_focus(cx, window),
+                    PaneEvent::RequestFocus => pane.update(cx, |pane, cx| {
+                        window.focus(&pane.focus_handle(cx));
+                    }),
+                };
+            }),
+        );
+
         Ok(Self {
             focus_handle: focus_handle.clone(),
-            previous_focuses: Vec::new(),
             sidebar: sidebar.clone(),
             pane,
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
@@ -104,22 +109,18 @@ impl Workspace {
         })
     }
 
-    /// Return the focus to a previous UI component.
-    pub fn return_focus(&mut self, window: &mut Window) {
-        // Return to the previously stored focus.
-        // Focus on Workspace if nothing remained.
-        match self.previous_focuses.pop() {
-            Some(handle) => window.focus(&handle),
-            None => window.focus(&self.focus_handle),
+    /// Return the focus back to the workspace
+    pub fn return_focus(&mut self, cx: &mut App, window: &mut Window) {
+        // Default to the active editor if there are editors openning.
+        if let Some(editor) = self.pane.read(cx).get_active_editor() {
+            editor.update(cx, |this, cx| {
+                this.request_focus(cx);
+            });
+            return;
         }
-    }
 
-    /// Add new focus to the focus list.
-    pub fn advance_focus(&mut self, window: &mut Window, cx: &App) {
-        match window.focused(cx) {
-            Some(result) => self.previous_focuses.push(result),
-            None => {}
-        }
+        // Focus on Workspace if nothing remained
+        window.focus(&self.focus_handle);
     }
 }
 

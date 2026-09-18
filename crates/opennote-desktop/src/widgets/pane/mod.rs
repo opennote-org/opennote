@@ -6,8 +6,8 @@ mod observations;
 mod subscriptions;
 
 use gpui::{
-    Action, Context, Div, Entity, FocusHandle, Focusable, Render, SharedString, Subscription,
-    Window, div, prelude::*, px,
+    Action, Context, Div, Entity, EventEmitter, FocusHandle, Focusable, Render, SharedString,
+    Subscription, Window, div, prelude::*, px,
 };
 use gpui_component::{
     ActiveTheme, Sizable,
@@ -15,6 +15,8 @@ use gpui_component::{
     v_flex,
 };
 use uuid::Uuid;
+
+use opennote_velotype::editor::Editor;
 
 use crate::{
     globals::{helpers::get_language_profile, tasks::tracker::TaskTracker},
@@ -64,7 +66,7 @@ impl Pane {
             &sidebar,
             window,
             move |this, _entity, event, window, cx| {
-                if !this.has_opened_blocks() {
+                if this.get_active_editor().is_none() {
                     return;
                 }
 
@@ -152,6 +154,9 @@ impl Pane {
             self.selected_block_id = None;
             self.editor = None;
 
+            // Request releasing focus from Pane
+            cx.emit(PaneEvent::ReleaseFocus);
+
             cx.notify();
         }
 
@@ -197,11 +202,14 @@ impl Pane {
         self.editor = Some(editor_to_open);
         self.selected_block_id = Some(block_id);
 
+        // Request focus from Pane
+        cx.emit(PaneEvent::RequestFocus);
+
         cx.notify();
     }
 
-    pub fn has_opened_blocks(&self) -> bool {
-        !self.opened_block_ids.is_empty()
+    pub fn get_active_editor(&self) -> Option<Entity<Editor>> {
+        self.editor.clone()
     }
 
     /// Switch to the next tab (wrapping around).
@@ -319,6 +327,15 @@ impl Focusable for Pane {
         self.focus_handle.clone()
     }
 }
+
+#[derive(Debug)]
+pub enum PaneEvent {
+    // This happens when the focus needs to drop from this component
+    ReleaseFocus,
+    RequestFocus,
+}
+
+impl EventEmitter<PaneEvent> for Pane {}
 
 impl Render for Pane {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
