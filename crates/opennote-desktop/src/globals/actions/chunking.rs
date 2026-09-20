@@ -40,7 +40,7 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
                         match convert_string_to_payloads(block.id, Some(text_chunk_size), text, None) {
                             Ok(results) => results,
                             Err(error) => {
-                                log::error!("Error when trying to save a document: {}", error);
+                                tracing::error!("Error when trying to save a document: {}", error);
                                 return Ok(vec![]);
                             }
                         };

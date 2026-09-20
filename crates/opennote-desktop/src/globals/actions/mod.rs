@@ -93,7 +93,7 @@ pub fn create_one_block(
             {
                 Ok(_result) => {}
                 Err(error) => {
-                    log::error!("{}", error);
+                    tracing::error!("{}", error);
                     register_result(
                         window,
                         cx,
@@ -183,7 +183,7 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
             {
                 Ok(_) => {}
                 Err(error) => {
-                    log::error!("{}", error);
+                    tracing::error!("{}", error);
                     register_result(
                         window,
                         cx,
@@ -322,7 +322,7 @@ pub fn update_n_blocks(
             {
                 Ok(_) => {}
                 Err(error) => {
-                    log::error!("{}", error);
+                    tracing::error!("{}", error);
                     register_long_running_completion::<UpdateNBlocksNotification>(
                         window,
                         cx,
@@ -427,7 +427,7 @@ pub fn update_parent(
                     {
                         Ok(_) => {}
                         Err(error) => {
-                            log::error!("{}", error);
+                            tracing::error!("{}", error);
                             register_result(
                                 window,
                                 app,
@@ -443,7 +443,7 @@ pub fn update_parent(
                     }
                 }
                 Err(error) => {
-                    log::error!("{}", error);
+                    tracing::error!("{}", error);
                     register_result(
                         window,
                         app,

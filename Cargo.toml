@@ -54,10 +54,10 @@ reqwest = { version = "0.12.24", features = ["cookies", "gzip", "rustls-tls"] }
 schemars = "1.2.0"
 chunk = "0.10.1"
 dirs = "6.0.0"
-log = "0.4.29"
 gpui = "0.2.2"
 actix-web = "4.14.0"
 serde-encrypt = "0.7.0"
+tracing-subscriber = "0.3.23"
 
 # External dependencies largely used in gpui-component
 tree-sitter = "0.26.9"

@@ -11,8 +11,7 @@ use opennote_core_logics::configurations::{
     ApplicationType, create_required_folders, get_configuration_folder_path,
 };
 use opennote_models::{
-    configurations::{fields::LoggingLevel, server::ServerConfigurations},
-    traits::LoadFromAndSaveToFile,
+    configurations::server::ServerConfigurations, traits::LoadFromAndSaveToFile,
 };
 
 use crate::{middlewares::check_password, routes::configure_routes};
@@ -24,7 +23,7 @@ pub fn load_configurations() -> Result<ServerConfigurations> {
 
     let configurations = ServerConfigurations::load_from_file(&config_path)?;
 
-    log::info!(
+    tracing::info!(
         "Configuration at `{}` loaded successfully",
         std::path::PathBuf::from(config_path)
             .canonicalize()
@@ -35,25 +34,13 @@ pub fn load_configurations() -> Result<ServerConfigurations> {
     Ok(configurations)
 }
 
-pub fn initialize_logger(config: &ServerConfigurations) {
-    env_logger::Builder::from_default_env()
-        .filter_level(match config.system.logging.level {
-            LoggingLevel::Trace => log::LevelFilter::Trace,
-            LoggingLevel::Debug => log::LevelFilter::Debug,
-            LoggingLevel::Info => log::LevelFilter::Info,
-            LoggingLevel::Warn => log::LevelFilter::Warn,
-            LoggingLevel::Error => log::LevelFilter::Error,
-        })
-        .init();
-}
-
 pub async fn initialize_backend_api_service(
     bootstrap: Data<ServerBootstrap>,
     config: &ServerConfigurations,
 ) -> Result<()> {
     // Start HTTP server
     let bind_address: String = format!("{}:{}", config.host, config.port);
-    log::info!("Starting HTTP server on {}", bind_address);
+    tracing::info!("Starting HTTP server on {}", bind_address);
 
     let server = HttpServer::new(move || {
         App::new()
@@ -68,7 +55,7 @@ pub async fn initialize_backend_api_service(
     });
 
     // Set number of workers if specified
-    log::info!("Using {} worker threads", config.workers);
+    tracing::info!("Using {} worker threads", config.workers);
 
     server
         .workers(config.workers)
