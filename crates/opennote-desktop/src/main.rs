@@ -13,7 +13,7 @@ use gpui_component::*;
 
 use opennote_core_logics::logging::initialize_logger;
 use opennote_models::constants::{
-    APP_DATA_FOLDER_NAME,
+    APP_DATA_FOLDER_NAME, LOG_WINDOW_CAPACITY,
     env_vars::{
         DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, STARTUP_ENVIRONMENT_VARIABLES_FOR_DESKTOP,
         set_environment_variables,
@@ -26,7 +26,11 @@ use crate::{
         mcp_server::DesktopMCPServer, states::States, tasks::tracker::TaskTracker,
         velotype::init_velotype,
     },
-    views::{resource_loading::ResourceLoadingView, workspace::Workspace},
+    views::{
+        log::{LogWindow, writer::WindowLogWriter},
+        resource_loading::ResourceLoadingView,
+        workspace::Workspace,
+    },
     window::{create_main_window_option, format_window_title},
 };
 
@@ -79,9 +83,20 @@ async fn main() -> Result<()> {
                 }
             };
 
-            initialize_logger(bootstrap.get_configurations().system.logging.level.clone());
+            // Initialize a logger in the background to stream logs into the log window
+            let (sender, receiver) = std::sync::mpsc::sync_channel(LOG_WINDOW_CAPACITY);
+
+            initialize_logger(
+                &bootstrap.get_configurations().system.logging.level,
+                Some(
+                    tracing_subscriber::fmt::layer()
+                        .with_ansi(true)
+                        .with_writer(WindowLogWriter::new(sender)),
+                ),
+            );
 
             let _ = loading_window.update(cx, move |loading_view, loading_window, cx| {
+                LogWindow::install(receiver, cx);
                 bootstrap.install(cx);
                 cx.set_global(assets);
                 States::init(cx);

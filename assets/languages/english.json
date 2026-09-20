@@ -1,4 +1,6 @@
 {
+  "log_window_title": "Logs",
+  "log_window_newest_last": "newest last",
   "sidebar_title": "Notes",
   "search_bar_placeholder": "Type to search...",
   "command_bar_placeholder": "Enter your command...",
@@ -10,6 +12,7 @@
   "workspace::CreateOneBlock": "Create a new note",
   "workspace::ToggleSearchBar": "Toggle search bar",
   "workspace::ToggleSettingsPanel": "Toggle settings panel",
+  "workspace::ToggleLogWindow": "Toggle log window",
   "workspace::OpenNewWindow": "Open new window",
   "workspace::ImportFiles": "Import files",
   "workspace::ExportFiles": "Export files",

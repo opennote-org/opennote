@@ -161,6 +161,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::toggle_command_bar))
             .on_action(cx.listener(Self::create_one_block))
             .on_action(cx.listener(Self::toggle_settings_panel))
+            .on_action(cx.listener(Self::toggle_log_window))
             .on_action(cx.listener(Self::next_tab))
             .on_action(cx.listener(Self::previous_tab))
             .on_action(cx.listener(Self::close_active_tab))
