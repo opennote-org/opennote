@@ -109,7 +109,7 @@ impl States {
                 {
                     Ok(results) => (name, Ok(results)),
                     Err(error) => {
-                        log::error!("{}", error);
+                        tracing::error!("{}", error);
                         (name, Err(error))
                     }
                 };
@@ -119,7 +119,7 @@ impl States {
                         this.hard_update_blocks(&server_name, blocks);
                     }) {
                         Ok(_) => {}
-                        Err(error) => log::error!("{}", error),
+                        Err(error) => tracing::error!("{}", error),
                     }
                 }
             })

@@ -10,6 +10,18 @@ If you are familiar with frontend development, you probably will want to dive in
 
 However, if you are good at database, then you probably will want to take a look at `opennote-data`, `opennote-entities`, and `opennote-models`. They are highly relevant to database and open for any database provider to integrate your database.
 
+## Where to see logs?
+
+OpenNote uses `tracing` crate to display logs. Set the environment variable `RUST_LOG` to whatever log level you want.
+
+For example,
+
+```bash
+export RUST_LOG="debug" # This will set the log level to debug
+```
+
+Then running `cargo run` will display logs.
+
 ## Why embedding is so slow?
 
 If you run `opennote-desktop` with `cargo run` but without a `--release` flag, chances are, you will experience a super long embedding process if you are trying to save a large document or typing a huge search query.

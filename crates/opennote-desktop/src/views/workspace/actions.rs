@@ -360,7 +360,7 @@ impl Workspace {
                         blocks.push(result);
                     },
                     Err(error) => {
-                        log::error!("Failed to build imported block: {}", error);
+                        tracing::error!("Failed to build imported block: {}", error);
                         register_long_running_completion::<ImportNBlocksNotification>(
                             window,
                             cx,
@@ -389,7 +389,7 @@ impl Workspace {
             {
                 Ok(_) => {}
                 Err(error) => {
-                    log::error!("Failed to store imported blocks: {}", error);
+                    tracing::error!("Failed to store imported blocks: {}", error);
                     register_long_running_completion::<ImportNBlocksNotification>(
                         window,
                         cx,
@@ -530,7 +530,7 @@ impl Workspace {
             let num_blocks = match result {
                 Ok(num_blocks) => num_blocks,
                 Err(error) => {
-                    log::error!("Failed to export blocks: {}", error);
+                    tracing::error!("Failed to export blocks: {}", error);
                     register_long_running_completion::<ExportNBlocksNotification>(
                         window,
                         cx,

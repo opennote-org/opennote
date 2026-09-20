@@ -56,7 +56,7 @@ impl OpenNoteMCPService {
                 });
             }
             Err(error) => {
-                log::warn!("MCP service reported error: {}", error);
+                tracing::warn!("MCP service reported error: {}", error);
                 return Json(MCPServiceGenericResponse { results: None });
             }
         }
@@ -85,7 +85,7 @@ impl OpenNoteMCPService {
                 });
             }
             Err(error) => {
-                log::warn!("MCP service reported error: {}", error);
+                tracing::warn!("MCP service reported error: {}", error);
                 return Json(MCPServiceGenericResponse { results: None });
             }
         }

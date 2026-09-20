@@ -14,7 +14,7 @@ pub fn observe_on_app_quit_for_block_states_persistence(
     let configuration_folder_path = get_configuration_folder_path(ApplicationType::Desktop);
 
     if let Err(error) = this.block_states.save_to_file(&configuration_folder_path) {
-        log::error!("Failed to save block states: {error:#}");
+        tracing::error!("Failed to save block states: {error:#}");
     }
 
     std::future::ready(())

@@ -23,16 +23,16 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde-encrypt = { workspace = true }
 tokio = { workspace = true }
-log = { workspace = true }
 uuid = { workspace = true }
 schemars = { workspace = true }
 gpui = { workspace = true }
 reqwest = { workspace = true }
 futures.workspace = true
 actix-web.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 rust-embed = "8.11.0"
-fast_log = "1.7.7"
 smallvec = "1.15.1"
-async-trait.workspace = true
 sanitize-filename = "0.6.0"

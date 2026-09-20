@@ -7,7 +7,8 @@ use std::collections::HashMap;
 
 use actix_web::web::Data;
 use anyhow::Result;
-use log::info;
+use opennote_core_logics::logging::initialize_logger;
+use tracing::info;
 
 use opennote_bootstrap::ServerBootstrap;
 use opennote_models::constants::{
@@ -18,9 +19,7 @@ use opennote_models::constants::{
     },
 };
 
-use crate::initialization::{
-    initialize_backend_api_service, initialize_logger, load_configurations,
-};
+use crate::initialization::{initialize_backend_api_service, load_configurations};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -36,7 +35,7 @@ async fn main() -> Result<()> {
     let config = load_configurations()?;
 
     // Initialize logger with config level
-    initialize_logger(&config);
+    initialize_logger(config.system.logging.level.clone());
 
     info!("Starting OpenNote Server...");
     info!("Configuration: Server {}:{}", config.host, config.port);

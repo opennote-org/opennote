@@ -2778,19 +2778,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1137cd7e7fc0fb5d3c5a8678be38ec56e819125d8d7907411fe24ccb943faca8"
-dependencies = [
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-epoch",
- "crossbeam-queue",
- "crossbeam-utils",
-]
-
-[[package]]
 name = "crossbeam-channel"
 version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3010,18 +2997,6 @@ name = "daggrs"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d1092288af9ecfd5378565a17df11a13dbe172d4a71abe9b55a9689f1336b8e"
-
-[[package]]
-name = "dark-std"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f32345b50634ef57042cbad8d67666efca2809c93f761823b274d6d69de62e8d"
-dependencies = [
- "flume",
- "indexmap 2.13.0",
- "parking_lot",
- "serde",
-]
 
 [[package]]
 name = "darling"
@@ -4321,29 +4296,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_filter"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "900d271a03799a1ee8d1ca9b19893b48ca674a9284fefcfb85f05e74ed314217"
-dependencies = [
- "log",
- "regex",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.11.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de671bd27a75a797dc9ae289ba1e77276e75e2026408aab65185384e2d5cd3f6"
-dependencies = [
- "anstream",
- "anstyle",
- "env_filter",
- "jiff",
- "log",
-]
-
-[[package]]
 name = "equator"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4516,33 +4468,6 @@ name = "fast-float2"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8eb564c5c7423d25c886fb561d1e4ee69f72354d16918afa32c08811f6b6a55"
-
-[[package]]
-name = "fast_log"
-version = "1.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff709b239b7f5c83ed82a70da01b3e7cd4ddd52873ac7cc67a9c7bb9b7b6c321"
-dependencies = [
- "crossbeam",
- "crossbeam-channel",
- "crossbeam-utils",
- "dark-std",
- "fastdate",
- "log",
- "parking_lot",
-]
-
-[[package]]
-name = "fastdate"
-version = "0.3.36"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "156d7b8d1dd7a23df63b78fa0f7b1578e4733842855036d35d29471439d6a633"
-dependencies = [
- "libc",
- "serde",
- "time",
- "windows-sys 0.52.0",
-]
 
 [[package]]
 name = "fastdivide"
@@ -9701,11 +9626,11 @@ name = "opennote-bootstrap"
 version = "0.2.5"
 dependencies = [
  "anyhow",
- "log",
  "opennote-data",
  "opennote-embedder",
  "opennote-models",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -9725,6 +9650,8 @@ dependencies = [
  "opennote-models",
  "serde_json",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -9766,12 +9693,10 @@ dependencies = [
  "actix-web",
  "anyhow",
  "async-trait",
- "fast_log",
  "futures",
  "gpui",
  "gpui-component",
  "gpui-component-assets",
- "log",
  "opennote-bootstrap",
  "opennote-core-logics",
  "opennote-data",
@@ -9789,6 +9714,8 @@ dependencies = [
  "serde_json",
  "smallvec 1.15.1",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -9820,7 +9747,6 @@ dependencies = [
  "actix-web",
  "anyhow",
  "async-trait",
- "log",
  "opennote-bootstrap",
  "opennote-models",
  "rmcp 3.1.2",
@@ -9829,6 +9755,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -9857,8 +9784,6 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "anyhow",
- "env_logger",
- "log",
  "opennote-bootstrap",
  "opennote-core-logics",
  "opennote-data",
@@ -9867,6 +9792,8 @@ dependencies = [
  "serde",
  "serde-encrypt",
  "serde_json",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -9883,7 +9810,6 @@ dependencies = [
  "embed-resource",
  "futures",
  "gpui",
- "log",
  "mermaid-rs-renderer",
  "opennote-core-logics",
  "pulldown-cmark",
@@ -9898,6 +9824,7 @@ dependencies = [
  "sys-locale",
  "tokio",
  "toml 1.1.0+spec-1.1.0",
+ "tracing",
  "tree-sitter",
  "tree-sitter-bash 0.25.1",
  "tree-sitter-c",

@@ -1,7 +1,6 @@
 pub mod globals;
 pub mod key_mappings;
 pub mod libs;
-pub mod logs;
 pub mod views;
 pub mod widgets;
 pub mod window;
@@ -12,6 +11,7 @@ use anyhow::{Context, Result};
 use gpui::*;
 use gpui_component::*;
 
+use opennote_core_logics::logging::initialize_logger;
 use opennote_models::constants::{
     APP_DATA_FOLDER_NAME,
     env_vars::{
@@ -26,7 +26,6 @@ use crate::{
         mcp_server::DesktopMCPServer, states::States, tasks::tracker::TaskTracker,
         velotype::init_velotype,
     },
-    logs::UICustomLog,
     views::{resource_loading::ResourceLoadingView, workspace::Workspace},
     window::{create_main_window_option, format_window_title},
 };
@@ -44,14 +43,6 @@ async fn load_startup_resources() -> Result<(GlobalApplicationBootStrap, AssetsC
 #[tokio::main]
 async fn main() -> Result<()> {
     let app = Application::new().with_assets(gpui_component_assets::Assets);
-    fast_log::init(
-        fast_log::Config::new()
-            .console()
-            .chan_len(Some(100000))
-            .level(log::LevelFilter::Debug)
-            .custom(UICustomLog {}),
-    )
-    .unwrap();
 
     set_environment_variables(
         &STARTUP_ENVIRONMENT_VARIABLES_FOR_DESKTOP,
@@ -80,7 +71,6 @@ async fn main() -> Result<()> {
             let (bootstrap, assets) = match resources {
                 Ok(resources) => resources,
                 Err(error) => {
-                    log::error!("Failed to initialize OpenNote: {error:#}");
                     let message = format!("{error:#}");
                     let _ = loading_window.update(cx, |view, _window, cx| {
                         view.set_error(message, cx);
@@ -88,6 +78,8 @@ async fn main() -> Result<()> {
                     return;
                 }
             };
+
+            initialize_logger(bootstrap.get_configurations().system.logging.level.clone());
 
             let _ = loading_window.update(cx, move |loading_view, loading_window, cx| {
                 bootstrap.install(cx);
@@ -121,7 +113,7 @@ async fn main() -> Result<()> {
                 match workspace_window {
                     Ok(_) => loading_window.remove_window(),
                     Err(error) => {
-                        log::error!("Failed to open the Workspace window: {error:#}");
+                        tracing::error!("Failed to open the Workspace window: {error:#}");
                         loading_view.set_error(
                             format!("Failed to open the Workspace window: {error:#}"),
                             cx,
