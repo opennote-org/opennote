@@ -7,10 +7,10 @@ use std::collections::HashMap;
 
 use actix_web::web::Data;
 use anyhow::Result;
-use opennote_core_logics::logging::initialize_logger;
 use tracing::info;
 
 use opennote_bootstrap::ServerBootstrap;
+use opennote_core_logics::logging::{WindowlessLayer, initialize_logger};
 use opennote_models::constants::{
     SERVER_DATA_FOLDER_NAME,
     env_vars::{
@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
     let config = load_configurations()?;
 
     // Initialize logger with config level
-    initialize_logger(config.system.logging.level.clone());
+    initialize_logger::<WindowlessLayer>(&config.system.logging.level, None);
 
     info!("Starting OpenNote Server...");
     info!("Configuration: Server {}:{}", config.host, config.port);

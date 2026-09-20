@@ -29,7 +29,8 @@ use crate::{
     },
     key_mappings::mappings::{
         CloseActiveTab, CreateOneBlock, ExportFiles, ImportFiles, NextTab, OpenNewWindow,
-        PreviousTab, ToggleCommandBar, ToggleSearchBar, ToggleSettingsPanel, ToggleSidebar,
+        PreviousTab, ToggleCommandBar, ToggleLogWindow, ToggleSearchBar, ToggleSettingsPanel,
+        ToggleSidebar,
     },
     window::{create_main_window_option, format_window_title},
 };
@@ -167,6 +168,17 @@ impl Workspace {
                 |_this, cx| cx.new(|cx| Root::new(settings_panel, window, cx)),
             )
             .unwrap();
+    }
+
+    pub fn toggle_log_window(
+        &mut self,
+        _action: &ToggleLogWindow,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Err(error) = crate::views::log::LogWindow::toggle(cx) {
+            tracing::error!("Failed to open log window: {error:#}");
+        }
     }
 
     /// Switch to the next tab in the active pane.

@@ -10,7 +10,6 @@ pub fn create_main_window_option(title: impl Into<SharedString>) -> WindowOption
     WindowOptions {
         titlebar: Some(TitlebarOptions {
             title: Some(title.into()),
-            // appears_transparent: matches!(std::env::consts::OS, "macos" | "windows"),
             ..Default::default()
         }),
         focus: true,
@@ -29,6 +28,26 @@ pub fn create_loading_window_option(cx: &App) -> WindowOptions {
     WindowOptions {
         titlebar: Some(TitlebarOptions {
             appears_transparent: matches!(std::env::consts::OS, "macos" | "windows"),
+            ..Default::default()
+        }),
+        window_bounds: Some(WindowBounds::Windowed(bounds)),
+        focus: true,
+        show: true,
+        ..Default::default()
+    }
+}
+
+pub fn create_window_option(
+    cx: &App,
+    title: impl Into<SharedString>,
+    width: f32,
+    height: f32,
+) -> WindowOptions {
+    let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
+
+    WindowOptions {
+        titlebar: Some(TitlebarOptions {
+            title: Some(title.into()),
             ..Default::default()
         }),
         window_bounds: Some(WindowBounds::Windowed(bounds)),

@@ -11,7 +11,7 @@ use crate::{
         helpers::{get_keystrokes_as_shared_string, match_action_to_language},
         mappings::{
             CreateOneBlock, ExportFiles, ImportFiles, OpenNewWindow, ToggleCommandBar,
-            ToggleSettingsPanel, ToggleSidebar,
+            ToggleLogWindow, ToggleSettingsPanel, ToggleSidebar,
         },
     },
 };
@@ -31,6 +31,7 @@ impl KeysList {
             Box::new(ToggleCommandBar),
             Box::new(CreateOneBlock),
             Box::new(ToggleSettingsPanel),
+            Box::new(ToggleLogWindow),
             Box::new(OpenNewWindow),
             Box::new(ImportFiles),
             Box::new(ExportFiles),
