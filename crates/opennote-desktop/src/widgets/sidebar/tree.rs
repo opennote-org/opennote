@@ -429,8 +429,8 @@ fn render_non_parent_button(
     this: gpui_kit::Div,
 ) -> gpui_kit::Div {
     let icon = match has_expanded {
-        true => include_bytes!("../../../assets/icons/file-open.svg").as_slice(),
-        false => include_bytes!("../../../assets/icons/file-close.svg").as_slice(),
+        true => include_bytes!("../../../../../assets/icons/file-open.svg").as_slice(),
+        false => include_bytes!("../../../../../assets/icons/file-close.svg").as_slice(),
     };
 
     this.child(
