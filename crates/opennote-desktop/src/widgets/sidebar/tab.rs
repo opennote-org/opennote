@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use gpui_kit::component::Selectable;
-use gpui_kit::{BorrowAppContext, SharedString};
+use gpui_kit::{BorrowAppContext, SharedString, component::Selectable};
 
 use crate::{
     globals::states::{States, server_registry::ServerStates},

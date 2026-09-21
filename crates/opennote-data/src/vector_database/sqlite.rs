@@ -193,12 +193,13 @@ impl SemanticSearch for SQLiteVectorDatabase {
                     Ok((payload_id, block_id, score))
                 },
             )?
-            .filter_map(|r| {
-                let (payload_id, block_id, score) = r.ok()?;
+            .filter_map(|result| {
+                let (payload_id, block_id, distance) = result.ok()?;
+
                 Some(RawSearchResult {
                     payload_id: Uuid::parse_str(&payload_id).ok()?,
                     block_id: Uuid::parse_str(&block_id).ok()?,
-                    score,
+                    score: -distance, // This is to make sure that the smaller distances rank higher when sorting in descending order
                 })
             })
             .collect();

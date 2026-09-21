@@ -1,10 +1,11 @@
-use gpui_kit::{App, ParentElement, Styled, Window};
-
-use gpui_kit::component::{
-    WindowExt,
-    button::{Button, ButtonVariants},
-    dialog::Dialog,
-    h_flex,
+use gpui_kit::{
+    App, ParentElement, Styled, Window,
+    component::{
+        WindowExt,
+        button::{Button, ButtonVariants},
+        dialog::Dialog,
+        h_flex,
+    },
 };
 
 use crate::globals::helpers::get_language_profile;

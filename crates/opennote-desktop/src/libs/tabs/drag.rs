@@ -1,6 +1,6 @@
-use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    Context, IntoElement, ParentElement, Render, SharedString, Styled, WeakEntity, div,
+    Context, IntoElement, ParentElement, Render, SharedString, Styled, WeakEntity,
+    component::ActiveTheme, div,
 };
 use uuid::Uuid;
 

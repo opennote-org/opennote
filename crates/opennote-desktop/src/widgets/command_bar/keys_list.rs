@@ -1,9 +1,12 @@
-use gpui_kit::component::{
-    IndexPath, h_flex,
-    label::Label,
-    list::{ListDelegate, ListItem},
+use gpui_kit::{
+    Action, App, ParentElement, SharedString, Styled,
+    component::{
+        IndexPath, h_flex,
+        label::Label,
+        list::{ListDelegate, ListItem},
+    },
+    prelude::FluentBuilder,
 };
-use gpui_kit::{Action, App, ParentElement, SharedString, Styled, prelude::FluentBuilder};
 
 use crate::{
     globals::helpers::get_language_profile,

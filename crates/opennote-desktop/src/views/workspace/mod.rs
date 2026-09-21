@@ -1,7 +1,10 @@
 mod actions;
 
-use gpui_kit::component::{Root, StyledExt, Theme, WindowExt};
-use gpui_kit::{Context, *};
+use gpui_kit::{
+    Context,
+    component::{Root, StyledExt, Theme, WindowExt},
+    *,
+};
 
 use opennote_core_logics::configurations::{ApplicationType, get_configuration_folder_path};
 use opennote_models::{constants::LOCAL_SERVER_NAME, traits::LoadFromAndSaveToFile};

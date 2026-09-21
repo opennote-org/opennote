@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
-use gpui_kit::component::{
-    ActiveTheme, IconName, InteractiveElementExt, Sizable,
-    button::{Button, ButtonRounded, ButtonVariants},
-    h_flex,
-    list::ListItem,
-    menu::ContextMenuExt,
-};
 use gpui_kit::{
     App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
-    ParentElement, SharedString, StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
+    ParentElement, SharedString, StatefulInteractiveElement, Styled,
+    component::{
+        ActiveTheme, IconName, InteractiveElementExt, Sizable,
+        button::{Button, ButtonRounded, ButtonVariants},
+        h_flex,
+        list::ListItem,
+        menu::ContextMenuExt,
+    },
+    div,
+    prelude::FluentBuilder,
     px,
 };
 use uuid::Uuid;
@@ -429,8 +431,8 @@ fn render_non_parent_button(
     this: gpui_kit::Div,
 ) -> gpui_kit::Div {
     let icon = match has_expanded {
-        true => include_bytes!("../../../assets/icons/file-open.svg").as_slice(),
-        false => include_bytes!("../../../assets/icons/file-close.svg").as_slice(),
+        true => include_bytes!("../../../../../assets/icons/file-open.svg").as_slice(),
+        false => include_bytes!("../../../../../assets/icons/file-close.svg").as_slice(),
     };
 
     this.child(

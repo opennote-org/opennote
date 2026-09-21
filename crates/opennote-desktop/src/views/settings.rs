@@ -1,13 +1,14 @@
-use gpui_kit::component::{
-    ActiveTheme, Sizable as _,
-    button::{Button, ButtonVariants as _},
-    h_flex,
-    input::{Editor, EditorState},
-    v_flex,
-};
 use gpui_kit::{
     AppContext, BorrowAppContext, Entity, IntoElement, ParentElement as _, Render, Styled as _,
-    WeakEntity, prelude::FluentBuilder as _,
+    WeakEntity,
+    component::{
+        ActiveTheme, Sizable as _,
+        button::{Button, ButtonVariants as _},
+        h_flex,
+        input::{Editor, EditorState},
+        v_flex,
+    },
+    prelude::FluentBuilder as _,
 };
 
 use opennote_core_logics::{

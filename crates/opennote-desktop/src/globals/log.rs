@@ -1,5 +1,4 @@
-use gpui_kit::component::Root;
-use gpui_kit::{Entity, Global, WindowHandle};
+use gpui_kit::{Entity, Global, WindowHandle, component::Root};
 
 use crate::views::log::LogWindow;
 
