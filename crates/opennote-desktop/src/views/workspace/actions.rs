@@ -1,7 +1,7 @@
 use std::io::Read;
 
-use gpui::*;
-use gpui_component::Root;
+use gpui_kit::component::Root;
+use gpui_kit::*;
 
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
@@ -58,7 +58,7 @@ impl Workspace {
                 let active_server =
                     states.get_active_server_name(window.window_handle().window_id());
                 if let Some(tree_state) = this.get_tree_focus_handle(cx, &active_server) {
-                    window.focus(&tree_state);
+                    window.focus(&tree_state, cx);
                 }
             }
         });
@@ -98,11 +98,11 @@ impl Workspace {
                     let query: String = query.lines().map(|item| item.replace("\n", " ")).collect();
 
                     this.search_results_list.update(cx, |this, cx| {
-                        this.update_query_input_mut(cx, window, query);
+                        this.set_query(&query, window, cx);
                     });
                 }
 
-                window.focus(&this.get_input_field_focus_handle(cx));
+                window.focus(&this.get_input_field_focus_handle(cx), cx);
             }
         });
 
@@ -125,7 +125,7 @@ impl Workspace {
             }
 
             if this.is_toggled {
-                window.focus(&this.get_input_field_focus_handle(cx));
+                window.focus(&this.get_input_field_focus_handle(cx), cx);
             }
         });
 
@@ -303,14 +303,12 @@ impl Workspace {
                             configurations.system.vector_database.clone(),
                         )
                     },
-                )
-                .unwrap();
+                );
 
             let (server_name, server_states) = cx
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
                     this.get_active_server(window.window_id())
-                })
-                .unwrap();
+                });
 
             // Acquire a single-selected block as the imported documents' parent,
             // if any
@@ -465,17 +463,14 @@ impl Workspace {
                 Ok(Err(_err)) => return,
             };
 
-            let databases = cx
-                .read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
-                    this.0.databases.clone()
-                })
-                .unwrap();
+            let databases = cx.read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
+                this.0.databases.clone()
+            });
 
             let (server_name, server_state) = cx
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
                     this.get_active_server(window.window_id())
-                })
-                .unwrap();
+                });
 
             let mut blocks_to_export = Vec::new();
 

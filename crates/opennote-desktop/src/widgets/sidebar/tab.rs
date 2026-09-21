@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use gpui::{BorrowAppContext, SharedString};
-use gpui_component::Selectable;
+use gpui_kit::component::Selectable;
+use gpui_kit::{BorrowAppContext, SharedString};
 
 use crate::{
     globals::states::{States, server_registry::ServerStates},
@@ -22,7 +22,7 @@ pub fn create_sidebar_tabbar(
             let tab = Tab::new()
                 .label(server_name.clone())
                 .selected(has_selected)
-                .on_click(move |event: &gpui::ClickEvent, window, cx| {
+                .on_click(move |event: &gpui_kit::ClickEvent, window, cx| {
                     if !event.is_right_click() {
                         let window_id = window.window_handle().window_id();
                         let _ = cx.update_global::<States, ()>(|states, cx| {

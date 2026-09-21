@@ -8,8 +8,8 @@ pub mod window;
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use gpui::*;
-use gpui_component::*;
+use gpui_kit::component::*;
+use gpui_kit::*;
 
 use opennote_core_logics::logging::initialize_logger;
 use opennote_models::constants::{
@@ -46,7 +46,7 @@ async fn load_startup_resources() -> Result<(GlobalApplicationBootStrap, AssetsC
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let app = Application::new().with_assets(gpui_component_assets::Assets);
+    let app = gpui_kit::application().with_assets(gpui_kit::assets::Assets);
 
     set_environment_variables(
         &STARTUP_ENVIRONMENT_VARIABLES_FOR_DESKTOP,
@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     let tokio_handle = tokio::runtime::Handle::current();
     app.run(move |cx| {
         // This must be called before using any GPUI Component features.
-        gpui_component::init(cx);
+        gpui_kit::init(cx);
         TaskTracker::init(cx);
 
         let loading_window =

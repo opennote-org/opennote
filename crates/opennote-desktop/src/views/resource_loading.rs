@@ -1,10 +1,10 @@
 use anyhow::Result;
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme as _, Sizable as _, Size, StyledExt as _, Theme, spinner::Spinner, v_flex,
+};
+use gpui_kit::{
     App, AppContext as _, Context, IntoElement, ParentElement as _, Render, SharedString,
     Styled as _, Subscription, Window, WindowHandle, div, prelude::FluentBuilder as _,
-};
-use gpui_component::{
-    ActiveTheme as _, Sizable as _, Size, StyledExt as _, Theme, spinner::Spinner, v_flex,
 };
 
 use crate::window::create_loading_window_option;

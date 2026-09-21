@@ -1,4 +1,4 @@
-use gpui::App;
+use gpui_kit::App;
 
 use crate::globals::states::States;
 

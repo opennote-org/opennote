@@ -5,14 +5,14 @@ mod editor;
 mod observations;
 mod subscriptions;
 
-use gpui::{
-    Action, Context, Div, Entity, EventEmitter, FocusHandle, Focusable, Render, SharedString,
-    Subscription, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Sizable,
     description_list::{DescriptionItem, DescriptionList},
     v_flex,
+};
+use gpui_kit::{
+    Action, Context, Div, Entity, EventEmitter, FocusHandle, Focusable, Render, SharedString,
+    Subscription, Window, div, prelude::*, px,
 };
 use uuid::Uuid;
 
@@ -57,7 +57,7 @@ pub struct Pane {
 impl Pane {
     pub fn new(
         cx: &mut Context<Self>,
-        window: &mut gpui::Window,
+        window: &mut gpui_kit::Window,
         sidebar: Entity<OpenNoteSidebar>,
     ) -> Self {
         let mut _subscriptions = Vec::new();
@@ -103,7 +103,7 @@ impl Pane {
         &mut self,
         block_id: &Uuid,
         cx: &mut Context<Self>,
-        window: &mut gpui::Window,
+        window: &mut gpui_kit::Window,
     ) {
         // if we have multiple tabs openning
         if self.opened_block_ids.len() > 1 {
@@ -178,7 +178,7 @@ impl Pane {
         &mut self,
         block_id: Uuid,
         cx: &mut Context<Self>,
-        window: &mut gpui::Window,
+        window: &mut gpui_kit::Window,
     ) {
         // Create a new editor if no editor is openning,
         // otherwise, swap in the preserved editor.
@@ -213,7 +213,7 @@ impl Pane {
     }
 
     /// Switch to the next tab (wrapping around).
-    pub fn activate_next_tab(&mut self, cx: &mut Context<Self>, window: &mut gpui::Window) {
+    pub fn activate_next_tab(&mut self, cx: &mut Context<Self>, window: &mut gpui_kit::Window) {
         let current_index = match self.acquire_block_index() {
             Some(value) => value,
             None => return,
@@ -232,7 +232,7 @@ impl Pane {
     }
 
     /// Switch to the previous tab (wrapping around).
-    pub fn activate_previous_tab(&mut self, cx: &mut Context<Self>, window: &mut gpui::Window) {
+    pub fn activate_previous_tab(&mut self, cx: &mut Context<Self>, window: &mut gpui_kit::Window) {
         let current_index = match self.acquire_block_index() {
             Some(value) => value,
             None => return,
@@ -323,7 +323,7 @@ impl Pane {
 }
 
 impl Focusable for Pane {
-    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }

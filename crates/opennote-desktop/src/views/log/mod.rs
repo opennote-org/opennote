@@ -5,8 +5,8 @@ mod entry;
 use std::{collections::VecDeque, sync::mpsc::Receiver, time::Duration};
 
 use anyhow::Context as _;
-use gpui::*;
-use gpui_component::{ActiveTheme, Root, Theme, v_flex};
+use gpui_kit::component::{ActiveTheme, Root, Theme, v_flex};
+use gpui_kit::*;
 
 use opennote_models::constants::{
     LOADING_WINDOW_HEIGHT, LOADING_WINDOW_WIDTH, LOG_WINDOW_CAPACITY,
@@ -15,7 +15,7 @@ use opennote_models::constants::{
 use crate::{
     globals::{helpers::get_language_profile, log::GlobalLogWindowState},
     views::log::entry::LogEntry,
-    window::{create_main_window_option, create_window_option, format_window_title},
+    window::{create_window_option, format_window_title},
 };
 
 pub struct LogWindow {

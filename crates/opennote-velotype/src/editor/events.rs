@@ -254,6 +254,8 @@ impl Editor {
             ImageFormat::Svg => "svg",
             ImageFormat::Bmp => "bmp",
             ImageFormat::Tiff => "tiff",
+            ImageFormat::Ico => "ico",
+            ImageFormat::Pnm => "pnm",
         }
     }
 
@@ -1000,7 +1002,7 @@ impl Editor {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let max_offset_y = self.scroll_handle.max_offset().height.max(px(0.0));
+        let max_offset_y = self.scroll_handle.max_offset().y.max(px(0.0));
         self.set_vertical_scroll_offset(-max_offset_y, cx);
     }
 
@@ -1015,7 +1017,7 @@ impl Editor {
     /// Applies an absolute vertical scroll offset, clamped to the scrollable
     /// range. Offsets run from 0 at the top to `-max_offset` at the bottom.
     fn set_vertical_scroll_offset(&mut self, target_y: Pixels, cx: &mut Context<Self>) {
-        let max_offset_y = self.scroll_handle.max_offset().height.max(px(0.0));
+        let max_offset_y = self.scroll_handle.max_offset().y.max(px(0.0));
         let mut offset = self.scroll_handle.offset();
         offset.y = target_y.min(px(0.0)).max(-max_offset_y);
         self.scroll_handle.set_offset(offset);

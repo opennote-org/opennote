@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
-use gpui::{
-    App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
-    ParentElement, SharedString, StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
-    px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, InteractiveElementExt, Sizable,
     button::{Button, ButtonRounded, ButtonVariants},
     h_flex,
     list::ListItem,
     menu::ContextMenuExt,
+};
+use gpui_kit::{
+    App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
+    ParentElement, SharedString, StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
+    px,
 };
 use uuid::Uuid;
 
@@ -81,7 +81,7 @@ pub fn create_root_tree_list_item(
                 .gap_2()
                 .child("--------------------------")
                 .when(is_dragged_over, |this| {
-                    this.border_b_2().border_color(gpui::blue())
+                    this.border_b_2().border_color(gpui_kit::blue())
                 })
                 .on_drag_move::<DraggedItem>(move |event, _window, app| {
                     sidebar_entity_on_drag_move.update(app, |_, cx| {
@@ -185,13 +185,13 @@ pub fn create_tree_list_item(
                 .id(id.clone())
                 .gap_2()
                 .when(is_dragged_over, |this| {
-                    this.border_b_2().border_color(gpui::blue())
+                    this.border_b_2().border_color(gpui_kit::blue())
                 })
                 .child(label)
-                .on_mouse_down(gpui::MouseButton::Left, move |event, _window, cx| {
+                .on_mouse_down(gpui_kit::MouseButton::Left, move |event, _window, cx| {
                     start_mouse_dragging(&sidebar, event, cx);
                 })
-                .on_mouse_down(gpui::MouseButton::Right, move |_event, _window, cx| {
+                .on_mouse_down(gpui_kit::MouseButton::Right, move |_event, _window, cx| {
                     handle_sidebar_item_right_click(
                         uuid,
                         &tree_state_entity_on_mouse_right_click,
@@ -248,7 +248,7 @@ fn handle_sidebar_item_double_click(
     uuid: Uuid,
     tree_state: Entity<TreeState>,
     sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
-) -> impl Fn(&ClickEvent, &mut gpui::Window, &mut App) {
+) -> impl Fn(&ClickEvent, &mut gpui_kit::Window, &mut App) {
     move |_event, window, app| {
         sidebar_entity_on_mouse_click.update(app, |this, cx| {
             // Reset the mouse position
@@ -291,7 +291,7 @@ fn handle_sidebar_item_click(
     uuid: Uuid,
     tree_state: Entity<TreeState>,
     sidebar_entity_on_mouse_click: Entity<OpenNoteSidebar>,
-) -> impl Fn(&ClickEvent, &mut gpui::Window, &mut App) {
+) -> impl Fn(&ClickEvent, &mut gpui_kit::Window, &mut App) {
     move |event, _window, app| {
         sidebar_entity_on_mouse_click.update(app, |this, cx| {
             if has_mouse_moved(event, this) {
@@ -334,7 +334,7 @@ fn handle_sidebar_item_click(
 fn handle_sidebar_delete_item(
     tree_state: Entity<TreeState>,
     sidebar_entity_delete_blocks: Entity<OpenNoteSidebar>,
-) -> impl Fn(&DeleteBlocks, &mut gpui::Window, &mut App) {
+) -> impl Fn(&DeleteBlocks, &mut gpui_kit::Window, &mut App) {
     move |_action: &DeleteBlocks, window, cx| {
         sidebar_entity_delete_blocks.update(cx, |_this, cx| {
             let mut to_delete = Vec::new();
@@ -367,7 +367,7 @@ fn handle_sidebar_items_move(
     uuid: Uuid,
     tree_state: Entity<TreeState>,
     sidebar_entity_on_drag_move: Entity<OpenNoteSidebar>,
-) -> impl Fn(&gpui::DragMoveEvent<DraggedItem>, &mut gpui::Window, &mut App) {
+) -> impl Fn(&gpui_kit::DragMoveEvent<DraggedItem>, &mut gpui_kit::Window, &mut App) {
     move |event, _window, app| {
         sidebar_entity_on_drag_move.update(app, |_this, cx| {
             // Update the dragged block when the mouse moves into a bound of list item
@@ -385,7 +385,7 @@ fn handle_sidebar_items_drop(
     uuid: Uuid,
     tree_state: Entity<TreeState>,
     sidebar_entity_on_drop: Entity<OpenNoteSidebar>,
-) -> impl Fn(&DraggedItem, &mut gpui::Window, &mut App) {
+) -> impl Fn(&DraggedItem, &mut gpui_kit::Window, &mut App) {
     move |dragged: &DraggedItem, window, app| {
         sidebar_entity_on_drop.update(app, |this, cx| {
             this.mouse_position = None;
@@ -413,7 +413,7 @@ fn handle_sidebar_items_drop(
 
 fn start_mouse_dragging(
     sidebar_entity_on_mouse_down: &Entity<OpenNoteSidebar>,
-    event: &gpui::MouseDownEvent,
+    event: &gpui_kit::MouseDownEvent,
     cx: &mut App,
 ) {
     // This is to prevent the dragging operations being covered up by on clicks.
@@ -423,10 +423,14 @@ fn start_mouse_dragging(
     });
 }
 
-fn render_non_parent_button(has_expanded: bool, id: &SharedString, this: gpui::Div) -> gpui::Div {
+fn render_non_parent_button(
+    has_expanded: bool,
+    id: &SharedString,
+    this: gpui_kit::Div,
+) -> gpui_kit::Div {
     let icon = match has_expanded {
-        true => IconName::FileOpen,
-        false => IconName::FileClose,
+        true => include_bytes!("../../../assets/icons/file-open.svg").as_slice(),
+        false => include_bytes!("../../../assets/icons/file-close.svg").as_slice(),
     };
 
     this.child(
@@ -434,7 +438,7 @@ fn render_non_parent_button(has_expanded: bool, id: &SharedString, this: gpui::D
             "expand-{}",
             id
         ))))
-        .icon(icon)
+        .icon(gpui_kit::component::Icon::default().data(icon))
         .ghost()
         .xsmall()
         .rounded(ButtonRounded::Medium),
@@ -448,8 +452,8 @@ fn render_parent_button(
     uuid: Uuid,
     tree_state: &Entity<TreeState>,
     sidebar_entity_expand: Entity<OpenNoteSidebar>,
-    this: gpui::Div,
-) -> gpui::Div {
+    this: gpui_kit::Div,
+) -> gpui_kit::Div {
     let tree_state = tree_state.clone();
 
     let icon = match has_expanded {
@@ -485,11 +489,11 @@ fn render_parent_button(
 }
 
 fn create_indent_guide(
-    _: &mut gpui::Window,
+    _: &mut gpui_kit::Window,
     _: &mut App,
     depth: usize,
-    indent_guide_color: gpui::Hsla,
-) -> gpui::Div {
+    indent_guide_color: gpui_kit::Hsla,
+) -> gpui_kit::Div {
     div()
         .absolute()
         .left_0()

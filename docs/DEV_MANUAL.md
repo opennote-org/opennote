@@ -6,7 +6,7 @@ This manual helps new contributors to better understand the codebase and get ove
 
 OpenNote consists of three major entry points at the moment. They are, `opennote-desktop`, `opennote-server`, and `opennote-mcp-server`. The desktop app provides a GUI for users to use OpenNote. The server provides a self-hostable remote server for users to sync data across devices. And the mcp server is for connecting OpenNote with your LLM chat client, like Claude Desktop and Cherry Studio etc.
 
-If you are familiar with frontend development, you probably will want to dive into the desktop and the gpui-component crates. If you are familiar with the backend development, server and mcp server are the ways to go.
+If you are familiar with frontend development, you probably will want to dive into the `opennote-desktop` and `opennote-velotype` crates. If you are familiar with the backend development, server and mcp server are the ways to go.
 
 However, if you are good at database, then you probably will want to take a look at `opennote-data`, `opennote-entities`, and `opennote-models`. They are highly relevant to database and open for any database provider to integrate your database.
 
@@ -42,6 +42,6 @@ Same as [Why embedding is so slow?](#why-embedding-is-so-slow), if you really wa
 `opennote-mcp-server` - OpenNote MCP server implementations.
 `opennote-server` - OpenNote Server implementations.
 `opennote-desktop` - OpenNote Desktop app implementations.
-`gpui-component` - A modified `gpui-component`. It contains almost all UI components used in the desktop app, but be aware that some of the UI components are placed under `opennpte-desktop/src/libs`
+`opennote-velotype` - A fork of the Velotype editor.
 
 There are other crates in this projects that I haven't yet included in the above list, because they are either not yet finished or they are very unlikely to be touched. But in case if you need anyone of them, reach me out. Email: baoxinyuworks@163.com

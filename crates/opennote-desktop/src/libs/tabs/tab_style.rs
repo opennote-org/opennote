@@ -1,4 +1,4 @@
-use gpui::{Edges, Hsla, Pixels, px};
+use gpui_kit::{Edges, Hsla, Pixels, px};
 
 #[allow(dead_code)]
 pub struct TabStyle {
@@ -16,12 +16,12 @@ impl Default for TabStyle {
     fn default() -> Self {
         TabStyle {
             borders: Edges::all(px(0.)),
-            border_color: gpui::transparent_white(),
-            bg: gpui::transparent_white(),
-            fg: gpui::transparent_white(),
+            border_color: gpui_kit::transparent_white(),
+            bg: gpui_kit::transparent_white(),
+            fg: gpui_kit::transparent_white(),
             radius: px(0.),
             shadow: false,
-            inner_bg: gpui::transparent_white(),
+            inner_bg: gpui_kit::transparent_white(),
             inner_radius: px(0.),
         }
     }

@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use gpui::SharedString;
+use gpui_kit::SharedString;
 use serde_encrypt::shared_key::SharedKey;
 use uuid::Uuid;
 

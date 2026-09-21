@@ -1,9 +1,10 @@
-use gpui::{App, ParentElement, Window};
+use gpui_kit::{App, ParentElement, Styled, Window};
 
-use gpui_component::{
+use gpui_kit::component::{
     WindowExt,
     button::{Button, ButtonVariants},
     dialog::Dialog,
+    h_flex,
 };
 
 use crate::globals::helpers::get_language_profile;
@@ -22,26 +23,23 @@ pub fn open_warning_dialogue(
         let cancel_string = language_profile[&format!("{language_profile_entry}_cancel")].clone();
         let discard_string = language_profile[&format!("{language_profile_entry}_discard")].clone();
 
-        dialogue
-            .title(title)
-            .child(message)
-            .footer(move |_, _, _, _| {
-                vec![
-                    Button::new("cancel-window-close")
-                        .label(cancel_string.clone())
-                        .on_click(|_, window, cx| {
-                            window.close_dialog(cx);
-                        }),
-                    Button::new("discard-and-close-window")
-                        .danger()
-                        .label(discard_string.clone())
-                        .on_click(|_, window, cx| {
-                            // remove_window() bypasses on_window_should_close,
-                            // preventing the confirmation dialog from reopening.
-                            window.close_dialog(cx);
-                            window.remove_window();
-                        }),
-                ]
-            })
+        dialogue.title(title).child(message).footer(
+            h_flex().gap_2().children([
+                Button::new("cancel-window-close")
+                    .label(cancel_string.clone())
+                    .on_click(|_, window, cx| {
+                        window.close_dialog(cx);
+                    }),
+                Button::new("discard-and-close-window")
+                    .danger()
+                    .label(discard_string.clone())
+                    .on_click(|_, window, cx| {
+                        // remove_window() bypasses on_window_should_close,
+                        // preventing the confirmation dialog from reopening.
+                        window.close_dialog(cx);
+                        window.remove_window();
+                    }),
+            ]),
+        )
     }
 }

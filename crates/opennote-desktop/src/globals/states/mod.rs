@@ -3,7 +3,7 @@ pub mod server_registry;
 
 use std::collections::HashMap;
 
-use gpui::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
+use gpui_kit::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
 use uuid::Uuid;
 
 use opennote_core_logics::helpers::run_async_code;
@@ -115,12 +115,9 @@ impl States {
                 };
 
                 if let Ok(blocks) = results {
-                    match cx.update_global::<States, ()>(|this, _cx| {
+                    cx.update_global::<States, ()>(|this, _cx| {
                         this.hard_update_blocks(&server_name, blocks);
-                    }) {
-                        Ok(_) => {}
-                        Err(error) => tracing::error!("{}", error),
-                    }
+                    });
                 }
             })
             .detach();

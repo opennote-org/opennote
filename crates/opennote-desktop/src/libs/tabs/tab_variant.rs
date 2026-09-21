@@ -1,5 +1,5 @@
-use gpui::{App, Edges, Pixels, px};
-use gpui_component::{ActiveTheme, Size};
+use gpui_kit::component::{ActiveTheme, Size};
+use gpui_kit::{App, Edges, Pixels, px};
 
 use crate::libs::tabs::tab_style::TabStyle;
 

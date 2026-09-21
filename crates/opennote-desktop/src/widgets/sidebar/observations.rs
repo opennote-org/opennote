@@ -1,6 +1,6 @@
 use std::future::Ready;
 
-use gpui::Context;
+use gpui_kit::Context;
 
 use crate::widgets::sidebar::OpenNoteSidebar;
 

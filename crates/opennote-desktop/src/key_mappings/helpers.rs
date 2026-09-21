@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gpui::{Action, App, SharedString};
+use gpui_kit::{Action, App, SharedString};
 
 /// Get keystrokes of an action and then return as a SharedString.
 /// Return None if no key bindings detected.

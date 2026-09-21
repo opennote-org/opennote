@@ -1,4 +1,4 @@
-use gpui::{
+use gpui_kit::{
     AnyElement, App, EdgesRefinement, InteractiveElement as _, IntoElement, ParentElement, Pixels,
     RenderOnce, StyleRefinement, Styled, Window, prelude::FluentBuilder, px,
 };

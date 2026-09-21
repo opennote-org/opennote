@@ -800,8 +800,15 @@ impl Element for CodeLanguageInputElement {
         }
 
         let line = prepaint.line.take().expect("line should be shaped");
-        line.paint(bounds.origin, bounds.size.height, window, cx)
-            .ok();
+        line.paint(
+            bounds.origin,
+            bounds.size.height,
+            TextAlign::Left,
+            None,
+            window,
+            cx,
+        )
+        .ok();
 
         if focus_handle.is_focused(window)
             && let Some(cursor) = prepaint.cursor.take()
@@ -1222,6 +1229,8 @@ impl Element for BlockTextElement {
                         bounds.origin.y + *y_offset,
                     ),
                     line_height,
+                    TextAlign::Left,
+                    None,
                     window,
                     cx,
                 )
@@ -1412,7 +1421,7 @@ mod tests {
         });
 
         block.update(cx, |block, _cx| {
-            block.last_layout = Some(lines.clone());
+            block.last_layout = Some(lines);
             block.last_bounds = Some(bounds);
             block.last_line_height = px(20.0);
             block.selected_range = 0..0;

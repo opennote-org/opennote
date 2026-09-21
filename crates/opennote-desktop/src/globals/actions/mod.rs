@@ -2,7 +2,7 @@ pub mod block;
 pub mod chunking;
 pub mod route_helpers;
 
-use gpui::{SharedString, Window};
+use gpui_kit::{SharedString, Window};
 use uuid::Uuid;
 
 use opennote_data::Databases;
@@ -36,7 +36,7 @@ use crate::globals::{
 /// This is a normal task that will only show up in the notification center on finish.
 pub fn create_one_block(
     window: &mut Window,
-    app_cx: &mut gpui::App,
+    app_cx: &mut gpui_kit::App,
     parent_block_id: Option<Uuid>,
 ) {
     let language_profile = get_language_profile(app_cx).unwrap();
@@ -71,13 +71,12 @@ pub fn create_one_block(
                         this.0.embedders.clone(),
                         configurations.system.vector_database.clone(),
                     )
-                })?;
+                });
 
-            let (server_name, server) = cx
-                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
+            let (server_name, server) =
+                cx.read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
                     this.get_active_server(window.window_id())
-                })
-                .unwrap();
+                });
 
             let block =
                 build_block(parent_block_id, default_block_title, &embedders, None, None).await?;
@@ -132,7 +131,7 @@ pub fn create_one_block(
 
 /// Delete n blocks specified by their ids.
 /// This is a normal task that will only show up in the notification center on finish.
-pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: Vec<Uuid>) {
+pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui_kit::App, block_ids: Vec<Uuid>) {
     let language_profile = get_language_profile(app_cx).unwrap();
     let deleting_message = language_profile["deleting_n_blocks"].clone();
     let deleted_message = language_profile["deleted_n_blocks"].clone();
@@ -164,13 +163,12 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
                             configurations.system.vector_database.clone(),
                         )
                     },
-                )?;
+                );
 
-            let (server_name, server) = cx
-                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
+            let (server_name, server) =
+                cx.read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
                     this.get_active_server(window.window_id())
-                })
-                .unwrap();
+                });
 
             match route_helpers::route_delete_blocks(
                 &server_name,
@@ -225,7 +223,7 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui::App, block_ids: V
 /// It will remove the notification on finish.
 pub fn update_n_blocks(
     window: &mut Window,
-    app_cx: &mut gpui::App,
+    app_cx: &mut gpui_kit::App,
     blocks: Vec<Block>,
     server_name: SharedString,
     server_states: ServerStates,
@@ -269,7 +267,7 @@ pub fn update_n_blocks(
                         configurations.system.vector_database.clone(),
                         configurations.system.embedder.clone(),
                     )
-                })?;
+                });
 
             if with_payload_changes {
                 let executor = cx.background_executor();
@@ -363,7 +361,7 @@ pub fn update_n_blocks(
 /// This is a normal task that will only show up in the notification center on finish.
 pub fn update_parent(
     window: &mut Window,
-    app_cx: &mut gpui::App,
+    app_cx: &mut gpui_kit::App,
     new_parent_block_id: Option<Uuid>,
     block_ids: Vec<Uuid>,
 ) {
@@ -379,8 +377,7 @@ pub fn update_parent(
 
                         (databases, configurations.system.vector_database.clone())
                     },
-                )
-                .unwrap();
+                );
 
             let task =
                 TaskInformation::new("Updating blocks' parent", TaskType::Uncategorized, false);
@@ -391,11 +388,10 @@ pub fn update_parent(
 
             let num_blocks = block_ids.len();
 
-            let (server_name, server) = app
-                .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
+            let (server_name, server) =
+                app.read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
                     this.get_active_server(window.window_id())
-                })
-                .unwrap();
+                });
 
             match route_helpers::route_read_blocks(
                 &server_name,

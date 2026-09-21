@@ -1,12 +1,12 @@
 use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc, str::FromStr};
 
-use gpui::{
+use gpui_kit::{
     App, Context, ElementId, Entity, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
     ListSizingBehavior, ParentElement, Render, RenderOnce, SharedString, StyleRefinement, Styled,
     UniformListScrollHandle, Window, div, uniform_list,
 };
 
-use gpui_component::{StyledExt, list::ListItem, scroll::ScrollableElement};
+use gpui_kit::component::{StyledExt, list::ListItem, scroll::ScrollableElement};
 use uuid::Uuid;
 
 use crate::{
@@ -277,7 +277,7 @@ impl TreeState {
     //     cx.notify();
     // }
 
-    pub fn scroll_to_item(&mut self, ix: usize, strategy: gpui::ScrollStrategy) {
+    pub fn scroll_to_item(&mut self, ix: usize, strategy: gpui_kit::ScrollStrategy) {
         self.scroll_handle.scroll_to_item(ix, strategy);
     }
 
@@ -335,7 +335,7 @@ impl TreeState {
 
         self.selected_index = Some(selected_ix);
         self.scroll_handle
-            .scroll_to_item(selected_ix, gpui::ScrollStrategy::Top);
+            .scroll_to_item(selected_ix, gpui_kit::ScrollStrategy::Top);
         cx.notify();
     }
 
@@ -349,7 +349,7 @@ impl TreeState {
 
         self.selected_index = Some(selected_ix);
         self.scroll_handle
-            .scroll_to_item(selected_ix, gpui::ScrollStrategy::Bottom);
+            .scroll_to_item(selected_ix, gpui_kit::ScrollStrategy::Bottom);
         cx.notify();
     }
 
@@ -429,9 +429,9 @@ impl Render for TreeState {
                     items
                 })
             })
-            .flex_grow()
+            .flex_grow(1.0)
             .size_full()
-            .track_scroll(self.scroll_handle.clone())
+            .track_scroll(&self.scroll_handle)
             .with_sizing_behavior(ListSizingBehavior::Auto)
             .into_any_element(),
         )

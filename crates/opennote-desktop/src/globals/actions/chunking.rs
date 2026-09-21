@@ -1,4 +1,4 @@
-use gpui::Window;
+use gpui_kit::Window;
 
 use opennote_core_logics::payload::convert_string_to_payloads;
 use opennote_models::{block::Block, payload::Payload};
@@ -13,7 +13,12 @@ use crate::globals::{
     },
 };
 
-pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block, text: String) {
+pub fn chunk_block(
+    window: &mut Window,
+    app_cx: &mut gpui_kit::App,
+    mut block: Block,
+    text: String,
+) {
     let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
     let configurations = bootstrap.get_configurations();
 
@@ -36,14 +41,18 @@ pub fn chunk_block(window: &mut Window, app_cx: &mut gpui::App, mut block: Block
             let payloads: Vec<Payload> = match cx
                 .background_executor()
                 .spawn(async move {
-                    let payloads =
-                        match convert_string_to_payloads(block.id, Some(text_chunk_size), text, None) {
-                            Ok(results) => results,
-                            Err(error) => {
-                                tracing::error!("Error when trying to save a document: {}", error);
-                                return Ok(vec![]);
-                            }
-                        };
+                    let payloads = match convert_string_to_payloads(
+                        block.id,
+                        Some(text_chunk_size),
+                        text,
+                        None,
+                    ) {
+                        Ok(results) => results,
+                        Err(error) => {
+                            tracing::error!("Error when trying to save a document: {}", error);
+                            return Ok(vec![]);
+                        }
+                    };
 
                     Ok::<Vec<Payload>, anyhow::Error>(payloads)
                 })

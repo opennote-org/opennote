@@ -1,11 +1,11 @@
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{Icon, IconName, Selectable, Sizable, Size, StyledExt, h_flex};
+use gpui_kit::{
     AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement, IntoElement, ParentElement,
     RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div,
     prelude::FluentBuilder, relative,
 };
-use gpui_component::{Icon, IconName, Selectable, Sizable, Size, StyledExt, h_flex};
 
 use crate::libs::tabs::tab_variant::TabVariant;
 
@@ -175,7 +175,7 @@ impl Selectable for Tab {
 }
 
 impl InteractiveElement for Tab {
-    fn interactivity(&mut self) -> &mut gpui::Interactivity {
+    fn interactivity(&mut self) -> &mut gpui_kit::Interactivity {
         self.base.interactivity()
     }
 }
@@ -183,7 +183,7 @@ impl InteractiveElement for Tab {
 impl StatefulInteractiveElement for Tab {}
 
 impl Styled for Tab {
-    fn style(&mut self) -> &mut gpui::StyleRefinement {
+    fn style(&mut self) -> &mut gpui_kit::StyleRefinement {
         self.base.style()
     }
 }

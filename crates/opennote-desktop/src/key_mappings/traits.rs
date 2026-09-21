@@ -1,4 +1,4 @@
-use gpui::{Action, KeyBinding};
+use gpui_kit::{Action, KeyBinding};
 
 pub trait KeyMappingUIExtension {
     fn into_keybinding(self) -> KeyBinding;

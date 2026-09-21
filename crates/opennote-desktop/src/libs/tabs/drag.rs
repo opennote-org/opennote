@@ -1,5 +1,7 @@
-use gpui::{Context, IntoElement, ParentElement, Render, SharedString, Styled, WeakEntity, div};
-use gpui_component::ActiveTheme;
+use gpui_kit::component::ActiveTheme;
+use gpui_kit::{
+    Context, IntoElement, ParentElement, Render, SharedString, Styled, WeakEntity, div,
+};
 use uuid::Uuid;
 
 use crate::widgets::pane::Pane;
@@ -42,7 +44,7 @@ impl Default for DraggedItem {
 }
 
 impl Render for DraggedItem {
-    fn render(&mut self, _: &mut gpui::Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut gpui_kit::Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let mut div = div()
             .px_3()
             .py_1()

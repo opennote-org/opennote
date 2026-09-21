@@ -2,7 +2,7 @@
 //! and the UI actions, as well as UI actions
 
 use anyhow::Result;
-use gpui::{Action, actions};
+use gpui_kit::{Action, actions};
 
 use crate::key_mappings::key_contexts::{EDITOR, GENERAL, SIDEBAR, WORKSPACE};
 

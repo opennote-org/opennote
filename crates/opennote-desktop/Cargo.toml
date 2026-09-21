@@ -14,8 +14,6 @@ opennote-data = { workspace = true }
 opennote-embedder = { workspace = true }
 opennote-server = { workspace = true }
 opennote-velotype = { workspace = true }
-gpui-component = { workspace = true }
-gpui-component-assets = { workspace = true }
 
 # External dependencies
 anyhow = { workspace = true }
@@ -25,7 +23,7 @@ serde-encrypt = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
 schemars = { workspace = true }
-gpui = { workspace = true }
+gpui-kit = { workspace = true }
 reqwest = { workspace = true }
 futures.workspace = true
 actix-web.workspace = true
@@ -36,3 +34,6 @@ tracing-subscriber.workspace = true
 rust-embed = "8.11.0"
 smallvec = "1.15.1"
 sanitize-filename = "0.6.0"
+
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }
