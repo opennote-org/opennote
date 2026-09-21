@@ -1,12 +1,12 @@
 use anyhow::Context as AnyhowContext;
-use gpui_kit::component::{
-    ActiveTheme,
-    list::{List, ListState},
-    v_flex,
-};
 use gpui_kit::{
     App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, Styled,
     Subscription,
+    component::{
+        ActiveTheme,
+        list::{List, ListState},
+        v_flex,
+    },
 };
 
 use crate::{

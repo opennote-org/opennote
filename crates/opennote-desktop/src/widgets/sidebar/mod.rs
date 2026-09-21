@@ -8,11 +8,12 @@ mod tab;
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gpui_kit::component::{ActiveTheme, Side, button::Button, h_flex, label::Label};
 use gpui_kit::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, EventEmitter, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, SharedString, Styled,
-    Subscription, Window, div,
+    Subscription, Window,
+    component::{ActiveTheme, Side, button::Button, h_flex, label::Label},
+    div,
 };
 use uuid::Uuid;
 

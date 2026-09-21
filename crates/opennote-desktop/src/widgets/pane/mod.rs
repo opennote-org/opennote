@@ -5,14 +5,17 @@ mod editor;
 mod observations;
 mod subscriptions;
 
-use gpui_kit::component::{
-    ActiveTheme, Sizable,
-    description_list::{DescriptionItem, DescriptionList},
-    v_flex,
-};
 use gpui_kit::{
     Action, Context, Div, Entity, EventEmitter, FocusHandle, Focusable, Render, SharedString,
-    Subscription, Window, div, prelude::*, px,
+    Subscription, Window,
+    component::{
+        ActiveTheme, Sizable,
+        description_list::{DescriptionItem, DescriptionList},
+        v_flex,
+    },
+    div,
+    prelude::*,
+    px,
 };
 use uuid::Uuid;
 

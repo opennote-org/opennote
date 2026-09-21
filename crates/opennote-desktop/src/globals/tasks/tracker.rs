@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
-use gpui_kit::component::{
-    WindowExt,
-    notification::{Notification, NotificationType},
+use gpui_kit::{
+    AnyWindowHandle, App, AppContext, AsyncApp, Global, Subscription, WindowId,
+    component::{
+        WindowExt,
+        notification::{Notification, NotificationType},
+    },
 };
-use gpui_kit::{AnyWindowHandle, App, AppContext, AsyncApp, Global, Subscription, WindowId};
 use uuid::Uuid;
 
 use crate::globals::tasks::{

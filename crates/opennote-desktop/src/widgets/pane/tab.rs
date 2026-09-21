@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 
-use gpui_kit::component::button::{Button, ButtonRounded, ButtonVariants};
-use gpui_kit::component::{IconName, Selectable, Sizable};
-use gpui_kit::{Context, Entity, Subscription, Window, prelude::*};
-use gpui_kit::{ElementId, SharedString, WeakEntity};
+use gpui_kit::{
+    Context, ElementId, Entity, SharedString, Subscription, WeakEntity, Window,
+    component::{
+        IconName, Selectable, Sizable,
+        button::{Button, ButtonRounded, ButtonVariants},
+    },
+    prelude::*,
+};
 use uuid::Uuid;
 
 use crate::globals::actions::block::get_block_content;

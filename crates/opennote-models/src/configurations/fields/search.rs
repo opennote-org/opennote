@@ -33,9 +33,6 @@ impl Default for SupportedSearchMethod {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserSearchConfiguration {
-    /// The default way of searching
-    pub default_search_method: SupportedSearchMethod,
-
     /// Maximum size of chunks for search indexing. Adjust this if the value is beyond the model context limit
     pub document_chunk_size: usize,
 
@@ -47,7 +44,6 @@ impl Default for UserSearchConfiguration {
     fn default() -> Self {
         Self {
             document_chunk_size: 150,
-            default_search_method: SupportedSearchMethod::Semantic,
             top_n: 10,
         }
     }

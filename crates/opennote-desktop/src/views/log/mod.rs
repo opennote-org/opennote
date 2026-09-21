@@ -5,8 +5,10 @@ mod entry;
 use std::{collections::VecDeque, sync::mpsc::Receiver, time::Duration};
 
 use anyhow::Context as _;
-use gpui_kit::component::{ActiveTheme, Root, Theme, v_flex};
-use gpui_kit::*;
+use gpui_kit::{
+    component::{ActiveTheme, Root, Theme, v_flex},
+    *,
+};
 
 use opennote_models::constants::{
     LOADING_WINDOW_HEIGHT, LOADING_WINDOW_WIDTH, LOG_WINDOW_CAPACITY,

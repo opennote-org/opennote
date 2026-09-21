@@ -1,10 +1,12 @@
 use std::rc::Rc;
 
-use gpui_kit::component::{Icon, IconName, Selectable, Sizable, Size, StyledExt, h_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement, IntoElement, ParentElement,
-    RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder, relative,
+    RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window,
+    component::{Icon, IconName, Selectable, Sizable, Size, StyledExt, h_flex},
+    div,
+    prelude::FluentBuilder,
+    relative,
 };
 
 use crate::libs::tabs::tab_variant::TabVariant;

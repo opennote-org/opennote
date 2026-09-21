@@ -1,5 +1,7 @@
-use gpui_kit::component::{ThemeMode, WindowExt};
-use gpui_kit::{BorrowAppContext, Context};
+use gpui_kit::{
+    BorrowAppContext, Context,
+    component::{ThemeMode, WindowExt},
+};
 
 use opennote_models::block::Block;
 

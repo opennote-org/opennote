@@ -19,12 +19,12 @@ use crate::{
         floating::create_float_palette,
         pane::Pane,
         search_bar::{
+            render::{render_result_column, render_search_controls},
             search_results::SearchResultsList,
             subscriptions::{
                 search_scope_labels, subscribe_search_query, subscribe_search_results,
                 subscribe_search_scope,
             },
-            view::{render_result_column, render_search_controls},
         },
     },
 };

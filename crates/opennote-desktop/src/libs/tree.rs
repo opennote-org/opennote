@@ -3,10 +3,10 @@ use std::{cell::RefCell, collections::HashSet, ops::Range, rc::Rc, str::FromStr}
 use gpui_kit::{
     App, Context, ElementId, Entity, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
     ListSizingBehavior, ParentElement, Render, RenderOnce, SharedString, StyleRefinement, Styled,
-    UniformListScrollHandle, Window, div, uniform_list,
+    UniformListScrollHandle, Window,
+    component::{StyledExt, list::ListItem, scroll::ScrollableElement},
+    div, uniform_list,
 };
-
-use gpui_kit::component::{StyledExt, list::ListItem, scroll::ScrollableElement};
 use uuid::Uuid;
 
 use crate::{

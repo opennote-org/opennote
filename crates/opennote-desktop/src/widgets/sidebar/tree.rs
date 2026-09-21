@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
-use gpui_kit::component::{
-    ActiveTheme, IconName, InteractiveElementExt, Sizable,
-    button::{Button, ButtonRounded, ButtonVariants},
-    h_flex,
-    list::ListItem,
-    menu::ContextMenuExt,
-};
 use gpui_kit::{
     App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
-    ParentElement, SharedString, StatefulInteractiveElement, Styled, div, prelude::FluentBuilder,
+    ParentElement, SharedString, StatefulInteractiveElement, Styled,
+    component::{
+        ActiveTheme, IconName, InteractiveElementExt, Sizable,
+        button::{Button, ButtonRounded, ButtonVariants},
+        h_flex,
+        list::ListItem,
+        menu::ContextMenuExt,
+    },
+    div,
+    prelude::FluentBuilder,
     px,
 };
 use uuid::Uuid;

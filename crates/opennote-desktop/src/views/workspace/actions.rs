@@ -1,7 +1,6 @@
 use std::io::Read;
 
-use gpui_kit::component::Root;
-use gpui_kit::*;
+use gpui_kit::{component::Root, *};
 
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;

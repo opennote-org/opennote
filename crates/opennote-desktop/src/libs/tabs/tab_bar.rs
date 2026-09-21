@@ -1,16 +1,20 @@
-use gpui_kit::component::{
-    ActiveTheme, IconName, Selectable, Sizable, Size, StyledExt,
-    button::{Button, ButtonVariants as _},
-    h_flex,
-    menu::{DropdownMenu as _, PopupMenuItem},
-};
+use std::rc::Rc;
+
 use gpui_kit::{
     Anchor, AnyElement, App, Div, Edges, ElementId, InteractiveElement, IntoElement, ParentElement,
     Pixels, RenderOnce, ScrollHandle, Stateful, StatefulInteractiveElement as _, StyleRefinement,
-    Styled, Window, div, prelude::FluentBuilder as _, px,
+    Styled, Window,
+    component::{
+        ActiveTheme, IconName, Selectable, Sizable, Size, StyledExt,
+        button::{Button, ButtonVariants as _},
+        h_flex,
+        menu::{DropdownMenu as _, PopupMenuItem},
+    },
+    div,
+    prelude::FluentBuilder as _,
+    px,
 };
 use smallvec::SmallVec;
-use std::rc::Rc;
 
 use crate::libs::tabs::{tab::Tab, tab_variant::TabVariant};
 

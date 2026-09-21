@@ -8,8 +8,7 @@ pub mod window;
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use gpui_kit::component::*;
-use gpui_kit::*;
+use gpui_kit::{component::*, *};
 
 use opennote_core_logics::logging::initialize_logger;
 use opennote_models::constants::{
