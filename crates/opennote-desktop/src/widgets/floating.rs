@@ -1,4 +1,4 @@
-use gpui::{Div, FocusHandle, InteractiveElement, Styled, div, prelude::FluentBuilder};
+use gpui_kit::{Div, FocusHandle, InteractiveElement, Styled, div, prelude::FluentBuilder};
 
 pub fn create_float_palette(focus_handle: &FocusHandle, is_toggled: bool) -> Div {
     div()

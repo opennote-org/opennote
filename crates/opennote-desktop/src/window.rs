@@ -1,4 +1,5 @@
-use gpui::{App, Bounds, SharedString, TitlebarOptions, WindowBounds, WindowOptions, px, size};
+use gpui_kit::{App, Bounds, SharedString, TitlebarOptions, WindowBounds, WindowOptions, px, size};
+
 use opennote_models::constants::{
     DESKTOP_APP_NAME, DESKTOP_TITLE_SEPARATOR, LOADING_WINDOW_HEIGHT, LOADING_WINDOW_WIDTH,
 };

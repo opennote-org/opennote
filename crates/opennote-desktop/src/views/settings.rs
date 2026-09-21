@@ -1,13 +1,13 @@
-use gpui::{
-    AppContext, BorrowAppContext, Entity, IntoElement, ParentElement as _, Render, Styled as _,
-    WeakEntity, prelude::FluentBuilder as _,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Sizable as _,
     button::{Button, ButtonVariants as _},
     h_flex,
-    input::{Input, InputState},
+    input::{Editor, EditorState},
     v_flex,
+};
+use gpui_kit::{
+    AppContext, BorrowAppContext, Entity, IntoElement, ParentElement as _, Render, Styled as _,
+    WeakEntity, prelude::FluentBuilder as _,
 };
 
 use opennote_core_logics::{
@@ -25,7 +25,7 @@ use crate::{
 
 pub struct SettingsPanel {
     /// The code editor entity.
-    editor_state: Entity<InputState>,
+    editor_state: Entity<EditorState>,
     /// Feedback line shown below the toolbar.
     status_message: Option<String>,
     /// When `true`, the status message is rendered in an error colour.
@@ -36,8 +36,8 @@ pub struct SettingsPanel {
 
 impl SettingsPanel {
     pub fn new(
-        cx: &mut gpui::Context<Self>,
-        window: &mut gpui::Window,
+        cx: &mut gpui_kit::Context<Self>,
+        window: &mut gpui_kit::Window,
         sidebar: WeakEntity<OpenNoteSidebar>,
     ) -> Self {
         let config_json = {
@@ -48,9 +48,8 @@ impl SettingsPanel {
         };
 
         let editor_state = cx.new(|cx| {
-            InputState::new(window, cx)
-                .code_editor("json")
-                .multi_line(true)
+            EditorState::new(window, cx)
+                .language("json")
                 .line_number(true)
                 .searchable(true)
                 .soft_wrap(false)
@@ -66,7 +65,7 @@ impl SettingsPanel {
     }
 
     /// Serialise the current `Configurations` to pretty-printed JSON.
-    fn load_configs_to_json(cx: &mut gpui::Context<Self>) -> String {
+    fn load_configs_to_json(cx: &mut gpui_kit::Context<Self>) -> String {
         let bootstrap: &GlobalApplicationBootStrap = cx.global();
         let configs = run_async_code(async { bootstrap.0.configurations.lock().await.clone() });
         serde_json::to_string_pretty(&configs)
@@ -86,10 +85,10 @@ impl SettingsPanel {
 
     /// Replace the entire editor content with `text`.
     fn set_editor_text(
-        editor: &Entity<InputState>,
+        editor: &Entity<EditorState>,
         replacement_text: &str,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<Self>,
     ) {
         let replacement_text = replacement_text.to_string();
         editor.update(cx, |state, cx| {
@@ -98,7 +97,11 @@ impl SettingsPanel {
     }
 
     /// Save: parse JSON → validate → persist to disk → reload in-memory config.
-    fn save_configurations(&mut self, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
+    fn save_configurations(
+        &mut self,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<Self>,
+    ) {
         let current_text = self.editor_state.read(cx).value();
         let config_path = get_configuration_folder_path(ApplicationType::Desktop);
 
@@ -135,7 +138,11 @@ impl SettingsPanel {
     }
 
     /// Reload: re-read configs from the bootstrap and refresh the editor.
-    fn reload_configurations(&mut self, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
+    fn reload_configurations(
+        &mut self,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<Self>,
+    ) {
         let pretty_json = Self::load_configs_to_json(cx);
         Self::set_editor_text(&self.editor_state, &pretty_json, window, cx);
 
@@ -148,9 +155,9 @@ impl SettingsPanel {
 impl Render for SettingsPanel {
     fn render(
         &mut self,
-        _window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) -> impl gpui::IntoElement {
+        _window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<Self>,
+    ) -> impl gpui_kit::IntoElement {
         let editor = &self.editor_state;
 
         // Compute the status colour.
@@ -196,11 +203,11 @@ impl Render for SettingsPanel {
                             })),
                     )
                     // Spacer pushes the status message to the right.
-                    .child(gpui::div().flex_1())
+                    .child(gpui_kit::div().flex_1())
                     // Status message.
                     .when_some(self.status_message.as_ref(), |this, msg| {
                         this.child(
-                            gpui::div()
+                            gpui_kit::div()
                                 .text_sm()
                                 .text_color(status_color)
                                 .child(msg.clone()),
@@ -209,10 +216,10 @@ impl Render for SettingsPanel {
             )
             // JSON editor
             .child(
-                gpui::div()
+                gpui_kit::div()
                     .flex_1()
                     .w_full()
-                    .child(Input::new(editor).h_full()),
+                    .child(Editor::new(editor).h_full()),
             )
             .into_any_element()
     }

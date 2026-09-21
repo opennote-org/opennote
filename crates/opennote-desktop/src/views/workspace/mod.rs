@@ -1,7 +1,7 @@
 mod actions;
 
-use gpui::{Context, *};
-use gpui_component::{Root, StyledExt, Theme, WindowExt};
+use gpui_kit::component::{Root, StyledExt, Theme, WindowExt};
+use gpui_kit::{Context, *};
 
 use opennote_core_logics::configurations::{ApplicationType, get_configuration_folder_path};
 use opennote_models::{constants::LOCAL_SERVER_NAME, traits::LoadFromAndSaveToFile};
@@ -68,7 +68,7 @@ impl Workspace {
         });
 
         let focus_handle = cx.focus_handle();
-        window.focus(&focus_handle);
+        window.focus(&focus_handle, cx);
 
         // Sync the theme on workspace init
         Theme::sync_system_appearance(Some(window), cx);
@@ -92,7 +92,7 @@ impl Workspace {
                 match event {
                     PaneEvent::ReleaseFocus => this.return_focus(cx, window),
                     PaneEvent::RequestFocus => pane.update(cx, |pane, cx| {
-                        window.focus(&pane.focus_handle(cx));
+                        window.focus(&pane.focus_handle(cx), cx);
                     }),
                 };
             }),
@@ -120,7 +120,7 @@ impl Workspace {
         }
 
         // Focus on Workspace if nothing remained
-        window.focus(&self.focus_handle);
+        window.focus(&self.focus_handle, cx);
     }
 }
 

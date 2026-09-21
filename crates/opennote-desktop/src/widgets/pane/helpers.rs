@@ -1,4 +1,4 @@
-use gpui::{App, SharedString, Window};
+use gpui_kit::{App, SharedString, Window};
 use uuid::Uuid;
 
 use crate::globals::states::helpers::get_states;

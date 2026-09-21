@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gpui::App;
+use gpui_kit::App;
 
 use opennote_core_logics::configurations::{ApplicationType, get_configuration_folder_path};
 use opennote_velotype::{

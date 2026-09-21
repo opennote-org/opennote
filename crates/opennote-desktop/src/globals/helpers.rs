@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gpui::App;
+use gpui_kit::App;
 
 use crate::globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap};
 
@@ -25,7 +25,7 @@ pub fn get_language_profile(cx: &App) -> Result<HashMap<String, String>> {
 /// opennote/crates/opennote-desktop/src/globals/actions/mod.rs at line 287
 /// opennote/crates/opennote-desktop/src/views/workspace/actions.rs at line 309
 pub async fn run_async_background<F, V>(
-    executor: &gpui::BackgroundExecutor,
+    executor: &gpui_kit::BackgroundExecutor,
     tokio_handle: tokio::runtime::Handle,
     closure: F,
 ) -> V

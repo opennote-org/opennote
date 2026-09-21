@@ -1,12 +1,12 @@
 use std::vec;
 
-use gpui::{ParentElement, SharedString, Styled, WeakEntity};
-use gpui_component::{
+use gpui_kit::component::{
     IndexPath,
     list::{ListDelegate, ListItem},
     text::Text,
     v_flex,
 };
+use gpui_kit::{ParentElement, SharedString, Styled, WeakEntity};
 
 use opennote_core_logics::helpers::run_async_code;
 use opennote_data::search::SearchScope;
@@ -91,15 +91,15 @@ impl SearchResultsList {
 impl ListDelegate for SearchResultsList {
     type Item = ListItem;
 
-    fn items_count(&self, _section: usize, _cx: &gpui::App) -> usize {
+    fn items_count(&self, _section: usize, _cx: &gpui_kit::App) -> usize {
         self.results.len()
     }
 
     fn render_item(
         &mut self,
         ix: IndexPath,
-        _window: &mut gpui::Window,
-        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
+        _window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
     ) -> Option<Self::Item> {
         self.results
             .get(ix.row)
@@ -128,8 +128,8 @@ impl ListDelegate for SearchResultsList {
     fn set_selected_index(
         &mut self,
         ix: Option<IndexPath>,
-        _window: &mut gpui::Window,
-        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
+        _window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
     ) {
         self.selected_index = ix;
         cx.notify();
@@ -138,9 +138,9 @@ impl ListDelegate for SearchResultsList {
     fn perform_search(
         &mut self,
         query: &str,
-        _window: &mut gpui::Window,
-        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
-    ) -> gpui::Task<()> {
+        _window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
+    ) -> gpui_kit::Task<()> {
         // Create a query id for the observer to validate
         // if this is the current query.
         self.active_query_id += 1;
@@ -158,7 +158,7 @@ impl ListDelegate for SearchResultsList {
 
         let states: &States = cx.global();
         let Some(active_pane) = states.get_active_pane(cx) else {
-            return gpui::Task::ready(());
+            return gpui_kit::Task::ready(());
         };
 
         let selected_block_id = active_pane
@@ -174,13 +174,13 @@ impl ListDelegate for SearchResultsList {
                     let block_ids = vec![result];
                     (states.get_servers_by_block_ids(&block_ids), block_ids)
                 }
-                None => return gpui::Task::ready(()),
+                None => return gpui_kit::Task::ready(()),
             },
             SearchScope::Collection => {
                 // Get the selected block id
                 let block_id = match selected_block_id {
                     Some(result) => result,
-                    None => return gpui::Task::ready(()),
+                    None => return gpui_kit::Task::ready(()),
                 };
 
                 // find all blocks that have selected block as their parents
@@ -210,7 +210,7 @@ impl ListDelegate for SearchResultsList {
         let (query_str, query_vector) = create_search_queries(query, search_method, bootstrap);
         if query_str.is_none() && query_vector.is_none() {
             self.results = Vec::new();
-            return gpui::Task::ready(());
+            return gpui_kit::Task::ready(());
         }
 
         for (name, server) in servers.clone().into_iter() {
@@ -248,6 +248,6 @@ impl ListDelegate for SearchResultsList {
 
         self.servers_to_retrieve = servers;
 
-        gpui::Task::ready(())
+        gpui_kit::Task::ready(())
     }
 }

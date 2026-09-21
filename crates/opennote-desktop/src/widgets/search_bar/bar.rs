@@ -1,13 +1,13 @@
 use anyhow::Context as AnyhowContext;
-use gpui::{
-    App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, SharedString,
-    Styled, Subscription, WeakEntity, div,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IndexPath, Sizable, StyledExt, h_flex,
     list::{List, ListState},
     select::{Select, SelectState},
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, SharedString,
+    Styled, Subscription, WeakEntity, div,
 };
 
 use crate::{
@@ -41,7 +41,11 @@ pub struct SearchBar {
 }
 
 impl SearchBar {
-    pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window, pane: WeakEntity<Pane>) -> Self {
+    pub fn new(
+        cx: &mut Context<Self>,
+        window: &mut gpui_kit::Window,
+        pane: WeakEntity<Pane>,
+    ) -> Self {
         let mut _subscriptions = Vec::new();
         let search_bar_weak_entity = cx.weak_entity();
 
@@ -119,13 +123,13 @@ impl SearchBar {
         }
     }
 
-    pub fn get_input_field_focus_handle(&self, cx: &App) -> gpui::FocusHandle {
+    pub fn get_input_field_focus_handle(&self, cx: &App) -> gpui_kit::FocusHandle {
         self.search_results_list.focus_handle(cx)
     }
 }
 
 impl Focusable for SearchBar {
-    fn focus_handle(&self, _cx: &gpui::App) -> gpui::FocusHandle {
+    fn focus_handle(&self, _cx: &gpui_kit::App) -> gpui_kit::FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -133,16 +137,16 @@ impl Focusable for SearchBar {
 impl Render for SearchBar {
     fn render(
         &mut self,
-        _window: &mut gpui::Window,
+        _window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
-    ) -> impl gpui::IntoElement {
+    ) -> impl gpui_kit::IntoElement {
         let language_profile = get_language_profile(cx)
             .context("Getting language profile failed")
             .unwrap();
 
         create_float_palette(&self.focus_handle(cx), self.is_toggled).child(
             h_flex()
-                .flex_shrink()
+                .flex_shrink(1.0)
                 .items_start()
                 .gap_2()
                 .child(div().v_flex().gap_2().children([

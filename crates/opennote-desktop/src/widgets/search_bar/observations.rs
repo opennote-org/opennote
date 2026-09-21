@@ -3,8 +3,8 @@ use std::{
     vec,
 };
 
-use gpui::{Context, Entity, Subscription};
-use gpui_component::list::ListState;
+use gpui_kit::component::list::ListState;
+use gpui_kit::{Context, Entity, Subscription};
 use uuid::Uuid;
 
 use opennote_models::{payload::Payload, query::BlockQuery, search::RawSearchResult};

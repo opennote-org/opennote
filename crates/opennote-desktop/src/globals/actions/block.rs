@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gpui::App;
+use gpui_kit::App;
 use opennote_models::block::Block;
 use uuid::Uuid;
 

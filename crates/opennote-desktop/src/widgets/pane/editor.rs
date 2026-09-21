@@ -1,4 +1,4 @@
-use gpui::{Context, Focusable, InteractiveElement, ParentElement, Styled, div};
+use gpui_kit::{Context, Focusable, InteractiveElement, ParentElement, Styled, div};
 
 use crate::{
     globals::{actions::chunking::chunk_block, states::helpers::get_states},
@@ -7,7 +7,7 @@ use crate::{
 };
 
 impl Pane {
-    pub fn render_editor(&self, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+    pub fn render_editor(&self, cx: &mut Context<Self>) -> impl gpui_kit::IntoElement {
         if let Some(editor) = &self.editor {
             let editor_clone = editor.clone();
             return div()

@@ -8,12 +8,12 @@ mod tab;
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Side, button::Button, h_flex, label::Label};
+use gpui_kit::{
     AppContext, BorrowAppContext, Context, Entity, EntityId, EventEmitter, FocusHandle, Focusable,
     InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render, SharedString, Styled,
     Subscription, Window, div,
 };
-use gpui_component::{ActiveTheme, Side, button::Button, h_flex, label::Label};
 use uuid::Uuid;
 
 use opennote_models::{block::Block, constants::LOCAL_SERVER_NAME};
@@ -279,13 +279,17 @@ impl OpenNoteSidebar {
 }
 
 impl Focusable for OpenNoteSidebar {
-    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
 impl Render for OpenNoteSidebar {
-    fn render(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(
+        &mut self,
+        window: &mut gpui_kit::Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         // Return an empty div to toggle it off,
         // because .is_visible() is just invisible, therefore
         // it won't really disappear the sidebar, therefore,

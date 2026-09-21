@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use gpui::{AnyWindowHandle, App, AppContext, AsyncApp, Global, Subscription, WindowId};
-use gpui_component::{
+use gpui_kit::component::{
     WindowExt,
     notification::{Notification, NotificationType},
 };
+use gpui_kit::{AnyWindowHandle, App, AppContext, AsyncApp, Global, Subscription, WindowId};
 use uuid::Uuid;
 
 use crate::globals::tasks::{
@@ -37,7 +37,7 @@ impl TaskTracker {
     pub fn init(cx: &mut App) {
         cx.set_global(TaskTracker::new());
 
-        let subscription = cx.on_window_closed(|cx| {
+        let subscription = cx.on_window_closed(|cx, _| {
             let open_windows: HashSet<WindowId> = cx
                 .windows()
                 .iter()

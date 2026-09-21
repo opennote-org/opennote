@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use gpui::{Context, Entity, Subscription, Window, prelude::*};
-use gpui::{ElementId, SharedString, WeakEntity};
-use gpui_component::button::{Button, ButtonRounded, ButtonVariants};
-use gpui_component::{IconName, Selectable, Sizable};
+use gpui_kit::component::button::{Button, ButtonRounded, ButtonVariants};
+use gpui_kit::component::{IconName, Selectable, Sizable};
+use gpui_kit::{Context, Entity, Subscription, Window, prelude::*};
+use gpui_kit::{ElementId, SharedString, WeakEntity};
 use uuid::Uuid;
 
 use crate::globals::actions::block::get_block_content;
@@ -182,7 +182,7 @@ pub fn create_tab_bar_for_blocks(
                     })),
             )
             .on_click(
-                cx.listener(move |view, event: &gpui::ClickEvent, window, cx| {
+                cx.listener(move |view, event: &gpui_kit::ClickEvent, window, cx| {
                     if !event.is_right_click() {
                         view.open_or_activate_tab(id, cx, window);
                     }

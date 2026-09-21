@@ -1,9 +1,9 @@
-use gpui::{Action, App, ParentElement, SharedString, Styled, prelude::FluentBuilder};
-use gpui_component::{
+use gpui_kit::component::{
     IndexPath, h_flex,
     label::Label,
     list::{ListDelegate, ListItem},
 };
+use gpui_kit::{Action, App, ParentElement, SharedString, Styled, prelude::FluentBuilder};
 
 use crate::{
     globals::helpers::get_language_profile,
@@ -62,7 +62,7 @@ impl KeysList {
     fn create_list_item(
         &self,
         ix: IndexPath,
-        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
+        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
         items: &Vec<(Box<dyn Action>, Option<SharedString>)>,
     ) -> Option<ListItem> {
         let language_profile = get_language_profile(cx).unwrap();
@@ -92,15 +92,19 @@ impl KeysList {
 impl ListDelegate for KeysList {
     type Item = ListItem;
 
-    fn items_count(&self, _section: usize, _cx: &gpui::App) -> usize {
-        self.actions.len()
+    fn items_count(&self, _section: usize, _cx: &gpui_kit::App) -> usize {
+        if self.searched {
+            self.filtered_actions.len()
+        } else {
+            self.actions.len()
+        }
     }
 
     fn render_item(
         &mut self,
         ix: IndexPath,
-        _window: &mut gpui::Window,
-        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
+        _window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
     ) -> Option<Self::Item> {
         if self.searched {
             return self.create_list_item(ix, cx, &self.filtered_actions);
@@ -112,8 +116,8 @@ impl ListDelegate for KeysList {
     fn set_selected_index(
         &mut self,
         ix: Option<IndexPath>,
-        _window: &mut gpui::Window,
-        cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
+        _window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
     ) {
         self.selected_index = ix;
         cx.notify();
@@ -122,12 +126,12 @@ impl ListDelegate for KeysList {
     fn perform_search(
         &mut self,
         query: &str,
-        _window: &mut gpui::Window,
-        _cx: &mut gpui::Context<gpui_component::list::ListState<Self>>,
-    ) -> gpui::Task<()> {
+        _window: &mut gpui_kit::Window,
+        _cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
+    ) -> gpui_kit::Task<()> {
         if query.is_empty() {
             self.searched = false;
-            return gpui::Task::ready(());
+            return gpui_kit::Task::ready(());
         }
 
         // Filter items based on query
@@ -142,6 +146,6 @@ impl ListDelegate for KeysList {
 
         self.searched = true;
 
-        gpui::Task::ready(())
+        gpui_kit::Task::ready(())
     }
 }

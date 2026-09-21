@@ -1,5 +1,5 @@
-use gpui::{BorrowAppContext, Context};
-use gpui_component::{ThemeMode, WindowExt};
+use gpui_kit::component::{ThemeMode, WindowExt};
+use gpui_kit::{BorrowAppContext, Context};
 
 use opennote_models::block::Block;
 
@@ -18,7 +18,7 @@ use crate::{
 
 pub fn observe_theme_change(
     this: &mut Pane,
-    window: &mut gpui::Window,
+    window: &mut gpui_kit::Window,
     cx: &mut Context<'_, Pane>,
 ) {
     let theme_mode = ThemeMode::from(window.appearance());
@@ -35,7 +35,11 @@ pub fn observe_theme_change(
     }
 }
 
-pub fn observe_chunk_block(this: &mut Pane, window: &mut gpui::Window, cx: &mut Context<'_, Pane>) {
+pub fn observe_chunk_block(
+    this: &mut Pane,
+    window: &mut gpui_kit::Window,
+    cx: &mut Context<'_, Pane>,
+) {
     let Some(active_window) = cx.active_window() else {
         return;
     };

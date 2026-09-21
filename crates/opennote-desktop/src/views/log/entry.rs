@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use gpui::*;
+use gpui_kit::*;
 
 pub struct LogEntry {
     text: String,

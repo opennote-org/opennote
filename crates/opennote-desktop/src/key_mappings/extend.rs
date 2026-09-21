@@ -1,4 +1,4 @@
-use gpui::{DummyKeyboardMapper, KeyBinding, KeyBindingContextPredicate};
+use gpui_kit::{DummyKeyboardMapper, KeyBinding, KeyBindingContextPredicate};
 
 use opennote_models::key_mappings::{KeyMapping, KeyMappings};
 
@@ -30,7 +30,7 @@ impl KeyMappingsUIExtension for KeyMappings {
 impl KeyBindingExtension for KeyBinding {
     fn new_with_dyn_action(
         keystrokes: &str,
-        action: Box<dyn gpui::Action>,
+        action: Box<dyn gpui_kit::Action>,
         context: Option<&str>,
     ) -> Self {
         let context_predicate =

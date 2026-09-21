@@ -1,4 +1,4 @@
-use gpui::{Context, Entity};
+use gpui_kit::{Context, Entity};
 
 use opennote_velotype::editor::EditorEvent;
 use uuid::Uuid;
@@ -10,7 +10,7 @@ pub fn subscribe_editor_events(
     view: &mut Pane,
     _state: &Entity<opennote_velotype::editor::Editor>,
     event: &EditorEvent,
-    window: &mut gpui::Window,
+    window: &mut gpui_kit::Window,
     _cx: &mut Context<'_, Pane>,
 ) {
     match event {

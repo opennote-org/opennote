@@ -1,5 +1,5 @@
 use anyhow::Context;
-use gpui::{App, Global};
+use gpui_kit::{App, Global};
 
 use tokio::sync::MutexGuard;
 

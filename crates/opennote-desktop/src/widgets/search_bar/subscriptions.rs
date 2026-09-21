@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
-use gpui::{Context, Entity, SharedString, Subscription};
-use gpui_component::{
+use gpui_kit::component::{
     list::ListState,
     select::{SelectEvent, SelectState},
 };
+use gpui_kit::{Context, Entity, SharedString, Subscription};
 
 use opennote_data::search::SearchScope;
 use opennote_models::configurations::fields::search::SupportedSearchMethod;
@@ -16,7 +16,7 @@ use crate::{
 
 pub fn subscribe_search_method(
     cx: &mut Context<'_, SearchBar>,
-    search_results_list_weak_entity: gpui::WeakEntity<ListState<SearchResultsList>>,
+    search_results_list_weak_entity: gpui_kit::WeakEntity<ListState<SearchResultsList>>,
     search_method_state: &Entity<SelectState<Vec<SharedString>>>,
 ) -> Subscription {
     cx.subscribe(
@@ -51,7 +51,7 @@ pub fn subscribe_search_method(
 
 pub fn subscribe_search_scope(
     cx: &mut Context<'_, SearchBar>,
-    search_results_list_weak_entity_for_search_scope_state: gpui::WeakEntity<
+    search_results_list_weak_entity_for_search_scope_state: gpui_kit::WeakEntity<
         ListState<SearchResultsList>,
     >,
     search_scope_state: &Entity<SelectState<Vec<SharedString>>>,

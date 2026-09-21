@@ -1,12 +1,12 @@
 use anyhow::Context as AnyhowContext;
-use gpui::{
-    App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, Styled,
-    Subscription,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     list::{List, ListState},
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, Styled,
+    Subscription,
 };
 
 use crate::{
@@ -26,7 +26,7 @@ pub struct CommandBar {
 /// TODO:
 /// - Create default background for editor
 impl CommandBar {
-    pub fn new(cx: &mut Context<Self>, window: &mut gpui::Window) -> Self {
+    pub fn new(cx: &mut Context<Self>, window: &mut gpui_kit::Window) -> Self {
         let mut _subscriptions = Vec::new();
 
         Self {
@@ -37,13 +37,13 @@ impl CommandBar {
         }
     }
 
-    pub fn get_input_field_focus_handle(&self, cx: &App) -> gpui::FocusHandle {
+    pub fn get_input_field_focus_handle(&self, cx: &App) -> gpui_kit::FocusHandle {
         self.keys_list.focus_handle(cx)
     }
 }
 
 impl Focusable for CommandBar {
-    fn focus_handle(&self, _cx: &gpui::App) -> gpui::FocusHandle {
+    fn focus_handle(&self, _cx: &gpui_kit::App) -> gpui_kit::FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -51,9 +51,9 @@ impl Focusable for CommandBar {
 impl Render for CommandBar {
     fn render(
         &mut self,
-        _window: &mut gpui::Window,
+        _window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
-    ) -> impl gpui::IntoElement {
+    ) -> impl gpui_kit::IntoElement {
         let language_profile = get_language_profile(cx)
             .context("Getting language profile failed")
             .unwrap();

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gpui::{App, Global};
+use gpui_kit::{App, Global};
 use rust_embed::Embed;
 
 #[derive(Embed)]

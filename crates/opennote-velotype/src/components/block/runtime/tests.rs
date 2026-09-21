@@ -2541,7 +2541,7 @@ async fn code_language_input_uses_ime_path_without_touching_code_content(cx: &mu
 
     cx.update(|window, cx| {
         block.update(cx, |block, block_cx| {
-            block.code_language_focus_handle.focus(window);
+            block.code_language_focus_handle.focus(window, block_cx);
             block.code_language_selected_range = 0..block.code_language_text().len();
             block.selected_range = 3..3;
             <Block as EntityInputHandler>::replace_text_in_range(
@@ -2575,7 +2575,7 @@ async fn code_language_input_handles_utf16_ranges(cx: &mut TestAppContext) {
 
     cx.update(|window, cx| {
         block.update(cx, |block, block_cx| {
-            block.code_language_focus_handle.focus(window);
+            block.code_language_focus_handle.focus(window, block_cx);
             <Block as EntityInputHandler>::replace_text_in_range(
                 block,
                 Some(2..4),
@@ -2609,7 +2609,7 @@ async fn code_language_input_clears_language_when_empty(cx: &mut TestAppContext)
 
     cx.update(|window, cx| {
         block.update(cx, |block, block_cx| {
-            block.code_language_focus_handle.focus(window);
+            block.code_language_focus_handle.focus(window, block_cx);
             block.code_language_selected_range = 0..block.code_language_text().len();
             <Block as EntityInputHandler>::replace_text_in_range(block, None, "", window, block_cx);
         });
