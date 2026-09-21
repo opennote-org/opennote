@@ -1,6 +1,6 @@
 # OpenNote
 
-A block-based, AI-powered note-taking app with semantic search — built entirely in Rust.
+A minimalistic notebook app built purely in Rust.
 
 **Status: Heavy Development** — APIs, architecture, and workflows are evolving quickly. Contributions, feedback, and experimental use are all welcome.
 
@@ -21,6 +21,7 @@ A block-based, AI-powered note-taking app with semantic search — built entirel
 - [x] Self-hosted server for syncing documents across devices with encrypted communications
 - [x] WYSIWYG markdown editor integration
 - [ ] Advanced NLP features to simplify document management (e.g., automatic categorization by semantic similarity)
+  - [x] Support both semantic and keyword search
 - [x] MCP server support
 - [x] Import files
 - [ ] Multi-modal support
