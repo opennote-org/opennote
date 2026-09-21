@@ -4009,7 +4009,7 @@ dependencies = [
 
 [[package]]
 name = "embed"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "accelerate-src",
  "anyhow",
@@ -8561,7 +8561,7 @@ dependencies = [
 
 [[package]]
 name = "migration"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "sea-orm-migration",
  "tokio",
@@ -9588,7 +9588,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-bootstrap"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "anyhow",
  "opennote-data",
@@ -9600,11 +9600,11 @@ dependencies = [
 
 [[package]]
 name = "opennote-connectors"
-version = "0.2.5"
+version = "0.2.6"
 
 [[package]]
 name = "opennote-core-logics"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "anyhow",
  "chunk",
@@ -9622,7 +9622,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-data"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "anyhow",
  "arrow-array",
@@ -9653,7 +9653,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-desktop"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -9684,7 +9684,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-embedder"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9698,14 +9698,14 @@ dependencies = [
 
 [[package]]
 name = "opennote-entities"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "sea-orm",
 ]
 
 [[package]]
 name = "opennote-mcp-server"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -9713,7 +9713,7 @@ dependencies = [
  "opennote-bootstrap",
  "opennote-models",
  "rmcp 3.1.2",
- "rmcp-actix-web 0.2.5",
+ "rmcp-actix-web 0.2.6",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -9724,7 +9724,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-models"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -9742,7 +9742,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-server"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "actix-cors",
  "actix-web",
@@ -9762,7 +9762,7 @@ dependencies = [
 
 [[package]]
 name = "opennote-velotype"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "adot-tree-sitter-toml",
  "anyhow",
@@ -11783,7 +11783,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-actix-web"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "actix-web",
  "anyhow",
