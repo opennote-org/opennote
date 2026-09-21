@@ -42,5 +42,17 @@
   "embedding_texts_error": "Error has occurred when embedding texts: {}",
   "updating_blocks_parent": "Updating blocks' parent",
   "updated_parent_for_n_blocks": "Updated parent for {} blocks",
-  "block_parent_update_failed": "Block parent update failed due to {}"
+  "block_parent_update_failed": "Block parent update failed due to {}",
+  "search_bar_keyword_matches": "Keyword matches",
+  "search_bar_semantic_matches": "Semantic matches",
+  "search_bar_searching": "Searching…",
+  "search_bar_no_matches": "No matches",
+  "search_bar_semantic_unavailable": "Semantic search unavailable",
+  "search_bar_partial_failure": "Some search results could not be loaded",
+  "search_bar_match_count": "{} matches",
+  "search_bar_scope_document": "Document",
+  "search_bar_scope_collection": "Collection",
+  "search_bar_scope_userspace": "Userspace",
+  "search_bar_keyword_hint": "Find matching words and phrases",
+  "search_bar_semantic_hint": "Find notes with related meaning"
 }

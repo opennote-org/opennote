@@ -1,5 +1,7 @@
 pub mod bar;
 pub mod search_results;
 
-mod observations;
+mod highlight;
+mod search;
 mod subscriptions;
+mod view;

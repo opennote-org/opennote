@@ -1,173 +1,279 @@
-use std::vec;
+use std::collections::{HashMap, HashSet};
 
-use gpui_kit::component::{
-    IndexPath,
-    list::{ListDelegate, ListItem},
-    text::Text,
-    v_flex,
+use gpui_kit::{
+    Context, InteractiveElement, ParentElement, SharedString, StatefulInteractiveElement, Styled,
+    WeakEntity,
+    component::{
+        ActiveTheme, IndexPath,
+        list::{ListDelegate, ListItem, ListState},
+        tooltip::Tooltip,
+        v_flex,
+    },
+    div,
 };
-use gpui_kit::{ParentElement, SharedString, Styled, WeakEntity};
 
-use opennote_core_logics::helpers::run_async_code;
 use opennote_data::search::SearchScope;
-use opennote_embedder::vectorization::send_vectorization;
 use opennote_models::{
-    block::Block,
-    configurations::fields::search::SupportedSearchMethod,
-    payload::{Payload, create_query},
+    block::Block, configurations::fields::search::SupportedSearchMethod, payload::Payload,
     search::RawSearchResult,
 };
 
 use crate::{
     globals::{
-        actions::route_helpers::{self},
-        bootstrap::GlobalApplicationBootStrap,
-        states::{States, server_registry::ServerStates},
+        bootstrap::GlobalApplicationBootStrap, helpers::get_language_profile, states::States,
     },
-    widgets::{pane::helpers::open_block, search_bar::bar::SearchBar},
+    widgets::{
+        pane::helpers::open_block,
+        search_bar::{
+            bar::SearchBar,
+            highlight::highlight_keyword_text,
+            search::{SearchRequest, spawn_search},
+        },
+    },
 };
 
-fn create_search_queries(
-    query: &str,
-    search_method: SupportedSearchMethod,
-    bootstrap: &GlobalApplicationBootStrap,
-) -> (Option<String>, Option<Vec<f32>>) {
-    let query_str = query.to_string();
-    let mut query_vector = Vec::new();
-
-    if search_method == SupportedSearchMethod::Semantic {
-        let payload = create_query(query);
-        let payloads = run_async_code(async {
-            send_vectorization(vec![payload], &bootstrap.0.embedders)
-                .await
-                .unwrap()
-        });
-        query_vector = payloads[0].vector.clone();
-    }
-
-    (Some(query_str), Some(query_vector))
+pub struct SearchResult {
+    pub block: Block,
+    pub payload: Payload,
+    pub raw: RawSearchResult,
+    pub server: SharedString,
+    pub breadcrumb: SharedString,
 }
 
-/// Collect all available gpui actions / key bindings in this app
-///
-/// TODO:
-/// - Store blocks and the search result payload as result
-/// - On click a result, open the editor to the payload position of that block
-/// - If the editor had opened, switch to that editor instead
-///
-/// - Provide two searches, semantic and keyword
-/// - Search methods' block_ids is determined by the current context
+#[derive(Clone, Copy)]
+pub enum SearchStatus {
+    Idle,
+    Searching,
+    Empty,
+    SemanticUnavailable,
+    PartialFailure,
+    Matches(usize),
+}
+
+impl SearchStatus {
+    pub fn label(self, language_profile: &HashMap<String, String>) -> SharedString {
+        let key = match self {
+            Self::Idle => "search_bar_placeholder",
+            Self::Searching => "search_bar_searching",
+            Self::Empty => "search_bar_no_matches",
+            Self::SemanticUnavailable => "search_bar_semantic_unavailable",
+            Self::PartialFailure => "search_bar_partial_failure",
+            Self::Matches(count) => {
+                return language_profile["search_bar_match_count"]
+                    .replace("{}", &count.to_string())
+                    .into();
+            }
+        };
+
+        language_profile[key].clone().into()
+    }
+}
+
 pub struct SearchResultsList {
-    /// Searched block and the specific payload contains the result
-    pub results: Vec<(Block, Payload, RawSearchResult)>,
-
-    /// Raw results from querying the search endpoint
-    pub raw_results: Vec<RawSearchResult>,
-
-    pub servers_to_retrieve: Vec<(SharedString, ServerStates)>,
-
-    /// Indicate which query is current active as the user types
+    pub results: Vec<SearchResult>,
     pub active_query_id: usize,
-
     pub search_bar: WeakEntity<SearchBar>,
-
-    ///
     pub selected_index: Option<IndexPath>,
+    pub search_method: SupportedSearchMethod,
+    pub status: SearchStatus,
+    query: String,
 }
 
 impl SearchResultsList {
-    pub fn new(search_bar: WeakEntity<SearchBar>) -> Self {
+    pub fn new(search_bar: WeakEntity<SearchBar>, search_method: SupportedSearchMethod) -> Self {
         Self {
             results: Vec::new(),
-            raw_results: Vec::new(),
-            servers_to_retrieve: Vec::new(),
-            selected_index: None,
-            search_bar,
             active_query_id: 0,
+            search_bar,
+            selected_index: None,
+            search_method,
+            status: SearchStatus::Idle,
+            query: String::new(),
         }
+    }
+
+    pub(super) fn extend_results(&mut self, results: Vec<SearchResult>, top_n: usize) {
+        self.results.extend(results);
+        self.results.sort_by(|a, b| {
+            b.raw
+                .score
+                .total_cmp(&a.raw.score)
+                .then_with(|| a.server.cmp(&b.server))
+                .then_with(|| a.raw.block_id.cmp(&b.raw.block_id))
+                .then_with(|| a.raw.payload_id.cmp(&b.raw.payload_id))
+        });
+        let mut seen = HashSet::new();
+        self.results.retain(|result| {
+            seen.insert((
+                result.server.clone(),
+                result.raw.block_id,
+                result.raw.payload_id,
+            ))
+        });
+        self.results.truncate(top_n);
     }
 }
 
 impl ListDelegate for SearchResultsList {
     type Item = ListItem;
 
-    fn items_count(&self, _section: usize, _cx: &gpui_kit::App) -> usize {
+    fn items_count(&self, _: usize, _: &gpui_kit::App) -> usize {
         self.results.len()
+    }
+
+    fn render_empty(
+        &mut self,
+        _: &mut gpui_kit::Window,
+        cx: &mut Context<ListState<Self>>,
+    ) -> impl gpui_kit::IntoElement {
+        let profile = get_language_profile(cx).unwrap();
+        let message = match self.status {
+            SearchStatus::Idle => {
+                let key = match self.search_method {
+                    SupportedSearchMethod::Keyword => "search_bar_keyword_hint",
+                    SupportedSearchMethod::Semantic => "search_bar_semantic_hint",
+                };
+                SharedString::from(profile[key].clone())
+            }
+            _ => self.status.label(&profile),
+        };
+        v_flex()
+            .size_full()
+            .items_center()
+            .justify_center()
+            .p_6()
+            .text_sm()
+            .text_center()
+            .text_color(cx.theme().muted_foreground)
+            .child(message)
     }
 
     fn render_item(
         &mut self,
         ix: IndexPath,
-        _window: &mut gpui_kit::Window,
-        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
+        _: &mut gpui_kit::Window,
+        cx: &mut Context<ListState<Self>>,
     ) -> Option<Self::Item> {
-        self.results
-            .get(ix.row)
-            .map(|(block, payload, _raw_search_result)| {
-                let texts = SharedString::from(payload.texts.clone());
-                let search_bar = self.search_bar.clone();
+        self.results.get(ix.row).map(|result| {
+            let texts = SharedString::from(result.payload.texts.clone());
+            let passage = match self.search_method {
+                SupportedSearchMethod::Keyword => {
+                    highlight_keyword_text(texts.clone(), &self.query, cx)
+                }
+                SupportedSearchMethod::Semantic => gpui_kit::StyledText::new(texts.clone()),
+            };
+            let search_bar = self.search_bar.clone();
+            let path = result.breadcrumb.clone();
+            let block_id = result.block.id;
 
-                let content = v_flex().child(Text::String(texts.clone()));
+            ListItem::new(ix)
+                .selected(Some(ix) == self.selected_index)
+                .w_full()
+                .flex_shrink_0()
+                .py(gpui_kit::px(12.))
+                .px_4()
+                .border_b_1()
+                .border_color(cx.theme().border)
+                .child(
+                    v_flex()
+                        .w_full()
+                        .min_w_0()
+                        .gap_1()
+                        .child(
+                            div()
+                                .w_full()
+                                .flex_shrink_0()
+                                .text_sm()
+                                .line_height(gpui_kit::px(20.))
+                                .child(passage),
+                        )
+                        .child(
+                            div()
+                                .id(("breadcrumb", ix.row))
+                                .w_full()
+                                .flex_shrink_0()
+                                .text_xs()
+                                .line_height(gpui_kit::px(20.))
+                                .text_color(cx.theme().muted_foreground)
+                                .child(path.clone())
+                                .tooltip(move |window, cx| {
+                                    Tooltip::new(path.clone()).build(window, cx)
+                                }),
+                        ),
+                )
+                .on_click(cx.listener(move |_, _, window, cx| {
+                    open_block(cx, window, block_id, Some(texts.clone()));
 
-                let block_id = block.id;
-
-                ListItem::new(ix)
-                    .selected(Some(ix) == self.selected_index)
-                    .h_64()
-                    .child(content)
-                    .on_click(cx.listener(move |_this, _event, window, cx| {
-                        open_block(cx, window, block_id, Some(texts.clone()));
-                        let _ = search_bar.update(cx, |this, cx| {
-                            this.is_toggled = false;
-                            cx.notify();
-                        });
-                    }))
-            })
+                    let _ = search_bar.update(cx, |this, cx| {
+                        this.is_toggled = false;
+                        cx.notify();
+                    });
+                }))
+        })
     }
 
     fn set_selected_index(
         &mut self,
         ix: Option<IndexPath>,
-        _window: &mut gpui_kit::Window,
-        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
+        _: &mut gpui_kit::Window,
+        cx: &mut Context<ListState<Self>>,
     ) {
         self.selected_index = ix;
         cx.notify();
     }
 
+    fn confirm(
+        &mut self,
+        _: bool,
+        window: &mut gpui_kit::Window,
+        cx: &mut Context<ListState<Self>>,
+    ) {
+        let Some(result) = self.selected_index.and_then(|ix| self.results.get(ix.row)) else {
+            return;
+        };
+
+        open_block(
+            cx,
+            window,
+            result.block.id,
+            Some(result.payload.texts.clone().into()),
+        );
+
+        let _ = self.search_bar.update(cx, |bar, cx| {
+            bar.is_toggled = false;
+            cx.notify();
+        });
+    }
+
     fn perform_search(
         &mut self,
         query: &str,
-        _window: &mut gpui_kit::Window,
-        cx: &mut gpui_kit::Context<gpui_kit::component::list::ListState<Self>>,
+        _: &mut gpui_kit::Window,
+        cx: &mut Context<ListState<Self>>,
     ) -> gpui_kit::Task<()> {
-        // Create a query id for the observer to validate
-        // if this is the current query.
+        self.query = query.to_owned();
         self.active_query_id += 1;
         let query_id = self.active_query_id;
 
-        // Cleanup before searching
         self.results.clear();
-        self.raw_results.clear();
-        self.servers_to_retrieve.clear();
+        self.selected_index = None;
+        self.status = SearchStatus::Empty;
+        cx.notify();
 
-        // Adopt the search method accordingly
-        // Retrieve the search method from global state
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
-        let configurations = bootstrap.get_configurations();
-
-        let states: &States = cx.global();
-        let Some(active_pane) = states.get_active_pane(cx) else {
+        if query.trim().is_empty() {
+            self.status = SearchStatus::Idle;
             return gpui_kit::Task::ready(());
-        };
+        }
 
-        let selected_block_id = active_pane
-            .read_with(cx, |this, _cx| this.selected_block_id)
-            .unwrap();
+        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let top_n = bootstrap.get_configurations().user.search.top_n;
+        let states: &States = cx.global();
 
-        // Determine the blocks to search for
-        // When the search scope is userspace, we search across all servers
-        // When the search scope is document or collection, we search across the belonging server
+        let selected_block_id = states
+            .get_active_pane(cx)
+            .and_then(|pane| pane.read_with(cx, |pane, _| pane.selected_block_id).ok())
+            .flatten();
+
         let (servers, block_ids) = match states.get_search_scope() {
             SearchScope::Document => match selected_block_id {
                 Some(result) => {
@@ -198,56 +304,19 @@ impl ListDelegate for SearchResultsList {
             ),
         };
 
-        // Send the search operation to the background from here
-        // Store the raw results to a struct field
-        // Retrieve the raw results when raw results are updated
-        // Retreive the blocks, then save to the self.results
-
-        let databases = bootstrap.0.databases.clone();
-        let search_method = configurations.user.search.default_search_method;
-        let top_n = configurations.user.search.top_n;
-
-        let (query_str, query_vector) = create_search_queries(query, search_method, bootstrap);
-        if query_str.is_none() && query_vector.is_none() {
-            self.results = Vec::new();
+        if block_ids.is_empty() || servers.is_empty() {
             return gpui_kit::Task::ready(());
         }
 
-        for (name, server) in servers.clone().into_iter() {
-            let block_ids = block_ids.clone();
-            let query_str = query_str.clone();
-            let query_vector = query_vector.clone();
-            let databases = databases.clone();
-            cx.spawn(async move |this, cx| {
-                let raw_results = match route_helpers::route_search_blocks(
-                    &name,
-                    &server,
-                    &databases,
-                    search_method,
-                    block_ids,
-                    query_str,
-                    query_vector,
-                    top_n,
-                )
-                .await
-                {
-                    Ok(results) => results,
-                    Err(error) => panic!("{}", error),
-                };
+        let request = SearchRequest {
+            method: self.search_method,
+            query: query.to_owned(),
+            vector: None,
+            top_n,
+        };
 
-                let _ = this.update(cx, |this, cx| {
-                    // Cancel all old queries as the user types
-                    if query_id == this.delegate().active_query_id {
-                        this.delegate_mut().raw_results.extend(raw_results);
-                        cx.notify();
-                    }
-                });
-            })
-            .detach();
-        }
+        self.status = SearchStatus::Searching;
 
-        self.servers_to_retrieve = servers;
-
-        gpui_kit::Task::ready(())
+        spawn_search(query_id, request, servers, block_ids, cx)
     }
 }

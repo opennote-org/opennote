@@ -42,5 +42,17 @@
   "embedding_texts_error": "文本嵌入时发生错误：{}",
   "updating_blocks_parent": "正在更新笔记父级",
   "updated_parent_for_n_blocks": "已更新 {} 个笔记的父级",
-  "block_parent_update_failed": "笔记父级更新失败：{}"
+  "block_parent_update_failed": "笔记父级更新失败：{}",
+  "search_bar_keyword_matches": "关键词匹配",
+  "search_bar_semantic_matches": "语义匹配",
+  "search_bar_searching": "正在搜索…",
+  "search_bar_no_matches": "无匹配结果",
+  "search_bar_semantic_unavailable": "语义搜索不可用",
+  "search_bar_partial_failure": "部分搜索结果无法加载",
+  "search_bar_match_count": "{} 条匹配结果",
+  "search_bar_scope_document": "当前文档",
+  "search_bar_scope_collection": "当前集合",
+  "search_bar_scope_userspace": "全部笔记",
+  "search_bar_keyword_hint": "查找匹配的词语和短语",
+  "search_bar_semantic_hint": "查找语义相关的笔记"
 }

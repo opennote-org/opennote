@@ -97,8 +97,8 @@ impl Workspace {
                     // when rendering the search input box
                     let query: String = query.lines().map(|item| item.replace("\n", " ")).collect();
 
-                    this.search_results_list.update(cx, |this, cx| {
-                        this.set_query(&query, window, cx);
+                    this.query_input.update(cx, |this, cx| {
+                        this.set_value(query, window, cx);
                     });
                 }
 

@@ -1,86 +1,76 @@
-use std::str::FromStr;
-
-use gpui_kit::component::{
-    list::ListState,
-    select::{SelectEvent, SelectState},
+use gpui_kit::{
+    Context, Entity, SharedString, Subscription, Window,
+    component::{
+        input::{InputEvent, InputState},
+        list::ListState,
+        select::{SelectEvent, SelectState},
+    },
 };
-use gpui_kit::{Context, Entity, SharedString, Subscription};
-
-use opennote_data::search::SearchScope;
-use opennote_models::configurations::fields::search::SupportedSearchMethod;
 
 use crate::{
-    globals::{bootstrap::GlobalApplicationBootStrap, states::helpers::get_states_mut},
+    globals::{
+        bootstrap::SEARCH_SCOPES_ENUMS, helpers::get_language_profile,
+        states::helpers::get_states_mut,
+    },
     widgets::search_bar::{bar::SearchBar, search_results::SearchResultsList},
 };
 
-pub fn subscribe_search_method(
-    cx: &mut Context<'_, SearchBar>,
-    search_results_list_weak_entity: gpui_kit::WeakEntity<ListState<SearchResultsList>>,
-    search_method_state: &Entity<SelectState<Vec<SharedString>>>,
+pub fn subscribe_search_results(
+    cx: &mut Context<SearchBar>,
+    list: &Entity<ListState<SearchResultsList>>,
 ) -> Subscription {
-    cx.subscribe(
-        search_method_state,
-        move |_this, _tree_state, event: &SelectEvent<Vec<SharedString>>, cx| {
-            let new_search_method = match event {
-                SelectEvent::Confirm(value) => {
-                    let Some(value) = value else {
-                        return;
-                    };
-                    value
-                }
+    cx.observe(list, |_, _, cx| cx.notify())
+}
+
+pub fn subscribe_search_query(
+    cx: &mut Context<SearchBar>,
+    window: &mut Window,
+    input: &Entity<InputState>,
+) -> Subscription {
+    cx.subscribe_in(input, window, |bar, _, event, window, cx| {
+        if matches!(event, InputEvent::Change) {
+            bar.search(window, cx);
+        }
+    })
+}
+
+pub fn search_scope_labels(cx: &gpui_kit::App) -> Vec<SharedString> {
+    let profile = get_language_profile(cx).unwrap();
+
+    SEARCH_SCOPES_ENUMS
+        .iter()
+        .map(|scope| {
+            let key = match scope {
+                opennote_data::search::SearchScope::Document => "search_bar_scope_document",
+                opennote_data::search::SearchScope::Collection => "search_bar_scope_collection",
+                opennote_data::search::SearchScope::Userspace => "search_bar_scope_userspace",
             };
-
-            let new_search_method = new_search_method.to_owned();
-
-            let new_search_method = SupportedSearchMethod::from_str(&new_search_method).unwrap();
-
-            let bootstrap: &mut GlobalApplicationBootStrap = cx.global_mut();
-            bootstrap.set_search_method(new_search_method);
-
-            let _ = search_results_list_weak_entity.update(cx, |this, cx| {
-                let delegate = this.delegate_mut();
-                delegate.results.clear();
-                cx.notify();
-            });
-
-            cx.notify();
-        },
-    )
+            profile[key].clone().into()
+        })
+        .collect()
 }
 
 pub fn subscribe_search_scope(
-    cx: &mut Context<'_, SearchBar>,
-    search_results_list_weak_entity_for_search_scope_state: gpui_kit::WeakEntity<
-        ListState<SearchResultsList>,
-    >,
-    search_scope_state: &Entity<SelectState<Vec<SharedString>>>,
+    cx: &mut Context<SearchBar>,
+    window: &mut Window,
+    scope: &Entity<SelectState<Vec<SharedString>>>,
 ) -> Subscription {
-    cx.subscribe(
-        search_scope_state,
-        move |_this, _tree_state, event: &SelectEvent<Vec<SharedString>>, cx| {
-            let new_search_scope = match event {
-                SelectEvent::Confirm(value) => {
-                    let Some(value) = value else {
-                        return;
-                    };
-                    value
-                }
+    let labels = search_scope_labels(cx);
+
+    cx.subscribe_in(
+        scope,
+        window,
+        move |bar, _, event: &SelectEvent<Vec<SharedString>>, window, cx| {
+            let SelectEvent::Confirm(Some(value)) = event else {
+                return;
             };
 
-            let new_search_scope = SearchScope::from_str(&new_search_scope.to_owned()).unwrap();
+            let Some(index) = labels.iter().position(|label| label == value) else {
+                return;
+            };
 
-            let states = get_states_mut(cx);
-            states.set_search_scope(new_search_scope);
-
-            let _ =
-                search_results_list_weak_entity_for_search_scope_state.update(cx, |this, cx| {
-                    let delegate = this.delegate_mut();
-                    delegate.results.clear();
-                    cx.notify();
-                });
-
-            cx.notify();
+            get_states_mut(cx).set_search_scope(SEARCH_SCOPES_ENUMS[index]);
+            bar.search(window, cx);
         },
     )
 }

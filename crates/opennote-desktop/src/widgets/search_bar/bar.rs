@@ -1,135 +1,122 @@
-use anyhow::Context as AnyhowContext;
-use gpui_kit::component::{
-    ActiveTheme, IndexPath, Sizable, StyledExt, h_flex,
-    list::{List, ListState},
-    select::{Select, SelectState},
-    v_flex,
-};
 use gpui_kit::{
     App, AppContext, Context, Entity, FocusHandle, Focusable, ParentElement, Render, SharedString,
-    Styled, Subscription, WeakEntity, div,
+    Styled, Subscription, WeakEntity, Window,
+    base::{h_flex, v_flex},
+    component::{
+        ActiveTheme, IndexPath,
+        input::InputState,
+        list::{ListDelegate, ListState},
+        select::SelectState,
+    },
+    div, px,
 };
 
+use opennote_models::configurations::fields::search::SupportedSearchMethod;
+
 use crate::{
-    globals::{
-        bootstrap::{GlobalApplicationBootStrap, SEARCH_METHODS_ENUMS, SEARCH_SCOPES_ENUMS},
-        helpers::get_language_profile,
-        states::helpers::get_states,
-    },
+    globals::{helpers::get_language_profile, states::helpers::get_states},
     widgets::{
         floating::create_float_palette,
         pane::Pane,
         search_bar::{
-            observations::observe_search_result_list,
             search_results::SearchResultsList,
-            subscriptions::{subscribe_search_method, subscribe_search_scope},
+            subscriptions::{
+                search_scope_labels, subscribe_search_query, subscribe_search_results,
+                subscribe_search_scope,
+            },
+            view::{render_result_column, render_search_controls},
         },
     },
 };
 
-/// Select commands to execute
 pub struct SearchBar {
     pub is_toggled: bool,
-    pub search_results_list: Entity<ListState<SearchResultsList>>,
-    pub search_method_state: Entity<SelectState<Vec<SharedString>>>,
+    pub keyword_search_results_list: Entity<ListState<SearchResultsList>>,
+    pub semantic_search_results_list: Entity<ListState<SearchResultsList>>,
+
+    pub query_input: Entity<InputState>,
     pub search_scope_state: Entity<SelectState<Vec<SharedString>>>,
 
     pub focus_handle: FocusHandle,
-    pub _subscriptions: Vec<Subscription>,
 
+    pub _subscriptions: Vec<Subscription>,
     pub pane: WeakEntity<Pane>,
 }
 
 impl SearchBar {
-    pub fn new(
-        cx: &mut Context<Self>,
-        window: &mut gpui_kit::Window,
-        pane: WeakEntity<Pane>,
-    ) -> Self {
-        let mut _subscriptions = Vec::new();
-        let search_bar_weak_entity = cx.weak_entity();
+    pub fn new(cx: &mut Context<Self>, window: &mut Window, pane: WeakEntity<Pane>) -> Self {
+        let search_bar = cx.weak_entity();
 
-        // SelectState requires selecting methods based on index
-        let search_methods: Vec<SharedString> = SEARCH_METHODS_ENUMS
-            .into_iter()
-            .map(|item| item.to_string().into())
-            .collect();
-
-        // SelectState requires selecting scopes based on index
-        let search_scopes: Vec<SharedString> = SEARCH_SCOPES_ENUMS
-            .into_iter()
-            .map(|item| item.to_string().into())
-            .collect();
-
-        let search_results_list: Entity<ListState<SearchResultsList>> = cx.new(|cx| {
-            ListState::new(SearchResultsList::new(search_bar_weak_entity), window, cx)
-                .searchable(true)
+        let keyword_search_results_list = cx.new(|cx| {
+            ListState::new(
+                SearchResultsList::new(search_bar.clone(), SupportedSearchMethod::Keyword),
+                window,
+                cx,
+            )
         });
-
-        let search_results_list_weak_entity = search_results_list.downgrade();
-        let search_results_list_weak_entity_for_search_scope_state =
-            search_results_list_weak_entity.clone();
-
-        let search_method_state = cx.new(|cx| {
-            let bootstrap: &GlobalApplicationBootStrap = cx.global();
-            let selected_index: usize = bootstrap.get_search_method_index();
-
-            SelectState::new(
-                search_methods,
-                Some(IndexPath::new(selected_index)),
+        let semantic_search_results_list = cx.new(|cx| {
+            ListState::new(
+                SearchResultsList::new(search_bar.clone(), SupportedSearchMethod::Semantic),
                 window,
                 cx,
             )
         });
 
-        let search_scope_state = cx.new(|cx| {
-            let states = get_states(cx);
-            let selected_index = states.get_search_scope_index();
+        let placeholder = get_language_profile(cx).unwrap()["search_bar_placeholder"].clone();
+        let query_input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
 
+        let search_scopes = search_scope_labels(cx);
+        let search_scope_state = cx.new(|cx| {
             SelectState::new(
                 search_scopes,
-                Some(IndexPath::new(selected_index)),
+                Some(IndexPath::new(get_states(cx).get_search_scope_index())),
                 window,
                 cx,
             )
         });
 
-        // Update the search method when the selected search method changes
-        _subscriptions.push(subscribe_search_method(
-            cx,
-            search_results_list_weak_entity.clone(),
-            &search_method_state,
-        ));
-
-        // Update the search scope when the selected search scope changes
-        _subscriptions.push(subscribe_search_scope(
-            cx,
-            search_results_list_weak_entity_for_search_scope_state,
-            &search_scope_state,
-        ));
-
-        // Observe the changes in the search results list.
-        // We need to do this to update the final search results.
-        _subscriptions.push(observe_search_result_list(cx, &search_results_list));
+        let subscriptions = vec![
+            subscribe_search_results(cx, &keyword_search_results_list),
+            subscribe_search_results(cx, &semantic_search_results_list),
+            subscribe_search_query(cx, window, &query_input),
+            subscribe_search_scope(cx, window, &search_scope_state),
+        ];
 
         Self {
             is_toggled: false,
-            focus_handle: cx.focus_handle(),
-            search_results_list,
-            search_method_state,
+            keyword_search_results_list,
+            semantic_search_results_list,
+            query_input,
             search_scope_state,
-            _subscriptions,
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
             pane,
         }
     }
 
-    pub fn get_input_field_focus_handle(&self, cx: &App) -> gpui_kit::FocusHandle {
-        self.search_results_list.focus_handle(cx)
+    pub fn search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let query = self.query_input.read(cx).value();
+
+        for list in [
+            &self.keyword_search_results_list,
+            &self.semantic_search_results_list,
+        ] {
+            list.update(cx, |list, cx| {
+                list.set_selected_index(None, window, cx);
+                list.delegate_mut()
+                    .perform_search(&query, window, cx)
+                    .detach();
+            });
+        }
+    }
+
+    pub fn get_input_field_focus_handle(&self, cx: &App) -> FocusHandle {
+        self.query_input.focus_handle(cx)
     }
 }
 
 impl Focusable for SearchBar {
-    fn focus_handle(&self, _cx: &gpui_kit::App) -> gpui_kit::FocusHandle {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -137,32 +124,47 @@ impl Focusable for SearchBar {
 impl Render for SearchBar {
     fn render(
         &mut self,
-        _window: &mut gpui_kit::Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl gpui_kit::IntoElement {
-        let language_profile = get_language_profile(cx)
-            .context("Getting language profile failed")
-            .unwrap();
+        let profile = get_language_profile(cx).unwrap();
+        let width = (window.viewport_size().width - px(48.)).min(px(960.));
+
+        // Leave room for the input, column headings and outer window margins.
+        let results_height = (window.viewport_size().height - px(200.)).max(px(120.));
+        let columns = h_flex()
+            .w_full()
+            .items_start()
+            .child(render_result_column(
+                "search_bar_keyword_matches",
+                &self.keyword_search_results_list,
+                results_height,
+                &profile,
+                window,
+                cx,
+            ))
+            .child(div().w_px().self_stretch().bg(cx.theme().border))
+            .child(render_result_column(
+                "search_bar_semantic_matches",
+                &self.semantic_search_results_list,
+                results_height,
+                &profile,
+                window,
+                cx,
+            ));
 
         create_float_palette(&self.focus_handle(cx), self.is_toggled).child(
-            h_flex()
-                .flex_shrink(1.0)
-                .items_start()
-                .gap_2()
-                .child(div().v_flex().gap_2().children([
-                    Select::new(&self.search_method_state).w_40().small(),
-                    Select::new(&self.search_scope_state).w_40().small(),
-                ]))
-                .child(
-                    v_flex().child(
-                        List::new(&self.search_results_list)
-                            .search_placeholder(&language_profile["search_bar_placeholder"])
-                            .bg(cx.theme().accent)
-                            .shadow_2xl()
-                            .w_128()
-                            .h_128(),
-                    ),
-                ),
+            v_flex()
+                .w(width)
+                .rounded_xl()
+                .overflow_hidden()
+                .border_1()
+                .border_color(cx.theme().border)
+                .bg(cx.theme().popover)
+                .text_color(cx.theme().popover_foreground)
+                .shadow_2xl()
+                .child(render_search_controls(self, cx))
+                .child(columns),
         )
     }
 }
