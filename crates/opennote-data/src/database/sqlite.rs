@@ -15,12 +15,8 @@ use opennote_models::{
     query::{BlockQuery, PayloadQuery},
 };
 
-use crate::database::{
-    metadata::MetadataSettings,
-    traits::{
-        blocks::Blocks, database::Database, metadata::MetadataManagement, payloads::Payloads,
-        query::DataQueryFilter,
-    },
+use crate::database::traits::{
+    blocks::Blocks, database::Database, payloads::Payloads, query::DataQueryFilter,
 };
 
 #[derive(Debug, Clone)]
@@ -96,18 +92,6 @@ impl SQLiteDatabase {
         }
 
         Ok(block_ids)
-    }
-}
-
-#[async_trait]
-impl MetadataManagement for SQLiteDatabase {
-    async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
-        use opennote_entities::metadata_settings;
-
-        match metadata_settings::Entity::find().one(&self.pool).await? {
-            Some(result) => Ok(result.into()),
-            None => return Err(anyhow!("Metadata settings missed")),
-        }
     }
 }
 
