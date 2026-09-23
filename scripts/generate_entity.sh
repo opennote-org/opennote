@@ -8,7 +8,7 @@ main() {
 	# run this script at the `backend`'s root,
 	# when wanting to create entities to reflect the sql data structure changes
 	
-	ENV_PATH="scripts/.env"
+	ENV_PATH="./.env"
 	
 	# Load .env file if it exists
     if [ -f $ENV_PATH ]; then
@@ -22,7 +22,7 @@ main() {
     fi
 
     sea-orm-cli generate entity \
-        --database-url $SQLITE_DATABASE \
+        --database-url "$SQLITE_DATABASE" \
         --output-dir ./crates/opennote-entities/src \
         --entity-format dense
 }

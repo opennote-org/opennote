@@ -6,7 +6,7 @@ use actix_web::{
 };
 use anyhow::{Context, Result};
 
-use opennote_bootstrap::ServerBootstrap;
+use opennote_bootstrap::server::ServerBootstrap;
 use opennote_core_logics::configurations::{
     ApplicationType, create_required_folders, get_configuration_folder_path,
 };
@@ -35,11 +35,13 @@ pub fn load_configurations() -> Result<ServerConfigurations> {
 }
 
 pub async fn initialize_backend_api_service(
+    host: String,
+    port: u16,
+    workers: usize,
     bootstrap: Data<ServerBootstrap>,
-    config: &ServerConfigurations,
 ) -> Result<()> {
     // Start HTTP server
-    let bind_address: String = format!("{}:{}", config.host, config.port);
+    let bind_address: String = format!("{}:{}", host, port);
     tracing::info!("Starting HTTP server on {}", bind_address);
 
     let server = HttpServer::new(move || {
@@ -55,10 +57,10 @@ pub async fn initialize_backend_api_service(
     });
 
     // Set number of workers if specified
-    tracing::info!("Using {} worker threads", config.workers);
+    tracing::info!("Using {} worker threads", workers);
 
     server
-        .workers(config.workers)
+        .workers(workers)
         .bind(&bind_address)
         .with_context(|| format!("Failed to bind to {}", bind_address))
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?

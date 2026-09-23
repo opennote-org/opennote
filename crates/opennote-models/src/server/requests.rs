@@ -64,3 +64,8 @@ pub struct SearchBlocksInWorkspaceRequest {
     pub query_vector: Option<Vec<f32>>,
     pub top_n: usize,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReindexWorkspaceRequest {
+    pub blocks: Vec<Block>,
+}

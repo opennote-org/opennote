@@ -3,5 +3,4 @@
 pub mod prelude;
 
 pub mod blocks;
-pub mod metadata_settings;
 pub mod payloads;

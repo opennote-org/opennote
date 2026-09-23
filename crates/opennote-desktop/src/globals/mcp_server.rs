@@ -2,10 +2,10 @@ use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::try_join_all;
 use gpui_kit::{App, AppContext, Global};
-use opennote_core_logics::helpers::run_async_code;
 use uuid::Uuid;
 
-use opennote_bootstrap::DesktopBootstrap;
+use opennote_bootstrap::desktop::DesktopBootstrap;
+use opennote_core_logics::helpers::run_async_code;
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_mcp_server::{
     requests::{MCPReadBlocksRequest, MCPSearchRequest},

@@ -7,9 +7,9 @@ use std::collections::HashMap;
 
 use actix_web::web::Data;
 use anyhow::Result;
+use opennote_bootstrap::server::ServerBootstrap;
 use tracing::info;
 
-use opennote_bootstrap::ServerBootstrap;
 use opennote_core_logics::logging::{WindowlessLayer, initialize_logger};
 use opennote_models::constants::{
     SERVER_DATA_FOLDER_NAME,
@@ -40,8 +40,13 @@ async fn main() -> Result<()> {
     info!("Starting OpenNote Server...");
     info!("Configuration: Server {}:{}", config.host, config.port);
 
-    initialize_backend_api_service(Data::new(ServerBootstrap::new(&config).await?), &config)
-        .await?;
+    initialize_backend_api_service(
+        config.host.to_string(),
+        config.port,
+        config.workers,
+        Data::new(ServerBootstrap::new(config).await?),
+    )
+    .await?;
 
     Ok(())
 }

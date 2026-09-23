@@ -1,9 +1,9 @@
 use anyhow::Context;
 use gpui_kit::{App, Global};
 
+use opennote_bootstrap::desktop::DesktopBootstrap;
 use tokio::sync::MutexGuard;
 
-use opennote_bootstrap::DesktopBootstrap;
 use opennote_core_logics::{
     configurations::{ApplicationType, create_required_folders, get_configuration_folder_path},
     helpers::run_async_code,
@@ -12,6 +12,7 @@ use opennote_data::search::SearchScope;
 use opennote_models::{
     configurations::{desktop::DesktopConfigurations, fields::search::SupportedSearchMethod},
     key_mappings::KeyMappingConfigurations,
+    metadata::Metadata,
     traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 
@@ -36,8 +37,9 @@ impl Global for GlobalApplicationBootStrap {}
 
 impl GlobalApplicationBootStrap {
     pub async fn load() -> anyhow::Result<Self> {
-        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
-        let (configurations, key_mappings) = tokio::task::spawn_blocking(move || {
+        let (configurations, key_mappings, mut metadata) = tokio::task::spawn_blocking(move || {
+            let config_path = get_configuration_folder_path(ApplicationType::Desktop);
+
             create_required_folders(&config_path).context("Failed to create required folders")?;
 
             let configurations = DesktopConfigurations::load_from_file(&config_path)
@@ -50,14 +52,22 @@ impl GlobalApplicationBootStrap {
                 .migrate(&config_path)
                 .context("Failed to migrate key mappings on application start")?;
 
-            Ok::<_, anyhow::Error>((configurations, key_mappings))
+            let metadata = Metadata::load_from_file(&config_path)
+                .context("Failed to load metadata on application start")?;
+
+            Ok::<_, anyhow::Error>((configurations, key_mappings, metadata))
         })
         .await
         .context("The resource loading task failed")??;
 
-        let bootstrap = DesktopBootstrap::new(&configurations, &key_mappings)
+        let bootstrap = DesktopBootstrap::new(configurations.clone(), key_mappings, &metadata)
             .await
             .context("Failed to bootstrap the application")?;
+
+        // Persist metadata
+        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
+        metadata.update(&configurations.system);
+        metadata.save_to_file(&config_path)?;
 
         Ok(Self(bootstrap))
     }

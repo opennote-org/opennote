@@ -6,14 +6,28 @@ use crate::{
         env_vars::{DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, load_environment_variable},
     },
     providers::vector_database::VectorDatabaseProvider,
+    traits::CompareNecessaryChanges,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct VectorDatabaseConfig {
     pub provider: VectorDatabaseProvider,
     pub index: String,
     pub base_url: String,
     pub api_key: String,
+}
+
+impl CompareNecessaryChanges<VectorDatabaseConfig> for VectorDatabaseConfig {
+    fn compare_necessary_changes(&self, another: &VectorDatabaseConfig) -> bool {
+        if another.provider != self.provider
+            || another.index != self.index
+            || another.base_url != self.base_url
+        {
+            return true;
+        }
+
+        false
+    }
 }
 
 impl Default for VectorDatabaseConfig {

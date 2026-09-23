@@ -4,7 +4,7 @@ use actix_web::{
 };
 use anyhow::anyhow;
 
-use opennote_bootstrap::ServerBootstrap;
+use opennote_bootstrap::server::ServerBootstrap;
 use opennote_core_logics::{
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
     search::{search_by_keyword, search_by_semantics},
@@ -121,6 +121,41 @@ pub async fn search_blocks_in_workspace(
     data: Data<ServerBootstrap>,
     request: Bytes,
 ) -> HttpResponse {
+    let configurations = data.configurations.lock().await;
+
+    let request: SearchBlocksInWorkspaceRequest =
+        match decrypt_request(request, &configurations.shared_key) {
+            Ok(req) => req,
+            Err(e) => return create_bad_response(format!("Failed to decrypt request: {}", e)),
+        };
+
+    let results = match request.search_method {
+        SupportedSearchMethod::Keyword => {
+            if let Some(query) = request.query {
+                search_by_keyword(&data.databases, request.block_ids, &query, request.top_n).await
+            } else {
+                return create_base_response::<Vec<RawSearchResult>>(
+                    Err(anyhow!("No query found for the search")),
+                    &configurations.shared_key,
+                );
+            }
+        }
+        SupportedSearchMethod::Semantic => {
+            if let Some(query) = request.query_vector {
+                search_by_semantics(&data.databases, request.block_ids, &query, request.top_n).await
+            } else {
+                return create_base_response::<Vec<RawSearchResult>>(
+                    Err(anyhow!("No query found for the search")),
+                    &configurations.shared_key,
+                );
+            }
+        }
+    };
+
+    create_base_response(results, &configurations.shared_key)
+}
+
+pub async fn reindex_workspace(data: Data<ServerBootstrap>, request: Bytes) -> HttpResponse {
     let configurations = data.configurations.lock().await;
 
     let request: SearchBlocksInWorkspaceRequest =
