@@ -1,5 +1,5 @@
 use anyhow::Result;
-use opennote_models::search::RawSearchResult;
+use opennote_models::{configurations::system::SystemConfigurations, search::RawSearchResult};
 use reqwest::Client;
 use uuid::Uuid;
 
@@ -26,6 +26,7 @@ pub async fn route_create_blocks(
     server_states: &ServerStates,
     databases: &Databases,
     vector_database_config: &VectorDatabaseConfig,
+    system_configuraitons: &SystemConfigurations,
     blocks: Vec<Block>,
 ) -> Result<Vec<Block>> {
     if server_name == LOCAL_SERVER_NAME {
@@ -37,6 +38,7 @@ pub async fn route_create_blocks(
             &server_states.password,
             blocks,
             &server_states.shared_key,
+            system_configuraitons.clone(),
         )
         .await
         {
@@ -51,6 +53,7 @@ pub async fn route_delete_blocks(
     server_states: &ServerStates,
     databases: &Databases,
     vector_database_config: &VectorDatabaseConfig,
+    system_configuraitons: &SystemConfigurations,
     block_ids: Vec<Uuid>,
 ) -> Result<()> {
     if server_name == LOCAL_SERVER_NAME {
@@ -62,6 +65,7 @@ pub async fn route_delete_blocks(
             &server_states.password,
             block_ids,
             &server_states.shared_key,
+            system_configuraitons.clone(),
         )
         .await
         {
@@ -78,6 +82,7 @@ pub async fn route_read_blocks(
     filter: &BlockQuery,
     has_vector: bool,
     has_payload: bool,
+    system_configuraitons: &SystemConfigurations,
 ) -> Result<Vec<Block>> {
     if server_name == LOCAL_SERVER_NAME {
         read_blocks(databases, filter, has_vector, has_payload).await
@@ -90,6 +95,7 @@ pub async fn route_read_blocks(
             filter,
             has_vector,
             has_payload,
+            system_configuraitons.clone(),
         )
         .await
         {
@@ -104,6 +110,7 @@ pub async fn route_update_blocks(
     server_states: &ServerStates,
     databases: &Databases,
     vector_database_config: &VectorDatabaseConfig,
+    system_configuraitons: &SystemConfigurations,
     blocks: Vec<Block>,
 ) -> Result<()> {
     if server_name == LOCAL_SERVER_NAME {
@@ -115,6 +122,7 @@ pub async fn route_update_blocks(
             &server_states.password,
             blocks,
             &server_states.shared_key,
+            system_configuraitons.clone(),
         )
         .await
         {
@@ -128,6 +136,7 @@ pub async fn route_search_blocks(
     server_name: &str,
     server_states: &ServerStates,
     databases: &Databases,
+    system_configuraitons: &SystemConfigurations,
     search_method: SupportedSearchMethod,
     block_ids: Vec<Uuid>,
     query: Option<String>,
@@ -161,6 +170,7 @@ pub async fn route_search_blocks(
             query_vector,
             top_n,
             &server_states.shared_key,
+            system_configuraitons.clone(),
         )
         .await
         {

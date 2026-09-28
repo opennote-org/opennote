@@ -8,7 +8,7 @@ use crate::configurations::fields::{
     DatabaseConfig, EmbedderConfig, LoggingConfig, VectorDatabaseConfig,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct SystemConfigurations {
     /// Logging settings
     pub logging: LoggingConfig,

@@ -22,3 +22,4 @@ uuid = { workspace = true }
 actix-web = { workspace = true }
 reqwest.workspace = true
 serde-encrypt = { workspace = true }
+tokio.workspace = true

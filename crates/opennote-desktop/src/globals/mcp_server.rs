@@ -112,12 +112,15 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
 
         let servers = self.server_registry.get_servers_connections();
 
+        let configurations = self.bootstrap.configurations.lock().await;
+
         let results: Vec<_> =
             try_join_all(servers.iter().map(async |(server_name, server_states)| {
                 let mut results = route_search_blocks(
                     server_name,
                     server_states,
                     &self.bootstrap.databases,
+                    &configurations.system,
                     search_method,
                     block_ids.clone(),
                     Some(query.clone()),
@@ -138,6 +141,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                     &filter,
                     false,
                     true,
+                    &configurations.system,
                 )
                 .await
             }))
@@ -157,6 +161,8 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             false => BlockQuery::ByIds(block_ids),
         };
 
+        let configurations = self.bootstrap.configurations.lock().await;
+
         let servers = self.server_registry.get_servers_connections();
 
         let blocks = try_join_all(servers.iter().map(|(server_name, server_states)| {
@@ -167,6 +173,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 &filter,
                 false,
                 request.has_payload,
+                &configurations.system,
             )
         }))
         .await?

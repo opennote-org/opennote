@@ -35,3 +35,5 @@ pub const CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/create_blocks_in_workspa
 pub const DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/delete_blocks_in_workspace";
 pub const UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/update_blocks_in_workspace";
 pub const SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/search_blocks_in_workspace";
+pub const REQUEST_REINDEX_WORKSPACE_ENDPOINT: &str = "/request_reindex_workspace";
+pub const SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT: &str = "/send_reindexed_blocks_to_workspace";

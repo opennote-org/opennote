@@ -7,7 +7,9 @@ use uuid::Uuid;
 use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    block::Block, configurations::fields::search::SupportedSearchMethod, payload::create_query,
+    block::Block,
+    configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
+    payload::create_query,
     query::BlockQuery,
 };
 
@@ -35,11 +37,13 @@ impl SearchRequest {
         server: ServerStates,
         databases: Databases,
         block_ids: Vec<Uuid>,
+        system_configurations: SystemConfigurations,
     ) -> anyhow::Result<Vec<SearchResult>> {
         let raw = route_helpers::route_search_blocks(
             &name,
             &server,
             &databases,
+            &system_configurations,
             self.method,
             block_ids,
             Some(self.query),
@@ -60,6 +64,7 @@ impl SearchRequest {
             &BlockQuery::ByIds(ids.into_iter().collect()),
             false,
             true,
+            &system_configurations,
         )
         .await?;
 

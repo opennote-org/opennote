@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use actix_cors::Cors;
 use actix_web::{
     App, HttpServer,
@@ -14,7 +16,9 @@ use opennote_models::{
     configurations::server::ServerConfigurations, traits::LoadFromAndSaveToFile,
 };
 
-use crate::{middlewares::check_password, routes::configure_routes};
+use crate::{
+    middlewares::check_password, reindex::ReindexSessionManager, routes::configure_routes,
+};
 
 pub fn load_configurations() -> Result<ServerConfigurations> {
     let config_path = get_configuration_folder_path(ApplicationType::Server);
@@ -39,6 +43,7 @@ pub async fn initialize_backend_api_service(
     port: u16,
     workers: usize,
     bootstrap: Data<ServerBootstrap>,
+    reindex_session_manager: Data<RwLock<ReindexSessionManager>>,
 ) -> Result<()> {
     // Start HTTP server
     let bind_address: String = format!("{}:{}", host, port);
@@ -50,6 +55,8 @@ pub async fn initialize_backend_api_service(
             .wrap(Cors::permissive())
             .wrap(from_fn(check_password))
             .app_data(bootstrap.clone())
+            // This is for storing reindex session information
+            .app_data(reindex_session_manager.clone())
             // Size limit is 100 MB for now.
             .app_data(PayloadConfig::new(100 * 1024 * 1024))
             .service(configure_routes())

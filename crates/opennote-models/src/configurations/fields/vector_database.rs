@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -15,6 +17,10 @@ pub struct VectorDatabaseConfig {
     pub index: String,
     pub base_url: String,
     pub api_key: String,
+
+    /// reindex_batch_size should never equal to zero
+    #[serde(default = "default_reindex_batch_size")]
+    pub reindex_batch_size: NonZeroUsize,
 }
 
 impl CompareNecessaryChanges<VectorDatabaseConfig> for VectorDatabaseConfig {
@@ -28,6 +34,11 @@ impl CompareNecessaryChanges<VectorDatabaseConfig> for VectorDatabaseConfig {
 
         false
     }
+}
+
+/// For serde default
+fn default_reindex_batch_size() -> NonZeroUsize {
+    NonZeroUsize::new(100).unwrap()
 }
 
 impl Default for VectorDatabaseConfig {
@@ -50,6 +61,7 @@ impl Default for VectorDatabaseConfig {
                 index: "opennote".to_string(),
                 base_url: vector_database_path.to_string_lossy().to_string(),
                 api_key: "".to_string(),
+                reindex_batch_size: default_reindex_batch_size(),
             };
         }
 

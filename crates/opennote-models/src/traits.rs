@@ -4,6 +4,12 @@ use anyhow::{Context, Result};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
+use crate::configurations::system::SystemConfigurations;
+
+pub trait GetSystemConfigurations {
+    fn get_system_configurations(&self) -> &SystemConfigurations;
+}
+
 /// Identify whether key fields had chagned in the implemented struct
 pub trait CompareNecessaryChanges<T> {
     fn compare_necessary_changes(&self, another: &T) -> bool;

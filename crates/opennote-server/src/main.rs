@@ -1,15 +1,17 @@
 pub mod endpoints;
+pub mod helpers;
 pub mod initialization;
 pub mod middlewares;
+pub mod reindex;
 pub mod routes;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::RwLock};
 
 use actix_web::web::Data;
 use anyhow::Result;
-use opennote_bootstrap::server::ServerBootstrap;
 use tracing::info;
 
+use opennote_bootstrap::server::ServerBootstrap;
 use opennote_core_logics::logging::{WindowlessLayer, initialize_logger};
 use opennote_models::constants::{
     SERVER_DATA_FOLDER_NAME,
@@ -19,7 +21,10 @@ use opennote_models::constants::{
     },
 };
 
-use crate::initialization::{initialize_backend_api_service, load_configurations};
+use crate::{
+    initialization::{initialize_backend_api_service, load_configurations},
+    reindex::ReindexSessionManager,
+};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -45,6 +50,7 @@ async fn main() -> Result<()> {
         config.port,
         config.workers,
         Data::new(ServerBootstrap::new(config).await?),
+        Data::new(RwLock::new(ReindexSessionManager::new())),
     )
     .await?;
 

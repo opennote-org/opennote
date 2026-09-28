@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use opennote_models::{
     block::Block,
-    configurations::fields::search::SupportedSearchMethod,
+    configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::{
         CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
         READ_WORKSPACE_BLOCKS_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
@@ -41,11 +41,13 @@ pub async fn read_remote_server_blocks(
     filter: &BlockQuery,
     has_vector: bool,
     has_payload: bool,
+    system_configurations: SystemConfigurations,
 ) -> Result<Vec<Block>> {
     let payload = ReadBlocksInWorkspaceRequest {
         block_query: filter.to_owned(),
         has_vector,
         has_payload,
+        system_configurations,
     };
     let body = create_request(payload, shared_key)?.serialize();
 
@@ -66,8 +68,12 @@ pub async fn create_remote_server_blocks(
     password: &str,
     blocks: Vec<Block>,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<Vec<Block>> {
-    let payload = CreateBlocksInWorkspaceRequest { blocks };
+    let payload = CreateBlocksInWorkspaceRequest {
+        blocks,
+        system_configurations,
+    };
     let body = create_request(payload, shared_key)?.serialize();
 
     let response = client
@@ -87,8 +93,12 @@ pub async fn delete_remote_server_blocks(
     password: &str,
     block_ids: Vec<Uuid>,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<()> {
-    let payload = DeleteBlocksInWorkspaceRequest { block_ids };
+    let payload = DeleteBlocksInWorkspaceRequest {
+        block_ids,
+        system_configurations,
+    };
     let body = create_request(payload, shared_key)?.serialize();
 
     let response = client
@@ -108,8 +118,12 @@ pub async fn update_remote_server_blocks(
     password: &str,
     blocks: Vec<Block>,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<()> {
-    let payload = UpdateBlocksInWorkspaceRequest { blocks };
+    let payload = UpdateBlocksInWorkspaceRequest {
+        blocks,
+        system_configurations,
+    };
     let body = create_request(payload, shared_key)?.serialize();
 
     let response = client
@@ -133,6 +147,7 @@ pub async fn search_remote_server_blocks(
     query_vector: Option<Vec<f32>>,
     top_n: usize,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<Vec<RawSearchResult>> {
     let payload = SearchBlocksInWorkspaceRequest {
         search_method,
@@ -140,6 +155,7 @@ pub async fn search_remote_server_blocks(
         query,
         query_vector,
         top_n,
+        system_configurations,
     };
     let body = create_request(payload, shared_key)?.serialize();
 
