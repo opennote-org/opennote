@@ -1,5 +1,4 @@
 use anyhow::Result;
-use opennote_models::{configurations::system::SystemConfigurations, search::RawSearchResult};
 use reqwest::Client;
 use uuid::Uuid;
 
@@ -10,9 +9,13 @@ use opennote_core_logics::{
 use opennote_data::Databases;
 use opennote_models::{
     block::Block,
-    configurations::fields::{VectorDatabaseConfig, search::SupportedSearchMethod},
+    configurations::{
+        fields::{VectorDatabaseConfig, search::SupportedSearchMethod},
+        system::SystemConfigurations,
+    },
     constants::LOCAL_SERVER_NAME,
     query::BlockQuery,
+    search::RawSearchResult,
 };
 use opennote_server::{
     create_remote_server_blocks, delete_remote_server_blocks, read_remote_server_blocks,
@@ -26,25 +29,21 @@ pub async fn route_create_blocks(
     server_states: &ServerStates,
     databases: &Databases,
     vector_database_config: &VectorDatabaseConfig,
-    system_configuraitons: &SystemConfigurations,
+    system_configuraitons: SystemConfigurations,
     blocks: Vec<Block>,
 ) -> Result<Vec<Block>> {
     if server_name == LOCAL_SERVER_NAME {
         create_blocks(vector_database_config, databases, blocks).await
     } else {
-        match create_remote_server_blocks(
+        create_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
             blocks,
             &server_states.shared_key,
-            system_configuraitons.clone(),
+            system_configuraitons,
         )
         .await
-        {
-            Ok(blocks) => Ok(blocks),
-            Err(_) => Ok(Vec::new()),
-        }
     }
 }
 
@@ -53,25 +52,21 @@ pub async fn route_delete_blocks(
     server_states: &ServerStates,
     databases: &Databases,
     vector_database_config: &VectorDatabaseConfig,
-    system_configuraitons: &SystemConfigurations,
+    system_configuraitons: SystemConfigurations,
     block_ids: Vec<Uuid>,
 ) -> Result<()> {
     if server_name == LOCAL_SERVER_NAME {
         delete_blocks(databases, vector_database_config, block_ids).await
     } else {
-        match delete_remote_server_blocks(
+        delete_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
             block_ids,
             &server_states.shared_key,
-            system_configuraitons.clone(),
+            system_configuraitons,
         )
         .await
-        {
-            Ok(_) => Ok(()),
-            Err(_) => Ok(()),
-        }
     }
 }
 
@@ -82,12 +77,12 @@ pub async fn route_read_blocks(
     filter: &BlockQuery,
     has_vector: bool,
     has_payload: bool,
-    system_configuraitons: &SystemConfigurations,
+    system_configuraitons: SystemConfigurations,
 ) -> Result<Vec<Block>> {
     if server_name == LOCAL_SERVER_NAME {
         read_blocks(databases, filter, has_vector, has_payload).await
     } else {
-        match read_remote_server_blocks(
+        read_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
@@ -95,13 +90,9 @@ pub async fn route_read_blocks(
             filter,
             has_vector,
             has_payload,
-            system_configuraitons.clone(),
+            system_configuraitons,
         )
         .await
-        {
-            Ok(results) => Ok(results),
-            Err(_) => Ok(Vec::new()),
-        }
     }
 }
 
@@ -110,25 +101,21 @@ pub async fn route_update_blocks(
     server_states: &ServerStates,
     databases: &Databases,
     vector_database_config: &VectorDatabaseConfig,
-    system_configuraitons: &SystemConfigurations,
+    system_configuraitons: SystemConfigurations,
     blocks: Vec<Block>,
 ) -> Result<()> {
     if server_name == LOCAL_SERVER_NAME {
         update_blocks(vector_database_config, databases, blocks).await
     } else {
-        match update_remote_server_blocks(
+        update_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
             blocks,
             &server_states.shared_key,
-            system_configuraitons.clone(),
+            system_configuraitons,
         )
         .await
-        {
-            Ok(_) => Ok(()),
-            Err(_) => Ok(()),
-        }
     }
 }
 
@@ -136,7 +123,7 @@ pub async fn route_search_blocks(
     server_name: &str,
     server_states: &ServerStates,
     databases: &Databases,
-    system_configuraitons: &SystemConfigurations,
+    system_configuraitons: SystemConfigurations,
     search_method: SupportedSearchMethod,
     block_ids: Vec<Uuid>,
     query: Option<String>,
@@ -160,7 +147,7 @@ pub async fn route_search_blocks(
         }
     } else {
         // Missing value check now is relied on the remote server
-        match search_remote_server_blocks(
+        search_remote_server_blocks(
             &Client::new(),
             &server_states.connection_string,
             &server_states.password,
@@ -170,12 +157,8 @@ pub async fn route_search_blocks(
             query_vector,
             top_n,
             &server_states.shared_key,
-            system_configuraitons.clone(),
+            system_configuraitons,
         )
         .await
-        {
-            Ok(results) => Ok(results),
-            Err(_) => Ok(Vec::new()),
-        }
     }
 }

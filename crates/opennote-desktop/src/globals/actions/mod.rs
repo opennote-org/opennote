@@ -9,7 +9,7 @@ use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::vectorize};
 use opennote_models::{
     block::Block,
-    configurations::fields::{EmbedderConfig, VectorDatabaseConfig},
+    configurations::{fields::EmbedderConfig, system::SystemConfigurations},
     query::BlockQuery,
 };
 
@@ -56,12 +56,12 @@ pub fn create_one_block(
             // Register task in the scheduler.
             register_task(window, cx, task);
 
-            let (default_block_title, databases, embedders, vector_database_config) =
+            let (default_block_title, databases, embedders, system_configurations) =
                 cx.read_global::<GlobalApplicationBootStrap, (
                     String,
                     Databases,
                     EmbedderEntry,
-                    VectorDatabaseConfig,
+                    SystemConfigurations,
                 )>(|this, _cx| {
                     let configurations = this.get_configurations();
 
@@ -69,7 +69,7 @@ pub fn create_one_block(
                         default_block_title.clone(),
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
-                        configurations.system.vector_database.clone(),
+                        configurations.system.clone(),
                     )
                 });
 
@@ -85,7 +85,8 @@ pub fn create_one_block(
                 &server_name,
                 &server,
                 &databases,
-                &vector_database_config,
+                &system_configurations.vector_database,
+                system_configurations.clone(),
                 vec![block],
             )
             .await
@@ -153,15 +154,12 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui_kit::App, block_id
             // Register task in the scheduler.
             register_task(window, cx, task);
 
-            let (databases, vector_database_config) = cx
-                .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
+            let (databases, system_configurations) = cx
+                .read_global::<GlobalApplicationBootStrap, (Databases, SystemConfigurations)>(
                     |this, _cx| {
                         let configurations = this.get_configurations();
 
-                        (
-                            this.0.databases.clone(),
-                            configurations.system.vector_database.clone(),
-                        )
+                        (this.0.databases.clone(), configurations.system.clone())
                     },
                 );
 
@@ -174,7 +172,8 @@ pub fn delete_n_blocks(window: &mut Window, app_cx: &mut gpui_kit::App, block_id
                 &server_name,
                 &server,
                 &databases,
-                &vector_database_config,
+                &system_configurations.vector_database,
+                system_configurations.clone(),
                 block_ids,
             )
             .await
@@ -252,11 +251,11 @@ pub fn update_n_blocks(
             let mut blocks = blocks;
             let num_blocks = blocks.len();
 
-            let (databases, embedders, vector_database_config, embedders_config) =
+            let (databases, embedders, system_configurations, embedders_config) =
                 cx.read_global::<GlobalApplicationBootStrap, (
                     Databases,
                     EmbedderEntry,
-                    VectorDatabaseConfig,
+                    SystemConfigurations,
                     EmbedderConfig,
                 )>(|this, _cx| {
                     let configurations = this.get_configurations();
@@ -264,7 +263,7 @@ pub fn update_n_blocks(
                     (
                         this.0.databases.clone(),
                         this.0.embedders.clone(),
-                        configurations.system.vector_database.clone(),
+                        configurations.system.clone(),
                         configurations.system.embedder.clone(),
                     )
                 });
@@ -313,7 +312,8 @@ pub fn update_n_blocks(
                 &server_name,
                 &server_states,
                 &databases,
-                &vector_database_config,
+                &system_configurations.vector_database,
+                system_configurations.clone(),
                 blocks,
             )
             .await
@@ -369,13 +369,13 @@ pub fn update_parent(
 
     app_cx
         .spawn(async move |app| {
-            let (databases, vector_database_config) = app
-                .read_global::<GlobalApplicationBootStrap, (Databases, VectorDatabaseConfig)>(
+            let (databases, system_configurations) = app
+                .read_global::<GlobalApplicationBootStrap, (Databases, SystemConfigurations)>(
                     |this, _app| {
                         let databases = this.0.databases.clone();
                         let configurations = this.get_configurations();
 
-                        (databases, configurations.system.vector_database.clone())
+                        (databases, configurations.system.clone())
                     },
                 );
 
@@ -400,6 +400,7 @@ pub fn update_parent(
                 &BlockQuery::ByIds(block_ids),
                 true,
                 true,
+                system_configurations.clone(),
             )
             .await
             {
@@ -416,7 +417,8 @@ pub fn update_parent(
                         &server_name,
                         &server,
                         &databases,
-                        &vector_database_config,
+                        &system_configurations.vector_database,
+                        system_configurations.clone(),
                         blocks,
                     )
                     .await

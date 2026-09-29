@@ -13,6 +13,7 @@ use crate::window::create_loading_window_option;
 
 pub struct ResourceLoadingView {
     error_message: Option<SharedString>,
+    message: Option<SharedString>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -41,12 +42,18 @@ impl ResourceLoadingView {
 
         Self {
             error_message: None,
+            message: None,
             _subscriptions,
         }
     }
 
     pub fn set_error(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
         self.error_message = Some(message.into());
+        cx.notify();
+    }
+
+    pub fn set_message(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
+        self.message = Some(message.into());
         cx.notify();
     }
 }
@@ -67,14 +74,25 @@ impl Render for ResourceLoadingView {
                         .child(div().mt_2().text_sm().child(error_message)),
                 )
             })
-            .when(self.error_message.is_none(), |this| {
-                this.child(Spinner::new().with_size(Size::Large)).child(
+            .when_some(self.message.clone(), |this, message| {
+                this.child(
                     div()
                         .text_sm()
                         .text_color(cx.theme().muted_foreground)
-                        .child("Loading application resources…"),
+                        .child(message),
                 )
-            });
+            })
+            .when(
+                self.error_message.is_none() && self.message.is_none(),
+                |this| {
+                    this.child(Spinner::new().with_size(Size::Large)).child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("Loading application resources…"),
+                    )
+                },
+            );
 
         div()
             .size_full()

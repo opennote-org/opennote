@@ -37,7 +37,7 @@ impl Global for GlobalApplicationBootStrap {}
 
 impl GlobalApplicationBootStrap {
     pub async fn load() -> anyhow::Result<Self> {
-        let (configurations, key_mappings, mut metadata) = tokio::task::spawn_blocking(move || {
+        let (configurations, key_mappings) = tokio::task::spawn_blocking(move || {
             let config_path = get_configuration_folder_path(ApplicationType::Desktop);
 
             create_required_folders(&config_path).context("Failed to create required folders")?;
@@ -52,15 +52,13 @@ impl GlobalApplicationBootStrap {
                 .migrate(&config_path)
                 .context("Failed to migrate key mappings on application start")?;
 
-            let metadata = Metadata::load_from_file(&config_path)
-                .context("Failed to load metadata on application start")?;
-
-            Ok::<_, anyhow::Error>((configurations, key_mappings, metadata))
+            Ok::<_, anyhow::Error>((configurations, key_mappings))
         })
         .await
         .context("The resource loading task failed")??;
 
-        let bootstrap = DesktopBootstrap::new(configurations.clone(), key_mappings, &metadata)
+        // TODO: Need to send reindex request to the connected servers as well
+        let bootstrap = DesktopBootstrap::new(configurations.clone(), key_mappings)
             .await
             .context("Failed to bootstrap the application")?;
 

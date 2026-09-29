@@ -30,6 +30,7 @@ pub fn get_block_content(block_id: &Uuid, cx: &mut App) -> Result<String> {
     let bootstrap: &GlobalApplicationBootStrap = cx.global();
 
     let block = run_async_code(async {
+        let system_configurations = bootstrap.0.configurations.lock().await.system.clone();
         route_read_blocks(
             &server_name,
             &server_states,
@@ -37,6 +38,7 @@ pub fn get_block_content(block_id: &Uuid, cx: &mut App) -> Result<String> {
             &BlockQuery::ByIds(block_ids),
             false,
             true,
+            system_configurations,
         )
         .await
         .unwrap()

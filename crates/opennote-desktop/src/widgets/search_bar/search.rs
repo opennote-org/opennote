@@ -43,7 +43,7 @@ impl SearchRequest {
             &name,
             &server,
             &databases,
-            &system_configurations,
+            system_configurations.clone(),
             self.method,
             block_ids,
             Some(self.query),
@@ -64,7 +64,7 @@ impl SearchRequest {
             &BlockQuery::ByIds(ids.into_iter().collect()),
             false,
             true,
-            &system_configurations,
+            system_configurations,
         )
         .await?;
 
@@ -149,6 +149,7 @@ pub fn spawn_search(
     let bootstrap: &GlobalApplicationBootStrap = cx.global();
     let databases = bootstrap.0.databases.clone();
     let embedders = bootstrap.0.embedders.clone();
+    let system_configurations = bootstrap.get_configurations().system.clone();
 
     let executor = cx.background_executor().clone();
     let tokio_handle = tokio::runtime::Handle::current();
@@ -205,6 +206,7 @@ pub fn spawn_search(
         let mut tasks = FuturesUnordered::new();
         for (name, server) in servers {
             let databases = databases.clone();
+            let system_configurations = system_configurations.clone();
             let request = SearchRequest {
                 method,
                 query: query.clone(),
@@ -227,7 +229,7 @@ pub fn spawn_search(
                 tokio_handle.clone(),
                 async move {
                     request
-                        .search_server(name, server, databases, block_ids)
+                        .search_server(name, server, databases, block_ids, system_configurations)
                         .await
                 },
             ));

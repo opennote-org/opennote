@@ -7,7 +7,7 @@ use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::{
     configurations::desktop::DesktopConfigurations, key_mappings::KeyMappingConfigurations,
-    metadata::Metadata,
+    metadata::Metadata, traits::LoadFromAndSaveToFile,
 };
 
 use crate::change_handler::handle_changes;
@@ -24,7 +24,6 @@ impl DesktopBootstrap {
     pub async fn new(
         configurations: DesktopConfigurations,
         key_mappings: KeyMappingConfigurations,
-        metadata: &Metadata,
     ) -> Result<Self> {
         let embedders = EmbedderEntry::new(&configurations.system)
             .await
@@ -40,5 +39,19 @@ impl DesktopBootstrap {
             databases,
             embedders,
         })
+    }
+
+    /// Detect if a reindex is needed
+    pub async fn is_reindex_needed(&self) -> bool {
+        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
+        
+        let metadata = Metadata::load_from_file(&config_path)
+            .context("Failed to load metadata on application start")?;
+
+        let system_configurations = &self.configurations.lock().await.system;
+
+        let changes = metadata.detect_changes(system_configurations);
+
+        changes.embedding_model_changed
     }
 }

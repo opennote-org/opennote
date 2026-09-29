@@ -1,14 +1,14 @@
 use std::io::Read;
 
 use gpui_kit::{component::Root, *};
+use sanitize_filename::sanitize;
 
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::{
-    configurations::fields::VectorDatabaseConfig, constants::DESKTOP_SETTINGS_PANEL_NAME,
+    configurations::system::SystemConfigurations, constants::DESKTOP_SETTINGS_PANEL_NAME,
     query::BlockQuery,
 };
-use sanitize_filename::sanitize;
 
 use crate::{
     globals::{
@@ -290,8 +290,8 @@ impl Workspace {
             // Register task in the scheduler.
             register_long_running_task::<ImportNBlocksNotification>(window, cx, task);
 
-            let (databases, embedders, document_chunk_size, vector_database_config) = cx
-                .read_global::<GlobalApplicationBootStrap, (Databases, EmbedderEntry, usize, VectorDatabaseConfig)>(
+            let (databases, embedders, document_chunk_size, system_configurations) = cx
+                .read_global::<GlobalApplicationBootStrap, (Databases, EmbedderEntry, usize, SystemConfigurations)>(
                     |this, _cx| {
                         let configurations = this.get_configurations();
 
@@ -299,7 +299,7 @@ impl Workspace {
                             this.0.databases.clone(),
                             this.0.embedders.clone(),
                             configurations.user.search.document_chunk_size,
-                            configurations.system.vector_database.clone(),
+                            configurations.system.clone(),
                         )
                     },
                 );
@@ -391,7 +391,8 @@ impl Workspace {
                 &server_name,
                 &server_states,
                 &databases,
-                &vector_database_config,
+                &system_configurations.vector_database,
+                system_configurations.clone(),
                 blocks,
             )
             .await
@@ -462,9 +463,13 @@ impl Workspace {
                 Ok(Err(_err)) => return,
             };
 
-            let databases = cx.read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
-                this.0.databases.clone()
-            });
+            let (databases, system_configurations) = cx
+                .read_global::<GlobalApplicationBootStrap, _>(|this, _cx| {
+                    (
+                        this.0.databases.clone(),
+                        this.get_configurations().system.clone(),
+                    )
+                });
 
             let (server_name, server_state) = cx
                 .read_global::<States, (SharedString, ServerStates)>(|this, _cx| {
@@ -509,6 +514,7 @@ impl Workspace {
                     &BlockQuery::ByIds(blocks_to_export),
                     false,
                     true,
+                    system_configurations,
                 )
                 .await
                 {

@@ -120,7 +120,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                     server_name,
                     server_states,
                     &self.bootstrap.databases,
-                    &configurations.system,
+                    configurations.system.clone(),
                     search_method,
                     block_ids.clone(),
                     Some(query.clone()),
@@ -141,7 +141,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                     &filter,
                     false,
                     true,
-                    &configurations.system,
+                    configurations.system.clone(),
                 )
                 .await
             }))
@@ -173,7 +173,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 &filter,
                 false,
                 request.has_payload,
-                &configurations.system,
+                configurations.system.clone(),
             )
         }))
         .await?

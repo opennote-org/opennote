@@ -1,6 +1,7 @@
 pub mod globals;
 pub mod key_mappings;
 pub mod libs;
+pub mod startup;
 pub mod views;
 pub mod widgets;
 pub mod window;
@@ -20,11 +21,8 @@ use opennote_models::constants::{
 };
 
 use crate::{
-    globals::{
-        assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap,
-        mcp_server::DesktopMCPServer, states::States, tasks::tracker::TaskTracker,
-        velotype::init_velotype,
-    },
+    globals::{mcp_server::DesktopMCPServer, states::States, velotype::init_velotype},
+    startup::{load_frameworks, load_resources},
     views::{
         log::{LogWindow, writer::WindowLogWriter},
         resource_loading::ResourceLoadingView,
@@ -32,16 +30,6 @@ use crate::{
     },
     window::{create_main_window_option, format_window_title},
 };
-
-async fn load_startup_resources() -> Result<(GlobalApplicationBootStrap, AssetsCollection)> {
-    let assets_task = tokio::task::spawn_blocking(AssetsCollection::load);
-    let bootstrap = GlobalApplicationBootStrap::load().await?;
-    let assets = assets_task
-        .await
-        .context("The asset loading task failed")??;
-
-    Ok((bootstrap, assets))
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -55,32 +43,14 @@ async fn main() -> Result<()> {
         )]),
     )?;
 
-    let tokio_handle = tokio::runtime::Handle::current();
     app.run(move |cx| {
-        // This must be called before using any GPUI Component features.
-        gpui_kit::init(cx);
-        TaskTracker::init(cx);
+        load_frameworks(cx);
 
         let loading_window =
             ResourceLoadingView::open(cx).expect("Failed to open the resource loading window");
 
         cx.spawn(async move |cx| {
-            let resources = tokio_handle
-                .spawn(load_startup_resources())
-                .await
-                .context("The startup resource task failed")
-                .and_then(|resources| resources);
-
-            let (bootstrap, assets) = match resources {
-                Ok(resources) => resources,
-                Err(error) => {
-                    let message = format!("{error:#}");
-                    let _ = loading_window.update(cx, |view, _window, cx| {
-                        view.set_error(message, cx);
-                    });
-                    return;
-                }
-            };
+            let (bootstrap, assets) = load_resources(cx, loading_window).await.unwrap();
 
             // Initialize a logger in the background to stream logs into the log window
             let (sender, receiver) = std::sync::mpsc::sync_channel(LOG_WINDOW_CAPACITY);

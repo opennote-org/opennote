@@ -9591,6 +9591,7 @@ name = "opennote-bootstrap"
 version = "0.2.6"
 dependencies = [
  "anyhow",
+ "opennote-core-logics",
  "opennote-data",
  "opennote-embedder",
  "opennote-models",
