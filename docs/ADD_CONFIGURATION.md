@@ -139,7 +139,7 @@ Test all affected scopes from the repository root:
 ```sh
 cargo fmt --all --check
 cargo test -p opennote-models
-cargo check -p opennote-models -p opennote-bootstrap -p opennote-server -p opennote-desktop
+cargo check -p opennote-models -p opennote-core-logics -p opennote-server -p opennote-desktop
 ```
 
 Also verify these cases manually or with serialization tests:

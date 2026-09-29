@@ -8,9 +8,9 @@ use actix_web::{
 };
 use anyhow::{Context, Result};
 
-use opennote_bootstrap::server::ServerBootstrap;
-use opennote_core_logics::configurations::{
-    ApplicationType, create_required_folders, get_configuration_folder_path,
+use opennote_core_logics::{
+    bootstraps::server::ServerBootstrap,
+    configurations::{ApplicationType, create_required_folders, get_configuration_folder_path},
 };
 use opennote_models::{
     configurations::server::ServerConfigurations, traits::LoadFromAndSaveToFile,

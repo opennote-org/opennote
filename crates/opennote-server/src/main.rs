@@ -11,8 +11,10 @@ use actix_web::web::Data;
 use anyhow::Result;
 use tracing::info;
 
-use opennote_bootstrap::server::ServerBootstrap;
-use opennote_core_logics::logging::{WindowlessLayer, initialize_logger};
+use opennote_core_logics::{
+    bootstraps::server::ServerBootstrap,
+    logging::{WindowlessLayer, initialize_logger},
+};
 use opennote_models::constants::{
     SERVER_DATA_FOLDER_NAME,
     env_vars::{

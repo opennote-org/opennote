@@ -10,7 +10,7 @@ use opennote_models::{
     metadata::Metadata, traits::LoadFromAndSaveToFile,
 };
 
-use crate::change_handler::handle_changes;
+use super::change_handler::handle_changes;
 
 #[derive(Clone)]
 pub struct DesktopBootstrap {

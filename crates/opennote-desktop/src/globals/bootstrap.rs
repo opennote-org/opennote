@@ -1,10 +1,10 @@
 use anyhow::Context;
 use gpui_kit::{App, Global};
 
-use opennote_bootstrap::desktop::DesktopBootstrap;
 use tokio::sync::MutexGuard;
 
 use opennote_core_logics::{
+    bootstraps::desktop::DesktopBootstrap,
     configurations::{ApplicationType, create_required_folders, get_configuration_folder_path},
     helpers::run_async_code,
 };
@@ -12,7 +12,6 @@ use opennote_data::search::SearchScope;
 use opennote_models::{
     configurations::{desktop::DesktopConfigurations, fields::search::SupportedSearchMethod},
     key_mappings::KeyMappingConfigurations,
-    metadata::Metadata,
     traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 

@@ -6,9 +6,9 @@ use actix_web::{
 };
 use anyhow::anyhow;
 
-use opennote_bootstrap::server::ServerBootstrap;
 use opennote_core_logics::{
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
+    bootstraps::server::ServerBootstrap,
     search::{search_by_keyword, search_by_semantics},
 };
 use opennote_models::{

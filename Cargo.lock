@@ -9587,19 +9587,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "opennote-bootstrap"
-version = "0.2.6"
-dependencies = [
- "anyhow",
- "opennote-core-logics",
- "opennote-data",
- "opennote-embedder",
- "opennote-models",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "opennote-connectors"
 version = "0.2.6"
 
@@ -9661,7 +9648,6 @@ dependencies = [
  "async-trait",
  "futures",
  "gpui-kit",
- "opennote-bootstrap",
  "opennote-core-logics",
  "opennote-data",
  "opennote-embedder",
@@ -9711,7 +9697,6 @@ dependencies = [
  "actix-web",
  "anyhow",
  "async-trait",
- "opennote-bootstrap",
  "opennote-models",
  "rmcp 3.1.2",
  "rmcp-actix-web 0.2.6",
@@ -9748,7 +9733,6 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "anyhow",
- "opennote-bootstrap",
  "opennote-core-logics",
  "opennote-data",
  "opennote-models",

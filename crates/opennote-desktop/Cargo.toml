@@ -7,7 +7,6 @@ edition.workspace = true
 
 # Internal dependencies
 opennote-mcp-server = { workspace = true }
-opennote-bootstrap = { workspace = true }
 opennote-models = { workspace = true }
 opennote-core-logics = { workspace = true }
 opennote-data = { workspace = true }

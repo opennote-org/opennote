@@ -34,8 +34,7 @@ Same as [Why embedding is so slow?](#why-embedding-is-so-slow), if you really wa
 
 ## I want to contribute to XXX topic, but where is it?
 
-`opennote-bootstrap` - Everything related to the resources to load on both desktop and server startup.
-`opennote-core-logics` - All business logics related to the databases, both vector and sql databases.
+`opennote-core-logics` - All business logics related to the databases, both vector and sql databases, and desktop/server startup resources in `src/bootstraps`.
 `opennote-data` - All database operations, both vector and sql databases.
 `opennote-embedder` - Everything related to embedding model inferences.
 `opennote-entities` - Database models.
