@@ -1,3 +1,5 @@
+pub mod traits;
+
 use anyhow::{Result, anyhow};
 use gpui_kit::*;
 
@@ -8,6 +10,7 @@ use crate::{
         assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap,
         helpers::run_async_background_detached, tasks::tracker::TaskTracker,
     },
+    startup::traits::InitializeAsResourceOnAppStart,
     views::resource_loading::ResourceLoadingView,
 };
 
@@ -33,20 +36,16 @@ pub async fn load_resources(
         tokio::sync::mpsc::channel(STARTUP_MESSAGE_CHANNEL_CAPACITY);
 
     run_async_background_detached(cx.background_executor(), tokio_handle, async move {
-        message_sender
-            .send("Loading app bootstraps...")
-            .await
-            .unwrap()
-        let bootstrap = match GlobalApplicationBootStrap::load().await {
-            Ok(result) => result,
-            Err(error) => {
-                error_sender.send(error).unwrap();
-                return;
-            }
-        };
+        let bootstrap =
+            match GlobalApplicationBootStrap::initialize_as_resource(&message_sender).await {
+                Ok(result) => result,
+                Err(error) => {
+                    error_sender.send(error).unwrap();
+                    return;
+                }
+            };
 
-        message_sender.send("Loading assets...").await.unwrap();
-        let assets = match AssetsCollection::load() {
+        let assets = match AssetsCollection::initialize_as_resource(&message_sender).await {
             Ok(result) => result,
             Err(error) => {
                 error_sender.send(error).unwrap();

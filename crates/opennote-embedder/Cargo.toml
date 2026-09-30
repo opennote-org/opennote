@@ -10,7 +10,7 @@ opennote-models = { workspace = true }
 
 # External dependencies
 catsu = "0.1.7"
-embed = { path = "crates/embed" }
+embed = { path = "crates/embed", features = ["ort"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

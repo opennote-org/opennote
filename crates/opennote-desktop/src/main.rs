@@ -50,7 +50,12 @@ async fn main() -> Result<()> {
             ResourceLoadingView::open(cx).expect("Failed to open the resource loading window");
 
         cx.spawn(async move |cx| {
-            let (bootstrap, assets) = load_resources(cx, loading_window).await.unwrap();
+            // TODO:
+            // - Handle the case where the server rejected the reindex request and the desktop needs to re-request
+            let (bootstrap, assets) = match load_resources(cx, loading_window).await {
+                Ok(resources) => resources,
+                Err(_error) => return,
+            };
 
             // Initialize a logger in the background to stream logs into the log window
             let (sender, receiver) = std::sync::mpsc::sync_channel(LOG_WINDOW_CAPACITY);

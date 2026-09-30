@@ -82,17 +82,17 @@ impl Render for ResourceLoadingView {
                         .child(message),
                 )
             })
-            .when(
-                self.error_message.is_none() && self.message.is_none(),
-                |this| {
-                    this.child(Spinner::new().with_size(Size::Large)).child(
-                        div()
-                            .text_sm()
-                            .text_color(cx.theme().muted_foreground)
-                            .child("Loading application resources…"),
-                    )
-                },
-            );
+            .when(self.error_message.is_none(), |this| {
+                this.child(Spinner::new().with_size(Size::Large))
+                    .when_none(&self.message, |this| {
+                        this.child(
+                            div()
+                                .text_sm()
+                                .text_color(cx.theme().muted_foreground)
+                                .child("Loading application resources…"),
+                        )
+                    })
+            });
 
         div()
             .size_full()

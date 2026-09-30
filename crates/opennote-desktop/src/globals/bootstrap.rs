@@ -1,11 +1,14 @@
-use anyhow::Context;
+use anyhow::{Context, Result};
+use async_trait::async_trait;
 use gpui_kit::{App, Global};
 
-use tokio::sync::MutexGuard;
+use tokio::sync::{MutexGuard, mpsc::Sender};
 
 use opennote_core_logics::{
     bootstraps::desktop::DesktopBootstrap,
-    configurations::{ApplicationType, create_required_folders, get_configuration_folder_path},
+    configurations::{
+        ApplicationType, create_required_folders, get_configuration_folder_path, get_metadata,
+    },
     helpers::run_async_code,
 };
 use opennote_data::search::SearchScope;
@@ -15,7 +18,9 @@ use opennote_models::{
     traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 
-use crate::key_mappings::traits::KeyMappingsUIExtension;
+use crate::{
+    key_mappings::traits::KeyMappingsUIExtension, startup::traits::InitializeAsResourceOnAppStart,
+};
 
 pub const SEARCH_METHODS_ENUMS: [SupportedSearchMethod; 2] = [
     SupportedSearchMethod::Keyword,
@@ -33,6 +38,43 @@ pub const SEARCH_SCOPES_ENUMS: [SearchScope; 3] = [
 pub struct GlobalApplicationBootStrap(pub DesktopBootstrap);
 
 impl Global for GlobalApplicationBootStrap {}
+
+#[async_trait]
+impl InitializeAsResourceOnAppStart for GlobalApplicationBootStrap {
+    async fn initialize_as_resource(message_sender: &Sender<&'static str>) -> Result<Self> {
+        message_sender
+            .send("Loading app bootstraps...")
+            .await
+            .unwrap();
+        let bootstrap = GlobalApplicationBootStrap::load().await?;
+
+        message_sender.send("Check reindexing...").await?;
+        let handling = bootstrap.0.analyze_changes_handling().await?;
+
+        if handling.reindex_vector_database {
+            message_sender
+                .send("Reindexing the vector database...")
+                .await?;
+        }
+
+        if handling.reset_vector_database {
+            message_sender
+                .send("Resetting the vector database...")
+                .await?;
+        }
+
+        bootstrap.0.handle_changes(handling).await?;
+
+        let mut metadata = get_metadata(ApplicationType::Desktop)?;
+        let system_configurations = bootstrap.0.configurations.lock().await.system.clone();
+        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
+
+        metadata.update(&system_configurations);
+        metadata.save_to_file(&config_path)?;
+
+        Ok(bootstrap)
+    }
+}
 
 impl GlobalApplicationBootStrap {
     pub async fn load() -> anyhow::Result<Self> {
@@ -60,11 +102,6 @@ impl GlobalApplicationBootStrap {
         let bootstrap = DesktopBootstrap::new(configurations.clone(), key_mappings)
             .await
             .context("Failed to bootstrap the application")?;
-
-        // Persist metadata
-        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
-        metadata.update(&configurations.system);
-        metadata.save_to_file(&config_path)?;
 
         Ok(Self(bootstrap))
     }

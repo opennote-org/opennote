@@ -6,11 +6,13 @@ use tokio::sync::Mutex;
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::{
-    configurations::desktop::DesktopConfigurations, key_mappings::KeyMappingConfigurations,
-    metadata::Metadata, traits::LoadFromAndSaveToFile,
+    configurations::{desktop::DesktopConfigurations, system::SystemConfigurations},
+    key_mappings::KeyMappingConfigurations,
+    metadata::{MetaChangesHandling, Metadata},
+    traits::LoadFromAndSaveToFile,
 };
 
-use super::change_handler::handle_changes;
+use crate::configurations::{get_configuration_folder_path, get_metadata};
 
 #[derive(Clone)]
 pub struct DesktopBootstrap {
@@ -31,8 +33,6 @@ impl DesktopBootstrap {
 
         let databases = Databases::new(&configurations.system).await?;
 
-        handle_changes(&configurations.system, &databases, &embedders, metadata).await?;
-
         Ok(Self {
             configurations: Arc::new(Mutex::new(configurations)),
             key_mappings: Arc::new(Mutex::new(key_mappings)),
@@ -41,17 +41,66 @@ impl DesktopBootstrap {
         })
     }
 
-    /// Detect if a reindex is needed
-    pub async fn is_reindex_needed(&self) -> bool {
-        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
-        
-        let metadata = Metadata::load_from_file(&config_path)
-            .context("Failed to load metadata on application start")?;
-
-        let system_configurations = &self.configurations.lock().await.system;
+    pub async fn analyze_changes_handling(&self) -> Result<MetaChangesHandling> {
+        let configurations = self.configurations.lock().await;
+        let system_configurations = &configurations.system;
+        let metadata = get_metadata(crate::configurations::ApplicationType::Desktop)?;
 
         let changes = metadata.detect_changes(system_configurations);
 
-        changes.embedding_model_changed
+        // Database is more fundamental.
+        // If the database has changed, the vector database needs to be reset.
+        if changes.database_changed {
+            return Ok(MetaChangesHandling {
+                reset_vector_database: true,
+                reindex_vector_database: false,
+            });
+        }
+
+        // We just need to reindex the vector database,
+        // if only the vector database and the embedding model have changed,
+        // because the vector database is a branch of the database.
+        if changes.vector_database_changed || changes.embedding_model_changed {
+            return Ok(MetaChangesHandling {
+                reset_vector_database: false,
+                reindex_vector_database: true,
+            });
+        }
+
+        return Ok(MetaChangesHandling {
+            reset_vector_database: false,
+            reindex_vector_database: false,
+        });
+    }
+
+    /// Handle the cases when reindex is needed
+    pub async fn handle_changes(&self, handling: MetaChangesHandling) -> Result<()> {
+        let configurations = self.configurations.lock().await;
+        let system_configurations = &configurations.system;
+
+        if handling.reset_vector_database {
+            self.databases
+                .vector_database
+                .reset_index(
+                    &system_configurations.vector_database.index,
+                    system_configurations.embedder.dimensions,
+                )
+                .await?;
+
+            return Ok(());
+        }
+
+        if handling.reindex_vector_database {
+            self.databases
+                .vector_database
+                .reindex_documents(
+                    system_configurations,
+                    &self.databases.database,
+                    &self.embedders,
+                )
+                .await?;
+        }
+
+        Ok(())
     }
 }

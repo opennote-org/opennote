@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use async_trait::async_trait;
 use gpui_kit::{App, Global};
 use rust_embed::Embed;
+use tokio::sync::mpsc::Sender;
+
+use crate::startup::traits::InitializeAsResourceOnAppStart;
 
 #[derive(Embed)]
 #[folder = "../../assets"]
@@ -46,3 +50,11 @@ impl AssetsCollection {
 }
 
 impl Global for AssetsCollection {}
+
+#[async_trait]
+impl InitializeAsResourceOnAppStart for AssetsCollection {
+    async fn initialize_as_resource(message_sender: &Sender<&'static str>) -> Result<Self> {
+        message_sender.send("Loading assets...").await?;
+        AssetsCollection::load()
+    }
+}

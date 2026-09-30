@@ -16,6 +16,12 @@ pub struct MetadataChanges {
     pub embedding_model_changed: bool,
 }
 
+#[derive(Debug)]
+pub struct MetaChangesHandling {
+    pub reset_vector_database: bool,
+    pub reindex_vector_database: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metadata {
     pub last_used_vector_database_configuration: Option<VectorDatabaseConfig>,

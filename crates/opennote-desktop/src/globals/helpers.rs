@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gpui_kit::{App, Task};
+use gpui_kit::App;
 
 use crate::globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap};
 

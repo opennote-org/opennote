@@ -37,6 +37,12 @@ impl Embedder {
         let config = std::fs::read_to_string(config_filename)?;
         let config: serde_json::Value = serde_json::from_str(&config)?;
 
+        let is_onnx = repo
+            .inspect_files()?
+            .iter()
+            .find(|entry| entry.ends_with(".onnx"))
+            .is_some();
+
         let architecture = config["architectures"]
             .as_array()
             .ok_or(anyhow!("Architecture not found"))?
@@ -44,6 +50,21 @@ impl Embedder {
             .ok_or(anyhow!("Architecture not found"))?
             .as_str()
             .ok_or(anyhow!("Architecture not found"))?;
+
+        match is_onnx {
+            true => {
+                return Ok(Self::Text(TextEmbedder::from_pretrained_ort(
+                    architecture,
+                    None,
+                    revision,
+                    Some(model_id),
+                    None,
+                    None,
+                )?));
+            }
+            false => {}
+        };
+
         match architecture {
             "CLIPModel" | "SiglipModel" => Ok(Self::Vision(Box::new(
                 VisionEmbedder::from_pretrained_hf(architecture, model_id, revision, token)?,
