@@ -11,7 +11,7 @@ use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization}
 use opennote_models::query::BlockQuery;
 
 use crate::globals::{
-    actions::route_helpers::route_read_blocks, bootstrap::GlobalApplicationBootStrap,
+    actions::route_helpers::route_read_blocks, bootstrap::helpers::get_bootstrap,
     states::helpers::get_states,
 };
 
@@ -27,7 +27,7 @@ pub fn get_block_content(block_id: &Uuid, cx: &mut App) -> Result<String> {
     let states = get_states(cx);
     let (server_name, server_states) = states.get_servers_by_block_ids(&block_ids).remove(0);
 
-    let bootstrap: &GlobalApplicationBootStrap = cx.global();
+    let bootstrap = get_bootstrap(cx);
 
     let block = run_async_code(async {
         let system_configurations = bootstrap.0.configurations.lock().await.system.clone();

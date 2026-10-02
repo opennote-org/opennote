@@ -18,6 +18,7 @@ actions!(
         OpenNewWindow,
         ImportFiles,
         ExportFiles,
+        Reindex,
         NextTab,
         PreviousTab,
         CloseActiveTab,
@@ -44,6 +45,7 @@ pub fn into_action(context: &str, action: &str) -> Result<Box<dyn Action>> {
             "NextTab" => Ok(Box::new(NextTab)),
             "PreviousTab" => Ok(Box::new(PreviousTab)),
             "CloseActiveTab" => Ok(Box::new(CloseActiveTab)),
+            "Reindex" => Ok(Box::new(Reindex)),
             _ => Err(anyhow::anyhow!(
                 "Unknown action for context '{}': {}",
                 context,

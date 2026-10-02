@@ -18,7 +18,7 @@ use opennote_models::{
 
 use crate::globals::{
     actions::route_helpers::{route_read_blocks, route_search_blocks},
-    bootstrap::GlobalApplicationBootStrap,
+    bootstrap::helpers::get_bootstrap,
     states::{helpers::get_states, server_registry::ServerRegistry},
 };
 
@@ -31,7 +31,7 @@ impl Global for DesktopMCPServer {}
 
 impl DesktopMCPServer {
     pub fn init(cx: &mut App) -> Result<()> {
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let bootstrap = get_bootstrap(cx);
         let configurations = run_async_code(async {
             bootstrap
                 .0

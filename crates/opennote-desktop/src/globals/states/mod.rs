@@ -16,7 +16,7 @@ use opennote_models::{
 use crate::{
     globals::{
         actions::route_helpers::route_read_blocks,
-        bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
+        bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS, helpers::get_bootstrap},
         states::server_registry::{ServerRegistry, ServerStates},
     },
     widgets::pane::Pane,
@@ -52,7 +52,7 @@ impl States {
     }
 
     pub fn init(cx: &mut App) {
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let bootstrap = get_bootstrap(cx);
         let remote_server_configs = run_async_code(async {
             bootstrap
                 .0

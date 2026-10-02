@@ -4,7 +4,7 @@ use opennote_core_logics::payload::convert_string_to_payloads;
 use opennote_models::{block::Block, payload::Payload};
 
 use crate::globals::{
-    bootstrap::GlobalApplicationBootStrap,
+    bootstrap::helpers::get_bootstrap,
     tasks::{
         task_information::TaskInformation,
         task_result::{TaskResult, TaskType},
@@ -19,7 +19,7 @@ pub fn chunk_block(
     mut block: Block,
     text: String,
 ) {
-    let bootstrap: &GlobalApplicationBootStrap = app_cx.global();
+    let bootstrap = get_bootstrap(app_cx);
     let configurations = bootstrap.get_configurations();
 
     let text_chunk_size = configurations.user.search.document_chunk_size;

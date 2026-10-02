@@ -15,7 +15,7 @@ use opennote_models::{
 
 use crate::{
     globals::{
-        actions::route_helpers, bootstrap::GlobalApplicationBootStrap,
+        actions::route_helpers, bootstrap::helpers::get_bootstrap,
         helpers::run_async_background, states::server_registry::ServerStates,
     },
     widgets::search_bar::search_results::{SearchResult, SearchResultsList, SearchStatus},
@@ -146,7 +146,7 @@ pub fn spawn_search(
         ..
     } = request;
 
-    let bootstrap: &GlobalApplicationBootStrap = cx.global();
+    let bootstrap = get_bootstrap(cx);
     let databases = bootstrap.0.databases.clone();
     let embedders = bootstrap.0.embedders.clone();
     let system_configurations = bootstrap.get_configurations().system.clone();

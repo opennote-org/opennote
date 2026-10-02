@@ -6,13 +6,11 @@ use tokio::sync::Mutex;
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::{
-    configurations::{desktop::DesktopConfigurations, system::SystemConfigurations},
-    key_mappings::KeyMappingConfigurations,
-    metadata::{MetaChangesHandling, Metadata},
-    traits::LoadFromAndSaveToFile,
+    configurations::desktop::DesktopConfigurations, key_mappings::KeyMappingConfigurations,
+    metadata::MetaChangesHandling,
 };
 
-use crate::configurations::{get_configuration_folder_path, get_metadata};
+use crate::configurations::get_metadata;
 
 #[derive(Clone)]
 pub struct DesktopBootstrap {

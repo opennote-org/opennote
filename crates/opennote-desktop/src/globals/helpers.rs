@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use anyhow::Result;
 use gpui_kit::App;
 
-use crate::globals::{assets::AssetsCollection, bootstrap::GlobalApplicationBootStrap};
+use crate::globals::{assets::AssetsCollection, bootstrap::helpers::get_bootstrap};
 
 pub fn get_language_profile(cx: &App) -> Result<HashMap<String, String>> {
-    let bootstrap: &GlobalApplicationBootStrap = cx.global();
+    let bootstrap = get_bootstrap(cx);
     let assets_collection: &AssetsCollection = cx.global();
     let configurations = bootstrap.get_configurations();
 
