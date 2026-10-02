@@ -1,5 +1,7 @@
 pub mod block;
 pub mod chunking;
+pub mod export;
+pub mod import;
 pub mod route_helpers;
 
 use anyhow::Context;
@@ -355,6 +357,9 @@ pub fn update_parent(
     );
 }
 
+/// Local reindex uses `reindex_documents` method
+/// while the remote servers will delete the existing blocks first, and then reinsert.
+/// Therefore, they are fundamentally different operations.
 pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
     let language_profile = get_language_profile(cx).unwrap();
     let reindexing_message = language_profile["rebuilding_index"].clone();

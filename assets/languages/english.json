@@ -28,7 +28,7 @@
   "creating_one_block": "Creating 1 block",
   "created_one_block": "Created 1 block",
   "block_creation_failed": "Block creation failed due to {}",
-  "importing_n_blocks": "Importing {} blocks",
+  "importing_n_blocks": "Importing blocks",
   "imported_n_blocks": "Imported {} blocks",
   "block_import_failed": "Block import failed due to {}",
   "exporting_n_blocks": "Exporting {} blocks",

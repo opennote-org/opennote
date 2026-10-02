@@ -28,7 +28,7 @@
   "creating_one_block": "正在创建 1 个笔记",
   "created_one_block": "已创建 1 个笔记",
   "block_creation_failed": "笔记创建失败：{}",
-  "importing_n_blocks": "正在导入 {} 个笔记",
+  "importing_n_blocks": "正在导入笔记",
   "imported_n_blocks": "已导入 {} 个笔记",
   "block_import_failed": "笔记导入失败：{}",
   "exporting_n_blocks": "正在导出 {} 个笔记",
