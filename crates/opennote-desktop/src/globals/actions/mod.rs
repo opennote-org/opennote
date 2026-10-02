@@ -347,3 +347,7 @@ pub fn update_parent(
         },
     );
 }
+
+pub fn reindex() {
+    
+}

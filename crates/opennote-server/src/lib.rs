@@ -9,7 +9,8 @@ use opennote_models::{
     configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::{
         CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
-        READ_WORKSPACE_BLOCKS_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        READ_WORKSPACE_BLOCKS_ENDPOINT, REQUEST_REINDEX_WORKSPACE_ENDPOINT, ROOT_ENDPOINT,
+        SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT, SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
         UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
     },
     query::BlockQuery,
@@ -17,10 +18,14 @@ use opennote_models::{
     server::{
         requests::{
             CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
-            ReadBlocksInWorkspaceRequest, SearchBlocksInWorkspaceRequest,
+            ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
+            SearchBlocksInWorkspaceRequest, SendReindexedBlocksRequest,
             UpdateBlocksInWorkspaceRequest, create_request,
         },
-        responses::parse_base_response,
+        responses::{
+            parse_base_response,
+            reindex::{RequestReindexBlocksResponse, SendReindexedBlocksResponse},
+        },
     },
 };
 
@@ -180,23 +185,50 @@ pub async fn request_reindex_remote_server_blocks(
     client: &Client,
     base_url: &str,
     password: &str,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<RequestReindexBlocksResponse> {
+    let payload = RequestReindexBlocksRequest {
+        system_configurations,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(base_url, REQUEST_REINDEX_WORKSPACE_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to send reindex request")?;
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Send reindexed blocks to the remote server and receive the next batch
+pub async fn send_reindexed_remote_server_blocks(
+    client: &Client,
+    base_url: &str,
+    password: &str,
     blocks: Vec<Block>,
     shared_key: &SharedKey,
     system_configurations: SystemConfigurations,
-) -> Result<()> {
-    let payload = UpdateBlocksInWorkspaceRequest {
+) -> Result<SendReindexedBlocksResponse> {
+    let payload = SendReindexedBlocksRequest {
         blocks,
         system_configurations,
     };
     let body = create_request(payload, shared_key)?.serialize();
 
     let response = client
-        .put(build_url(base_url, UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT))
+        .post(build_url(
+            base_url,
+            SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
+        ))
         .header(AUTHORIZATION.as_str(), password)
         .body(body)
         .send()
         .await
-        .context("Failed to send update request")?;
+        .context("Failed to send reindexed blocks")?;
 
     parse_base_response(response, shared_key).await
 }
