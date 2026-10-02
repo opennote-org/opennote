@@ -192,13 +192,12 @@ impl Blocks for SQLiteDatabase {
 
         for (active_block_model, active_payload_model) in active_blocks_payloads_pairs {
             payloads_to_insert.extend(active_payload_model);
-            insert_blocks_tasks.push(blocks::Entity::insert(active_block_model).exec(&self.pool));
+            insert_blocks_tasks.push(active_block_model);
         }
 
-        let block_update_results = join_all(insert_blocks_tasks).await;
-        for result in block_update_results {
-            result?;
-        }
+        blocks::Entity::insert_many(insert_blocks_tasks)
+            .exec(&self.pool)
+            .await?;
 
         self.create_payloads_with_active_models(payloads_to_insert.clone())
             .await?;

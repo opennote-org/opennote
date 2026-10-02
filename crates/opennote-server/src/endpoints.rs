@@ -207,18 +207,12 @@ pub async fn search_blocks_in_workspace(
     create_base_response(results, &configurations.shared_key)
 }
 
+/// General flow:
 /// 1. Desktop sends a request to the server for reindexing
 /// 2. Server sends its blocks in turns to the desktop
 ///
 /// 3. Desktop returns embedded blocks in turns
 /// 4. Server store the blocks
-///
-/// TODO:
-/// - How to sync the vector database config between the desktop and server?
-///     - Server holds its own configurations
-///     - config mismatch should raise an error for all server endpoints
-///     - the desktop is notified when the config mismatches
-/// - Which side to configure the batch size?
 pub async fn request_reindex_workspace(
     data: Data<ServerBootstrap>,
     reindex_session_manager: Data<RwLock<ReindexSessionManager>>,
@@ -244,10 +238,7 @@ pub async fn request_reindex_workspace(
 
     // Create a new session in the state
     let mut reindex_session_manager = reindex_session_manager.write().unwrap();
-    match reindex_session_manager.new_session(blocks) {
-        Ok(_) => {}
-        Err(e) => return create_error_response(e.to_string(), &configurations.shared_key),
-    };
+    reindex_session_manager.new_session(blocks);
 
     tracing::info!("Reindex request received");
 

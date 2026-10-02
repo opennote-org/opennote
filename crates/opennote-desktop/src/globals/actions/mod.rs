@@ -2,7 +2,12 @@ pub mod block;
 pub mod chunking;
 pub mod route_helpers;
 
+use anyhow::Context;
 use gpui_kit::{SharedString, Window};
+use opennote_core_logics::configurations::{
+    ApplicationType, get_configuration_folder_path, get_metadata,
+};
+use opennote_server::{request_reindex_remote_server_blocks, send_reindexed_remote_server_blocks};
 use uuid::Uuid;
 
 use opennote_data::Databases;
@@ -10,7 +15,9 @@ use opennote_embedder::{entry::EmbedderEntry, vectorization::vectorize};
 use opennote_models::{
     block::Block,
     configurations::{fields::EmbedderConfig, system::SystemConfigurations},
+    constants::LOCAL_SERVER_NAME,
     query::BlockQuery,
+    traits::LoadFromAndSaveToFile,
 };
 
 use crate::globals::{
@@ -23,8 +30,8 @@ use crate::globals::{
         task_information::TaskInformation,
         task_result::TaskType,
         unique_notifications::{
-            CreateOneBlockNotifications, DeleteNBlocksNotifications, UpdateNBlocksNotification,
-            UpdateParentNotification,
+            CreateOneBlockNotifications, DeleteNBlocksNotifications, RebuildIndexNotifications,
+            UpdateNBlocksNotification, UpdateParentNotification,
         },
     },
 };
@@ -348,6 +355,117 @@ pub fn update_parent(
     );
 }
 
-pub fn reindex() {
-    
+pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
+    let language_profile = get_language_profile(cx).unwrap();
+    let reindexing_message = language_profile["rebuilding_index"].clone();
+    let reindexed_message = language_profile["rebuilt_index"].clone();
+    let reindex_failed_message = language_profile["index_rebuild_failed"].clone();
+
+    let task = TaskInformation::new(reindexing_message, TaskType::RebuildIndex, true);
+
+    start_task::<RebuildIndexNotifications>(
+        cx,
+        window,
+        task,
+        async move |cx, _window_handle| {
+            let (bootstrap, system_configurations) = cx
+                .read_global::<GlobalApplicationBootStrap, _>(|this, _cx| {
+                    (this.0.clone(), this.get_configurations().system.clone())
+                });
+
+            let servers = cx.read_global::<States, _>(|this, _cx| {
+                this.get_servers()
+                    .iter()
+                    .filter(|(name, _)| name.as_ref() != LOCAL_SERVER_NAME)
+                    .map(|(name, server)| (name.clone(), server.clone()))
+                    .collect::<Vec<_>>()
+            });
+
+            let executor = cx.background_executor();
+            let tokio_handle = tokio::runtime::Handle::current();
+            let local_configurations = system_configurations.clone();
+
+            run_async_background(executor, tokio_handle.clone(), async move {
+                bootstrap
+                    .databases
+                    .vector_database
+                    .reindex_documents(
+                        &local_configurations,
+                        &bootstrap.databases.database,
+                        &bootstrap.embedders,
+                    )
+                    .await?;
+
+                let mut metadata = get_metadata(ApplicationType::Desktop)?;
+                metadata.update(&local_configurations);
+                metadata.save_to_file(&get_configuration_folder_path(ApplicationType::Desktop))?;
+
+                Ok::<(), anyhow::Error>(())
+            })
+            .await?;
+
+            let client = reqwest::Client::new();
+            let embedders = cx
+                .read_global::<GlobalApplicationBootStrap, _>(|this, _cx| this.0.embedders.clone());
+
+            for (name, server) in servers {
+                request_reindex_remote_server_blocks(
+                    &client,
+                    &server.connection_string,
+                    &server.password,
+                    &server.shared_key,
+                    system_configurations.clone(),
+                )
+                .await
+                .context(format!("Failed to start reindexing server {name}"))?;
+
+                let mut reindexed_blocks = Vec::new();
+
+                loop {
+                    let response = send_reindexed_remote_server_blocks(
+                        &client,
+                        &server.connection_string,
+                        &server.password,
+                        reindexed_blocks,
+                        &server.shared_key,
+                        system_configurations.clone(),
+                    )
+                    .await
+                    .with_context(|| format!("Failed to reindex server {name}"))?;
+
+                    if response.finished {
+                        break;
+                    }
+
+                    reindexed_blocks = response.blocks;
+                    for block in &mut reindexed_blocks {
+                        let payloads = std::mem::take(&mut block.payloads);
+                        let embedders = embedders.clone();
+                        let embedder_config = system_configurations.embedder.clone();
+                        block.payloads =
+                            run_async_background(executor, tokio_handle.clone(), async move {
+                                vectorize(&embedders, &embedder_config, payloads).await
+                            })
+                            .await
+                            .with_context(|| {
+                                format!("Failed to vectorize blocks from server {name}")
+                            })?;
+                    }
+                }
+            }
+
+            Ok(())
+        },
+        |cx| {
+            let _ = cx.update_global::<States, ()>(|this, cx| {
+                this.refresh_blocks_list(cx);
+            });
+        },
+        move || reindexed_message.clone().into(),
+        move |error| {
+            reindex_failed_message
+                .replace("{}", &error.to_string())
+                .into()
+        },
+    );
 }

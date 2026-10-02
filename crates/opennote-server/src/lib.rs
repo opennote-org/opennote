@@ -22,10 +22,7 @@ use opennote_models::{
             SearchBlocksInWorkspaceRequest, SendReindexedBlocksRequest,
             UpdateBlocksInWorkspaceRequest, create_request,
         },
-        responses::{
-            parse_base_response,
-            reindex::{RequestReindexBlocksResponse, SendReindexedBlocksResponse},
-        },
+        responses::{parse_base_response, reindex::SendReindexedBlocksResponse},
     },
 };
 
@@ -187,13 +184,13 @@ pub async fn request_reindex_remote_server_blocks(
     password: &str,
     shared_key: &SharedKey,
     system_configurations: SystemConfigurations,
-) -> Result<RequestReindexBlocksResponse> {
+) -> Result<()> {
     let payload = RequestReindexBlocksRequest {
         system_configurations,
     };
     let body = create_request(payload, shared_key)?.serialize();
 
-    let response = client
+    let _response = client
         .post(build_url(base_url, REQUEST_REINDEX_WORKSPACE_ENDPOINT))
         .header(AUTHORIZATION.as_str(), password)
         .body(body)
@@ -201,7 +198,7 @@ pub async fn request_reindex_remote_server_blocks(
         .await
         .context("Failed to send reindex request")?;
 
-    parse_base_response(response, shared_key).await
+    Ok(())
 }
 
 /// Send reindexed blocks to the remote server and receive the next batch

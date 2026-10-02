@@ -1,35 +1,30 @@
 use std::io::Read;
 
 use gpui_kit::{component::Root, *};
-use opennote_core_logics::configurations::{
-    ApplicationType, get_configuration_folder_path, get_metadata,
-};
 use sanitize_filename::sanitize;
 
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::{
     configurations::system::SystemConfigurations, constants::DESKTOP_SETTINGS_PANEL_NAME,
-    query::BlockQuery, traits::LoadFromAndSaveToFile,
+    query::BlockQuery,
 };
 
 use crate::{
     globals::{
         actions::{
             block::build_block,
+            reindex,
             route_helpers::{route_create_blocks, route_read_blocks},
         },
-        bootstrap::{GlobalApplicationBootStrap, helpers::get_bootstrap},
+        bootstrap::GlobalApplicationBootStrap,
         helpers::{get_language_profile, run_async_background},
         states::{States, helpers::get_states, server_registry::ServerStates},
         tasks::{
-            helpers::start_task,
             task_information::TaskInformation,
             task_result::{TaskResult, TaskType},
             tracker::{register_long_running_completion, register_long_running_task},
-            unique_notifications::{
-                ExportNBlocksNotification, ImportNBlocksNotification, RebuildIndexNotifications,
-            },
+            unique_notifications::{ExportNBlocksNotification, ImportNBlocksNotification},
         },
     },
     key_mappings::mappings::{
@@ -616,43 +611,12 @@ impl Workspace {
         ));
     }
 
-    pub fn reindex(&mut self, _action: &Reindex, window: &mut Window, cx: &mut Context<Self>) {
-        let bootstrap = get_bootstrap(cx).0.clone();
-        let language_profile = get_language_profile(cx).unwrap();
-        let reindexing_message = language_profile["rebuilding_index"].clone();
-        let reindexed_message = language_profile["rebuilt_index"].clone();
-        let reindex_failed_message = language_profile["index_rebuild_failed"].clone();
-
-        let task = TaskInformation::new(reindexing_message, TaskType::RebuildIndex, true);
-
-        start_task::<RebuildIndexNotifications>(
-            cx,
-            window,
-            task,
-            async move |_cx, _window_handle| {
-                let handling = bootstrap.analyze_changes_handling().await?;
-                bootstrap.handle_changes(handling).await?;
-
-                let mut metadata = get_metadata(ApplicationType::Desktop)?;
-                let system_configurations = bootstrap.configurations.lock().await.system.clone();
-                let config_path = get_configuration_folder_path(ApplicationType::Desktop);
-
-                metadata.update(&system_configurations);
-                metadata.save_to_file(&config_path)?;
-
-                Ok(())
-            },
-            |cx| {
-                let _ = cx.update_global::<States, ()>(|this, cx| {
-                    this.refresh_blocks_list(cx);
-                });
-            },
-            move || reindexed_message.clone().into(),
-            move |error| {
-                reindex_failed_message
-                    .replace("{}", &error.to_string())
-                    .into()
-            },
-        );
+    pub fn rebuild_index(
+        &mut self,
+        _action: &Reindex,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        reindex(window, cx);
     }
 }

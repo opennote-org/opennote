@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anyhow::{Result, anyhow};
 use uuid::Uuid;
 
 use opennote_models::block::Block;
@@ -14,16 +13,10 @@ impl ReindexSessionManager {
     }
 
     /// Only one reindex session is allowed at a time.
-    /// Return error when a session has already existed.
-    pub fn new_session(&mut self, blocks: Vec<Block>) -> Result<()> {
-        match self.0 {
-            Some(_) => Err(anyhow!("A reindex session has already existed")),
-            None => {
-                let session = ReindexSession::new(blocks);
-                self.0 = Some(session);
-                Ok(())
-            }
-        }
+    /// The existing session will be popped if a new one comes.
+    pub fn new_session(&mut self, blocks: Vec<Block>) {
+        let session = ReindexSession::new(blocks);
+        self.0 = Some(session);
     }
 
     pub fn get_session(&self) -> Option<&ReindexSession> {

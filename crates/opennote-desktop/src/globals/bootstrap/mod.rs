@@ -50,18 +50,20 @@ impl InitializeAsResourceOnAppStart for GlobalApplicationBootStrap {
             .unwrap();
         let bootstrap = GlobalApplicationBootStrap::load().await?;
 
-        message_sender.send("Check reindexing...").await?;
+        // Now, the startup will check the local indexes.
+        // The server indexes will be checked after the program started.
+        message_sender.send("Check local indexes...").await?;
         let handling = bootstrap.0.analyze_changes_handling().await?;
 
         if handling.reindex_vector_database {
             message_sender
-                .send("Reindexing the vector database...")
+                .send("Reindexing the local vector database...")
                 .await?;
         }
 
         if handling.reset_vector_database {
             message_sender
-                .send("Resetting the vector database...")
+                .send("Resetting the local vector database...")
                 .await?;
         }
 

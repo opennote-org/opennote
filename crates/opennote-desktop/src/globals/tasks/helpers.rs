@@ -33,6 +33,8 @@ pub fn start_task<T>(
         match business_logics(cx, window).await {
             Ok(_) => {}
             Err(error) => {
+                tracing::error!("{:#}", error);
+
                 register_long_running_completion::<T>(
                     window,
                     cx,
