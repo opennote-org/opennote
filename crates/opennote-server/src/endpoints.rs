@@ -44,6 +44,11 @@ pub async fn read_workspace_blocks(data: Data<ServerBootstrap>, request: Bytes) 
         Err(value) => return value,
     };
 
+    tracing::info!(
+        "Read workspace with the following parameters: {:?}",
+        &request
+    );
+
     create_base_response(
         read_blocks(
             &data.databases,
@@ -72,6 +77,11 @@ pub async fn create_blocks_in_workspace(
         Ok(value) => value,
         Err(value) => return value,
     };
+
+    tracing::info!(
+        "Create blocks with the following parameters: {:?}",
+        &request
+    );
 
     create_base_response(
         create_blocks(
@@ -102,6 +112,11 @@ pub async fn delete_blocks_in_workspace(
         Err(value) => return value,
     };
 
+    tracing::info!(
+        "Delete blocks with the following parameters: {:?}",
+        &request
+    );
+
     create_base_response(
         delete_blocks(
             &data.databases,
@@ -130,6 +145,11 @@ pub async fn update_blocks_in_workspace(
         Err(value) => return value,
     };
 
+    tracing::info!(
+        "Update blocks with the following parameters: {:?}",
+        &request
+    );
+
     create_base_response(
         update_blocks(
             &configurations.system.vector_database,
@@ -155,6 +175,11 @@ pub async fn search_blocks_in_workspace(
         Ok(value) => value,
         Err(value) => return value,
     };
+
+    tracing::info!(
+        "Search blocks with the following parameters: {:?}",
+        &request
+    );
 
     let results = match request.search_method {
         SupportedSearchMethod::Keyword => {
@@ -224,6 +249,8 @@ pub async fn request_reindex_workspace(
         Err(e) => return create_error_response(e.to_string(), &configurations.shared_key),
     };
 
+    tracing::info!("Reindex request received");
+
     // Return the session id
     create_base_response(
         Ok(RequestReindexBlocksResponse {}),
@@ -246,6 +273,8 @@ pub async fn send_reindexed_blocks_to_workspace(
         Ok(value) => value,
         Err(value) => return value,
     };
+
+    tracing::info!("{} vectorized blocks received", request.blocks.len());
 
     let mut reindex_session_manager = reindex_session_manager.write().unwrap();
 
@@ -313,6 +342,8 @@ pub async fn send_reindexed_blocks_to_workspace(
             .reindex_batch_size
             .into(),
     );
+
+    tracing::info!("{} unfinished blocks sent", unfinished_blocks.len());
 
     create_base_response(
         Ok(SendReindexedBlocksResponse {

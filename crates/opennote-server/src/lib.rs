@@ -174,3 +174,29 @@ pub async fn search_remote_server_blocks(
 
     parse_base_response(response, shared_key).await
 }
+
+/// Notify the remote server for a start of a reindex session
+pub async fn request_reindex_remote_server_blocks(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    blocks: Vec<Block>,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<()> {
+    let payload = UpdateBlocksInWorkspaceRequest {
+        blocks,
+        system_configurations,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .put(build_url(base_url, UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to send update request")?;
+
+    parse_base_response(response, shared_key).await
+}
