@@ -1,3 +1,5 @@
+pub mod reindex;
+
 use actix_web::HttpResponse;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
@@ -17,6 +19,17 @@ pub fn create_bad_response(message: String) -> HttpResponse {
     HttpResponse::BadRequest().body(message)
 }
 
+pub fn create_error_response(error_message: String, shared_key: &SharedKey) -> HttpResponse {
+    let content = BaseResponse {
+        status: false,
+        message: Some(error_message),
+        data: None,
+    };
+
+    HttpResponse::Ok().body(content.encrypt(shared_key).unwrap().serialize())
+}
+
+/// Create a response based on successful or not
 pub fn create_base_response<T>(results: Result<T>, shared_key: &SharedKey) -> HttpResponse
 where
     T: Serialize,

@@ -137,19 +137,6 @@ impl TaskTracker {
     }
 }
 
-pub fn register_task(window: AnyWindowHandle, cx: &mut AsyncApp, task: TaskInformation) {
-    let message = task.message.clone();
-    let window_id = window.window_id();
-
-    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
-        this.register(window_id, task);
-    });
-
-    let _ = cx.update_window(window, |_view, window, cx| {
-        window.push_notification((NotificationType::Info, message), cx);
-    });
-}
-
 pub fn register_long_running_task<T: 'static>(
     window: AnyWindowHandle,
     cx: &mut AsyncApp,
@@ -164,21 +151,6 @@ pub fn register_long_running_task<T: 'static>(
 
     let _ = cx.update_window(window, |_view, window, cx| {
         window.push_notification(Notification::info(message).id::<T>().autohide(false), cx);
-    });
-}
-
-/// It will remove the task information, then register the result
-pub fn register_result(window: AnyWindowHandle, cx: &mut AsyncApp, task_result: TaskResult) {
-    let notification_type = get_notification_type(task_result.status);
-    let message = task_result.message.clone();
-    let window_id = window.window_id();
-
-    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
-        this.register_result(window_id, task_result);
-    });
-
-    let _ = cx.update_window(window, |_view, window, cx| {
-        window.push_notification((notification_type, message), cx);
     });
 }
 

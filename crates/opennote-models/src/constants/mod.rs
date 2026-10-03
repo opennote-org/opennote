@@ -8,6 +8,7 @@ pub const CONFIGURATIONS_FILE_NAME: &str = "configurations.json";
 pub const DATA_STORAGE_FOLDER_NAME: &str = "data";
 pub const VECTOR_DATABASE_FILENAME: &str = "vector_database";
 pub const SQLITE_VECTOR_DATABASE_FILE_EXTENSION: &str = "sqlite";
+pub const METADATA_FILENAME: &str = "metadata.json";
 
 /*
  * Desktop Only
@@ -22,6 +23,7 @@ pub const LOADING_WINDOW_WIDTH: f32 = 420.;
 pub const LOADING_WINDOW_HEIGHT: f32 = 240.;
 pub const DEFAULT_BLOCK_STATES_FILE_NAME: &str = "block_states.json";
 pub const LOG_WINDOW_CAPACITY: usize = 2000;
+pub const STARTUP_MESSAGE_CHANNEL_CAPACITY: usize = 32;
 
 /*
  * Server Only
@@ -34,3 +36,5 @@ pub const CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/create_blocks_in_workspa
 pub const DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/delete_blocks_in_workspace";
 pub const UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/update_blocks_in_workspace";
 pub const SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT: &str = "/search_blocks_in_workspace";
+pub const REQUEST_REINDEX_WORKSPACE_ENDPOINT: &str = "/request_reindex_workspace";
+pub const SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT: &str = "/send_reindexed_blocks_to_workspace";

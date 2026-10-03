@@ -6,10 +6,11 @@ use uuid::Uuid;
 
 use opennote_models::{
     block::Block,
-    configurations::fields::search::SupportedSearchMethod,
+    configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::{
         CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
-        READ_WORKSPACE_BLOCKS_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        READ_WORKSPACE_BLOCKS_ENDPOINT, REQUEST_REINDEX_WORKSPACE_ENDPOINT, ROOT_ENDPOINT,
+        SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT, SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
         UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
     },
     query::BlockQuery,
@@ -17,10 +18,11 @@ use opennote_models::{
     server::{
         requests::{
             CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
-            ReadBlocksInWorkspaceRequest, SearchBlocksInWorkspaceRequest,
+            ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
+            SearchBlocksInWorkspaceRequest, SendReindexedBlocksRequest,
             UpdateBlocksInWorkspaceRequest, create_request,
         },
-        responses::parse_base_response,
+        responses::{parse_base_response, reindex::SendReindexedBlocksResponse},
     },
 };
 
@@ -41,11 +43,13 @@ pub async fn read_remote_server_blocks(
     filter: &BlockQuery,
     has_vector: bool,
     has_payload: bool,
+    system_configurations: SystemConfigurations,
 ) -> Result<Vec<Block>> {
     let payload = ReadBlocksInWorkspaceRequest {
         block_query: filter.to_owned(),
         has_vector,
         has_payload,
+        system_configurations,
     };
     let body = create_request(payload, shared_key)?.serialize();
 
@@ -66,8 +70,12 @@ pub async fn create_remote_server_blocks(
     password: &str,
     blocks: Vec<Block>,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<Vec<Block>> {
-    let payload = CreateBlocksInWorkspaceRequest { blocks };
+    let payload = CreateBlocksInWorkspaceRequest {
+        blocks,
+        system_configurations,
+    };
     let body = create_request(payload, shared_key)?.serialize();
 
     let response = client
@@ -87,8 +95,12 @@ pub async fn delete_remote_server_blocks(
     password: &str,
     block_ids: Vec<Uuid>,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<()> {
-    let payload = DeleteBlocksInWorkspaceRequest { block_ids };
+    let payload = DeleteBlocksInWorkspaceRequest {
+        block_ids,
+        system_configurations,
+    };
     let body = create_request(payload, shared_key)?.serialize();
 
     let response = client
@@ -108,8 +120,12 @@ pub async fn update_remote_server_blocks(
     password: &str,
     blocks: Vec<Block>,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<()> {
-    let payload = UpdateBlocksInWorkspaceRequest { blocks };
+    let payload = UpdateBlocksInWorkspaceRequest {
+        blocks,
+        system_configurations,
+    };
     let body = create_request(payload, shared_key)?.serialize();
 
     let response = client
@@ -133,6 +149,7 @@ pub async fn search_remote_server_blocks(
     query_vector: Option<Vec<f32>>,
     top_n: usize,
     shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
 ) -> Result<Vec<RawSearchResult>> {
     let payload = SearchBlocksInWorkspaceRequest {
         search_method,
@@ -140,6 +157,7 @@ pub async fn search_remote_server_blocks(
         query,
         query_vector,
         top_n,
+        system_configurations,
     };
     let body = create_request(payload, shared_key)?.serialize();
 
@@ -155,6 +173,59 @@ pub async fn search_remote_server_blocks(
         // A server error should not block the entire search opearation.
         Err(_) => return Ok(Vec::new()),
     };
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Notify the remote server for a start of a reindex session
+pub async fn request_reindex_remote_server_blocks(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<()> {
+    let payload = RequestReindexBlocksRequest {
+        system_configurations,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let _response = client
+        .post(build_url(base_url, REQUEST_REINDEX_WORKSPACE_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to send reindex request")?;
+
+    Ok(())
+}
+
+/// Send reindexed blocks to the remote server and receive the next batch
+pub async fn send_reindexed_remote_server_blocks(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    blocks: Vec<Block>,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<SendReindexedBlocksResponse> {
+    let payload = SendReindexedBlocksRequest {
+        blocks,
+        system_configurations,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(
+            base_url,
+            SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
+        ))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to send reindexed blocks")?;
 
     parse_base_response(response, shared_key).await
 }

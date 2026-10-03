@@ -14,7 +14,6 @@ members = [
     "crates/opennote-connectors",
     "crates/opennote-mcp-server",
     "crates/opennote-server",
-    "crates/opennote-bootstrap",
     "crates/opennote-core-logics",
     "crates/opennote-velotype",
     "crates/opennote-mcp-server",
@@ -27,7 +26,6 @@ opennote-mcp-server = { path = "crates/opennote-mcp-server" }
 opennote-embedder = { path = "crates/opennote-embedder" }
 opennote-models = { path = "crates/opennote-models" }
 opennote-entities = { path = "crates/opennote-entities" }
-opennote-bootstrap = { path = "crates/opennote-bootstrap" }
 opennote-core-logics = { path = "crates/opennote-core-logics" }
 opennote-velotype = { path = "crates/opennote-velotype" }
 

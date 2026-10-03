@@ -2,10 +2,9 @@ use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::try_join_all;
 use gpui_kit::{App, AppContext, Global};
-use opennote_core_logics::helpers::run_async_code;
 use uuid::Uuid;
 
-use opennote_bootstrap::DesktopBootstrap;
+use opennote_core_logics::{bootstraps::desktop::DesktopBootstrap, helpers::run_async_code};
 use opennote_embedder::vectorization::send_vectorization;
 use opennote_mcp_server::{
     requests::{MCPReadBlocksRequest, MCPSearchRequest},
@@ -19,7 +18,7 @@ use opennote_models::{
 
 use crate::globals::{
     actions::route_helpers::{route_read_blocks, route_search_blocks},
-    bootstrap::GlobalApplicationBootStrap,
+    bootstrap::helpers::get_bootstrap,
     states::{helpers::get_states, server_registry::ServerRegistry},
 };
 
@@ -32,7 +31,7 @@ impl Global for DesktopMCPServer {}
 
 impl DesktopMCPServer {
     pub fn init(cx: &mut App) -> Result<()> {
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let bootstrap = get_bootstrap(cx);
         let configurations = run_async_code(async {
             bootstrap
                 .0
@@ -112,12 +111,15 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
 
         let servers = self.server_registry.get_servers_connections();
 
+        let configurations = self.bootstrap.configurations.lock().await;
+
         let results: Vec<_> =
             try_join_all(servers.iter().map(async |(server_name, server_states)| {
                 let mut results = route_search_blocks(
                     server_name,
                     server_states,
                     &self.bootstrap.databases,
+                    configurations.system.clone(),
                     search_method,
                     block_ids.clone(),
                     Some(query.clone()),
@@ -138,6 +140,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                     &filter,
                     false,
                     true,
+                    configurations.system.clone(),
                 )
                 .await
             }))
@@ -157,6 +160,8 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             false => BlockQuery::ByIds(block_ids),
         };
 
+        let configurations = self.bootstrap.configurations.lock().await;
+
         let servers = self.server_registry.get_servers_connections();
 
         let blocks = try_join_all(servers.iter().map(|(server_name, server_states)| {
@@ -167,6 +172,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 &filter,
                 false,
                 request.has_payload,
+                configurations.system.clone(),
             )
         }))
         .await?

@@ -92,6 +92,14 @@ Point any MCP client that supports the Streamable HTTP transport at the server's
 
 The server is loopback-only by default: it accepts requests whose `Host` header is a loopback address, which protects the locally running server from DNS-rebinding attacks. It is intended to be used from the same machine that runs OpenNote. The desktop MCP server does not require authentication.
 
+### Reindex After Switching the Embedding Model
+
+Once in a while, you may find a model that better suits your needs. Then you will need to re-vectorize all notes across your desktop and servers.
+
+The app will reindex both the desktop and servers for you on app restart, if you switched to a new embedding model in your desktop configuration. However, in case if you encountered errors during the reindex, you will always be able to trigger a reindex in the command bar.
+
+For a successful reindex, you need to sync both the configurations on the remote servers and the desktop. If the remote servers see your configurations mismatched between the server and the desktop, it will fail the reindex for safe.
+
 ## Contributing
 
 OpenNote is in active development and welcomes contributions of all kinds — bug reports, feature ideas, code, documentation, and design.

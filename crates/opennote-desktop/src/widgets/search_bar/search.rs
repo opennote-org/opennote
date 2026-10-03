@@ -7,13 +7,15 @@ use uuid::Uuid;
 use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    block::Block, configurations::fields::search::SupportedSearchMethod, payload::create_query,
+    block::Block,
+    configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
+    payload::create_query,
     query::BlockQuery,
 };
 
 use crate::{
     globals::{
-        actions::route_helpers, bootstrap::GlobalApplicationBootStrap,
+        actions::route_helpers, bootstrap::helpers::get_bootstrap,
         helpers::run_async_background, states::server_registry::ServerStates,
     },
     widgets::search_bar::search_results::{SearchResult, SearchResultsList, SearchStatus},
@@ -35,11 +37,13 @@ impl SearchRequest {
         server: ServerStates,
         databases: Databases,
         block_ids: Vec<Uuid>,
+        system_configurations: SystemConfigurations,
     ) -> anyhow::Result<Vec<SearchResult>> {
         let raw = route_helpers::route_search_blocks(
             &name,
             &server,
             &databases,
+            system_configurations.clone(),
             self.method,
             block_ids,
             Some(self.query),
@@ -60,6 +64,7 @@ impl SearchRequest {
             &BlockQuery::ByIds(ids.into_iter().collect()),
             false,
             true,
+            system_configurations,
         )
         .await?;
 
@@ -141,9 +146,10 @@ pub fn spawn_search(
         ..
     } = request;
 
-    let bootstrap: &GlobalApplicationBootStrap = cx.global();
+    let bootstrap = get_bootstrap(cx);
     let databases = bootstrap.0.databases.clone();
     let embedders = bootstrap.0.embedders.clone();
+    let system_configurations = bootstrap.get_configurations().system.clone();
 
     let executor = cx.background_executor().clone();
     let tokio_handle = tokio::runtime::Handle::current();
@@ -200,6 +206,7 @@ pub fn spawn_search(
         let mut tasks = FuturesUnordered::new();
         for (name, server) in servers {
             let databases = databases.clone();
+            let system_configurations = system_configurations.clone();
             let request = SearchRequest {
                 method,
                 query: query.clone(),
@@ -222,7 +229,7 @@ pub fn spawn_search(
                 tokio_handle.clone(),
                 async move {
                     request
-                        .search_server(name, server, databases, block_ids)
+                        .search_server(name, server, databases, block_ids, system_configurations)
                         .await
                 },
             ));

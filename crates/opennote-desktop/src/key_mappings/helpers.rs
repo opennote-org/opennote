@@ -28,5 +28,11 @@ pub fn match_action_to_language(
     action: &Box<dyn Action>,
 ) -> SharedString {
     let action_name = action.name();
-    language_profile[action_name].clone().into()
+
+    if let Some(profile) = language_profile.get(action_name) {
+        return profile.clone().into();
+    }
+
+    tracing::error!("Cannot find {} in the language profile", action_name);
+    panic!()
 }

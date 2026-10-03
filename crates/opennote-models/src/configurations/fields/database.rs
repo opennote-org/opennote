@@ -8,7 +8,7 @@ use crate::{
     providers::database::DatabaseProvider,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct DatabaseConfig {
     pub provider: DatabaseProvider,
     pub connection_url: String,

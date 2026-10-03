@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use actix_cors::Cors;
 use actix_web::{
     App, HttpServer,
@@ -6,15 +8,17 @@ use actix_web::{
 };
 use anyhow::{Context, Result};
 
-use opennote_bootstrap::ServerBootstrap;
-use opennote_core_logics::configurations::{
-    ApplicationType, create_required_folders, get_configuration_folder_path,
+use opennote_core_logics::{
+    bootstraps::server::ServerBootstrap,
+    configurations::{ApplicationType, create_required_folders, get_configuration_folder_path},
 };
 use opennote_models::{
     configurations::server::ServerConfigurations, traits::LoadFromAndSaveToFile,
 };
 
-use crate::{middlewares::check_password, routes::configure_routes};
+use crate::{
+    middlewares::check_password, reindex::ReindexSessionManager, routes::configure_routes,
+};
 
 pub fn load_configurations() -> Result<ServerConfigurations> {
     let config_path = get_configuration_folder_path(ApplicationType::Server);
@@ -35,11 +39,14 @@ pub fn load_configurations() -> Result<ServerConfigurations> {
 }
 
 pub async fn initialize_backend_api_service(
+    host: String,
+    port: u16,
+    workers: usize,
     bootstrap: Data<ServerBootstrap>,
-    config: &ServerConfigurations,
+    reindex_session_manager: Data<RwLock<ReindexSessionManager>>,
 ) -> Result<()> {
     // Start HTTP server
-    let bind_address: String = format!("{}:{}", config.host, config.port);
+    let bind_address: String = format!("{}:{}", host, port);
     tracing::info!("Starting HTTP server on {}", bind_address);
 
     let server = HttpServer::new(move || {
@@ -48,6 +55,8 @@ pub async fn initialize_backend_api_service(
             .wrap(Cors::permissive())
             .wrap(from_fn(check_password))
             .app_data(bootstrap.clone())
+            // This is for storing reindex session information
+            .app_data(reindex_session_manager.clone())
             // Size limit is 100 MB for now.
             .app_data(PayloadConfig::new(100 * 1024 * 1024))
             .service(configure_routes())
@@ -55,10 +64,10 @@ pub async fn initialize_backend_api_service(
     });
 
     // Set number of workers if specified
-    tracing::info!("Using {} worker threads", config.workers);
+    tracing::info!("Using {} worker threads", workers);
 
     server
-        .workers(config.workers)
+        .workers(workers)
         .bind(&bind_address)
         .with_context(|| format!("Failed to bind to {}", bind_address))
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?

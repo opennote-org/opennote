@@ -109,7 +109,7 @@ impl TextEmbedder {
     ) -> Result<Self> {
         if model_name.is_some() {
             match model_architecture {
-                "Bert" | "bert" => Ok(Self::Bert(Box::new(OrtBertEmbedder::new(
+                "BertModel" | "Bert" | "bert" => Ok(Self::Bert(Box::new(OrtBertEmbedder::new(
                     model_name,
                     model_id,
                     revision,
@@ -134,7 +134,7 @@ impl TextEmbedder {
                 "colbert" | "Colbert" | "COLBERT" => Ok(Self::ColBert(Box::new(
                     OrtColbertEmbedder::new(model_id, revision, path_in_repo)?,
                 ))),
-                "bert" | "Bert" => Ok(Self::Bert(Box::new(OrtBertEmbedder::new(
+                "BertModel" | "bert" | "Bert" => Ok(Self::Bert(Box::new(OrtBertEmbedder::new(
                     None,
                     model_id,
                     revision,

@@ -4227,9 +4227,9 @@ dependencies = [
 
 [[package]]
 name = "ethnum"
-version = "1.5.2"
+version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca81e6b4777c89fd810c25a4be2b1bd93ea034fbe58e6a75216a34c6b82c539b"
+checksum = "40404c3f5f511ec4da6fe866ddf6a717c309fdbb69fbbad7b0f3edab8f2e835f"
 
 [[package]]
 name = "euclid"
@@ -9587,18 +9587,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "opennote-bootstrap"
-version = "0.2.6"
-dependencies = [
- "anyhow",
- "opennote-data",
- "opennote-embedder",
- "opennote-models",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "opennote-connectors"
 version = "0.2.6"
 
@@ -9660,7 +9648,6 @@ dependencies = [
  "async-trait",
  "futures",
  "gpui-kit",
- "opennote-bootstrap",
  "opennote-core-logics",
  "opennote-data",
  "opennote-embedder",
@@ -9710,7 +9697,6 @@ dependencies = [
  "actix-web",
  "anyhow",
  "async-trait",
- "opennote-bootstrap",
  "opennote-models",
  "rmcp 3.1.2",
  "rmcp-actix-web 0.2.6",
@@ -9747,7 +9733,6 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "anyhow",
- "opennote-bootstrap",
  "opennote-core-logics",
  "opennote-data",
  "opennote-models",
@@ -9755,6 +9740,7 @@ dependencies = [
  "serde",
  "serde-encrypt",
  "serde_json",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "uuid",

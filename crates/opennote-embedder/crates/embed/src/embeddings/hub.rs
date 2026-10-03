@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow};
-use hf_hub::{HFClientBuilder, HFClientSync, HFError, HFRepositorySync, RepoTypeModel};
+use hf_hub::{
+    HFClientBuilder, HFClientSync, HFError, HFRepositorySync, HFResult, RepoTypeModel,
+    repository::RepoTreeEntry,
+};
 
 pub const HUGGINGFACE_CHINESE_MIRROR: &str = "https://hf-mirror.com";
 
@@ -68,12 +71,38 @@ impl HubModelRepo {
         Ok(HubClient::new(token)?.model(model_id, revision))
     }
 
+    /// List files in this repo
+    pub(crate) fn inspect_files(&self, recursive: bool) -> HFResult<Vec<String>> {
+        let entries = self
+            .inner
+            .list_tree()
+            .maybe_revision(self.revision.clone())
+            .recursive(recursive)
+            .send()?;
+
+        Ok(entries
+            .into_iter()
+            .filter_map(|entry| match entry {
+                RepoTreeEntry::File { path, .. } => Some(path),
+                _ => None,
+            })
+            .collect())
+    }
+
     pub(crate) fn get(&self, filename: &str) -> hf_hub::HFResult<PathBuf> {
         self.inner
             .download_file()
             .filename(filename)
             .maybe_revision(self.revision.clone())
             .send()
+    }
+
+    pub(crate) fn optional(&self, filename: &str) -> hf_hub::HFResult<Option<PathBuf>> {
+        match self.get(filename) {
+            Ok(path) => Ok(Some(path)),
+            Err(HFError::EntryNotFound { .. }) => Ok(None),
+            Err(error) => Err(error),
+        }
     }
 
     /// Returns the first existing file, falling through only when a file is absent.

@@ -8,7 +8,6 @@ edition.workspace = true
 # Internal dependencies
 opennote-data = { workspace = true }
 opennote-models = { workspace = true }
-opennote-bootstrap = { workspace = true }
 opennote-core-logics = { workspace = true }
 
 # External dependencies
@@ -22,3 +21,4 @@ uuid = { workspace = true }
 actix-web = { workspace = true }
 reqwest.workspace = true
 serde-encrypt = { workspace = true }
+tokio.workspace = true

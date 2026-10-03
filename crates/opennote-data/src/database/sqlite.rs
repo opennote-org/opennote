@@ -15,12 +15,8 @@ use opennote_models::{
     query::{BlockQuery, PayloadQuery},
 };
 
-use crate::database::{
-    metadata::MetadataSettings,
-    traits::{
-        blocks::Blocks, database::Database, metadata::MetadataManagement, payloads::Payloads,
-        query::DataQueryFilter,
-    },
+use crate::database::traits::{
+    blocks::Blocks, database::Database, payloads::Payloads, query::DataQueryFilter,
 };
 
 #[derive(Debug, Clone)]
@@ -96,18 +92,6 @@ impl SQLiteDatabase {
         }
 
         Ok(block_ids)
-    }
-}
-
-#[async_trait]
-impl MetadataManagement for SQLiteDatabase {
-    async fn get_metadata_settings(&self) -> Result<MetadataSettings> {
-        use opennote_entities::metadata_settings;
-
-        match metadata_settings::Entity::find().one(&self.pool).await? {
-            Some(result) => Ok(result.into()),
-            None => return Err(anyhow!("Metadata settings missed")),
-        }
     }
 }
 
@@ -208,13 +192,12 @@ impl Blocks for SQLiteDatabase {
 
         for (active_block_model, active_payload_model) in active_blocks_payloads_pairs {
             payloads_to_insert.extend(active_payload_model);
-            insert_blocks_tasks.push(blocks::Entity::insert(active_block_model).exec(&self.pool));
+            insert_blocks_tasks.push(active_block_model);
         }
 
-        let block_update_results = join_all(insert_blocks_tasks).await;
-        for result in block_update_results {
-            result?;
-        }
+        blocks::Entity::insert_many(insert_blocks_tasks)
+            .exec(&self.pool)
+            .await?;
 
         self.create_payloads_with_active_models(payloads_to_insert.clone())
             .await?;

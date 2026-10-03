@@ -20,7 +20,7 @@ use opennote_models::{
 
 use crate::{
     globals::{
-        bootstrap::GlobalApplicationBootStrap, helpers::get_language_profile, states::States,
+        bootstrap::helpers::get_bootstrap, helpers::get_language_profile, states::States,
     },
     widgets::{
         pane::helpers::open_block,
@@ -265,7 +265,7 @@ impl ListDelegate for SearchResultsList {
             return gpui_kit::Task::ready(());
         }
 
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let bootstrap = get_bootstrap(cx);
         let top_n = bootstrap.get_configurations().user.search.top_n;
         let states: &States = cx.global();
 

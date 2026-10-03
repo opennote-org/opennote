@@ -15,6 +15,8 @@ pub enum TaskType {
     ImportNBlocks,
     /// Export n blocks
     ExportNBlocks,
+    /// Rebuild index
+    RebuildIndex,
 }
 
 /// It stores the task results

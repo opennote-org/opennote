@@ -20,7 +20,10 @@ use opennote_models::{
 };
 
 use crate::{
-    globals::{bootstrap::GlobalApplicationBootStrap, states::States},
+    globals::{
+        bootstrap::{GlobalApplicationBootStrap, helpers::get_bootstrap},
+        states::States,
+    },
     widgets::sidebar::OpenNoteSidebar,
 };
 
@@ -42,7 +45,7 @@ impl SettingsPanel {
         sidebar: WeakEntity<OpenNoteSidebar>,
     ) -> Self {
         let config_json = {
-            let bootstrap: &GlobalApplicationBootStrap = cx.global();
+            let bootstrap = get_bootstrap(cx);
             let configs = run_async_code(async { bootstrap.0.configurations.lock().await.clone() });
             serde_json::to_string_pretty(&configs)
                 .unwrap_or_else(|err| format!("// Failed to serialise config: {}\n{{}}", err))
@@ -67,7 +70,7 @@ impl SettingsPanel {
 
     /// Serialise the current `Configurations` to pretty-printed JSON.
     fn load_configs_to_json(cx: &mut gpui_kit::Context<Self>) -> String {
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let bootstrap = get_bootstrap(cx);
         let configs = run_async_code(async { bootstrap.0.configurations.lock().await.clone() });
         serde_json::to_string_pretty(&configs)
             .unwrap_or_else(|err| format!("// Failed to serialise config: {}\n{{}}", err))

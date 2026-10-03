@@ -7,7 +7,7 @@ use gpui_kit::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
 use uuid::Uuid;
 
 use opennote_core_logics::helpers::run_async_code;
-use opennote_data::{Databases, search::SearchScope};
+use opennote_data::search::SearchScope;
 use opennote_models::{
     block::Block, configurations::fields::remote_server::RemoteServerConfiguration,
     constants::LOCAL_SERVER_NAME, query::BlockQuery,
@@ -16,7 +16,7 @@ use opennote_models::{
 use crate::{
     globals::{
         actions::route_helpers::route_read_blocks,
-        bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS},
+        bootstrap::{GlobalApplicationBootStrap, SEARCH_SCOPES_ENUMS, helpers::get_bootstrap},
         states::server_registry::{ServerRegistry, ServerStates},
     },
     widgets::pane::Pane,
@@ -52,7 +52,7 @@ impl States {
     }
 
     pub fn init(cx: &mut App) {
-        let bootstrap: &GlobalApplicationBootStrap = cx.global();
+        let bootstrap = get_bootstrap(cx);
         let remote_server_configs = run_async_code(async {
             bootstrap
                 .0
@@ -90,12 +90,13 @@ impl States {
     /// It will refresh blocks across all servers
     pub fn refresh_blocks_list(&self, cx: &mut App) {
         let servers = self.get_servers().to_owned();
-        let databases = cx.read_global::<GlobalApplicationBootStrap, Databases>(|this, _cx| {
-            this.0.databases.clone()
+        let (databases, system_configurations) = cx.read_global::<GlobalApplicationBootStrap, _>(|this, _cx| {
+            (this.0.databases.clone(), this.get_configurations().system.clone())
         });
 
         for (name, server) in servers {
             let databases = databases.clone();
+            let system_configurations = system_configurations.clone();
             cx.spawn(async move |cx| {
                 let (server_name, results) = match route_read_blocks(
                     &name,
@@ -104,6 +105,7 @@ impl States {
                     &BlockQuery::All,
                     false,
                     false,
+                    system_configurations,
                 )
                 .await
                 {

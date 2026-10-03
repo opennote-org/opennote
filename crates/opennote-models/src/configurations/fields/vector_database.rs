@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -6,14 +8,37 @@ use crate::{
         env_vars::{DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, load_environment_variable},
     },
     providers::vector_database::VectorDatabaseProvider,
+    traits::CompareNecessaryChanges,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct VectorDatabaseConfig {
     pub provider: VectorDatabaseProvider,
     pub index: String,
     pub base_url: String,
     pub api_key: String,
+
+    /// reindex_batch_size should never equal to zero
+    #[serde(default = "default_reindex_batch_size")]
+    pub reindex_batch_size: NonZeroUsize,
+}
+
+impl CompareNecessaryChanges<VectorDatabaseConfig> for VectorDatabaseConfig {
+    fn compare_necessary_changes(&self, another: &VectorDatabaseConfig) -> bool {
+        if another.provider != self.provider
+            || another.index != self.index
+            || another.base_url != self.base_url
+        {
+            return true;
+        }
+
+        false
+    }
+}
+
+/// For serde default
+fn default_reindex_batch_size() -> NonZeroUsize {
+    NonZeroUsize::new(100).unwrap()
 }
 
 impl Default for VectorDatabaseConfig {
@@ -36,6 +61,7 @@ impl Default for VectorDatabaseConfig {
                 index: "opennote".to_string(),
                 base_url: vector_database_path.to_string_lossy().to_string(),
                 api_key: "".to_string(),
+                reindex_batch_size: default_reindex_batch_size(),
             };
         }
 

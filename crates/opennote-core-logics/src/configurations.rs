@@ -2,8 +2,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
-use opennote_models::constants::{
-    APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME, SERVER_DATA_FOLDER_NAME,
+use opennote_models::{
+    constants::{APP_DATA_FOLDER_NAME, DATA_STORAGE_FOLDER_NAME, SERVER_DATA_FOLDER_NAME},
+    metadata::Metadata,
+    traits::LoadFromAndSaveToFile,
 };
 
 #[derive(Debug, Copy, Clone)]
@@ -23,6 +25,11 @@ pub fn get_configuration_folder_path(application_type: ApplicationType) -> PathB
     }
 
     panic!("No config directory was found in this system")
+}
+
+/// Get the metadata that reflects changes of database, vector database, embedders etc
+pub fn get_metadata(application_type: ApplicationType) -> Result<Metadata> {
+    Metadata::load_from_file(get_configuration_folder_path(application_type))
 }
 
 /// This is only available to the desktop for now.

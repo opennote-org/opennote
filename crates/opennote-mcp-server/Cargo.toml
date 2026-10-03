@@ -7,7 +7,6 @@ license.workspace = true
 [dependencies]
 # Internal dependencies
 opennote-models = { workspace = true }
-opennote-bootstrap = { workspace = true }
 
 # External dependencies
 actix-web.workspace = true
