@@ -2,26 +2,26 @@ pub mod helpers;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use gpui_kit::{App, Global};
+use gpui_kit::{Action, App, Global};
 
 use tokio::sync::{MutexGuard, mpsc::Sender};
 
 use opennote_core_logics::{
     bootstraps::desktop::DesktopBootstrap,
-    configurations::{
-        ApplicationType, create_required_folders, get_configuration_folder_path, get_metadata,
-    },
+    configurations::{ApplicationType, create_required_folders, get_configuration_folder_path},
     helpers::run_async_code,
 };
 use opennote_data::search::SearchScope;
 use opennote_models::{
     configurations::{desktop::DesktopConfigurations, fields::search::SupportedSearchMethod},
     key_mappings::KeyMappingConfigurations,
+    metadata::Metadata,
     traits::{LoadFromAndSaveToFile, MigrateConfigurationFileStructure},
 };
 
 use crate::{
-    key_mappings::traits::KeyMappingsUIExtension, startup::traits::InitializeAsResourceOnAppStart,
+    key_mappings::{mappings::Reindex, traits::KeyMappingsUIExtension},
+    startup::traits::InitializeAsResourceOnAppStart,
 };
 
 pub const SEARCH_METHODS_ENUMS: [SupportedSearchMethod; 2] = [
@@ -43,7 +43,10 @@ impl Global for GlobalApplicationBootStrap {}
 
 #[async_trait]
 impl InitializeAsResourceOnAppStart for GlobalApplicationBootStrap {
-    async fn initialize_as_resource(message_sender: &Sender<&'static str>) -> Result<Self> {
+    async fn initialize_as_resource(
+        message_sender: &Sender<&'static str>,
+        dispatch_actions: &Sender<Box<dyn Action>>,
+    ) -> Result<Self> {
         message_sender
             .send("Loading app bootstraps...")
             .await
@@ -55,26 +58,9 @@ impl InitializeAsResourceOnAppStart for GlobalApplicationBootStrap {
         message_sender.send("Check local indexes...").await?;
         let handling = bootstrap.0.analyze_changes_handling().await?;
 
-        if handling.reindex_vector_database {
-            message_sender
-                .send("Reindexing the local vector database...")
-                .await?;
+        if handling.reindex_vector_database || handling.reset_vector_database {
+            dispatch_actions.send(Box::new(Reindex)).await.unwrap();
         }
-
-        if handling.reset_vector_database {
-            message_sender
-                .send("Resetting the local vector database...")
-                .await?;
-        }
-
-        bootstrap.0.handle_changes(handling).await?;
-
-        let mut metadata = get_metadata(ApplicationType::Desktop)?;
-        let system_configurations = bootstrap.0.configurations.lock().await.system.clone();
-        let config_path = get_configuration_folder_path(ApplicationType::Desktop);
-
-        metadata.update(&system_configurations);
-        metadata.save_to_file(&config_path)?;
 
         Ok(bootstrap)
     }
@@ -96,6 +82,9 @@ impl GlobalApplicationBootStrap {
                 .context("Failed to load key mappings on application start")?
                 .migrate(&config_path)
                 .context("Failed to migrate key mappings on application start")?;
+
+            Metadata::load_from_file(&config_path)
+                .context("Failed to load metadata on application start")?;
 
             Ok::<_, anyhow::Error>((configurations, key_mappings))
         })

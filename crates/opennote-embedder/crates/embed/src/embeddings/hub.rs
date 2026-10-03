@@ -72,12 +72,12 @@ impl HubModelRepo {
     }
 
     /// List files in this repo
-    pub(crate) fn inspect_files(&self) -> HFResult<Vec<String>> {
+    pub(crate) fn inspect_files(&self, recursive: bool) -> HFResult<Vec<String>> {
         let entries = self
             .inner
             .list_tree()
             .maybe_revision(self.revision.clone())
-            .recursive(true)
+            .recursive(recursive)
             .send()?;
 
         Ok(entries

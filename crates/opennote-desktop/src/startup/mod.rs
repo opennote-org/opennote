@@ -24,6 +24,7 @@ pub fn load_frameworks(cx: &mut App) {
 pub async fn load_resources(
     cx: &mut AsyncApp,
     resource_loading_window: WindowHandle<ResourceLoadingView>,
+    pending_actions: &mut Vec<Box<dyn Action>>,
 ) -> Result<(GlobalApplicationBootStrap, AssetsCollection)> {
     let tokio_handle = tokio::runtime::Handle::current();
 
@@ -34,18 +35,29 @@ pub async fn load_resources(
     // Send and receive the messages in streaming manner
     let (message_sender, mut message_receiver) =
         tokio::sync::mpsc::channel(STARTUP_MESSAGE_CHANNEL_CAPACITY);
+    let (dispatch_action_sender, mut dispatch_action_receiver) =
+        tokio::sync::mpsc::channel(STARTUP_MESSAGE_CHANNEL_CAPACITY);
 
     run_async_background_detached(cx.background_executor(), tokio_handle, async move {
-        let bootstrap =
-            match GlobalApplicationBootStrap::initialize_as_resource(&message_sender).await {
-                Ok(result) => result,
-                Err(error) => {
-                    error_sender.send(error).unwrap();
-                    return;
-                }
-            };
+        let bootstrap = match GlobalApplicationBootStrap::initialize_as_resource(
+            &message_sender,
+            &dispatch_action_sender,
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                error_sender.send(error).unwrap();
+                return;
+            }
+        };
 
-        let assets = match AssetsCollection::initialize_as_resource(&message_sender).await {
+        let assets = match AssetsCollection::initialize_as_resource(
+            &message_sender,
+            &dispatch_action_sender,
+        )
+        .await
+        {
             Ok(result) => result,
             Err(error) => {
                 error_sender.send(error).unwrap();
@@ -57,10 +69,21 @@ pub async fn load_resources(
     })
     .await;
 
-    while let Some(message) = message_receiver.recv().await {
-        let _ = resource_loading_window.update(cx, |view, _window, cx| {
-            view.set_message(message, cx);
-        });
+    // Listen to channels
+    loop {
+        tokio::select! {
+            Some(message) = message_receiver.recv() => {
+                let _ = resource_loading_window.update(cx, |view, _window, cx| {
+                    view.set_message(message, cx);
+                });
+            }
+            Some(action) = dispatch_action_receiver.recv() => {
+                pending_actions.push(action);
+            }
+            else => {
+                break;
+            }
+        }
     }
 
     match error_receiver.await {

@@ -50,12 +50,16 @@ async fn main() -> Result<()> {
             ResourceLoadingView::open(cx).expect("Failed to open the resource loading window");
 
         cx.spawn(async move |cx| {
+            let mut pending_actions = Vec::new();
+
             // TODO:
             // - Handle the case where the server rejected the reindex request and the desktop needs to re-request
-            let (bootstrap, assets) = match load_resources(cx, loading_window).await {
-                Ok(resources) => resources,
-                Err(_error) => return,
-            };
+            //  - Now the user can reindex in the command bar
+            let (bootstrap, assets) =
+                match load_resources(cx, loading_window, &mut pending_actions).await {
+                    Ok(resources) => resources,
+                    Err(_error) => return,
+                };
 
             // Initialize a logger in the background to stream logs into the log window
             let (sender, receiver) = std::sync::mpsc::sync_channel(LOG_WINDOW_CAPACITY);
@@ -100,7 +104,17 @@ async fn main() -> Result<()> {
                 );
 
                 match workspace_window {
-                    Ok(_) => loading_window.remove_window(),
+                    Ok(workspace_window) => {
+                        loading_window.remove_window();
+
+                        // Dispatch pending actions accumulated during the startup flow,
+                        // such as reindex.
+                        let _ = workspace_window.update(cx, |_this, window, cx| {
+                            for pending_action in pending_actions {
+                                window.dispatch_action(pending_action, cx);
+                            }
+                        });
+                    }
                     Err(error) => {
                         tracing::error!("Failed to open the Workspace window: {error:#}");
                         loading_view.set_error(

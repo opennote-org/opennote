@@ -38,7 +38,7 @@ impl Embedder {
         let config: serde_json::Value = serde_json::from_str(&config)?;
 
         let is_onnx = repo
-            .inspect_files()?
+            .inspect_files(false)?
             .iter()
             .find(|entry| entry.ends_with(".onnx"))
             .is_some();

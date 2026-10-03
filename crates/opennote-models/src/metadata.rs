@@ -43,7 +43,10 @@ impl Metadata {
     /// Detect if any one of the providers had changed
     pub fn detect_changes(&self, system_configurations: &SystemConfigurations) -> MetadataChanges {
         // If the metadata is completely missing,
-        // we will opt for the safest route, which is to not rebuild the index.
+        // we will rebuild the databases anyways.
+        // This is to ensure that under all circumstances, including the first launch,
+        // the metadata will always have information updated and the databases
+        // are always functional.
         if self.last_used_database_configuration.is_none()
             && self.last_used_vector_database_configuration.is_none()
             && self.last_used_embedder_configuration.is_none()
@@ -83,9 +86,9 @@ impl Metadata {
 impl Default for MetadataChanges {
     fn default() -> Self {
         Self {
-            vector_database_changed: false,
-            database_changed: false,
-            embedding_model_changed: false,
+            vector_database_changed: true,
+            database_changed: true,
+            embedding_model_changed: true,
         }
     }
 }

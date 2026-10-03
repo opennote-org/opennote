@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use gpui_kit::{App, Global};
+use gpui_kit::{Action, App, Global};
 use rust_embed::Embed;
 use tokio::sync::mpsc::Sender;
 
@@ -53,7 +53,10 @@ impl Global for AssetsCollection {}
 
 #[async_trait]
 impl InitializeAsResourceOnAppStart for AssetsCollection {
-    async fn initialize_as_resource(message_sender: &Sender<&'static str>) -> Result<Self> {
+    async fn initialize_as_resource(
+        message_sender: &Sender<&'static str>,
+        _dispatch_actions: &Sender<Box<dyn Action>>,
+    ) -> Result<Self> {
         message_sender.send("Loading assets...").await?;
         AssetsCollection::load()
     }
