@@ -48,6 +48,7 @@ pub fn get_block_content(block_id: &Uuid, cx: &mut App) -> Result<String> {
     Ok(block.get_text_content())
 }
 
+/// Default block title: the title of the block
 pub async fn build_block(
     parent_block_id: Option<Uuid>,
     default_block_title: String,

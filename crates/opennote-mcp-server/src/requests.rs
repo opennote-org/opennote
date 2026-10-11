@@ -30,3 +30,64 @@ pub struct MCPReadBlocksRequest {
     )]
     pub has_payload: bool,
 }
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub enum MCPUpdateBlocksInsertionOperation {
+    Start,
+    End,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MCPUpdateBlocksInsertion {
+    #[schemars(description = "append the text at the end of the block or insert at the start")]
+    pub operation: MCPUpdateBlocksInsertionOperation,
+
+    #[schemars(description = "the text that you want to insert or append")]
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MCPUpdateBlocksReplacement {
+    #[schemars(description = "the regex you use to select the text you want to replace")]
+    pub regex: String,
+
+    #[schemars(description = "the text that you want to replace with")]
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MCPUpdateBlocksRequest {
+    #[schemars(description = "the id of the block that you want to update for")]
+    pub block_id: String,
+
+    #[schemars(description = "insert or append text at the start or the end of the block. ")]
+    pub insert: Option<MCPUpdateBlocksInsertion>,
+
+    #[schemars(
+        description = "if you want to replace certain text of the block, put the target here. This uses regex."
+    )]
+    pub replace: Option<MCPUpdateBlocksReplacement>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MCPCreateBlockRequest {
+    #[schemars(description = "on which server, you will create the blocks? `local` for local")]
+    pub scope: String,
+
+    #[schemars(
+        description = "which block would you like this to be its parent of? Leave None for no parent"
+    )]
+    pub parent_block_id: Option<String>,
+
+    #[schemars(description = "the title of the block")]
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MCPDeleteBlocksRequest {
+    #[schemars(description = "blocks that you would like to delete")]
+    pub block_ids: Vec<String>,
+
+    #[schemars(description = "on which server, you will create the blocks? `local` for local")]
+    pub scope: String,
+}
