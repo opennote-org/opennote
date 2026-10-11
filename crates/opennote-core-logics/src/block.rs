@@ -33,6 +33,7 @@ pub async fn create_blocks(
 }
 
 /// Read blocks from the database.
+/// It will only contain the title if `has_payload` is set to false.
 pub async fn read_blocks(
     databases: &Databases,
     filter: &BlockQuery,

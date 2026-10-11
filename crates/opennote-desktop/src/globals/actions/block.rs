@@ -1,15 +1,23 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
-use gpui_kit::App;
-use opennote_models::block::Block;
+use futures::future::try_join_all;
+use gpui_kit::{App, SharedString};
 use uuid::Uuid;
 
-use opennote_core_logics::helpers::run_async_code;
-use opennote_core_logics::payload::{
-    PayloadContentParameters, build_payload, convert_string_to_payloads,
+use opennote_core_logics::{
+    helpers::run_async_code,
+    payload::{PayloadContentParameters, build_payload, convert_string_to_payloads},
 };
+use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
-use opennote_models::query::BlockQuery;
+use opennote_models::{
+    block::Block,
+    configurations::{desktop::DesktopConfigurations, system::SystemConfigurations},
+    query::BlockQuery,
+};
 
+use crate::globals::states::server_registry::ServerStates;
 use crate::globals::{
     actions::route_helpers::route_read_blocks, bootstrap::helpers::get_bootstrap,
     states::helpers::get_states,
@@ -79,4 +87,39 @@ pub async fn build_block(
     block.payloads = vectorized_payloads;
 
     Ok(block)
+}
+
+/// Use this function to get blocks from servers.
+/// It supports filtering by server attributes.
+///
+/// `has_payload` set to false will only return the title in each block.
+pub async fn get_blocks_from_servers(
+    database_filter: BlockQuery,
+    server_filter: impl Fn(&&SharedString, &&ServerStates) -> bool,
+    servers: HashMap<SharedString, ServerStates>,
+    databases: Databases,
+    system_configurations: SystemConfigurations,
+    has_vector: bool,
+    has_payload: bool,
+) -> Result<Vec<Block>> {
+    Ok(try_join_all(
+        servers
+            .iter()
+            .filter(|(server_name, server_states)| server_filter(server_name, server_states))
+            .map(|(server_name, server_states)| {
+                route_read_blocks(
+                    server_name,
+                    server_states,
+                    &databases,
+                    &database_filter,
+                    has_vector,
+                    has_payload,
+                    system_configurations.clone(),
+                )
+            }),
+    )
+    .await?
+    .into_iter()
+    .flatten()
+    .collect())
 }

@@ -12,8 +12,9 @@ use opennote_core_logics::{
 use opennote_embedder::vectorization::{send_vectorization, vectorize};
 use opennote_mcp_server::{
     requests::{
-        MCPCreateBlockRequest, MCPDeleteBlocksRequest, MCPReadBlocksRequest, MCPSearchRequest,
-        MCPUpdateBlocksInsertionOperation, MCPUpdateBlocksRequest,
+        MCPCreateBlockRequest, MCPDeleteBlocksRequest, MCPReadBlockDetailsRequest,
+        MCPReadBlocksRequest, MCPSearchRequest, MCPUpdateBlocksInsertionOperation,
+        MCPUpdateBlocksRequest,
     },
     run_mcp_server,
     traits::OpenNoteMCPServiceImplementation,
@@ -25,7 +26,7 @@ use opennote_models::{
 
 use crate::globals::{
     actions::{
-        block::build_block,
+        block::{build_block, get_blocks_from_servers},
         route_helpers::{
             route_create_blocks, route_delete_blocks, route_read_blocks, route_search_blocks,
             route_update_blocks,
@@ -181,10 +182,10 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         Ok(results)
     }
 
-    async fn read_blocks(&self, request: MCPReadBlocksRequest) -> Result<Vec<Block>> {
+    async fn read_blocks(&self, request: MCPReadBlocksRequest) -> Result<String> {
         let block_ids = Self::parse_block_ids(request.block_ids)?;
 
-        let configurations = self.bootstrap.configurations.lock().await;
+        let configurations = self.bootstrap.configurations.lock().await.clone();
 
         configurations
             .user
@@ -198,33 +199,65 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
 
         let servers = self.server_registry.get_servers_connections();
 
-        let blocks = try_join_all(
-            servers
-                .iter()
-                .filter(|(server_name, _server_states)| {
-                    configurations
-                        .user
-                        .mcp_server
-                        .validate_scopes(server_name.to_string())
-                })
-                .map(|(server_name, server_states)| {
-                    route_read_blocks(
-                        server_name,
-                        server_states,
-                        &self.bootstrap.databases,
-                        &filter,
-                        false,
-                        request.has_payload,
-                        configurations.system.clone(),
-                    )
-                }),
+        let blocks = get_blocks_from_servers(
+            filter,
+            |server_name, _server_states| {
+                configurations
+                    .user
+                    .mcp_server
+                    .validate_scopes(server_name.to_string())
+            },
+            servers,
+            self.bootstrap.databases.clone(),
+            configurations.system.clone(),
+            false,
+            false,
         )
-        .await?
-        .into_iter()
-        .flatten()
-        .collect();
+        .await?;
 
-        Ok(blocks)
+        let mut summarizations = String::new();
+
+        for block in blocks {
+            summarizations.push_str(&block.summarize());
+        }
+
+        Ok(summarizations)
+    }
+
+    async fn read_block_details(&self, request: MCPReadBlockDetailsRequest) -> Result<String> {
+        let block_ids = Self::parse_block_ids(vec![request.block_id.clone()])?;
+
+        let configurations = self.bootstrap.configurations.lock().await.clone();
+
+        configurations
+            .user
+            .mcp_server
+            .validate_access(false, true)?;
+
+        let filter = BlockQuery::ByIds(block_ids);
+
+        let servers = self.server_registry.get_servers_connections();
+
+        let blocks = get_blocks_from_servers(
+            filter,
+            |server_name, _server_states| {
+                configurations
+                    .user
+                    .mcp_server
+                    .validate_scopes(server_name.to_string())
+            },
+            servers,
+            self.bootstrap.databases.clone(),
+            configurations.system.clone(),
+            false,
+            true,
+        )
+        .await?;
+
+        match blocks.get(0) {
+            Some(block) => Ok(block.get_text_content()),
+            None => Err(anyhow!("Block {} missing", &request.block_id)),
+        }
     }
 
     /// TODO:

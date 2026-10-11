@@ -21,14 +21,15 @@ pub struct MCPSearchRequest {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct MCPReadBlocksRequest {
     #[schemars(
-        description = "search across a list of blocks. specify their ids here. Leave if empty to get all data. "
+        description = "Get an overview of all blocks. Leave it empty to get all blocks. Specify block ids to see the specified blocks."
     )]
     pub block_ids: Vec<String>,
+}
 
-    #[schemars(
-        description = "set to true if you want to see the full content of the specified blocks. never set to true if the block_ids is empty."
-    )]
-    pub has_payload: bool,
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct MCPReadBlockDetailsRequest {
+    #[schemars(description = "Get the full content of a block")]
+    pub block_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

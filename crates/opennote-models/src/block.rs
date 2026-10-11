@@ -112,4 +112,14 @@ impl Block {
 
         texts
     }
+
+    /// Create a summarization of this block
+    pub fn summarize(&self) -> String {
+        format!(
+            "Title: {}\nID: {}\nParent ID: {:?}\n\n",
+            self.get_title(),
+            self.id,
+            self.parent_id
+        )
+    }
 }

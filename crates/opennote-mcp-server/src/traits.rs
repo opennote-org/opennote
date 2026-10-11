@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use opennote_models::block::Block;
 
 use crate::requests::{
-    MCPCreateBlockRequest, MCPDeleteBlocksRequest, MCPReadBlocksRequest, MCPSearchRequest,
-    MCPUpdateBlocksRequest,
+    MCPCreateBlockRequest, MCPDeleteBlocksRequest, MCPReadBlockDetailsRequest,
+    MCPReadBlocksRequest, MCPSearchRequest, MCPUpdateBlocksRequest,
 };
 
 #[async_trait]
@@ -14,7 +14,10 @@ pub trait OpenNoteMCPServiceImplementation: Send + Sync + 'static {
     async fn search(&self, request: MCPSearchRequest) -> Result<Vec<Block>>;
 
     /// Allow AI agents to get a data brief about the entire database
-    async fn read_blocks(&self, request: MCPReadBlocksRequest) -> Result<Vec<Block>>;
+    async fn read_blocks(&self, request: MCPReadBlocksRequest) -> Result<String>;
+
+    /// Read a block in details, including its full contents
+    async fn read_block_details(&self, request: MCPReadBlockDetailsRequest) -> Result<String>;
 
     /// Allow AI agents to update a block
     async fn update_block(&self, request: MCPUpdateBlocksRequest) -> Result<()>;

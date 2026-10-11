@@ -65,6 +65,7 @@ pub async fn route_delete_blocks(
     }
 }
 
+/// It will only contain the title if `has_payload` is set to false.
 pub async fn route_read_blocks(
     server_name: &str,
     server_states: &ServerStates,
