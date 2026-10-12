@@ -12,9 +12,7 @@ use opennote_core_logics::{
 use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    block::Block,
-    configurations::{desktop::DesktopConfigurations, system::SystemConfigurations},
-    query::BlockQuery,
+    block::Block, configurations::system::SystemConfigurations, query::BlockQuery,
 };
 
 use crate::globals::states::server_registry::ServerStates;

@@ -116,6 +116,8 @@ pub async fn route_update_blocks(
     }
 }
 
+/// A higher level api for searching across all servers,
+/// including the local.
 pub async fn route_search_blocks(
     server_name: &str,
     server_states: &ServerStates,

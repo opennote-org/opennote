@@ -1,8 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use opennote_models::block::Block;
-
 use crate::requests::{
     MCPCreateBlockRequest, MCPDeleteBlocksRequest, MCPReadBlockDetailsRequest,
     MCPReadBlocksRequest, MCPSearchRequest, MCPUpdateBlocksRequest,
@@ -11,7 +9,7 @@ use crate::requests::{
 #[async_trait]
 pub trait OpenNoteMCPServiceImplementation: Send + Sync + 'static {
     /// Allow AI agents to search with both semantic and keyword search across the database
-    async fn search(&self, request: MCPSearchRequest) -> Result<Vec<Block>>;
+    async fn search(&self, request: MCPSearchRequest) -> Result<String>;
 
     /// Allow AI agents to get a data brief about the entire database
     async fn read_blocks(&self, request: MCPReadBlocksRequest) -> Result<String>;

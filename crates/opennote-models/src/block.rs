@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use opennote_entities::blocks::{ActiveModel, Model};
 
-use crate::payload::Payload;
+use crate::{payload::Payload, traits::summarization::Summarization};
 
 /// Everything in OpenNote is a block. All data operations MUST be performed on `Block`s for simplicity
 /// and efficiency.
@@ -112,9 +112,10 @@ impl Block {
 
         texts
     }
+}
 
-    /// Create a summarization of this block
-    pub fn summarize(&self) -> String {
+impl Summarization for Block {
+    fn summarize(&self) -> String {
         format!(
             "Title: {}\nID: {}\nParent ID: {:?}\n\n",
             self.get_title(),

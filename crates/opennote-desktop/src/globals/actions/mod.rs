@@ -3,6 +3,7 @@ pub mod chunking;
 pub mod export;
 pub mod import;
 pub mod route_helpers;
+pub mod search;
 
 use anyhow::Context;
 use gpui_kit::{SharedString, Window};

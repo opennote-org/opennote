@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Error, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::{join_all, try_join_all};
 use gpui_kit::{App, AppContext, Global, SharedString};
@@ -20,17 +20,17 @@ use opennote_mcp_server::{
     traits::OpenNoteMCPServiceImplementation,
 };
 use opennote_models::{
-    block::Block, configurations::fields::search::SupportedSearchMethod, payload::create_query,
-    query::BlockQuery,
+    configurations::fields::search::SupportedSearchMethod, payload::create_query,
+    query::BlockQuery, traits::summarization::summarize_all,
 };
 
 use crate::globals::{
     actions::{
         block::{build_block, get_blocks_from_servers},
         route_helpers::{
-            route_create_blocks, route_delete_blocks, route_read_blocks, route_search_blocks,
-            route_update_blocks,
+            route_create_blocks, route_delete_blocks, route_read_blocks, route_update_blocks,
         },
+        search::{SearchResult, search},
     },
     bootstrap::helpers::get_bootstrap,
     states::{helpers::get_states, server_registry::ServerRegistry},
@@ -99,8 +99,7 @@ impl DesktopMCPServer {
 
 #[async_trait]
 impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
-    /// TODO: reuse or optimize the search ranking logics
-    async fn search(&self, request: MCPSearchRequest) -> Result<Vec<Block>> {
+    async fn search(&self, request: MCPSearchRequest) -> Result<String> {
         let MCPSearchRequest {
             search_method,
             block_ids,
@@ -133,7 +132,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
 
         let servers = self.server_registry.get_servers_connections();
 
-        let results: Vec<_> = try_join_all(
+        let results: Vec<SearchResult> = try_join_all(
             servers
                 .iter()
                 .filter(|(server_name, _server_states)| {
@@ -143,35 +142,23 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                         .validate_scopes(server_name.to_owned().to_string())
                 })
                 .map(async |(server_name, server_states)| {
-                    let mut results = route_search_blocks(
+                    let mut results = search(
                         server_name,
                         server_states,
                         &self.bootstrap.databases,
-                        configurations.system.clone(),
-                        search_method,
                         block_ids.clone(),
+                        search_method,
+                        configurations.system.clone(),
                         Some(query.clone()),
                         query_vector.clone(),
                         top_n,
                     )
                     .await?;
 
-                    results.sort_by(|left, right| right.score.total_cmp(&left.score));
+                    results.sort_by(|left, right| right.raw.score.total_cmp(&left.raw.score));
                     results.truncate(top_n);
 
-                    let filter =
-                        BlockQuery::ByIds(results.iter().map(|item| item.block_id).collect());
-
-                    route_read_blocks(
-                        &server_name,
-                        &server_states,
-                        &self.bootstrap.databases,
-                        &filter,
-                        false,
-                        true,
-                        configurations.system.clone(),
-                    )
-                    .await
+                    Ok::<Vec<SearchResult>, Error>(results)
                 }),
         )
         .await?
@@ -179,7 +166,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         .flatten()
         .collect();
 
-        Ok(results)
+        Ok(summarize_all(results))
     }
 
     async fn read_blocks(&self, request: MCPReadBlocksRequest) -> Result<String> {
@@ -215,13 +202,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         )
         .await?;
 
-        let mut summarizations = String::new();
-
-        for block in blocks {
-            summarizations.push_str(&block.summarize());
-        }
-
-        Ok(summarizations)
+        Ok(summarize_all(blocks))
     }
 
     async fn read_block_details(&self, request: MCPReadBlockDetailsRequest) -> Result<String> {

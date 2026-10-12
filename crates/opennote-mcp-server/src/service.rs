@@ -15,7 +15,7 @@ use crate::{
         MCPCreateBlockRequest, MCPDeleteBlocksRequest, MCPReadBlockDetailsRequest,
         MCPReadBlocksRequest, MCPSearchRequest, MCPUpdateBlocksRequest,
     },
-    responses::MCPServiceGenericResponse,
+    responses::{MCPServiceGenericResponse, create_mcp_server_response},
     traits::OpenNoteMCPServiceImplementation,
 };
 
@@ -42,27 +42,16 @@ impl OpenNoteMCPService {
             top_n,
         }): Parameters<MCPSearchRequest>,
     ) -> Json<MCPServiceGenericResponse> {
-        match self
-            .mcp_implementation
-            .search(MCPSearchRequest {
-                search_method,
-                block_ids,
-                query,
-                top_n,
-            })
-            .await
-        {
-            Ok(result) => {
-                let value = serde_json::to_value(result).unwrap();
-                return Json(MCPServiceGenericResponse {
-                    results: Some(value),
-                });
-            }
-            Err(error) => {
-                tracing::warn!("MCP service reported error: {}", error);
-                return Json(MCPServiceGenericResponse { results: None });
-            }
-        }
+        create_mcp_server_response(
+            self.mcp_implementation
+                .search(MCPSearchRequest {
+                    search_method,
+                    block_ids,
+                    query,
+                    top_n,
+                })
+                .await,
+        )
     }
 
     #[tool(description = "read user's OpenNote blocks")]
@@ -70,22 +59,11 @@ impl OpenNoteMCPService {
         &self,
         Parameters(MCPReadBlocksRequest { block_ids }): Parameters<MCPReadBlocksRequest>,
     ) -> Json<MCPServiceGenericResponse> {
-        match self
-            .mcp_implementation
-            .read_blocks(MCPReadBlocksRequest { block_ids })
-            .await
-        {
-            Ok(result) => {
-                let value = serde_json::to_value(result).unwrap();
-                return Json(MCPServiceGenericResponse {
-                    results: Some(value),
-                });
-            }
-            Err(error) => {
-                tracing::warn!("MCP service reported error: {}", error);
-                return Json(MCPServiceGenericResponse { results: None });
-            }
-        }
+        create_mcp_server_response(
+            self.mcp_implementation
+                .read_blocks(MCPReadBlocksRequest { block_ids })
+                .await,
+        )
     }
 
     #[tool(
@@ -95,17 +73,7 @@ impl OpenNoteMCPService {
         &self,
         Parameters(request): Parameters<MCPReadBlockDetailsRequest>,
     ) -> Json<MCPServiceGenericResponse> {
-        match self.mcp_implementation.read_block_details(request).await {
-            Ok(result) => {
-                return Json(MCPServiceGenericResponse {
-                    results: Some(serde_json::Value::String(result)),
-                });
-            }
-            Err(error) => {
-                tracing::warn!("MCP service reported error: {}", error);
-                return Json(MCPServiceGenericResponse { results: None });
-            }
-        }
+        create_mcp_server_response(self.mcp_implementation.read_block_details(request).await)
     }
 
     #[tool(
@@ -115,17 +83,7 @@ impl OpenNoteMCPService {
         &self,
         Parameters(request): Parameters<MCPUpdateBlocksRequest>,
     ) -> Json<MCPServiceGenericResponse> {
-        match self.mcp_implementation.update_block(request).await {
-            Ok(()) => {
-                return Json(MCPServiceGenericResponse {
-                    results: Some(serde_json::Value::Bool(true)),
-                });
-            }
-            Err(error) => {
-                tracing::warn!("MCP service reported error: {}", error);
-                return Json(MCPServiceGenericResponse { results: None });
-            }
-        }
+        create_mcp_server_response(self.mcp_implementation.update_block(request).await)
     }
 
     #[tool(
@@ -135,17 +93,7 @@ impl OpenNoteMCPService {
         &self,
         Parameters(request): Parameters<MCPCreateBlockRequest>,
     ) -> Json<MCPServiceGenericResponse> {
-        match self.mcp_implementation.create_block(request).await {
-            Ok(()) => {
-                return Json(MCPServiceGenericResponse {
-                    results: Some(serde_json::Value::Bool(true)),
-                });
-            }
-            Err(error) => {
-                tracing::warn!("MCP service reported error: {}", error);
-                return Json(MCPServiceGenericResponse { results: None });
-            }
-        }
+        create_mcp_server_response(self.mcp_implementation.create_block(request).await)
     }
 
     #[tool(
@@ -155,17 +103,7 @@ impl OpenNoteMCPService {
         &self,
         Parameters(request): Parameters<MCPDeleteBlocksRequest>,
     ) -> Json<MCPServiceGenericResponse> {
-        match self.mcp_implementation.delete_blocks(request).await {
-            Ok(()) => {
-                return Json(MCPServiceGenericResponse {
-                    results: Some(serde_json::Value::Bool(true)),
-                });
-            }
-            Err(error) => {
-                tracing::warn!("MCP service reported error: {}", error);
-                return Json(MCPServiceGenericResponse { results: None });
-            }
-        }
+        create_mcp_server_response(self.mcp_implementation.delete_blocks(request).await)
     }
 }
 
