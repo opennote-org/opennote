@@ -2,14 +2,13 @@ pub mod globals;
 pub mod key_mappings;
 pub mod libs;
 pub mod startup;
-pub mod views;
 pub mod widgets;
-pub mod window;
+pub mod windows;
 
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
-use gpui_kit::{component::*, *};
+use anyhow::Result;
+use gpui_kit::*;
 
 use opennote_core_logics::logging::initialize_logger;
 use opennote_models::constants::{
@@ -23,12 +22,12 @@ use opennote_models::constants::{
 use crate::{
     globals::{mcp_server::DesktopMCPServer, states::States, velotype::init_velotype},
     startup::{load_frameworks, load_resources},
-    views::{
+    windows::{
         log::{LogWindow, writer::WindowLogWriter},
         resource_loading::ResourceLoadingView,
+        traits::WindowObject,
         workspace::Workspace,
     },
-    window::{create_main_window_option, format_window_title},
 };
 
 #[tokio::main]
@@ -52,9 +51,6 @@ async fn main() -> Result<()> {
         cx.spawn(async move |cx| {
             let mut pending_actions = Vec::new();
 
-            // TODO:
-            // - Handle the case where the server rejected the reindex request and the desktop needs to re-request
-            //  - Now the user can reindex in the command bar
             let (bootstrap, assets) =
                 match load_resources(cx, loading_window, &mut pending_actions).await {
                     Ok(resources) => resources,
@@ -89,19 +85,7 @@ async fn main() -> Result<()> {
                     Err(error) => loading_view.set_error(error.to_string(), cx),
                 };
 
-                let workspace_window = cx.open_window(
-                    create_main_window_option(format_window_title(None, None, None)),
-                    |window, cx| {
-                        let view = cx.new(|cx| {
-                            Workspace::new(window, cx)
-                                .context("Workspace initialization failed")
-                                .unwrap()
-                        });
-
-                        // This first level on the window should be a Root.
-                        cx.new(|cx| Root::new(view, window, cx))
-                    },
-                );
+                let workspace_window = Workspace::open(cx);
 
                 match workspace_window {
                     Ok(workspace_window) => {

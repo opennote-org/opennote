@@ -1,6 +1,6 @@
 use gpui_kit::{Entity, Global, WindowHandle, component::Root};
 
-use crate::views::log::LogWindow;
+use crate::windows::log::LogWindow;
 
 /// Own the view even while its window is closed, keeping recent logs available
 /// and sharing one receiver across all workspace windows.

@@ -11,7 +11,7 @@ use crate::{
         helpers::run_async_background_detached, tasks::tracker::TaskTracker,
     },
     startup::traits::InitializeAsResourceOnAppStart,
-    views::resource_loading::ResourceLoadingView,
+    windows::resource_loading::ResourceLoadingView,
 };
 
 pub fn load_frameworks(cx: &mut App) {
