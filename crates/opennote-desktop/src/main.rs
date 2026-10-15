@@ -21,7 +21,7 @@ use opennote_models::constants::{
 
 use crate::{
     globals::{mcp_server::DesktopMCPServer, states::States, velotype::init_velotype},
-    startup::{load_frameworks, load_resources},
+    startup::{ResourceLoader, load_frameworks},
     windows::{
         log::{LogWindow, writer::WindowLogWriter},
         resource_loading::ResourceLoadingView,
@@ -51,11 +51,15 @@ async fn main() -> Result<()> {
         cx.spawn(async move |cx| {
             let mut pending_actions = Vec::new();
 
-            let (bootstrap, assets) =
-                match load_resources(cx, loading_window, &mut pending_actions).await {
-                    Ok(resources) => resources,
-                    Err(_error) => return,
-                };
+            let resource_loader = ResourceLoader::start_loading_resources().await;
+
+            let (bootstrap, assets) = match resource_loader
+                .receive(cx, loading_window, &mut pending_actions)
+                .await
+            {
+                Ok(resources) => resources,
+                Err(_error) => return,
+            };
 
             // Initialize a logger in the background to stream logs into the log window
             let (sender, receiver) = std::sync::mpsc::sync_channel(LOG_WINDOW_CAPACITY);

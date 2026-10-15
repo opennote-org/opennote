@@ -64,14 +64,6 @@ impl SettingsPanel {
         }
     }
 
-    /// Serialise the current `Configurations` to pretty-printed JSON.
-    fn load_configs_to_json(cx: &mut gpui_kit::Context<Self>) -> String {
-        let bootstrap = get_bootstrap(cx);
-        let configs = run_async_code(async { bootstrap.0.configurations.lock().await.clone() });
-        serde_json::to_string_pretty(&configs)
-            .unwrap_or_else(|err| format!("// Failed to serialise config: {}\n{{}}", err))
-    }
-
     /// Parse JSON into `Configurations`, validate, and pretty-print on success.
     fn parse_configs_json(json_text: &str) -> Result<(DesktopConfigurations, String), String> {
         let configs: DesktopConfigurations =
@@ -136,20 +128,6 @@ impl SettingsPanel {
 
         cx.notify();
     }
-
-    /// Reload: re-read configs from the bootstrap and refresh the editor.
-    fn reload_configurations(
-        &mut self,
-        window: &mut gpui_kit::Window,
-        cx: &mut gpui_kit::Context<Self>,
-    ) {
-        let pretty_json = Self::load_configs_to_json(cx);
-        Self::set_editor_text(&self.editor_state, &pretty_json, window, cx);
-
-        self.status_message = Some("↻ Configurations reloaded from disk.".into());
-        self.status_is_error = false;
-        cx.notify();
-    }
 }
 
 impl Render for SettingsPanel {
@@ -195,8 +173,8 @@ impl Render for SettingsPanel {
                             .outline()
                             .small()
                             .label("Reload")
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.reload_configurations(window, cx);
+                            .on_click(cx.listener(|_this, _, _window, cx| {
+                                cx.restart();
                             })),
                     )
                     // Spacer pushes the status message to the right.
