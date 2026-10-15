@@ -90,9 +90,13 @@ impl States {
     /// It will refresh blocks across all servers
     pub fn refresh_blocks_list(&self, cx: &mut App) {
         let servers = self.get_servers().to_owned();
-        let (databases, system_configurations) = cx.read_global::<GlobalApplicationBootStrap, _>(|this, _cx| {
-            (this.0.databases.clone(), this.get_configurations().system.clone())
-        });
+        let (databases, system_configurations) =
+            cx.read_global::<GlobalApplicationBootStrap, _>(|this, _cx| {
+                (
+                    this.0.databases.clone(),
+                    this.get_configurations().system.clone(),
+                )
+            });
 
         for (name, server) in servers {
             let databases = databases.clone();
@@ -135,20 +139,6 @@ impl States {
         }
 
         None
-    }
-
-    pub fn get_blocks(&self, block_ids: &[Uuid]) -> Vec<Block> {
-        let mut blocks = Vec::new();
-
-        for (_name, server) in self.get_servers().iter() {
-            blocks.extend(
-                block_ids
-                    .iter()
-                    .filter_map(|item| server.blocks.get(item).cloned()),
-            );
-        }
-
-        blocks
     }
 
     /// Get all blocks ids from all servers

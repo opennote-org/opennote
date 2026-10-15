@@ -23,6 +23,9 @@ A minimalistic notebook app built purely in Rust.
 - [ ] Advanced NLP features to simplify document management (e.g., automatic categorization by semantic similarity)
   - [x] Support both semantic and keyword search
 - [x] MCP server support
+  - [x] Allow controling wheter the AI can read or write your notes
+  - [x] Allow AI agents operate your notebooks for you
+  - [x] Allow restricting the AI agents for what they can see and change
 - [x] Import files
 - [ ] Multi-modal support
 

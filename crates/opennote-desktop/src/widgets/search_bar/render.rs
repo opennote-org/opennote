@@ -13,9 +13,9 @@ use gpui_kit::{
     div,
 };
 
-use crate::widgets::search_bar::{
-    bar::SearchBar,
-    search_results::{SearchResultsList, SearchStatus},
+use crate::{
+    globals::actions::search::SearchStatus,
+    widgets::search_bar::{bar::SearchBar, search_results::SearchResultsList},
 };
 
 pub fn render_search_controls(bar: &SearchBar, cx: &App) -> Div {

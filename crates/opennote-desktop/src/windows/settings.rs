@@ -1,8 +1,7 @@
 use gpui_kit::{
     AppContext, BorrowAppContext, Entity, IntoElement, ParentElement as _, Render, Styled as _,
-    WeakEntity,
     component::{
-        ActiveTheme, Sizable as _,
+        ActiveTheme, Root, Sizable as _,
         button::{Button, ButtonVariants as _},
         h_flex,
         input::{Editor, EditorState},
@@ -16,7 +15,8 @@ use opennote_core_logics::{
     helpers::run_async_code,
 };
 use opennote_models::{
-    configurations::desktop::DesktopConfigurations, traits::LoadFromAndSaveToFile,
+    configurations::desktop::DesktopConfigurations, constants::DESKTOP_SETTINGS_PANEL_NAME,
+    traits::LoadFromAndSaveToFile,
 };
 
 use crate::{
@@ -24,7 +24,10 @@ use crate::{
         bootstrap::{GlobalApplicationBootStrap, helpers::get_bootstrap},
         states::States,
     },
-    widgets::sidebar::OpenNoteSidebar,
+    windows::{
+        helpers::{create_main_window_option, format_window_title},
+        traits::WindowObject,
+    },
 };
 
 pub struct SettingsPanel {
@@ -34,16 +37,10 @@ pub struct SettingsPanel {
     status_message: Option<String>,
     /// When `true`, the status message is rendered in an error colour.
     status_is_error: bool,
-    /// This is used to refresh the sidebar after updated the config.
-    sidebar: WeakEntity<OpenNoteSidebar>,
 }
 
 impl SettingsPanel {
-    pub fn new(
-        cx: &mut gpui_kit::Context<Self>,
-        window: &mut gpui_kit::Window,
-        sidebar: WeakEntity<OpenNoteSidebar>,
-    ) -> Self {
+    pub fn new(cx: &mut gpui_kit::Context<Self>, window: &mut gpui_kit::Window) -> Self {
         let config_json = {
             let bootstrap = get_bootstrap(cx);
             let configs = run_async_code(async { bootstrap.0.configurations.lock().await.clone() });
@@ -56,7 +53,7 @@ impl SettingsPanel {
                 .language("json")
                 .line_number(true)
                 .searchable(true)
-                .soft_wrap(false)
+                .soft_wrap(true)
                 .default_value(config_json)
         });
 
@@ -64,16 +61,7 @@ impl SettingsPanel {
             editor_state,
             status_message: None,
             status_is_error: false,
-            sidebar,
         }
-    }
-
-    /// Serialise the current `Configurations` to pretty-printed JSON.
-    fn load_configs_to_json(cx: &mut gpui_kit::Context<Self>) -> String {
-        let bootstrap = get_bootstrap(cx);
-        let configs = run_async_code(async { bootstrap.0.configurations.lock().await.clone() });
-        serde_json::to_string_pretty(&configs)
-            .unwrap_or_else(|err| format!("// Failed to serialise config: {}\n{{}}", err))
     }
 
     /// Parse JSON into `Configurations`, validate, and pretty-print on success.
@@ -140,20 +128,6 @@ impl SettingsPanel {
 
         cx.notify();
     }
-
-    /// Reload: re-read configs from the bootstrap and refresh the editor.
-    fn reload_configurations(
-        &mut self,
-        window: &mut gpui_kit::Window,
-        cx: &mut gpui_kit::Context<Self>,
-    ) {
-        let pretty_json = Self::load_configs_to_json(cx);
-        Self::set_editor_text(&self.editor_state, &pretty_json, window, cx);
-
-        self.status_message = Some("↻ Configurations reloaded from disk.".into());
-        self.status_is_error = false;
-        cx.notify();
-    }
 }
 
 impl Render for SettingsPanel {
@@ -188,12 +162,9 @@ impl Render for SettingsPanel {
                             .label("Save")
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.save_configurations(window, cx);
-                                // Reload the sidebar for updating the servers
-                                let _ = this.sidebar.update(cx, |_this, cx| {
-                                    cx.update_global::<States, ()>(|this, cx| {
-                                        this.refresh_blocks_list(cx)
-                                    });
-                                    cx.notify();
+                                // Reload the UIs
+                                cx.update_global::<States, ()>(|this, cx| {
+                                    this.refresh_blocks_list(cx)
                                 });
                             })),
                     )
@@ -202,8 +173,8 @@ impl Render for SettingsPanel {
                             .outline()
                             .small()
                             .label("Reload")
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.reload_configurations(window, cx);
+                            .on_click(cx.listener(|_this, _, _window, cx| {
+                                cx.restart();
                             })),
                     )
                     // Spacer pushes the status message to the right.
@@ -226,5 +197,25 @@ impl Render for SettingsPanel {
                     .child(Editor::new(editor).h_full()),
             )
             .into_any_element()
+    }
+}
+
+impl WindowObject<Root> for SettingsPanel {
+    fn open(
+        cx: &mut gpui_kit::App,
+    ) -> anyhow::Result<gpui_kit::WindowHandle<gpui_kit::component::Root>, anyhow::Error> {
+        cx.open_window(
+            create_main_window_option(format_window_title(
+                Some(DESKTOP_SETTINGS_PANEL_NAME),
+                None,
+                None,
+            )),
+            |window, cx| {
+                let view = cx.new(|cx| SettingsPanel::new(cx, window));
+
+                // This first level on the window should be a Root.
+                cx.new(|cx| Root::new(view, window, cx))
+            },
+        )
     }
 }

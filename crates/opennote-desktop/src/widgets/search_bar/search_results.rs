@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use gpui_kit::{
     Context, InteractiveElement, ParentElement, SharedString, StatefulInteractiveElement, Styled,
@@ -13,14 +13,14 @@ use gpui_kit::{
 };
 
 use opennote_data::search::SearchScope;
-use opennote_models::{
-    block::Block, configurations::fields::search::SupportedSearchMethod, payload::Payload,
-    search::RawSearchResult,
-};
+use opennote_models::configurations::fields::search::SupportedSearchMethod;
 
 use crate::{
     globals::{
-        bootstrap::helpers::get_bootstrap, helpers::get_language_profile, states::States,
+        actions::search::{SearchResult, SearchStatus},
+        bootstrap::helpers::get_bootstrap,
+        helpers::get_language_profile,
+        states::States,
     },
     widgets::{
         pane::helpers::open_block,
@@ -31,43 +31,6 @@ use crate::{
         },
     },
 };
-
-pub struct SearchResult {
-    pub block: Block,
-    pub payload: Payload,
-    pub raw: RawSearchResult,
-    pub server: SharedString,
-    pub breadcrumb: SharedString,
-}
-
-#[derive(Clone, Copy)]
-pub enum SearchStatus {
-    Idle,
-    Searching,
-    Empty,
-    SemanticUnavailable,
-    PartialFailure,
-    Matches(usize),
-}
-
-impl SearchStatus {
-    pub fn label(self, language_profile: &HashMap<String, String>) -> SharedString {
-        let key = match self {
-            Self::Idle => "search_bar_placeholder",
-            Self::Searching => "search_bar_searching",
-            Self::Empty => "search_bar_no_matches",
-            Self::SemanticUnavailable => "search_bar_semantic_unavailable",
-            Self::PartialFailure => "search_bar_partial_failure",
-            Self::Matches(count) => {
-                return language_profile["search_bar_match_count"]
-                    .replace("{}", &count.to_string())
-                    .into();
-            }
-        };
-
-        language_profile[key].clone().into()
-    }
-}
 
 pub struct SearchResultsList {
     pub results: Vec<SearchResult>,

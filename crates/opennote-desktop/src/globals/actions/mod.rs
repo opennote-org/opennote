@@ -3,6 +3,7 @@ pub mod chunking;
 pub mod export;
 pub mod import;
 pub mod route_helpers;
+pub mod search;
 
 use anyhow::Context;
 use gpui_kit::{SharedString, Window};
@@ -90,7 +91,6 @@ pub fn create_one_block(
                 &server_name,
                 &server,
                 &databases,
-                &system_configurations.vector_database,
                 system_configurations.clone(),
                 vec![block],
             )
@@ -150,7 +150,6 @@ pub fn delete_n_blocks(window: &mut Window, cx: &mut gpui_kit::App, block_ids: V
                 &server_name,
                 &server,
                 &databases,
-                &system_configurations.vector_database,
                 system_configurations.clone(),
                 block_ids,
             )
@@ -251,7 +250,6 @@ pub fn update_n_blocks(
                 &server_name,
                 &server_states,
                 &databases,
-                &system_configurations.vector_database,
                 system_configurations.clone(),
                 blocks,
             )
@@ -333,7 +331,6 @@ pub fn update_parent(
                 &server_name,
                 &server,
                 &databases,
-                &system_configurations.vector_database,
                 system_configurations.clone(),
                 blocks,
             )

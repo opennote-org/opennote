@@ -9,7 +9,7 @@ use gpui_kit::{
     prelude::FluentBuilder as _,
 };
 
-use crate::window::create_loading_window_option;
+use crate::windows::{helpers::create_loading_window_option, traits::WindowObject};
 
 pub struct ResourceLoadingView {
     error_message: Option<SharedString>,
@@ -19,15 +19,6 @@ pub struct ResourceLoadingView {
 }
 
 impl ResourceLoadingView {
-    pub fn open(cx: &mut App) -> Result<WindowHandle<Self>> {
-        let handle = cx.open_window(create_loading_window_option(cx), |window, cx| {
-            cx.new(|cx| Self::new(cx, window))
-        })?;
-
-        handle.update(cx, |_view, window, _cx| window.activate_window())?;
-        Ok(handle)
-    }
-
     pub fn new(cx: &mut Context<'_, ResourceLoadingView>, window: &mut Window) -> Self {
         // Sync the theme on init
         Theme::sync_system_appearance(Some(window), cx);
@@ -103,5 +94,17 @@ impl Render for ResourceLoadingView {
             .text_color(cx.theme().foreground)
             .p_6()
             .child(content)
+    }
+}
+
+impl WindowObject<ResourceLoadingView> for ResourceLoadingView {
+    fn open(cx: &mut App) -> Result<WindowHandle<ResourceLoadingView>, anyhow::Error> {
+        let handle = cx.open_window(create_loading_window_option(cx), |window, cx| {
+            cx.new(|cx| Self::new(cx, window))
+        })?;
+
+        handle.update(cx, |_view, window, _cx| window.activate_window())?;
+
+        Ok(handle)
     }
 }

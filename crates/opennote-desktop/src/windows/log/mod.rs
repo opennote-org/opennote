@@ -16,8 +16,11 @@ use opennote_models::constants::{
 
 use crate::{
     globals::{helpers::get_language_profile, log::GlobalLogWindowState},
-    views::log::entry::LogEntry,
-    window::{create_window_option, format_window_title},
+    windows::{
+        helpers::{create_window_option, format_window_title},
+        log::entry::LogEntry,
+        traits::WindowObject,
+    },
 };
 
 pub struct LogWindow {
@@ -87,40 +90,6 @@ impl LogWindow {
             cx.notify();
         }));
     }
-
-    pub fn toggle(cx: &mut App) -> anyhow::Result<()> {
-        // Remove the handle if there has been a log window
-        if let Some(handle) = cx.global_mut::<GlobalLogWindowState>().take_handle() {
-            handle.update(cx, |_, window, _| window.remove_window())?;
-            return Ok(());
-        }
-
-        // Open a new log window if there is no log window
-        let language_profile = get_language_profile(cx)
-            .context("Getting language profile for the log window failed")?;
-
-        let view = cx.global::<GlobalLogWindowState>().get_view();
-
-        let handle = cx.open_window(
-            create_window_option(
-                cx,
-                format_window_title(Some(&language_profile["log_window_title"]), None, None),
-                LOADING_WINDOW_WIDTH * 3.0,
-                LOADING_WINDOW_HEIGHT,
-            ),
-            |window, cx| {
-                view.update(cx, |view, cx| {
-                    view.initialize_window(window, cx);
-                });
-                cx.new(|cx| Root::new(view, window, cx))
-            },
-        )?;
-
-        cx.global_mut::<GlobalLogWindowState>()
-            .update_handle(handle);
-
-        Ok(())
-    }
 }
 
 impl Render for LogWindow {
@@ -177,5 +146,40 @@ impl Render for LogWindow {
                 .min_h_0()
                 .w_full(),
             )
+    }
+}
+
+impl WindowObject<Root> for LogWindow {
+    fn open(cx: &mut App) -> Result<WindowHandle<Root>, anyhow::Error> {
+        // Remove the handle if there has been a log window
+        if let Some(handle) = cx.global_mut::<GlobalLogWindowState>().take_handle() {
+            handle.update(cx, |_, window, _| window.remove_window())?;
+            return Ok(handle);
+        }
+
+        // Open a new log window if there is no log window
+        let language_profile = get_language_profile(cx)
+            .context("Getting language profile for the log window failed")?;
+
+        let view = cx.global::<GlobalLogWindowState>().get_view();
+
+        let options = create_window_option(
+            cx,
+            format_window_title(Some(&language_profile["log_window_title"]), None, None),
+            LOADING_WINDOW_WIDTH * 3.0,
+            LOADING_WINDOW_HEIGHT,
+        );
+
+        let handle = cx.open_window(options, |window, cx| {
+            view.update(cx, |view, cx| {
+                view.initialize_window(window, cx);
+            });
+            cx.new(|cx| Root::new(view, window, cx))
+        })?;
+
+        cx.global_mut::<GlobalLogWindowState>()
+            .update_handle(handle);
+
+        Ok(handle)
     }
 }

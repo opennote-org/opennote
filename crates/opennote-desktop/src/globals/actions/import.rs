@@ -116,7 +116,6 @@ pub fn import_files(
                 &server_name,
                 &server_states,
                 &databases,
-                &system_configurations.vector_database,
                 system_configurations.clone(),
                 blocks,
             )

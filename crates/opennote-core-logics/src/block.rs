@@ -33,6 +33,7 @@ pub async fn create_blocks(
 }
 
 /// Read blocks from the database.
+/// It will only contain the title if `has_payload` is set to false.
 pub async fn read_blocks(
     databases: &Databases,
     filter: &BlockQuery,
@@ -45,23 +46,36 @@ pub async fn read_blocks(
         .await
 }
 
+/// Update the block, but it does not vectorize the blocks for you
 pub async fn update_blocks(
     vector_database_config: &VectorDatabaseConfig,
     databases: &Databases,
     blocks: Vec<Block>,
 ) -> Result<()> {
-    let mut payload_ids = Vec::new();
     let mut payloads = Vec::new();
-
     for block in blocks.iter() {
-        payload_ids.extend::<Vec<Uuid>>(block.payloads.iter().map(|item| item.id).collect());
         payloads.extend(block.payloads.clone());
     }
 
-    databases
-        .vector_database
-        .delete_entries(vector_database_config, &payload_ids)
-        .await?;
+    let old_payload_ids: Vec<Uuid> = databases
+        .database
+        .read_blocks(
+            &BlockQuery::ByIds(blocks.iter().map(|item| item.id).collect()),
+            false,
+            true,
+        )
+        .await?
+        .into_iter()
+        .map(|item| item.payloads.into_iter().map(|item| item.id))
+        .flatten()
+        .collect();
+
+    if !old_payload_ids.is_empty() {
+        databases
+            .vector_database
+            .delete_entries(vector_database_config, &old_payload_ids)
+            .await?;
+    }
 
     let (create_entries, update_blocks) = join(
         databases
