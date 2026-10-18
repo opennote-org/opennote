@@ -59,6 +59,7 @@
   "search_bar_scope_userspace": "Userspace",
   "search_bar_keyword_hint": "Find matching words and phrases",
   "search_bar_semantic_hint": "Find notes with related meaning",
+  "mcp_server_started": "MCP server started at {}",
   "mcp_search_completed": "MCP search found {} matches",
   "mcp_read_blocks_completed": "MCP read {} blocks",
   "mcp_read_block_details_completed": "MCP read block details",

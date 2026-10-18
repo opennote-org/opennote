@@ -5,6 +5,7 @@ use gpui_kit::{App, SharedString};
 
 use crate::globals::{assets::AssetsCollection, bootstrap::helpers::get_bootstrap};
 
+#[derive(Debug, Clone)]
 pub struct LanguageProfile(HashMap<String, String>);
 
 impl LanguageProfile {

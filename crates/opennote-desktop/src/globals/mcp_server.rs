@@ -99,13 +99,13 @@ impl DesktopMCPServer {
 
         // Create a channel for transporting messages between the mcp server
         // and the main thread
-        let (notification_sender, mut notification_receiver) =
+        let (notification_sender, notification_receiver) =
             tokio::sync::mpsc::channel(DEFAULT_MESSAGE_CHANNEL_CAPACITY);
 
         let mcp_server = DesktopMCPServer::new(
             states.get_server_registry(),
             bootstrap.0.clone(),
-            language_profile,
+            language_profile.clone(),
             notification_sender,
         );
 
@@ -115,27 +115,22 @@ impl DesktopMCPServer {
             std::sync::Arc::new(mcp_server),
         )?;
 
+        // Start MCP server in a new thread
         tokio::spawn(async move { server.await.unwrap() });
 
+        // Listen for mcp server messages in another thread
+        let startup_message = language_profile
+            .get_description("mcp_server_started")
+            .context("Missing mcp_server_started translation")?
+            .replace("{}", &configurations.get_mcp_server_address());
+
         cx.spawn(async move |cx| {
-            while let Some(message) = notification_receiver.recv().await {
-                if message.need_refresh {
-                    cx.update_global::<States, ()>(|this, cx| {
-                        this.refresh_blocks_list(cx);
-                    });
-                }
+            Self::push_notification_to_all_windows(
+                MCPNotification::new(startup_message.into(), false),
+                cx,
+            );
 
-                let handles = cx.update(|cx| {
-                    let states = get_states(cx);
-                    states.get_workspace_window_handles(cx)
-                });
-
-                for handle in handles {
-                    let _ = cx.update_window(handle, |_view, window, cx| {
-                        window.push_notification(Notification::success(message.get_message()), cx);
-                    });
-                }
-            }
+            Self::listen_for_mcp_server_messages(notification_receiver, cx).await
         })
         .detach();
 
@@ -178,6 +173,34 @@ impl DesktopMCPServer {
         {
             Ok(()) => {}
             Err(error) => tracing::warn!("Sending MCP notification failed: {}", error),
+        }
+    }
+
+    fn push_notification_to_all_windows(message: MCPNotification, cx: &mut gpui_kit::AsyncApp) {
+        let handles = cx.update(|cx| {
+            let states = get_states(cx);
+            states.get_workspace_window_handles(cx)
+        });
+
+        for handle in handles {
+            let _ = cx.update_window(handle, |_view, window, cx| {
+                window.push_notification(Notification::success(message.get_message()), cx);
+            });
+        }
+    }
+
+    async fn listen_for_mcp_server_messages(
+        mut notification_receiver: tokio::sync::mpsc::Receiver<MCPNotification>,
+        cx: &mut gpui_kit::AsyncApp,
+    ) {
+        while let Some(message) = notification_receiver.recv().await {
+            if message.need_refresh {
+                cx.update_global::<States, ()>(|this, cx| {
+                    this.refresh_blocks_list(cx);
+                });
+            }
+
+            Self::push_notification_to_all_windows(message, cx);
         }
     }
 }
