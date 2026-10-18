@@ -174,10 +174,7 @@ impl Render for SettingsPanel {
                             .small()
                             .label("Reload")
                             .on_click(cx.listener(|_this, _, _window, cx| {
-                                let app_path = cx.app_path().unwrap();
-                                tracing::debug!("App path is {}", app_path.display());
-
-                                cx.set_restart_path(app_path);
+                                cx.restart();
                             })),
                     )
                     // Spacer pushes the status message to the right.

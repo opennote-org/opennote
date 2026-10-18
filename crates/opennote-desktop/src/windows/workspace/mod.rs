@@ -130,9 +130,6 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let notification = Root::render_notification_layer(window, cx);
-        let dialogue = Root::render_dialog_layer(window, cx);
-
         // Prevent the window from being closed when it has ongoing tasks.
         let window_id = window.window_handle().window_id();
         window.on_window_should_close(cx, move |this, cx| {
@@ -173,8 +170,6 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::import_files))
             .on_action(cx.listener(Self::export_files))
             .on_action(cx.listener(Self::rebuild_index))
-            .children(notification)
-            .children(dialogue)
     }
 }
 
