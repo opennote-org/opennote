@@ -1,7 +1,10 @@
 use anyhow::{Context, Error, Result, anyhow};
 use async_trait::async_trait;
 use futures::future::{join_all, try_join_all};
-use gpui_kit::{App, AppContext, Global, SharedString};
+use gpui_kit::{
+    App, AppContext, Global, SharedString,
+    component::{WindowExt, notification::Notification},
+};
 use regex::Regex;
 use uuid::Uuid;
 
@@ -35,7 +38,7 @@ use crate::globals::{
     },
     bootstrap::helpers::get_bootstrap,
     language::LanguageProfile,
-    states::{helpers::get_states, server_registry::ServerRegistry},
+    states::{States, helpers::get_states, server_registry::ServerRegistry},
 };
 
 #[derive(Debug)]
@@ -69,10 +72,6 @@ pub struct DesktopMCPServer {
     /// Reserved for sending and receiving notifications
     /// between the mcp server thread and the main thread.
     notification_sender: tokio::sync::mpsc::Sender<MCPNotification>,
-
-    /// Reserved for sending and receiving notifications
-    /// between the mcp server thread and the main thread.
-    notification_receiver: tokio::sync::mpsc::Receiver<MCPNotification>,
 }
 
 impl Global for DesktopMCPServer {}
@@ -98,10 +97,16 @@ impl DesktopMCPServer {
 
         let states = get_states(cx);
 
+        // Create a channel for transporting messages between the mcp server
+        // and the main thread
+        let (notification_sender, mut notification_receiver) =
+            tokio::sync::mpsc::channel(DEFAULT_MESSAGE_CHANNEL_CAPACITY);
+
         let mcp_server = DesktopMCPServer::new(
             states.get_server_registry(),
             bootstrap.0.clone(),
             language_profile,
+            notification_sender,
         );
 
         let server = run_mcp_server(
@@ -112,6 +117,28 @@ impl DesktopMCPServer {
 
         tokio::spawn(async move { server.await.unwrap() });
 
+        cx.spawn(async move |cx| {
+            while let Some(message) = notification_receiver.recv().await {
+                if message.need_refresh {
+                    cx.update_global::<States, ()>(|this, cx| {
+                        this.refresh_blocks_list(cx);
+                    });
+                }
+
+                let handles = cx.update(|cx| {
+                    let states = get_states(cx);
+                    states.get_workspace_window_handles(cx)
+                });
+
+                for handle in handles {
+                    let _ = cx.update_window(handle, |_view, window, cx| {
+                        window.push_notification(Notification::success(message.get_message()), cx);
+                    });
+                }
+            }
+        })
+        .detach();
+
         Ok(())
     }
 
@@ -119,16 +146,13 @@ impl DesktopMCPServer {
         server_registry: ServerRegistry,
         bootstrap: DesktopBootstrap,
         language_profile: LanguageProfile,
+        notification_sender: tokio::sync::mpsc::Sender<MCPNotification>,
     ) -> Self {
-        let (notification_sender, notification_receiver) =
-            tokio::sync::mpsc::channel(DEFAULT_MESSAGE_CHANNEL_CAPACITY);
-
         Self {
             server_registry,
             bootstrap,
             language_profile,
             notification_sender,
-            notification_receiver,
         }
     }
 

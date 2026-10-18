@@ -3,7 +3,7 @@ pub mod server_registry;
 
 use std::collections::HashMap;
 
-use gpui_kit::{App, AppContext, Global, SharedString, WeakEntity, WindowId};
+use gpui_kit::{AnyWindowHandle, App, AppContext, Global, SharedString, WeakEntity, WindowId};
 use uuid::Uuid;
 
 use opennote_core_logics::helpers::run_async_code;
@@ -68,6 +68,20 @@ impl States {
         states.refresh_blocks_list(cx);
 
         cx.set_global(states);
+    }
+
+    /// Get window handles of all existing workspaces
+    pub fn get_workspace_window_handles(&self, cx: &App) -> Vec<AnyWindowHandle> {
+        let window_ids: Vec<WindowId> = self
+            .active_panes
+            .iter()
+            .map(|(window_id, _entity)| window_id.clone())
+            .collect();
+
+        cx.windows()
+            .into_iter()
+            .filter(|window| window_ids.contains(&window.window_id()))
+            .collect()
     }
 
     pub fn get_active_pane(&self, cx: &App) -> Option<WeakEntity<Pane>> {
