@@ -91,7 +91,6 @@ impl GlobalApplicationBootStrap {
         .await
         .context("The resource loading task failed")??;
 
-        // TODO: Need to send reindex request to the connected servers as well
         let bootstrap = DesktopBootstrap::new(configurations.clone(), key_mappings)
             .await
             .context("Failed to bootstrap the application")?;

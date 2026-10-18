@@ -49,6 +49,7 @@ impl TaskTracker {
                 .windows
                 .retain(|window_id, _| open_windows.contains(window_id));
         });
+
         cx.global_mut::<TaskTracker>().window_closed_subscription = Some(subscription);
     }
 

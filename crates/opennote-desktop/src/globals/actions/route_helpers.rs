@@ -9,10 +9,7 @@ use opennote_core_logics::{
 use opennote_data::Databases;
 use opennote_models::{
     block::Block,
-    configurations::{
-        fields::{VectorDatabaseConfig, search::SupportedSearchMethod},
-        system::SystemConfigurations,
-    },
+    configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::LOCAL_SERVER_NAME,
     query::BlockQuery,
     search::RawSearchResult,
@@ -28,12 +25,11 @@ pub async fn route_create_blocks(
     server_name: &str,
     server_states: &ServerStates,
     databases: &Databases,
-    vector_database_config: &VectorDatabaseConfig,
     system_configuraitons: SystemConfigurations,
     blocks: Vec<Block>,
 ) -> Result<Vec<Block>> {
     if server_name == LOCAL_SERVER_NAME {
-        create_blocks(vector_database_config, databases, blocks).await
+        create_blocks(&system_configuraitons.vector_database, databases, blocks).await
     } else {
         create_remote_server_blocks(
             &Client::new(),
@@ -51,12 +47,11 @@ pub async fn route_delete_blocks(
     server_name: &str,
     server_states: &ServerStates,
     databases: &Databases,
-    vector_database_config: &VectorDatabaseConfig,
     system_configuraitons: SystemConfigurations,
     block_ids: Vec<Uuid>,
 ) -> Result<()> {
     if server_name == LOCAL_SERVER_NAME {
-        delete_blocks(databases, vector_database_config, block_ids).await
+        delete_blocks(databases, &system_configuraitons.vector_database, block_ids).await
     } else {
         delete_remote_server_blocks(
             &Client::new(),
@@ -70,6 +65,7 @@ pub async fn route_delete_blocks(
     }
 }
 
+/// It will only contain the title if `has_payload` is set to false.
 pub async fn route_read_blocks(
     server_name: &str,
     server_states: &ServerStates,
@@ -96,16 +92,17 @@ pub async fn route_read_blocks(
     }
 }
 
+/// Update the blocks and it will route the server for you.
+/// However, you need to vectorize the block on your own.
 pub async fn route_update_blocks(
     server_name: &str,
     server_states: &ServerStates,
     databases: &Databases,
-    vector_database_config: &VectorDatabaseConfig,
     system_configuraitons: SystemConfigurations,
     blocks: Vec<Block>,
 ) -> Result<()> {
     if server_name == LOCAL_SERVER_NAME {
-        update_blocks(vector_database_config, databases, blocks).await
+        update_blocks(&system_configuraitons.vector_database, databases, blocks).await
     } else {
         update_remote_server_blocks(
             &Client::new(),
@@ -119,6 +116,8 @@ pub async fn route_update_blocks(
     }
 }
 
+/// A higher level api for searching across all servers,
+/// including the local.
 pub async fn route_search_blocks(
     server_name: &str,
     server_states: &ServerStates,

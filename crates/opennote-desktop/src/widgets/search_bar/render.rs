@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use gpui_kit::{
     App, Context, Div, Entity, InteractiveElement, IntoElement, ParentElement, Pixels,
     SharedString, StatefulInteractiveElement, Styled, Window,
@@ -13,9 +11,9 @@ use gpui_kit::{
     div,
 };
 
-use crate::widgets::search_bar::{
-    bar::SearchBar,
-    search_results::{SearchResultsList, SearchStatus},
+use crate::{
+    globals::{actions::search::SearchStatus, language::LanguageProfile},
+    widgets::search_bar::{bar::SearchBar, search_results::SearchResultsList},
 };
 
 pub fn render_search_controls(bar: &SearchBar, cx: &App) -> Div {
@@ -45,7 +43,7 @@ pub fn render_result_column(
     title: &'static str,
     list: &Entity<ListState<SearchResultsList>>,
     height: Pixels,
-    profile: &HashMap<String, String>,
+    profile: &LanguageProfile,
     window: &mut Window,
     cx: &mut Context<SearchBar>,
 ) -> Div {
@@ -62,7 +60,7 @@ pub fn render_result_column(
         .flex_1()
         .min_w_0()
         .child(render_column_header(
-            profile[title].clone().into(),
+            profile.get_description(title).unwrap(),
             status,
             cx,
         ))

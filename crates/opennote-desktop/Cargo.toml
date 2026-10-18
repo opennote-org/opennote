@@ -33,6 +33,7 @@ tracing-subscriber.workspace = true
 rust-embed = "8.11.0"
 smallvec = "1.15.1"
 sanitize-filename = "0.6.0"
+regex = "1.13.1"
 
 [dev-dependencies]
 gpui-kit = { workspace = true, features = ["test-support"] }

@@ -20,7 +20,7 @@ use uuid::Uuid;
 use opennote_models::{block::Block, constants::LOCAL_SERVER_NAME};
 
 use crate::{
-    globals::{actions::create_one_block, helpers::get_language_profile, states::States},
+    globals::{actions::create_one_block, language::LanguageProfile, states::States},
     key_mappings::key_contexts::SIDEBAR,
     libs::{
         tabs::{drag::DraggedItem, tab_bar::TabBar},
@@ -151,7 +151,7 @@ impl OpenNoteSidebar {
         let tree = tree(&tree_state_clone, move |index, entry, _window, cx| {
             let id = entry.item().id.clone(); // This is a stringified uuid of a block
             let label = entry.item().label.clone();
-            let language_profile = get_language_profile(cx).unwrap();
+            let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
             let sidebar = sidebar.clone();
             let tree_state = tree_state.clone();
 
@@ -299,7 +299,7 @@ impl Render for OpenNoteSidebar {
             return div();
         }
 
-        let language_profile = get_language_profile(cx).unwrap();
+        let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
         let entity_id = cx.entity_id();
         let window_id = window.window_handle().window_id();
 
@@ -341,7 +341,12 @@ impl Render for OpenNoteSidebar {
                             .w_full()
                             .justify_between()
                             .items_center()
-                            .child(Label::new(&language_profile["sidebar_title"]).text_xl())
+                            .child(
+                                Label::new(
+                                    language_profile.get_description("sidebar_title").unwrap(),
+                                )
+                                .text_xl(),
+                            )
                             .child(Self::create_new_block_button(entity_id)),
                     ),
             )

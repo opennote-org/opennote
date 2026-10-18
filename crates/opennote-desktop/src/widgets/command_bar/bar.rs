@@ -10,7 +10,7 @@ use gpui_kit::{
 };
 
 use crate::{
-    globals::helpers::get_language_profile,
+    globals::language::LanguageProfile,
     widgets::{command_bar::keys_list::KeysList, floating::create_float_palette},
 };
 
@@ -54,14 +54,18 @@ impl Render for CommandBar {
         _window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
     ) -> impl gpui_kit::IntoElement {
-        let language_profile = get_language_profile(cx)
+        let language_profile = LanguageProfile::get_language_profile(cx)
             .context("Getting language profile failed")
             .unwrap();
 
         create_float_palette(&self.focus_handle(cx), self.is_toggled).child(
             v_flex().child(
                 List::new(&self.keys_list)
-                    .search_placeholder(&language_profile["command_bar_placeholder"])
+                    .search_placeholder(
+                        language_profile
+                            .get_description("command_bar_placeholder")
+                            .unwrap(),
+                    )
                     .bg(cx.theme().accent)
                     .shadow_2xl()
                     .w_128()

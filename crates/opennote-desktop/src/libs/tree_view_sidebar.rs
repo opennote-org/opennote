@@ -1,11 +1,13 @@
 use gpui_kit::{
     AnyElement, App, EdgesRefinement, InteractiveElement as _, IntoElement, ParentElement, Pixels,
-    RenderOnce, StyleRefinement, Styled, Window, prelude::FluentBuilder, px,
+    RenderOnce, StyleRefinement, Styled, Window,
+    base::{Side, StyledExt, h_flex, v_flex},
+    component::{ActiveTheme, scroll::ScrollableElement},
+    prelude::FluentBuilder,
+    px,
 };
 
-use crate::{
-    ActiveTheme, Side, StyledExt, h_flex, libs::tree::Tree, scroll::ScrollableElement, v_flex,
-};
+use crate::libs::tree::Tree;
 
 /// Default width of the sidebar.
 /// Should be shared with other components that stack with it.

@@ -1,6 +1,4 @@
-use gpui_kit::{component::Root, *};
-
-use opennote_models::constants::DESKTOP_SETTINGS_PANEL_NAME;
+use gpui_kit::*;
 
 use crate::{
     globals::{
@@ -12,7 +10,10 @@ use crate::{
         PreviousTab, Reindex, ToggleCommandBar, ToggleLogWindow, ToggleSearchBar,
         ToggleSettingsPanel, ToggleSidebar,
     },
-    window::{create_main_window_option, format_window_title},
+    windows::{
+        log::LogWindow, settings::SettingsPanel, traits::WindowObject,
+        workspace::title::construct_workspace_window_title,
+    },
 };
 
 use super::Workspace;
@@ -134,20 +135,12 @@ impl Workspace {
     pub fn toggle_settings_panel(
         &mut self,
         _action: &ToggleSettingsPanel,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let settings_panel = self.settings_panel.clone();
-        let _ = cx
-            .open_window(
-                create_main_window_option(format_window_title(
-                    Some(DESKTOP_SETTINGS_PANEL_NAME),
-                    None,
-                    None,
-                )),
-                |_this, cx| cx.new(|cx| Root::new(settings_panel, window, cx)),
-            )
-            .unwrap();
+        if let Err(error) = SettingsPanel::open(cx) {
+            tracing::error!("Failed to open log window: {error:#}");
+        }
     }
 
     pub fn toggle_log_window(
@@ -156,7 +149,7 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Err(error) = crate::views::log::LogWindow::toggle(cx) {
+        if let Err(error) = LogWindow::open(cx) {
             tracing::error!("Failed to open log window: {error:#}");
         }
     }
@@ -197,19 +190,7 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        cx.open_window(
-            create_main_window_option(format_window_title(None, None, None)),
-            |window, cx| {
-                let view = cx.new(|cx| {
-                    let workspace =
-                        Workspace::new(window, cx).expect("Workspace initialization failed");
-                    workspace
-                });
-
-                cx.new(|cx| Root::new(view, window, cx))
-            },
-        )
-        .expect("Failed to open window");
+        Workspace::open(cx).expect("Failed to open window");
     }
 
     /// Close the active tab in the active pane.
@@ -299,40 +280,8 @@ impl Workspace {
     }
 
     pub fn update_window_title(&self, window: &mut Window, cx: &mut Context<'_, Workspace>) {
-        // recompute the window title
-        let states = get_states(cx);
-
-        let pane = self.pane.read(cx);
-
-        // TODO: Get the selected_block_id from the pane instead, not the editor.
-        // Maybe add an annotation for standardized access
-        let document_name = match &pane.selected_block_id {
-            Some(block_id) => Some(states.get_block(block_id).unwrap().get_title()),
-            None => None,
-        };
-
-        let server_name = match pane.selected_block_id {
-            Some(block_id) => Some(
-                states.get_servers_by_block_ids(&vec![block_id])[0]
-                    .0
-                    .to_string(),
-            ),
-            None => None,
-        };
-
-        let server_name = match server_name {
-            Some(result) => result,
-            None => states
-                .get_active_server(window.window_handle().window_id())
-                .0
-                .to_string(),
-        };
-
-        window.set_window_title(&format_window_title(
-            None,
-            Some(&server_name),
-            document_name.as_deref(),
-        ));
+        let title = construct_workspace_window_title(self.pane.clone(), window, cx);
+        window.set_window_title(title.as_str());
     }
 
     pub fn rebuild_index(

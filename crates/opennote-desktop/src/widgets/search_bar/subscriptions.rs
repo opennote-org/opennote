@@ -9,8 +9,7 @@ use gpui_kit::{
 
 use crate::{
     globals::{
-        bootstrap::SEARCH_SCOPES_ENUMS, helpers::get_language_profile,
-        states::helpers::get_states_mut,
+        bootstrap::SEARCH_SCOPES_ENUMS, language::LanguageProfile, states::helpers::get_states_mut,
     },
     widgets::search_bar::{bar::SearchBar, search_results::SearchResultsList},
 };
@@ -35,7 +34,7 @@ pub fn subscribe_search_query(
 }
 
 pub fn search_scope_labels(cx: &gpui_kit::App) -> Vec<SharedString> {
-    let profile = get_language_profile(cx).unwrap();
+    let profile = LanguageProfile::get_language_profile(cx).unwrap();
 
     SEARCH_SCOPES_ENUMS
         .iter()
@@ -45,7 +44,7 @@ pub fn search_scope_labels(cx: &gpui_kit::App) -> Vec<SharedString> {
                 opennote_data::search::SearchScope::Collection => "search_bar_scope_collection",
                 opennote_data::search::SearchScope::Userspace => "search_bar_scope_userspace",
             };
-            profile[key].clone().into()
+            profile.get_description(key).unwrap()
         })
         .collect()
 }

@@ -1,4 +1,5 @@
 mod actions;
+mod title;
 
 use gpui_kit::{
     Context,
@@ -12,7 +13,6 @@ use opennote_models::{constants::LOCAL_SERVER_NAME, traits::LoadFromAndSaveToFil
 use crate::{
     globals::{states::States, tasks::tracker::TaskTracker},
     key_mappings::key_contexts::WORKSPACE,
-    views::settings::SettingsPanel,
     widgets::{
         command_bar::bar::CommandBar,
         dialogue::{PENDING_TASKS_WARNING, open_warning_dialogue},
@@ -20,7 +20,10 @@ use crate::{
         search_bar::bar::SearchBar,
         sidebar::{OpenNoteSidebar, block_states::BlockStates},
     },
-    window::format_window_title,
+    windows::{
+        helpers::{create_main_window_option, format_window_title},
+        traits::WindowObject,
+    },
 };
 
 /// This is the root of all views in this app.
@@ -31,7 +34,6 @@ pub struct Workspace {
     pub sidebar: Entity<OpenNoteSidebar>,
     pub command_bar: Entity<CommandBar>,
     pub search_bar: Entity<SearchBar>,
-    pub settings_panel: Entity<SettingsPanel>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -107,7 +109,6 @@ impl Workspace {
             pane,
             command_bar: cx.new(|cx| CommandBar::new(cx, window)),
             search_bar: cx.new(|cx| SearchBar::new(cx, window, pane_weak_ref)),
-            settings_panel: cx.new(|cx| SettingsPanel::new(cx, window, sidebar.downgrade())),
             _subscriptions,
         })
     }
@@ -129,9 +130,6 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let notification = Root::render_notification_layer(window, cx);
-        let dialogue = Root::render_dialog_layer(window, cx);
-
         // Prevent the window from being closed when it has ongoing tasks.
         let window_id = window.window_handle().window_id();
         window.on_window_should_close(cx, move |this, cx| {
@@ -172,7 +170,19 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::import_files))
             .on_action(cx.listener(Self::export_files))
             .on_action(cx.listener(Self::rebuild_index))
-            .children(notification)
-            .children(dialogue)
+    }
+}
+
+impl WindowObject<Root> for Workspace {
+    fn open(cx: &mut App) -> Result<WindowHandle<Root>, anyhow::Error> {
+        cx.open_window(
+            create_main_window_option(format_window_title(None, None, None)),
+            |window, cx| {
+                let view = cx.new(|cx| Workspace::new(window, cx).unwrap());
+
+                // This first level on the window should be a Root.
+                cx.new(|cx| Root::new(view, window, cx))
+            },
+        )
     }
 }

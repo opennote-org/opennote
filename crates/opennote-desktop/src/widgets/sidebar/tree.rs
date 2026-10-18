@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use gpui_kit::{
     App, AppContext, BorrowAppContext, ClickEvent, ElementId, Entity, InteractiveElement,
     ParentElement, SharedString, StatefulInteractiveElement, Styled,
@@ -19,6 +17,7 @@ use uuid::Uuid;
 use crate::{
     globals::{
         actions::{delete_n_blocks, update_parent},
+        language::LanguageProfile,
         states::States,
     },
     key_mappings::mappings::{CreateOneBlock, DeleteBlocks, ExportFiles, ImportFiles},
@@ -126,7 +125,7 @@ pub fn create_tree_list_item(
     label: SharedString, // The label of the tree item. Usually is the title of a block
     id: SharedString,    // The id of the tree item
     uuid: Uuid,          // The uuid/id of the block
-    language_profile: HashMap<String, String>,
+    language_profile: LanguageProfile,
     sidebar: Entity<OpenNoteSidebar>,
     tree_state: Entity<TreeState>,
     is_selected: bool,
@@ -230,16 +229,25 @@ pub fn create_tree_list_item(
                 ))
                 .context_menu(move |menu, _window, _cx| {
                     menu.menu(
-                        &language_profile["create_one_block"],
+                        language_profile
+                            .get_description("create_one_block")
+                            .unwrap(),
                         Box::new(CreateOneBlock),
                     )
-                    .menu(&language_profile["delete_blocks"], Box::new(DeleteBlocks))
                     .menu(
-                        &language_profile["workspace::ImportFiles"],
+                        language_profile.get_description("delete_blocks").unwrap(),
+                        Box::new(DeleteBlocks),
+                    )
+                    .menu(
+                        language_profile
+                            .get_description("workspace::ImportFiles")
+                            .unwrap(),
                         Box::new(ImportFiles),
                     )
                     .menu(
-                        &language_profile["workspace::ExportFiles"],
+                        language_profile
+                            .get_description("workspace::ExportFiles")
+                            .unwrap(),
                         Box::new(ExportFiles),
                     )
                 }),

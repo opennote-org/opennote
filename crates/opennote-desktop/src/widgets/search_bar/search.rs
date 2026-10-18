@@ -1,24 +1,20 @@
-use std::collections::{HashMap, HashSet};
-
 use futures::{StreamExt, stream::FuturesUnordered};
 use gpui_kit::{Context, SharedString, Task, component::list::ListState};
 use uuid::Uuid;
 
-use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    block::Block,
-    configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
-    payload::create_query,
-    query::BlockQuery,
+    configurations::fields::search::SupportedSearchMethod, payload::create_query,
 };
 
 use crate::{
     globals::{
-        actions::route_helpers, bootstrap::helpers::get_bootstrap,
-        helpers::run_async_background, states::server_registry::ServerStates,
+        actions::search::{SearchStatus, search},
+        bootstrap::helpers::get_bootstrap,
+        helpers::run_async_background,
+        states::server_registry::ServerStates,
     },
-    widgets::search_bar::search_results::{SearchResult, SearchResultsList, SearchStatus},
+    widgets::search_bar::search_results::SearchResultsList,
 };
 
 #[derive(Clone)]
@@ -27,70 +23,6 @@ pub struct SearchRequest {
     pub query: String,
     pub vector: Option<Vec<f32>>,
     pub top_n: usize,
-}
-
-impl SearchRequest {
-    /// Search and hydrate matches using only their originating server.
-    pub async fn search_server(
-        self,
-        name: SharedString,
-        server: ServerStates,
-        databases: Databases,
-        block_ids: Vec<Uuid>,
-        system_configurations: SystemConfigurations,
-    ) -> anyhow::Result<Vec<SearchResult>> {
-        let raw = route_helpers::route_search_blocks(
-            &name,
-            &server,
-            &databases,
-            system_configurations.clone(),
-            self.method,
-            block_ids,
-            Some(self.query),
-            self.vector,
-            self.top_n,
-        )
-        .await?;
-
-        if raw.is_empty() {
-            return Ok::<_, anyhow::Error>(Vec::new());
-        }
-
-        let ids = raw.iter().map(|r| r.block_id).collect::<HashSet<_>>();
-        let blocks = route_helpers::route_read_blocks(
-            &name,
-            &server,
-            &databases,
-            &BlockQuery::ByIds(ids.into_iter().collect()),
-            false,
-            true,
-            system_configurations,
-        )
-        .await?;
-
-        let blocks: HashMap<_, _> = blocks.into_iter().map(|b| (b.id, b)).collect();
-        let mut results = Vec::new();
-
-        for raw in raw {
-            let Some(block) = blocks.get(&raw.block_id) else {
-                continue;
-            };
-
-            let Some(payload) = block.payloads.iter().find(|p| p.id == raw.payload_id) else {
-                continue;
-            };
-
-            results.push(SearchResult {
-                breadcrumb: get_breadcrumb(&name, block, &server.blocks),
-                block: block.clone(),
-                payload: payload.clone(),
-                raw,
-                server: name.clone(),
-            });
-        }
-
-        Ok(results)
-    }
 }
 
 pub(super) async fn create_query_vector(
@@ -104,31 +36,6 @@ pub(super) async fn create_query_vector(
         .map(|payload| payload.vector)
         .filter(|vector| !vector.is_empty())
         .ok_or_else(|| anyhow::anyhow!("No query embedding returned"))
-}
-
-fn get_breadcrumb(server: &str, block: &Block, blocks: &HashMap<Uuid, Block>) -> SharedString {
-    let mut titles = vec![block.get_title()];
-    let mut seen = HashSet::from([block.id]);
-    let mut parent = block.parent_id;
-
-    while let Some(id) = parent {
-        if !seen.insert(id) {
-            titles.push("…".into());
-            break;
-        }
-
-        let Some(ancestor) = blocks.get(&id) else {
-            titles.push("…".into());
-            break;
-        };
-
-        titles.push(ancestor.get_title());
-        parent = ancestor.parent_id;
-    }
-
-    titles.push(server.to_owned());
-    titles.reverse();
-    titles.join(" › ").into()
 }
 
 /// Coordinate a debounced search and apply only results belonging to the active query.
@@ -228,9 +135,18 @@ pub fn spawn_search(
                 &executor,
                 tokio_handle.clone(),
                 async move {
-                    request
-                        .search_server(name, server, databases, block_ids, system_configurations)
-                        .await
+                    search(
+                        &name,
+                        &server,
+                        &databases,
+                        block_ids,
+                        request.method,
+                        system_configurations,
+                        Some(request.query),
+                        request.vector,
+                        request.top_n,
+                    )
+                    .await
                 },
             ));
         }
