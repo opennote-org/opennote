@@ -9,7 +9,8 @@ use opennote_models::query::BlockQuery;
 use crate::globals::{
     actions::route_helpers::route_read_blocks,
     bootstrap::GlobalApplicationBootStrap,
-    helpers::{get_language_profile, run_async_background},
+    helpers::run_async_background,
+    language::LanguageProfile,
     states::{States, server_registry::ServerStates},
     tasks::{
         helpers::start_task, task_information::TaskInformation, task_result::TaskType,
@@ -25,10 +26,16 @@ pub fn export_files(
     >,
     blocks_to_export: Vec<Uuid>,
 ) {
-    let language_profile = get_language_profile(cx).unwrap();
-    let exporting_message = language_profile["exporting_n_blocks"].clone();
-    let exported_message = language_profile["exported_n_blocks"].clone();
-    let export_failed_message = language_profile["block_export_failed"].clone();
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let exporting_message = language_profile
+        .get_description("exporting_n_blocks")
+        .unwrap();
+    let exported_message = language_profile
+        .get_description("exported_n_blocks")
+        .unwrap();
+    let export_failed_message = language_profile
+        .get_description("block_export_failed")
+        .unwrap();
     let num_blocks = Rc::new(Cell::new(0));
     let num_blocks_for_task = num_blocks.clone();
 

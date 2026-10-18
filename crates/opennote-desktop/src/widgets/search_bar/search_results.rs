@@ -19,7 +19,7 @@ use crate::{
     globals::{
         actions::search::{SearchResult, SearchStatus},
         bootstrap::helpers::get_bootstrap,
-        helpers::get_language_profile,
+        language::LanguageProfile,
         states::States,
     },
     widgets::{
@@ -89,14 +89,14 @@ impl ListDelegate for SearchResultsList {
         _: &mut gpui_kit::Window,
         cx: &mut Context<ListState<Self>>,
     ) -> impl gpui_kit::IntoElement {
-        let profile = get_language_profile(cx).unwrap();
+        let profile = LanguageProfile::get_language_profile(cx).unwrap();
         let message = match self.status {
             SearchStatus::Idle => {
                 let key = match self.search_method {
                     SupportedSearchMethod::Keyword => "search_bar_keyword_hint",
                     SupportedSearchMethod::Semantic => "search_bar_semantic_hint",
                 };
-                SharedString::from(profile[key].clone())
+                profile.get_description(key).unwrap()
             }
             _ => self.status.label(&profile),
         };

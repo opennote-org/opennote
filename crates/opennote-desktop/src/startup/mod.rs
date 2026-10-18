@@ -3,7 +3,7 @@ pub mod traits;
 use anyhow::{Error, Result, anyhow};
 use gpui_kit::*;
 
-use opennote_models::constants::STARTUP_MESSAGE_CHANNEL_CAPACITY;
+use opennote_models::constants::DEFAULT_MESSAGE_CHANNEL_CAPACITY;
 
 use crate::{
     globals::{
@@ -36,9 +36,9 @@ impl ResourceLoader {
 
         // Send and receive the messages in streaming manner
         let (message_sender, message_receiver) =
-            tokio::sync::mpsc::channel(STARTUP_MESSAGE_CHANNEL_CAPACITY);
+            tokio::sync::mpsc::channel(DEFAULT_MESSAGE_CHANNEL_CAPACITY);
         let (dispatch_action_sender, dispatch_action_receiver) =
-            tokio::sync::mpsc::channel(STARTUP_MESSAGE_CHANNEL_CAPACITY);
+            tokio::sync::mpsc::channel(DEFAULT_MESSAGE_CHANNEL_CAPACITY);
 
         tokio::spawn(async move {
             let bootstrap = match GlobalApplicationBootStrap::initialize_as_resource(

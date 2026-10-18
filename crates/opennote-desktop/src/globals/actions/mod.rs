@@ -24,11 +24,7 @@ use opennote_models::{
 };
 
 use crate::globals::{
-    actions::block::build_block,
-    bootstrap::GlobalApplicationBootStrap,
-    helpers::{get_language_profile, run_async_background},
-    states::{States, server_registry::ServerStates},
-    tasks::{
+    actions::block::build_block, bootstrap::GlobalApplicationBootStrap, helpers::run_async_background, language::LanguageProfile, states::{States, server_registry::ServerStates}, tasks::{
         helpers::start_task,
         task_information::TaskInformation,
         task_result::TaskType,
@@ -49,11 +45,20 @@ pub fn create_one_block(
     cx: &mut gpui_kit::App,
     parent_block_id: Option<Uuid>,
 ) {
-    let language_profile = get_language_profile(cx).unwrap();
-    let default_block_title = language_profile["default_block_title"].clone();
-    let creating_message = language_profile["creating_one_block"].clone();
-    let created_message = language_profile["created_one_block"].clone();
-    let creation_failed_message = language_profile["block_creation_failed"].clone();
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let default_block_title = language_profile
+        .get_description("default_block_title")
+        .unwrap()
+        .to_string();
+    let creating_message = language_profile
+        .get_description("creating_one_block")
+        .unwrap();
+    let created_message = language_profile
+        .get_description("created_one_block")
+        .unwrap();
+    let creation_failed_message = language_profile
+        .get_description("block_creation_failed")
+        .unwrap();
 
     let task = TaskInformation::new(creating_message, TaskType::Uncategorized, false);
 
@@ -115,10 +120,17 @@ pub fn create_one_block(
 /// Delete n blocks specified by their ids.
 /// This is a normal task that will only show up in the notification center on finish.
 pub fn delete_n_blocks(window: &mut Window, cx: &mut gpui_kit::App, block_ids: Vec<Uuid>) {
-    let language_profile = get_language_profile(cx).unwrap();
-    let deleting_message = language_profile["deleting_n_blocks"].clone();
-    let deleted_message = language_profile["deleted_n_blocks"].clone();
-    let deletion_failed_message = language_profile["block_deletion_failed"].clone();
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let deleting_message = language_profile
+        .get_description("deleting_n_blocks")
+        .unwrap();
+    let deleted_message = language_profile
+        .get_description("deleted_n_blocks")
+        .unwrap();
+    let deletion_failed_message = language_profile
+        .get_description("block_deletion_failed")
+        .unwrap();
+
     let num_blocks = block_ids.len();
 
     let task = TaskInformation::new(
@@ -186,10 +198,16 @@ pub fn update_n_blocks(
     server_states: ServerStates,
     with_payload_changes: bool,
 ) {
-    let language_profile = get_language_profile(cx).unwrap();
-    let updating_message = language_profile["updating_n_blocks"].clone();
-    let updated_message = language_profile["updated_n_blocks"].clone();
-    let update_failed_message = language_profile["block_update_failed"].clone();
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let updating_message = language_profile
+        .get_description("updating_n_blocks")
+        .unwrap();
+    let updated_message = language_profile
+        .get_description("updated_n_blocks")
+        .unwrap();
+    let update_failed_message = language_profile
+        .get_description("block_update_failed")
+        .unwrap();
     let num_blocks = blocks.len();
 
     let task = TaskInformation::new(
@@ -280,10 +298,16 @@ pub fn update_parent(
     new_parent_block_id: Option<Uuid>,
     block_ids: Vec<Uuid>,
 ) {
-    let language_profile = get_language_profile(cx).unwrap();
-    let updating_message = language_profile["updating_blocks_parent"].clone();
-    let updated_message = language_profile["updated_parent_for_n_blocks"].clone();
-    let update_failed_message = language_profile["block_parent_update_failed"].clone();
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let updating_message = language_profile
+        .get_description("updating_blocks_parent")
+        .unwrap();
+    let updated_message = language_profile
+        .get_description("updated_parent_for_n_blocks")
+        .unwrap();
+    let update_failed_message = language_profile
+        .get_description("block_parent_update_failed")
+        .unwrap();
     let num_blocks = block_ids.len();
 
     let task = TaskInformation::new(updating_message, TaskType::Uncategorized, false);
@@ -358,10 +382,14 @@ pub fn update_parent(
 /// while the remote servers will delete the existing blocks first, and then reinsert.
 /// Therefore, they are fundamentally different operations.
 pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
-    let language_profile = get_language_profile(cx).unwrap();
-    let reindexing_message = language_profile["rebuilding_index"].clone();
-    let reindexed_message = language_profile["rebuilt_index"].clone();
-    let reindex_failed_message = language_profile["index_rebuild_failed"].clone();
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let reindexing_message = language_profile
+        .get_description("rebuilding_index")
+        .unwrap();
+    let reindexed_message = language_profile.get_description("rebuilt_index").unwrap();
+    let reindex_failed_message = language_profile
+        .get_description("index_rebuild_failed")
+        .unwrap();
 
     let task = TaskInformation::new(reindexing_message, TaskType::RebuildIndex, true);
 

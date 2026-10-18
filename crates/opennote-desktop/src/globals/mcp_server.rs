@@ -20,8 +20,9 @@ use opennote_mcp_server::{
     traits::OpenNoteMCPServiceImplementation,
 };
 use opennote_models::{
-    configurations::fields::search::SupportedSearchMethod, payload::create_query,
-    query::BlockQuery, traits::summarization::summarize_all,
+    configurations::fields::search::SupportedSearchMethod,
+    constants::DEFAULT_MESSAGE_CHANNEL_CAPACITY, payload::create_query, query::BlockQuery,
+    traits::summarization::summarize_all,
 };
 
 use crate::globals::{
@@ -33,12 +34,45 @@ use crate::globals::{
         search::{SearchResult, search},
     },
     bootstrap::helpers::get_bootstrap,
+    language::LanguageProfile,
     states::{helpers::get_states, server_registry::ServerRegistry},
 };
+
+#[derive(Debug)]
+pub struct MCPNotification {
+    pub message: SharedString,
+    pub need_refresh: bool,
+}
+
+impl MCPNotification {
+    pub fn new(message: SharedString, need_refresh: bool) -> Self {
+        Self {
+            message,
+            need_refresh,
+        }
+    }
+
+    pub fn get_message(&self) -> SharedString {
+        self.message.clone()
+    }
+
+    pub fn get_refresh_need(&self) -> bool {
+        self.need_refresh
+    }
+}
 
 pub struct DesktopMCPServer {
     server_registry: ServerRegistry,
     bootstrap: DesktopBootstrap,
+    language_profile: LanguageProfile,
+
+    /// Reserved for sending and receiving notifications
+    /// between the mcp server thread and the main thread.
+    notification_sender: tokio::sync::mpsc::Sender<MCPNotification>,
+
+    /// Reserved for sending and receiving notifications
+    /// between the mcp server thread and the main thread.
+    notification_receiver: tokio::sync::mpsc::Receiver<MCPNotification>,
 }
 
 impl Global for DesktopMCPServer {}
@@ -56,6 +90,7 @@ impl DesktopMCPServer {
                 .mcp_server
                 .clone()
         });
+        let language_profile = LanguageProfile::get_language_profile(cx)?;
 
         if !configurations.enabled {
             return Ok(());
@@ -63,7 +98,11 @@ impl DesktopMCPServer {
 
         let states = get_states(cx);
 
-        let mcp_server = DesktopMCPServer::new(states.get_server_registry(), bootstrap.0.clone());
+        let mcp_server = DesktopMCPServer::new(
+            states.get_server_registry(),
+            bootstrap.0.clone(),
+            language_profile,
+        );
 
         let server = run_mcp_server(
             &configurations.get_mcp_server_address(),
@@ -71,19 +110,25 @@ impl DesktopMCPServer {
             std::sync::Arc::new(mcp_server),
         )?;
 
-        cx.background_spawn(async {
-            let runtime = tokio::runtime::Runtime::new().unwrap();
-            runtime.block_on(async { server.await.unwrap() })
-        })
-        .detach();
+        tokio::spawn(async move { server.await.unwrap() });
 
         Ok(())
     }
 
-    pub fn new(server_registry: ServerRegistry, bootstrap: DesktopBootstrap) -> Self {
+    pub fn new(
+        server_registry: ServerRegistry,
+        bootstrap: DesktopBootstrap,
+        language_profile: LanguageProfile,
+    ) -> Self {
+        let (notification_sender, notification_receiver) =
+            tokio::sync::mpsc::channel(DEFAULT_MESSAGE_CHANNEL_CAPACITY);
+
         Self {
             server_registry,
             bootstrap,
+            language_profile,
+            notification_sender,
+            notification_receiver,
         }
     }
 
@@ -100,6 +145,9 @@ impl DesktopMCPServer {
 #[async_trait]
 impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
     async fn search(&self, request: MCPSearchRequest) -> Result<String> {
+        self.notification_sender
+            .send(MCPNotification::new(message, need_refresh));
+
         let MCPSearchRequest {
             search_method,
             block_ids,

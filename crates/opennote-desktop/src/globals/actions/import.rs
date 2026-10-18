@@ -10,7 +10,8 @@ use opennote_models::configurations::system::SystemConfigurations;
 use crate::globals::{
     actions::{block::build_block, route_helpers::route_create_blocks},
     bootstrap::GlobalApplicationBootStrap,
-    helpers::{get_language_profile, run_async_background},
+    helpers::run_async_background,
+    language::LanguageProfile,
     states::{States, server_registry::ServerStates},
     tasks::{
         helpers::start_task, task_information::TaskInformation, task_result::TaskType,
@@ -26,10 +27,16 @@ pub fn import_files(
         Result<Option<Vec<std::path::PathBuf>>, anyhow::Error>,
     >,
 ) {
-    let language_profile = get_language_profile(cx).unwrap();
-    let importing_message = language_profile["importing_n_blocks"].clone();
-    let imported_message = language_profile["imported_n_blocks"].clone();
-    let import_failed_message = language_profile["block_import_failed"].clone();
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let importing_message = language_profile
+        .get_description("importing_n_blocks")
+        .unwrap();
+    let imported_message = language_profile
+        .get_description("imported_n_blocks")
+        .unwrap();
+    let import_failed_message = language_profile
+        .get_description("block_import_failed")
+        .unwrap();
     let num_blocks = Rc::new(Cell::new(0));
     let num_blocks_for_task = num_blocks.clone();
 

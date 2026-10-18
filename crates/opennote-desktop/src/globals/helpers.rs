@@ -1,24 +1,3 @@
-use std::collections::HashMap;
-
-use anyhow::Result;
-use gpui_kit::App;
-
-use crate::globals::{assets::AssetsCollection, bootstrap::helpers::get_bootstrap};
-
-pub fn get_language_profile(cx: &App) -> Result<HashMap<String, String>> {
-    let bootstrap = get_bootstrap(cx);
-    let assets_collection: &AssetsCollection = cx.global();
-    let configurations = bootstrap.get_configurations();
-
-    let language = configurations.user.language.to_string();
-
-    Ok(assets_collection
-        .language_profiles
-        .get(&language)
-        .unwrap()
-        .to_owned())
-}
-
 /// Run async codes in the background without freezing the foreground UI.
 /// This is for running async functions that require a tokio runtime
 /// and also require direct value returning.

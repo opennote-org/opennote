@@ -22,7 +22,7 @@ use uuid::Uuid;
 use opennote_velotype::editor::Editor;
 
 use crate::{
-    globals::{helpers::get_language_profile, tasks::tracker::TaskTracker},
+    globals::{language::LanguageProfile, tasks::tracker::TaskTracker},
     key_mappings::{
         helpers::get_keystrokes_as_shared_string,
         mappings::{CreateOneBlock, OpenNewWindow, ToggleCommandBar, ToggleSearchBar},
@@ -268,7 +268,7 @@ impl Pane {
     }
 
     fn create_commmand_board(cx: &mut Context<'_, Pane>) -> Div {
-        let language_profile = get_language_profile(cx).unwrap();
+        let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
 
         v_flex()
             .relative()
@@ -280,19 +280,31 @@ impl Pane {
                         .bordered(false)
                         .large()
                         .children([
-                            DescriptionItem::new(language_profile["search"].to_string()).value(
+                            DescriptionItem::new(
+                                language_profile.get_description("search").unwrap(),
+                            )
+                            .value(
                                 get_keystrokes_as_shared_string(cx, ToggleSearchBar.boxed_clone())
                                     .unwrap_or("".into()),
                             ),
-                            DescriptionItem::new(language_profile["commands"].to_string()).value(
+                            DescriptionItem::new(
+                                language_profile.get_description("commands").unwrap(),
+                            )
+                            .value(
                                 get_keystrokes_as_shared_string(cx, ToggleCommandBar.boxed_clone())
                                     .unwrap_or("".into()),
                             ),
-                            DescriptionItem::new(language_profile["new_note"].to_string()).value(
+                            DescriptionItem::new(
+                                language_profile.get_description("new_note").unwrap(),
+                            )
+                            .value(
                                 get_keystrokes_as_shared_string(cx, CreateOneBlock.boxed_clone())
                                     .unwrap_or("".into()),
                             ),
-                            DescriptionItem::new(language_profile["new_window"].to_string()).value(
+                            DescriptionItem::new(
+                                language_profile.get_description("new_window").unwrap(),
+                            )
+                            .value(
                                 get_keystrokes_as_shared_string(cx, OpenNewWindow.boxed_clone())
                                     .unwrap_or("".into()),
                             ),

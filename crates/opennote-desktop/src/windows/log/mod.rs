@@ -15,7 +15,7 @@ use opennote_models::constants::{
 };
 
 use crate::{
-    globals::{helpers::get_language_profile, log::GlobalLogWindowState},
+    globals::{language::LanguageProfile, log::GlobalLogWindowState},
     windows::{
         helpers::{create_window_option, format_window_title},
         log::entry::LogEntry,
@@ -95,7 +95,7 @@ impl LogWindow {
 impl Render for LogWindow {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let language_profile =
-            get_language_profile(cx).expect("Getting log window language failed");
+            LanguageProfile::get_language_profile(cx).expect("Getting log window language failed");
         v_flex()
             .size_full()
             .bg(cx.theme().background)
@@ -107,9 +107,13 @@ impl Render for LogWindow {
                     .border_color(cx.theme().border)
                     .child(format!(
                         "{} · {} / {LOG_WINDOW_CAPACITY} · {}",
-                        language_profile["log_window_title"],
+                        language_profile
+                            .get_description("log_window_title")
+                            .unwrap(),
                         self.lines.len(),
-                        language_profile["log_window_newest_last"]
+                        language_profile
+                            .get_description("log_window_newest_last")
+                            .unwrap()
                     )),
             )
             .child(
@@ -158,14 +162,22 @@ impl WindowObject<Root> for LogWindow {
         }
 
         // Open a new log window if there is no log window
-        let language_profile = get_language_profile(cx)
+        let language_profile = LanguageProfile::get_language_profile(cx)
             .context("Getting language profile for the log window failed")?;
 
         let view = cx.global::<GlobalLogWindowState>().get_view();
 
         let options = create_window_option(
             cx,
-            format_window_title(Some(&language_profile["log_window_title"]), None, None),
+            format_window_title(
+                Some(
+                    &language_profile
+                        .get_description("log_window_title")
+                        .unwrap(),
+                ),
+                None,
+                None,
+            ),
             LOADING_WINDOW_WIDTH * 3.0,
             LOADING_WINDOW_HEIGHT,
         );

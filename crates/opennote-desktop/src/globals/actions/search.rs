@@ -16,6 +16,7 @@ use opennote_models::{
 
 use crate::globals::{
     actions::route_helpers::{route_read_blocks, route_search_blocks},
+    language::LanguageProfile,
     states::server_registry::ServerStates,
 };
 
@@ -53,7 +54,7 @@ pub enum SearchStatus {
 }
 
 impl SearchStatus {
-    pub fn label(self, language_profile: &HashMap<String, String>) -> SharedString {
+    pub fn label(self, language_profile: &LanguageProfile) -> SharedString {
         let key = match self {
             Self::Idle => "search_bar_placeholder",
             Self::Searching => "search_bar_searching",
@@ -61,13 +62,15 @@ impl SearchStatus {
             Self::SemanticUnavailable => "search_bar_semantic_unavailable",
             Self::PartialFailure => "search_bar_partial_failure",
             Self::Matches(count) => {
-                return language_profile["search_bar_match_count"]
+                return language_profile
+                    .get_description("search_bar_match_count")
+                    .unwrap()
                     .replace("{}", &count.to_string())
                     .into();
             }
         };
 
-        language_profile[key].clone().into()
+        language_profile.get_description(key).unwrap()
     }
 }
 

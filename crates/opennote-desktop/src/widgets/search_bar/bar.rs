@@ -14,7 +14,7 @@ use gpui_kit::{
 use opennote_models::configurations::fields::search::SupportedSearchMethod;
 
 use crate::{
-    globals::{helpers::get_language_profile, states::helpers::get_states},
+    globals::{language::LanguageProfile, states::helpers::get_states},
     widgets::{
         floating::create_float_palette,
         pane::Pane,
@@ -62,7 +62,10 @@ impl SearchBar {
             )
         });
 
-        let placeholder = get_language_profile(cx).unwrap()["search_bar_placeholder"].clone();
+        let placeholder = LanguageProfile::get_language_profile(cx)
+            .unwrap()
+            .get_description("search_bar_placeholder")
+            .unwrap();
         let query_input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
 
         let search_scopes = search_scope_labels(cx);
@@ -127,7 +130,7 @@ impl Render for SearchBar {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl gpui_kit::IntoElement {
-        let profile = get_language_profile(cx).unwrap();
+        let profile = LanguageProfile::get_language_profile(cx).unwrap();
         let width = (window.viewport_size().width - px(48.)).min(px(960.));
 
         // Leave room for the input, column headings and outer window margins.

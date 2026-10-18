@@ -8,7 +8,7 @@ use gpui_kit::{
     },
 };
 
-use crate::globals::helpers::get_language_profile;
+use crate::globals::language::LanguageProfile;
 
 pub const PENDING_TASKS_WARNING: &str = "pending_tasks_warning";
 
@@ -18,11 +18,19 @@ pub fn open_warning_dialogue(
     language_profile_entry: &'static str,
 ) -> impl Fn(Dialog, &mut Window, &mut App) -> Dialog + 'static {
     move |dialogue, _window, cx| {
-        let language_profile = get_language_profile(cx).unwrap();
-        let title = language_profile[&format!("{language_profile_entry}_title")].clone();
-        let message = language_profile[&format!("{language_profile_entry}_message")].clone();
-        let cancel_string = language_profile[&format!("{language_profile_entry}_cancel")].clone();
-        let discard_string = language_profile[&format!("{language_profile_entry}_discard")].clone();
+        let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+        let title = language_profile
+            .get_description(&format!("{language_profile_entry}_title"))
+            .unwrap();
+        let message = language_profile
+            .get_description(&format!("{language_profile_entry}_message"))
+            .unwrap();
+        let cancel_string = language_profile
+            .get_description(&format!("{language_profile_entry}_cancel"))
+            .unwrap();
+        let discard_string = language_profile
+            .get_description(&format!("{language_profile_entry}_discard"))
+            .unwrap();
 
         dialogue.title(title).child(message).footer(
             h_flex().gap_2().children([

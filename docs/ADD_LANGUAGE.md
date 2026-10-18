@@ -7,7 +7,7 @@ OpenNote embeds its UI translations at compile time. Each language is a JSON obj
 - Translation files live in `assets/languages/`.
 - `crates/opennote-desktop/src/globals/assets.rs` embeds every JSON asset and loads files below `languages/` into `AssetsCollection::language_profiles`.
 - The filename without `.json` is the profile name. For example, `languages/english.json` becomes `english`.
-- `crates/opennote-desktop/src/globals/helpers.rs::get_language_profile` receives the GPUI app context, reads `GlobalApplicationBootStrap` and `AssetsCollection` from it, converts the configured `UserInterfaceLanguage` to a string, and looks up the profile with that name.
+- `crates/opennote-desktop/src/globals/language.rs::LanguageProfile::get_language_profile` receives the GPUI app context, reads `GlobalApplicationBootStrap` and `AssetsCollection` from it, converts the configured `UserInterfaceLanguage` to a string, and wraps the profile with that name in `LanguageProfile`.
 
 The configured language name and JSON filename must therefore match exactly.
 
@@ -98,7 +98,7 @@ Choose a descriptive snake-case key and add it to **every** file in `assets/lang
 }
 ```
 
-Missing keys currently cause a runtime panic because call sites index the profile directly, for example `language_profile["settings_title"]`. Treat `english.json` as the canonical key list and keep all profiles synchronized.
+Missing keys currently cause a runtime panic because required translations unwrap the accessor result, for example `language_profile.get_description("settings_title").unwrap()`. Treat `english.json` as the canonical key list and keep all profiles synchronized.
 
 Action labels are a special case: `match_action_to_language` looks up `Action::name()` directly. Their translation keys must exactly match the action name, including its namespace and capitalization:
 
@@ -110,32 +110,34 @@ Action labels are a special case: `match_action_to_language` looks up `Action::n
 
 ## Use a translation in desktop code
 
-Import the helper:
+Import the language profile type:
 
 ```rust
-use crate::globals::helpers::get_language_profile;
+use crate::globals::language::LanguageProfile;
 ```
 
 In code with a GPUI context, pass the context directly to retrieve the active profile:
 
 ```rust
-let language_profile = get_language_profile(cx)
+let language_profile = LanguageProfile::get_language_profile(cx)
     .context("Getting language profile failed")?;
 
-let title = language_profile["settings_title"].clone();
+let title = language_profile
+    .get_description("settings_title")
+    .context("Missing settings_title translation")?;
 ```
 
-`get_language_profile` reads both `GlobalApplicationBootStrap` and `AssetsCollection` from the supplied context, so callers do not need to retrieve or pass those globals separately.
+`LanguageProfile::get_language_profile` reads both `GlobalApplicationBootStrap` and `AssetsCollection` from the supplied context, so callers do not need to retrieve or pass those globals separately.
 
-Use the translated value in the component:
+`get_description` returns `Option<SharedString>`. Use the translated value directly in the component:
 
 ```rust
-Label::new(&language_profile["settings_title"])
+Label::new(title)
 ```
 
 Existing code sometimes uses `unwrap()` instead of propagating the error. Follow the error-handling style of the surrounding function, but include enough context when the function can return an error.
 
-`GlobalApplicationBootStrap` and `AssetsCollection` are already initialized in `crates/opennote-desktop/src/main.rs` before the UI state is created, so normal desktop components can pass their GPUI context directly to `get_language_profile(cx)`.
+`GlobalApplicationBootStrap` and `AssetsCollection` are already initialized in `crates/opennote-desktop/src/main.rs` before the UI state is created, so normal desktop components can pass their GPUI context directly to `LanguageProfile::get_language_profile(cx)`.
 
 ## Validate the change
 

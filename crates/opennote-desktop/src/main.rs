@@ -75,23 +75,24 @@ async fn main() -> Result<()> {
 
             let _ = loading_window.update(cx, move |loading_view, loading_window, cx| {
                 LogWindow::install(receiver, cx);
+
                 bootstrap.install(cx);
+
                 cx.set_global(assets);
+
                 States::init(cx);
 
                 match init_velotype(cx) {
-                    Ok(_) => {}
+                    Ok(_) => loading_view.set_message("Loading editor...", cx),
                     Err(error) => loading_view.set_error(error.to_string(), cx),
                 };
 
                 match DesktopMCPServer::init(cx) {
-                    Ok(_) => {}
+                    Ok(_) => loading_view.set_message("Loading MCP server...", cx),
                     Err(error) => loading_view.set_error(error.to_string(), cx),
                 };
 
-                let workspace_window = Workspace::open(cx);
-
-                match workspace_window {
+                match Workspace::open(cx) {
                     Ok(workspace_window) => {
                         loading_window.remove_window();
 
