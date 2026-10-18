@@ -140,14 +140,27 @@ impl DesktopMCPServer {
             })
             .collect()
     }
+
+    fn send_notification(&self, message_key: &str, count: usize, need_refresh: bool) {
+        let message = self
+            .language_profile
+            .get_description(message_key)
+            .unwrap()
+            .replace("{}", &count.to_string());
+
+        match self
+            .notification_sender
+            .try_send(MCPNotification::new(message.into(), need_refresh))
+        {
+            Ok(()) => {}
+            Err(error) => tracing::warn!("Sending MCP notification failed: {}", error),
+        }
+    }
 }
 
 #[async_trait]
 impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
     async fn search(&self, request: MCPSearchRequest) -> Result<String> {
-        self.notification_sender
-            .send(MCPNotification::new(message, need_refresh));
-
         let MCPSearchRequest {
             search_method,
             block_ids,
@@ -214,6 +227,8 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         .flatten()
         .collect();
 
+        self.send_notification("mcp_search_completed", results.len(), false);
+
         Ok(summarize_all(results))
     }
 
@@ -250,6 +265,8 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         )
         .await?;
 
+        self.send_notification("mcp_read_blocks_completed", blocks.len(), false);
+
         Ok(summarize_all(blocks))
     }
 
@@ -284,7 +301,10 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         .await?;
 
         match blocks.get(0) {
-            Some(block) => Ok(block.get_text_content()),
+            Some(block) => {
+                self.send_notification("mcp_read_block_details_completed", 1, false);
+                Ok(block.get_text_content())
+            }
             None => Err(anyhow!("Block {} missing", &request.block_id)),
         }
     }
@@ -404,6 +424,8 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             _ => return Ok(()),
         }
 
+        self.send_notification("mcp_update_block_completed", 1, true);
+
         Ok(())
     }
 
@@ -454,6 +476,8 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             None => return Err(anyhow!("Missing server: {}", &server_name)),
         };
 
+        self.send_notification("mcp_create_block_completed", 1, true);
+
         Ok(())
     }
 
@@ -468,6 +492,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         let servers = self.server_registry.get_servers_connections();
         let server_name: SharedString = request.scope.clone().into();
         let block_ids = Self::parse_block_ids(request.block_ids)?;
+        let num_blocks = block_ids.len();
 
         if !configurations
             .user
@@ -490,6 +515,8 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             }
             None => return Err(anyhow!("Missing server: {}", &server_name)),
         };
+
+        self.send_notification("mcp_delete_blocks_completed", num_blocks, true);
 
         Ok(())
     }

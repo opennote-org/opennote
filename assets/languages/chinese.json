@@ -58,5 +58,11 @@
   "search_bar_scope_collection": "当前集合",
   "search_bar_scope_userspace": "全部笔记",
   "search_bar_keyword_hint": "查找匹配的词语和短语",
-  "search_bar_semantic_hint": "查找语义相关的笔记"
+  "search_bar_semantic_hint": "查找语义相关的笔记",
+  "mcp_search_completed": "MCP 搜索找到 {} 条匹配结果",
+  "mcp_read_blocks_completed": "MCP 已读取 {} 个笔记",
+  "mcp_read_block_details_completed": "MCP 已读取笔记详情",
+  "mcp_update_block_completed": "MCP 已更新 1 个笔记",
+  "mcp_create_block_completed": "MCP 已创建 1 个笔记",
+  "mcp_delete_blocks_completed": "MCP 已删除 {} 个笔记"
 }

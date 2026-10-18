@@ -58,5 +58,11 @@
   "search_bar_scope_collection": "Collection",
   "search_bar_scope_userspace": "Userspace",
   "search_bar_keyword_hint": "Find matching words and phrases",
-  "search_bar_semantic_hint": "Find notes with related meaning"
+  "search_bar_semantic_hint": "Find notes with related meaning",
+  "mcp_search_completed": "MCP search found {} matches",
+  "mcp_read_blocks_completed": "MCP read {} blocks",
+  "mcp_read_block_details_completed": "MCP read block details",
+  "mcp_update_block_completed": "MCP updated 1 block",
+  "mcp_create_block_completed": "MCP created 1 block",
+  "mcp_delete_blocks_completed": "MCP deleted {} blocks"
 }
