@@ -37,11 +37,7 @@ impl Embedder {
         let config = std::fs::read_to_string(config_filename)?;
         let config: serde_json::Value = serde_json::from_str(&config)?;
 
-        let is_onnx = repo
-            .inspect_files(false)?
-            .iter()
-            .find(|entry| entry.ends_with(".onnx"))
-            .is_some();
+        let is_onnx = repo.is_onnx()?;
 
         let architecture = config["architectures"]
             .as_array()
