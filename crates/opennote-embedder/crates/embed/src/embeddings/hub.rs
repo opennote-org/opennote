@@ -8,45 +8,27 @@ use hf_hub::{
 
 pub const HUGGINGFACE_CHINESE_MIRROR: &str = "https://hf-mirror.com";
 
-/// Test the connectivity between the computer and huggingface
-pub fn is_huggingface_connected() -> bool {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            let client = reqwest::Client::new();
-
-            match client.get("https://huggingface.co").send().await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        })
-    })
-}
-
-/// Blocking Hugging Face Hub client shared by model repositories created during one load.
+/// Blocking Hugging Face Hub clients shared during one model load.
 #[derive(Clone)]
 pub(crate) struct HubClient {
     inner: HFClientSync,
+    mirror: HFClientSync,
 }
 
 impl HubClient {
     pub(crate) fn new(token: Option<&str>) -> Result<Self> {
-        let endpoint = match is_huggingface_connected() {
-            true => None,
-            false => Some(HUGGINGFACE_CHINESE_MIRROR),
-        };
-
-        let mut builder = HFClientBuilder::new();
-
-        if let Some(endpoint) = endpoint {
-            builder = builder.endpoint(endpoint);
-        }
+        let mut primary = HFClientBuilder::new();
+        let mut mirror = HFClientBuilder::new().endpoint(HUGGINGFACE_CHINESE_MIRROR);
 
         if let Some(token) = token {
-            builder = builder.token(token);
+            primary = primary.token(token);
+            mirror = mirror.token(token);
         }
 
+        // Constructing clients does not make network requests.
         Ok(Self {
-            inner: builder.build_sync()?,
+            inner: primary.build_sync()?,
+            mirror: mirror.build_sync()?,
         })
     }
 
@@ -54,6 +36,7 @@ impl HubClient {
         let (owner, name) = hf_hub::split_id(model_id);
         HubModelRepo {
             inner: self.inner.model(owner, name),
+            mirror: self.mirror.model(owner, name),
             revision: revision.map(str::to_owned),
         }
     }
@@ -63,6 +46,7 @@ impl HubClient {
 #[derive(Clone)]
 pub(crate) struct HubModelRepo {
     inner: HFRepositorySync<RepoTypeModel>,
+    mirror: HFRepositorySync<RepoTypeModel>,
     revision: Option<String>,
 }
 
@@ -71,14 +55,78 @@ impl HubModelRepo {
         Ok(HubClient::new(token)?.model(model_id, revision))
     }
 
-    /// List files in this repo
-    pub(crate) fn inspect_files(&self, recursive: bool) -> HFResult<Vec<String>> {
-        let entries = self
-            .inner
-            .list_tree()
+    fn get_cached(&self, filename: &str) -> HFResult<PathBuf> {
+        self.inner
+            .download_file()
+            .filename(filename)
             .maybe_revision(self.revision.clone())
-            .recursive(recursive)
-            .send()?;
+            .local_files_only(true)
+            .send()
+    }
+
+    fn with_mirror<T>(
+        &self,
+        request: impl Fn(&HFRepositorySync<RepoTypeModel>) -> HFResult<T>,
+    ) -> HFResult<T> {
+        match request(&self.inner) {
+            Ok(value) => Ok(value),
+            Err(error @ HFError::Request { .. }) => {
+                tracing::warn!(
+                    error = %error,
+                    "Primary model request failed; trying the mirror"
+                );
+                request(&self.mirror)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub(crate) fn get(&self, filename: &str) -> HFResult<PathBuf> {
+        match self.get_cached(filename) {
+            Ok(path) => return Ok(path),
+            Err(HFError::LocalEntryNotFound { .. }) => {}
+            Err(error) => return Err(error),
+        }
+
+        self.with_mirror(|repo| {
+            repo.download_file()
+                .filename(filename)
+                .maybe_revision(self.revision.clone())
+                .send()
+        })
+    }
+
+    /// Detect the format from cached weights before querying the Hub.
+    ///
+    /// These filenames match the default ONNX and native BERT loaders.
+    /// Other layouts retain the existing remote detection behavior.
+    pub(crate) fn is_onnx(&self) -> HFResult<bool> {
+        for (filename, is_onnx) in [
+            ("model.onnx", true),
+            ("model.safetensors", false),
+            ("pytorch_model.bin", false),
+        ] {
+            match self.get_cached(filename) {
+                Ok(_) => return Ok(is_onnx),
+                Err(HFError::LocalEntryNotFound { .. }) => {}
+                Err(error) => return Err(error),
+            }
+        }
+
+        Ok(self
+            .inspect_files(false)?
+            .iter()
+            .any(|filename| filename.ends_with(".onnx")))
+    }
+
+    /// List files in this repo.
+    pub(crate) fn inspect_files(&self, recursive: bool) -> HFResult<Vec<String>> {
+        let entries = self.with_mirror(|repo| {
+            repo.list_tree()
+                .maybe_revision(self.revision.clone())
+                .recursive(recursive)
+                .send()
+        })?;
 
         Ok(entries
             .into_iter()
@@ -87,14 +135,6 @@ impl HubModelRepo {
                 _ => None,
             })
             .collect())
-    }
-
-    pub(crate) fn get(&self, filename: &str) -> hf_hub::HFResult<PathBuf> {
-        self.inner
-            .download_file()
-            .filename(filename)
-            .maybe_revision(self.revision.clone())
-            .send()
     }
 
     pub(crate) fn optional(&self, filename: &str) -> hf_hub::HFResult<Option<PathBuf>> {
@@ -107,6 +147,14 @@ impl HubModelRepo {
 
     /// Returns the first existing file, falling through only when a file is absent.
     pub(crate) fn first_available(&self, filenames: &[&str]) -> hf_hub::HFResult<PathBuf> {
+        for filename in filenames {
+            match self.get_cached(filename) {
+                Ok(path) => return Ok(path),
+                Err(HFError::LocalEntryNotFound { .. }) => {}
+                Err(error) => return Err(error),
+            }
+        }
+
         let mut last_missing = None;
         for filename in filenames {
             match self.get(filename) {
