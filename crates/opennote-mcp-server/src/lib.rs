@@ -25,6 +25,7 @@ pub fn run_mcp_server(
         .service_factory(Arc::new(move || Ok(service.clone())))
         .session_manager(Arc::new(LocalSessionManager::default()))
         .stateful_mode(true)
+        .allowed_hosts(vec![])
         .build();
 
     Ok(HttpServer::new(move || {

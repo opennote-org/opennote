@@ -246,20 +246,6 @@ impl Editor {
         }));
     }
 
-    // fn sync_pending_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-    //     if self.pending_save {
-    //         self.pending_save = false;
-    //         self.save_document(window, cx);
-    //     }
-    // }
-
-    // fn sync_pending_save_as(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-    //     if self.pending_save_as {
-    //         self.pending_save_as = false;
-    //         self.save_document_as(window, cx);
-    //     }
-    // }
-
     fn sync_pending_open_link(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(link) = self.pending_open_link.take() else {
             return;
