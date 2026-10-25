@@ -497,6 +497,12 @@ impl DocumentTree {
             }
             BlockKind::CodeBlock { language } => {
                 let indentation = "  ".repeat(list_depth);
+                if block_ref.record.uses_indented_code() {
+                    for line in block_ref.record.title.visible_text().split('\n') {
+                        lines.push(format!("{indentation}    {line}"));
+                    }
+                    return;
+                }
                 let lang_str = language.as_ref().map(|s| s.as_ref()).unwrap_or("");
                 let fence = super::persistence::safe_code_fence_with_info(
                     &block_ref.record.title.visible_text(),
@@ -515,7 +521,11 @@ impl DocumentTree {
                 let indentation = "  ".repeat(list_depth);
                 if !title_markdown.is_empty() || block_ref.children.is_empty() {
                     for line in title_markdown.split('\n') {
-                        lines.push(format!("{indentation}> {line}"));
+                        lines.push(if line.is_empty() {
+                            format!("{indentation}>")
+                        } else {
+                            format!("{indentation}> {line}")
+                        });
                     }
                 }
 
@@ -528,11 +538,10 @@ impl DocumentTree {
                         &mut child_lines,
                         false,
                     );
-                    lines.extend(
-                        child_lines
-                            .into_iter()
-                            .map(|line| format!("{indentation}> {line}")),
-                    );
+                    lines.extend(child_lines.into_iter().map(|line| match line.is_empty() {
+                        true => format!("{indentation}>"),
+                        false => format!("{indentation}> {line}"),
+                    }));
                 }
             }
             BlockKind::Callout(variant) => {
@@ -550,11 +559,10 @@ impl DocumentTree {
                         &mut child_lines,
                         false,
                     );
-                    lines.extend(
-                        child_lines
-                            .into_iter()
-                            .map(|line| format!("{indentation}> {line}")),
-                    );
+                    lines.extend(child_lines.into_iter().map(|line| match line.is_empty() {
+                        true => format!("{indentation}>"),
+                        false => format!("{indentation}> {line}"),
+                    }));
                 }
             }
             BlockKind::FootnoteDefinition => {

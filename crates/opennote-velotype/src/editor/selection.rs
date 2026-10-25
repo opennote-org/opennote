@@ -9,10 +9,7 @@ use super::{
     CrossBlockDrag, CrossBlockSelection, CrossBlockSelectionEndpoint, Editor, SourceTargetMapping,
     UndoSelectionSnapshot, ViewMode,
 };
-use crate::components::{
-    Block, BlockKind, Copy, Cut, Delete, DeleteBack, UndoCaptureKind,
-    serialize_table_markdown_lines,
-};
+use crate::components::{Block, Copy, Cut, Delete, DeleteBack, UndoCaptureKind};
 
 /// Cross-block selection with endpoints ordered by visible block position.
 #[derive(Clone, Copy)]
@@ -491,13 +488,6 @@ impl Editor {
         }
     }
 
-    fn source_mapping_by_entity_id(&self, cx: &App) -> HashMap<EntityId, SourceTargetMapping> {
-        self.build_source_target_mappings(cx)
-            .into_iter()
-            .map(|mapping| (mapping.entity.entity_id(), mapping))
-            .collect()
-    }
-
     fn endpoint_source_offset(
         &self,
         endpoint: CrossBlockSelectionEndpoint,
@@ -700,138 +690,11 @@ impl Editor {
     pub(super) fn cross_block_selected_markdown(&self, cx: &App) -> Option<String> {
         let selection = self.normalized_cross_block_selection(cx)?;
         let source = self.current_document_source(cx);
-        let mappings = self.source_mapping_by_entity_id(cx);
-        let visible = self.document.visible_blocks();
-
-        // Join blocks with the same spacing the document serializer uses
-        // (collect_root_markdown_lines): a blank line between blocks, but tight
-        // list items stay on consecutive lines. A flat single-newline join used
-        // to silently fuse separate paragraphs on paste, and once setext pairs
-        // are recognized it could even fabricate a heading from two paragraphs.
-        let mut result = String::new();
-        let mut wrote_chunk = false;
-        let mut pending_empty = 0usize;
-        let mut previous_was_list_item = false;
-
-        for index in selection.start_index..=selection.end_index {
-            let entity = visible.get(index)?.entity.clone();
-            let block = entity.read(cx);
-            let len = block.visible_len();
-            let range = if selection.start_index == selection.end_index {
-                selection.start.offset.min(len)..selection.end.offset.min(len)
-            } else if index == selection.start_index {
-                selection.start.offset.min(len)..len
-            } else if index == selection.end_index {
-                0..selection.end.offset.min(len)
-            } else {
-                0..len
-            };
-            let full_block = range.start == 0
-                && range.end == len
-                && (selection.start_index != selection.end_index || len > 0);
-            // Cut deletes any atomic block covered by a multi-block selection
-            // (see cross_block_source_range_for_normalized), so the clipboard
-            // must serialize those blocks too, including boundary ones, not
-            // just interior. Otherwise cut would drop a table from the clipboard
-            // that it nonetheless removed from the document.
-            let include_atomic = len == 0 && selection.start_index != selection.end_index;
-            if range.is_empty() && !include_atomic {
-                continue;
-            }
-
-            // Empty paragraphs are blank-line separators, not content: defer
-            // them so the gap between real blocks is reproduced as a blank line
-            // rather than collapsed. Atomic content (tables, separators, images)
-            // is len 0 too but is not an empty paragraph, so it still serializes.
-            if (full_block || include_atomic) && Editor::is_empty_root_paragraph(block) {
-                pending_empty += 1;
-                continue;
-            }
-
-            let current_is_list_item = block.kind().is_list_item();
-            if wrote_chunk {
-                let separator_lines = super::tree::root_block_separator_count(
-                    previous_was_list_item,
-                    current_is_list_item,
-                    pending_empty,
-                );
-                result.push_str(&"\n".repeat(separator_lines + 1));
-            }
-            result.push_str(&self.markdown_chunk_for_block(
-                &entity,
-                range,
-                full_block || include_atomic,
-                &source,
-                &mappings,
-                cx,
-            ));
-            wrote_chunk = true;
-            pending_empty = 0;
-            previous_was_list_item = current_is_list_item;
-        }
-
-        Some(result)
-    }
-
-    fn markdown_chunk_for_block(
-        &self,
-        entity: &Entity<Block>,
-        range: Range<usize>,
-        full_block: bool,
-        source: &str,
-        mappings: &HashMap<EntityId, SourceTargetMapping>,
-        cx: &App,
-    ) -> String {
-        if let Some(mapping) = mappings.get(&entity.entity_id()) {
-            if full_block {
-                return source[mapping.full_source_range.clone()].to_string();
-            }
-
-            let start = self
-                .endpoint_source_offset(
-                    CrossBlockSelectionEndpoint {
-                        entity_id: entity.entity_id(),
-                        offset: range.start,
-                    },
-                    mappings,
-                    cx,
-                )
-                .unwrap_or(mapping.full_source_range.start);
-            let end = self
-                .endpoint_source_offset(
-                    CrossBlockSelectionEndpoint {
-                        entity_id: entity.entity_id(),
-                        offset: range.end,
-                    },
-                    mappings,
-                    cx,
-                )
-                .unwrap_or(mapping.full_source_range.end);
-            return source[start.min(end)..start.max(end)].to_string();
-        }
-
-        let block = entity.read(cx);
-        if full_block {
-            return match block.kind() {
-                BlockKind::Table => block
-                    .record
-                    .table
-                    .as_ref()
-                    .map(serialize_table_markdown_lines)
-                    .map(|lines| lines.join("\n"))
-                    .unwrap_or_default(),
-                _ => block
-                    .record
-                    .markdown_line(block.render_depth, block.list_ordinal),
-            };
-        }
-
-        let markdown = block.record.title.serialize_markdown();
-        let markdown_range = block.current_range_to_markdown_range(range);
-        markdown
-            .get(markdown_range)
-            .map(ToOwned::to_owned)
-            .unwrap_or_default()
+        // Copy exactly the source that cut/delete would remove. Reassembling
+        // visible blocks duplicates shared footnote prefixes and loses the
+        // separators belonging to nested containers such as quotes.
+        let range = self.cross_block_source_range_for_normalized(selection, cx)?;
+        source.get(range).map(ToOwned::to_owned)
     }
 
     fn delete_cross_block_selection(&mut self, cx: &mut Context<Self>) -> bool {
@@ -1133,11 +996,36 @@ mod tests {
     }
 
     #[test]
-    fn cross_block_cut_writes_markdown_deletes_range_and_undo_restores() {
+    fn parser_fixture_copy_matches_export() {
         let mut cx = TestAppContext::single();
         init_editor_test_app(&mut cx);
+        let editor = cx.new(|cx| {
+            Editor::from_markdown(
+                cx,
+                include_str!("../../tests/fixtures/parser_round_trip.md").to_string(),
+                None,
+            )
+        });
+        editor.update(&mut cx, |editor, cx| {
+            let expected = editor.get_editor_value(cx);
+            let visible = editor.document.visible_blocks().to_vec();
+            let end_index = visible.len() - 1;
+            let end_len = visible[end_index].entity.read(cx).visible_len();
+            set_selection(editor, 0, 0, end_index, end_len, cx);
+            assert_eq!(
+                editor.cross_block_selected_markdown(cx).as_deref(),
+                Some(expected.as_str()),
+            );
+        });
+        cx.quit();
+    }
+
+    #[test]
+    fn cross_block_cut_writes_markdown_deletes_range_and_undo_restores() {
+        let mut app_cx = TestAppContext::single();
+        init_editor_test_app(&mut app_cx);
         let original = "alpha\n\nbeta\n\ngamma";
-        let (editor, cx) = cx.add_window_view({
+        let (editor, cx) = app_cx.add_window_view({
             let original = original.to_string();
             move |_window, cx| Editor::from_markdown(cx, original.clone(), None)
         });
@@ -1179,7 +1067,9 @@ mod tests {
                 Some("pha\n\nbeta\n\nga")
             );
         });
-        cx.quit();
+        // quit() drops the retained VisualTestContext. Call it through the
+        // original owner, not through the context that cleanup will free.
+        app_cx.quit();
     }
 
     const TABLE_DOC: &str = "alpha\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\ngamma";

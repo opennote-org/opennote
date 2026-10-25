@@ -2318,7 +2318,7 @@ mod tests {
             assert_eq!(visible[1].entity.read(cx).kind(), BlockKind::Quote);
             assert_eq!(visible[1].entity.read(cx).display_text(), "");
             assert_eq!(visible[1].entity.read(cx).quote_depth, 1);
-            assert_eq!(editor.document.markdown_text(cx), "> first\n\n> ");
+            assert_eq!(editor.document.markdown_text(cx), "> first\n\n>");
             assert_eq!(editor.pending_focus, Some(visible[1].entity.entity_id()));
         });
     }
@@ -2347,7 +2347,7 @@ mod tests {
             assert_eq!(visible[0].entity.read(cx).kind(), BlockKind::Quote);
             assert_eq!(visible[0].entity.read(cx).display_text(), "");
             assert_eq!(visible[0].entity.read(cx).quote_depth, 1);
-            assert_eq!(editor.document.markdown_text(cx), "> ");
+            assert_eq!(editor.document.markdown_text(cx), ">");
         });
     }
 
@@ -2479,7 +2479,7 @@ mod tests {
             assert_eq!(visible[1].entity.read(cx).kind(), BlockKind::Paragraph);
             assert_eq!(visible[1].entity.read(cx).display_text(), "");
             assert_eq!(visible[1].entity.read(cx).quote_depth, 1);
-            assert_eq!(editor.document.markdown_text(cx), "> [!NOTE]\n> ");
+            assert_eq!(editor.document.markdown_text(cx), "> [!NOTE]\n>");
             assert_eq!(editor.pending_focus, Some(visible[1].entity.entity_id()));
         });
     }
@@ -4269,7 +4269,7 @@ mod tests {
             assert_eq!(visible[3].entity.read(cx).quote_depth, 2);
             assert_eq!(
                 editor.document.markdown_text(cx),
-                "> outer\n> > inner\n> \n> > "
+                "> outer\n> > inner\n>\n> >"
             );
             assert_eq!(editor.pending_focus, Some(visible[3].entity.entity_id()));
         });
@@ -4296,7 +4296,7 @@ mod tests {
             assert_eq!(visible[0].entity.read(cx).kind(), BlockKind::Quote);
             assert_eq!(visible[0].entity.read(cx).display_text(), "");
             assert_eq!(visible[0].entity.read(cx).quote_depth, 1);
-            assert_eq!(editor.document.markdown_text(cx), "> ");
+            assert_eq!(editor.document.markdown_text(cx), ">");
         });
 
         let empty_quote_id = editor.update(cx, |editor, _cx| {
@@ -4367,7 +4367,7 @@ mod tests {
             assert_eq!(quote.read(cx).kind(), BlockKind::Quote);
             assert_eq!(quote.read(cx).display_text(), "");
             assert_eq!(quote.read(cx).quote_depth, 1);
-            assert_eq!(editor.document.markdown_text(cx), "> ");
+            assert_eq!(editor.document.markdown_text(cx), ">");
         });
 
         cx.update(|window, cx| {
@@ -4431,7 +4431,7 @@ mod tests {
             assert_eq!(visible[1].entity.read(cx).display_text(), "");
             assert_eq!(visible[1].entity.entity_id(), new_leaf_id);
             assert_eq!(visible[1].entity.read(cx).quote_depth, 0);
-            assert_eq!(editor.document.markdown_text(cx), "> side\n> \n> 1234\n\n");
+            assert_eq!(editor.document.markdown_text(cx), "> side\n>\n> 1234\n\n");
         });
     }
 
@@ -4603,7 +4603,7 @@ mod tests {
             assert_eq!(visible[1].entity.read(cx).kind(), BlockKind::Paragraph);
             assert_eq!(visible[1].entity.read(cx).display_text(), "");
             assert_eq!(visible[1].entity.read(cx).quote_depth, 1);
-            assert_eq!(editor.document.markdown_text(cx), "> first\n> ");
+            assert_eq!(editor.document.markdown_text(cx), "> first\n>");
         });
     }
 

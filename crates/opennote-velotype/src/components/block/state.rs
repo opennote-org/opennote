@@ -491,6 +491,8 @@ pub struct BlockRecord {
     pub parent: Option<Uuid>,
     pub content: Vec<Uuid>,
     pub raw_fallback: Option<String>,
+    /// Imported indented code keeps that form while it can represent the content.
+    pub(crate) prefer_indented_code: bool,
 }
 
 impl BlockRecord {
@@ -504,6 +506,7 @@ impl BlockRecord {
             parent: None,
             content: Vec::new(),
             raw_fallback: None,
+            prefer_indented_code: false,
         };
         record.sync_raw_fallback();
         record
@@ -515,6 +518,24 @@ impl BlockRecord {
 
     pub fn paragraph(text: impl Into<String>) -> Self {
         Self::with_plain_text(BlockKind::Paragraph, text)
+    }
+
+    pub(crate) fn uses_indented_code(&self) -> bool {
+        if !self.prefer_indented_code
+            || !matches!(self.kind, BlockKind::CodeBlock { language: None })
+        {
+            return false;
+        }
+        let content = self.title.visible_text();
+        // Leading/trailing blank code lines and language info require fences:
+        // otherwise importing the Markdown would lose those details.
+        !content.split('\n').next().unwrap_or("").trim().is_empty()
+            && !content
+                .split('\n')
+                .next_back()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
     }
 
     pub fn raw_markdown(markdown: impl Into<String>) -> Self {

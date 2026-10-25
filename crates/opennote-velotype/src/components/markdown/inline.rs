@@ -659,8 +659,19 @@ impl InlineTextTree {
                 end += 1;
             }
 
-            let run_map =
-                serialize_fragment_run_markdown_with_offset_map(&self.fragments[index..end]);
+            // A literal bang immediately before a link must not turn its
+            // opening '[' into image syntax when the runs are joined.
+            let escape_final_bang = link.is_none()
+                && self.fragments.get(end).is_some_and(|fragment| {
+                    fragment
+                        .link
+                        .as_ref()
+                        .is_some_and(|link| link.open_marker() == "[")
+                });
+            let run_map = serialize_fragment_run_markdown_with_offset_map(
+                &self.fragments[index..end],
+                escape_final_bang,
+            );
             if let Some(link) = link {
                 let run_visible_len = run_map.visible_to_markdown.len().saturating_sub(1);
                 let link_start = output.len();
@@ -734,6 +745,7 @@ impl InlineTextTree {
 
 fn serialize_fragment_run_markdown_with_offset_map(
     fragments: &[InlineFragment],
+    escape_final_bang: bool,
 ) -> InlineMarkdownOffsetMap {
     if fragments.is_empty() {
         return InlineMarkdownOffsetMap {
@@ -755,7 +767,7 @@ fn serialize_fragment_run_markdown_with_offset_map(
     let mut current_html_style: Option<HtmlInlineStyle> = None;
     let mut visible_cursor = 0usize;
 
-    for (fragment, next_stack) in fragments.iter().zip(stacks.iter()) {
+    for (index, (fragment, next_stack)) in fragments.iter().zip(stacks.iter()).enumerate() {
         if current_html_style != fragment.html_style {
             let transition = stack_transition_string(&current_stack, &[]);
             push_markdown_marker(
@@ -800,7 +812,10 @@ fn serialize_fragment_run_markdown_with_offset_map(
         } else if fragment.style.code {
             escape_code_span_text_with_offset_map(&fragment.text)
         } else {
-            escape_literal_text_with_offset_map(&fragment.text)
+            escape_literal_text_with_offset_map(
+                &fragment.text,
+                escape_final_bang && index + 1 == fragments.len(),
+            )
         };
         let escaped_start = output.len();
         output.push_str(escaped.markdown());
@@ -2094,8 +2109,12 @@ fn locate_inline_link(
     if tokens.get(index)?.ch != '[' {
         return None;
     }
-    if index > 0 && matches!(tokens[index - 1].ch, '!' | ']') {
-        return None;
+    if index > 0 {
+        match tokens[index - 1].ch {
+            '!' if !token_is_backslash_escaped(tokens, index - 1) => return None,
+            ']' => return None,
+            _ => {}
+        }
     }
 
     let mut label_depth = 0usize;
@@ -2636,7 +2655,8 @@ fn escaped_sequence_token_len(tokens: &[CharToken], index: usize) -> Option<usiz
         Some(4)
     } else if matches_sequence(tokens, next_index, "<u>") {
         Some(3)
-    } else if matches_sequence(tokens, next_index, "\\")
+    } else if matches_sequence(tokens, next_index, "!")
+        || matches_sequence(tokens, next_index, "\\")
         || matches_sequence(tokens, next_index, "*")
         || matches_sequence(tokens, next_index, "_")
         || matches_sequence(tokens, next_index, "~")
@@ -2651,7 +2671,10 @@ fn escaped_sequence_token_len(tokens: &[CharToken], index: usize) -> Option<usiz
     }
 }
 
-fn escape_literal_text_with_offset_map(text: &str) -> InlineMarkdownOffsetMap {
+fn escape_literal_text_with_offset_map(
+    text: &str,
+    escape_final_bang: bool,
+) -> InlineMarkdownOffsetMap {
     let mut escaped = String::new();
     let mut visible_to_markdown = vec![0; text.len() + 1];
     let mut markdown_to_visible = vec![0];
@@ -2775,9 +2798,12 @@ fn escape_literal_text_with_offset_map(text: &str) -> InlineMarkdownOffsetMap {
             continue;
         }
 
-        if text[index..].starts_with('^') {
+        if text[index..].starts_with('^')
+            || (escape_final_bang && index + 1 == text.len() && text[index..].starts_with('!'))
+        {
             let start = escaped.len();
-            escaped.push_str("\\^");
+            escaped.push('\\');
+            escaped.push(text[index..].chars().next().unwrap());
             markdown_to_visible.resize(escaped.len() + 1, index);
             for local in 0..=escaped.len() - start {
                 markdown_to_visible[start + local] = index;
@@ -3371,6 +3397,74 @@ mod tests {
         let tree = InlineTextTree::from_markdown("`*`");
         assert_eq!(tree.visible_text(), "*");
         assert_eq!(tree.serialize_markdown(), "`*`");
+    }
+
+    #[test]
+    fn escaped_image_usage_round_trips_as_a_link_after_a_literal_bang() {
+        let source = r"中文 🦀 \![literal](./photo.png) after";
+        let tree = InlineTextTree::from_markdown(source);
+        assert_eq!(tree.visible_text(), "中文 🦀 !literal after");
+        let link_offset = "中文 🦀 !".len();
+        assert_eq!(
+            tree.render_cache().link_at(link_offset),
+            Some("./photo.png")
+        );
+
+        let mut serialized = tree.serialize_markdown();
+        assert_eq!(serialized, source);
+        for _ in 0..3 {
+            assert!(!pulldown_cmark::Parser::new(&serialized).any(|event| {
+                matches!(
+                    event,
+                    pulldown_cmark::Event::Start(pulldown_cmark::Tag::Image { .. })
+                )
+            }));
+            let reparsed = InlineTextTree::from_markdown(&serialized);
+            assert_eq!(reparsed.visible_text(), tree.visible_text());
+            let map = reparsed.markdown_offset_map();
+            for offset in reparsed
+                .visible_text()
+                .char_indices()
+                .map(|(offset, _)| offset)
+            {
+                let source_offset = map.visible_to_markdown_offset(offset);
+                assert!(serialized.is_char_boundary(source_offset));
+                assert_eq!(map.markdown_to_visible_offset(source_offset), offset);
+            }
+            assert_eq!(reparsed.serialize_markdown(), serialized);
+            serialized = reparsed.serialize_markdown();
+        }
+    }
+
+    #[test]
+    fn image_escape_round_trips_distinguish_literal_bangs_and_backslashes() {
+        let definitions =
+            super::super::link::parse_link_reference_definitions("[photo]: ./photo.png");
+        for (source, expected_images) in [
+            (r"![actual](./photo.png)", 1),
+            (r"\\![actual](./photo.png)", 1),
+            (r"\\\![literal](./photo.png)", 0),
+            (r"\![literal][photo]", 0),
+            (r"`\![code](./photo.png)`", 0),
+        ] {
+            let mut serialized = source.to_string();
+            for _ in 0..3 {
+                let tree =
+                    InlineTextTree::from_markdown_with_link_references(&serialized, &definitions);
+                serialized = tree.serialize_markdown();
+                assert_eq!(serialized, source);
+                let complete = format!("{serialized}\n\n[photo]: ./photo.png");
+                let images = pulldown_cmark::Parser::new(&complete)
+                    .filter(|event| {
+                        matches!(
+                            event,
+                            pulldown_cmark::Event::Start(pulldown_cmark::Tag::Image { .. })
+                        )
+                    })
+                    .count();
+                assert_eq!(images, expected_images, "{source}");
+            }
+        }
     }
 
     #[test]

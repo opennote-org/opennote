@@ -465,7 +465,11 @@ fn collect_block_html_region(lines: &[String], start: usize) -> usize {
 
 fn collect_reference_definition_region(lines: &[String], start: usize) -> usize {
     let mut index = start + 1;
-    while index < lines.len() && is_reference_definition_title_continuation(&lines[index]) {
+    while index < lines.len()
+        && (is_reference_definition_title_continuation(&lines[index])
+            || (is_reference_definition_start(&lines[index])
+                && !is_footnote_definition_start(&lines[index])))
+    {
         index += 1;
     }
     index
@@ -768,21 +772,31 @@ fn collect_indented_code_block(
     let stripped = strip_indented_code_prefix(&lines[start])?;
     let mut code_lines = vec![stripped.to_string()];
     let mut code_index = start + 1;
+    let mut pending_blank_lines = Vec::new();
     while code_index < lines.len() {
-        if let Some(stripped) = strip_indented_code_prefix(&lines[code_index]) {
-            code_lines.push(stripped.to_string());
+        if lines[code_index].trim().is_empty() {
+            pending_blank_lines.push(
+                strip_indented_code_prefix(&lines[code_index])
+                    .unwrap_or("")
+                    .to_string(),
+            );
             code_index += 1;
-        } else if lines[code_index].trim().is_empty() {
-            code_lines.push(String::new());
+        } else if let Some(stripped) = strip_indented_code_prefix(&lines[code_index]) {
+            code_lines.append(&mut pending_blank_lines);
+            code_lines.push(stripped.to_string());
             code_index += 1;
         } else {
             break;
         }
     }
 
+    let block = build_code_block(cx, None, code_lines.join("\n"));
+    block.update(cx, |block, _cx| block.record.prefer_indented_code = true);
     Some((
-        build_code_block(cx, None, code_lines.join("\n")),
-        code_index,
+        block,
+        // Trailing blank lines separate blocks; only internal blanks belong
+        // to the code. Let the caller process the trailing separators.
+        code_index - pending_blank_lines.len(),
     ))
 }
 
@@ -2058,7 +2072,7 @@ mod tests {
     }
 
     #[gpui::test]
-    async fn imports_indented_code_blocks_and_serializes_fenced(cx: &mut TestAppContext) {
+    async fn imports_indented_code_blocks_and_preserves_indentation(cx: &mut TestAppContext) {
         let editor = cx.new(|cx| {
             Editor::from_markdown(
                 cx,
@@ -2077,8 +2091,83 @@ mod tests {
             );
             assert_eq!(
                 editor.document.markdown_text(cx),
-                "```\nlet x = 1;\nprintln!(\"hi\");\n```"
+                "    let x = 1;\n    println!(\"hi\");"
             );
+        });
+    }
+
+    #[gpui::test]
+    async fn indented_code_does_not_absorb_trailing_separator_lines(cx: &mut TestAppContext) {
+        let editor = cx.new(|cx| {
+            Editor::from_markdown(cx, "    first\n\n    second\n\n\n## Next".to_string(), None)
+        });
+        editor.update(cx, |editor, cx| {
+            let code = &editor.document.visible_blocks()[0].entity;
+            assert_eq!(code.read(cx).display_text(), "first\n\nsecond");
+            let serialized = editor.get_editor_value(cx);
+            assert!(serialized.contains("    first\n    \n    second"));
+            editor.update_editor_content(cx, serialized.clone());
+            assert_eq!(editor.get_editor_value(cx), serialized);
+        });
+    }
+
+    #[gpui::test]
+    async fn parser_fixture_export_is_stable_and_preserves_image_meaning(cx: &mut TestAppContext) {
+        let source = include_str!("../../tests/fixtures/parser_round_trip.md");
+        let image_destinations = |markdown: &str| {
+            pulldown_cmark::Parser::new_ext(markdown, pulldown_cmark::Options::all())
+                .filter_map(|event| match event {
+                    pulldown_cmark::Event::Start(pulldown_cmark::Tag::Image {
+                        dest_url, ..
+                    }) => Some(dest_url.into_string()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        let expected_images = image_destinations(source);
+        let editor = cx.new(|cx| Editor::from_markdown(cx, source.to_string(), None));
+        editor.update(cx, |editor, cx| {
+            let serialized = editor.get_editor_value(cx);
+            assert_eq!(serialized, source.strip_suffix('\n').unwrap_or(source));
+            assert!(serialized.contains(r"\![escaped image syntax](./not-an-image.png)"));
+            assert_eq!(image_destinations(&serialized), expected_images);
+            for _ in 0..3 {
+                editor.update_editor_content(cx, serialized.clone());
+                assert_eq!(editor.get_editor_value(cx), serialized);
+            }
+        });
+    }
+
+    #[gpui::test]
+    async fn edited_indented_code_uses_fences_when_needed(cx: &mut TestAppContext) {
+        let editor = cx.new(|cx| Editor::from_markdown(cx, "    code".to_string(), None));
+        editor.update(cx, |editor, cx| {
+            let code = editor.document.visible_blocks()[0].entity.clone();
+            code.update(cx, |block, cx| {
+                block.replace_text_in_visible_range(4..4, "\n", None, false, cx);
+            });
+            let serialized = editor.get_editor_value(cx);
+            assert_eq!(serialized, "```\ncode\n\n```");
+            editor.update_editor_content(cx, serialized);
+            assert_eq!(
+                editor.document.visible_blocks()[0]
+                    .entity
+                    .read(cx)
+                    .display_text(),
+                "code\n"
+            );
+        });
+
+        let editor = cx.new(|cx| Editor::from_markdown(cx, "    code".to_string(), None));
+        editor.update(cx, |editor, cx| {
+            let code = editor.document.visible_blocks()[0].entity.clone();
+            code.update(cx, |block, cx| {
+                block.replace_code_language_text_in_range(0..0, "rust", None, false, cx);
+            });
+            let serialized = editor.get_editor_value(cx);
+            assert_eq!(serialized, "```rust\ncode\n```");
+            editor.update_editor_content(cx, serialized.clone());
+            assert_eq!(editor.get_editor_value(cx), serialized);
         });
     }
 
@@ -2246,7 +2335,7 @@ mod tests {
             );
             assert_eq!(
                 editor.document.markdown_text(cx),
-                "- item with code block\n  ```\n  let x = 1;\n  let y = 2;\n  ```"
+                "- item with code block\n      let x = 1;\n      let y = 2;"
             );
 
             editor.toggle_view_mode(cx);
@@ -2321,7 +2410,7 @@ mod tests {
             );
             assert_eq!(
                 editor.document.markdown_text(cx),
-                "1. item with nested quote\n  > quoted text\n  > \n  > quoted paragraph two"
+                "1. item with nested quote\n  > quoted text\n  >\n  > quoted paragraph two"
             );
 
             editor.toggle_view_mode(cx);
@@ -2472,7 +2561,7 @@ mod tests {
             assert_eq!(visible.len(), 1);
             assert_eq!(visible[0].entity.read(cx).kind(), BlockKind::Quote);
             assert_eq!(visible[0].entity.read(cx).display_text(), "first\n\nsecond");
-            assert_eq!(editor.document.markdown_text(cx), "> first\n> \n> second");
+            assert_eq!(editor.document.markdown_text(cx), "> first\n>\n> second");
         });
     }
 
@@ -2545,7 +2634,7 @@ mod tests {
             );
             assert_eq!(
                 editor.document.markdown_text(cx),
-                "> Quote with code block:\n> \n> ```\n> fn main() {\n>     println!(\"hi\");\n> }\n> ```"
+                "> Quote with code block:\n>\n>     fn main() {\n>         println!(\"hi\");\n>     }"
             );
         });
     }
@@ -2643,7 +2732,7 @@ mod tests {
     #[gpui::test]
     async fn imports_callout_with_task_list_image_item_and_child(cx: &mut TestAppContext) {
         let markdown = "> [!NOTE]\n> - [ ] ![cover][img]\n>   ![detail](./detail.png)\n>\n> [img]: ./cover.png".to_string();
-        let canonical_markdown = "> [!NOTE]\n> - [ ] ![cover][img]\n>   ![detail](./detail.png)\n> \n> [img]: ./cover.png";
+        let canonical_markdown = "> [!NOTE]\n> - [ ] ![cover][img]\n>   ![detail](./detail.png)\n>\n> [img]: ./cover.png";
         let editor = cx.new(|cx| Editor::from_markdown(cx, markdown.clone(), None));
 
         editor.update(cx, |editor, cx| {
@@ -2687,7 +2776,7 @@ mod tests {
     #[gpui::test]
     async fn imports_quote_list_item_with_native_child_paragraph(cx: &mut TestAppContext) {
         let markdown = "> - item\n>\n>     child text".to_string();
-        let canonical_markdown = "> - item\n> \n>   child text";
+        let canonical_markdown = "> - item\n>\n>   child text";
         let editor = cx.new(|cx| Editor::from_markdown(cx, markdown, None));
 
         editor.update(cx, |editor, cx| {
@@ -2710,7 +2799,7 @@ mod tests {
     #[gpui::test]
     async fn imports_callout_list_item_with_native_child_paragraph(cx: &mut TestAppContext) {
         let markdown = "> [!NOTE]\n> - item\n>\n>     child text".to_string();
-        let canonical_markdown = "> [!NOTE]\n> - item\n> \n>   child text";
+        let canonical_markdown = "> [!NOTE]\n> - item\n>\n>   child text";
         let editor = cx.new(|cx| Editor::from_markdown(cx, markdown, None));
 
         editor.update(cx, |editor, cx| {
@@ -2830,7 +2919,7 @@ mod tests {
             "> [!WARNING] Custom title",
             "> body",
             "> > inner one",
-            "> > ",
+            "> >",
             "> > inner two",
             "> after",
         ]
@@ -2902,7 +2991,7 @@ mod tests {
             assert_eq!(visible[2].entity.read(cx).kind(), BlockKind::Quote);
             assert_eq!(visible[2].entity.read(cx).display_text(), "inner");
             assert_eq!(visible[2].entity.read(cx).quote_depth, 2);
-            assert_eq!(editor.document.markdown_text(cx), "> outer\n> \n> > inner");
+            assert_eq!(editor.document.markdown_text(cx), "> outer\n>\n> > inner");
         });
     }
 
@@ -2965,7 +3054,7 @@ mod tests {
         cx: &mut TestAppContext,
     ) {
         let markdown = "> [!IMPORTANT]\n> Final mixed block that combines:\n>\n> - **bold**\n> - *italic*\n> - `inline code`\n> - [link](https://example.com)\n> - ![image](https://example.com/image.png)\n> - ~~strike~~\n>\n> And a table:\n>\n> | k | v |\n> | --- | --- |\n> | a | 1 |\n> | b | 2 |\n>\n> And a fenced code block:\n>\n> ```ts\n> export const answer = 42;\n> ```\n>\n> And a footnote reference.[^final]\n>\n> [^final]: Final footnote text with nested list:\n>   - one\n>   - two".to_string();
-        let canonical_markdown = "> [!IMPORTANT]\n> Final mixed block that combines:\n> \n> - **bold**\n> - *italic*\n> - `inline code`\n> - [link](https://example.com)\n> - ![image](https://example.com/image.png)\n> - ~~strike~~\n> \n> And a table:\n> \n> | k | v |\n> | --- | --- |\n> | a | 1 |\n> | b | 2 |\n> \n> And a fenced code block:\n> \n> ```ts\n> export const answer = 42;\n> ```\n> \n> And a footnote reference.[^final]\n> \n> [^final]: Final footnote text with nested list:\n> \n>     - one\n>     - two";
+        let canonical_markdown = "> [!IMPORTANT]\n> Final mixed block that combines:\n>\n> - **bold**\n> - *italic*\n> - `inline code`\n> - [link](https://example.com)\n> - ![image](https://example.com/image.png)\n> - ~~strike~~\n>\n> And a table:\n>\n> | k | v |\n> | --- | --- |\n> | a | 1 |\n> | b | 2 |\n>\n> And a fenced code block:\n>\n> ```ts\n> export const answer = 42;\n> ```\n>\n> And a footnote reference.[^final]\n>\n> [^final]: Final footnote text with nested list:\n>\n>     - one\n>     - two";
         let editor = cx.new(|cx| Editor::from_markdown(cx, markdown.clone(), None));
 
         editor.update(cx, |editor, cx| {
@@ -3467,7 +3556,7 @@ mod tests {
             assert_eq!(visible[2].entity.read(cx).quote_depth, 1);
             assert_eq!(
                 editor.document.markdown_text(cx),
-                "> quote\n> \n> <!--\n> quoted\n> -->"
+                "> quote\n>\n> <!--\n> quoted\n> -->"
             );
         });
 
@@ -3493,7 +3582,7 @@ mod tests {
             assert_eq!(visible[2].entity.read(cx).callout_depth, 1);
             assert_eq!(
                 editor.document.markdown_text(cx),
-                "> [!NOTE] Title\n> \n> <!--\n> callout\n> -->"
+                "> [!NOTE] Title\n>\n> <!--\n> callout\n> -->"
             );
         });
     }
@@ -3539,7 +3628,7 @@ mod tests {
     #[gpui::test]
     async fn nested_quote_footnote_definition_upgrades_to_native_block(cx: &mut TestAppContext) {
         let markdown = "> outer\n>\n> [^note]: nested footnote".to_string();
-        let canonical_markdown = "> outer\n> \n> [^note]: nested footnote";
+        let canonical_markdown = "> outer\n>\n> [^note]: nested footnote";
         let editor = cx.new(|cx| Editor::from_markdown(cx, markdown, None));
 
         editor.update(cx, |editor, cx| {
