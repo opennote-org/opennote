@@ -3,14 +3,11 @@ use gpui_kit::Window;
 use opennote_core_logics::payload::build_payloads;
 use opennote_models::{block::Block, payload::Payload};
 
-use crate::globals::{
-    bootstrap::helpers::get_bootstrap,
-    tasks::{
-        task_information::TaskInformation,
-        task_result::{TaskResult, TaskType},
-        tracker::{register_long_running_result, register_long_running_task},
-        unique_notifications::ChunkBlockNotification,
-    },
+use crate::globals::tasks::{
+    task_information::TaskInformation,
+    task_result::{TaskResult, TaskType},
+    tracker::{register_long_running_result, register_long_running_task},
+    unique_notifications::ChunkBlockNotification,
 };
 
 pub fn chunk_block(
@@ -19,10 +16,6 @@ pub fn chunk_block(
     mut block: Block,
     text: String,
 ) {
-    let bootstrap = get_bootstrap(app_cx);
-    let configurations = bootstrap.get_configurations();
-
-    let text_chunk_size = configurations.user.search.document_chunk_size;
     let window = window.window_handle();
 
     app_cx
@@ -41,12 +34,7 @@ pub fn chunk_block(
             let payloads: Vec<Payload> = match cx
                 .background_executor()
                 .spawn(async move {
-                    let payloads = match build_payloads(
-                        block.id,
-                        Some(text_chunk_size),
-                        text,
-                        None,
-                    ) {
+                    let payloads = match build_payloads(block.id, text, None) {
                         Ok(results) => results,
                         Err(error) => {
                             tracing::error!("Error when trying to save a document: {}", error);

@@ -20,17 +20,11 @@ pub async fn build_block(
     default_block_title: String,
     embedders: &EmbedderEntry,
     content: Option<String>,
-    text_chunk_size: Option<usize>,
 ) -> Result<Block, anyhow::Error> {
     let mut block = Block::new(parent_block_id, Vec::new());
 
     let payloads = match content {
-        Some(content) => build_payloads(
-            block.id,
-            text_chunk_size,
-            content,
-            Some(default_block_title),
-        )?,
+        Some(content) => build_payloads(block.id, content, Some(default_block_title))?,
         None => vec![build_payload(
             block.id,
             PayloadContentParameters {
