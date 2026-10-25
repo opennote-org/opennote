@@ -750,11 +750,11 @@ impl Editor {
 
             let current_is_list_item = block.kind().is_list_item();
             if wrote_chunk {
-                let separator_lines = if previous_was_list_item && current_is_list_item {
-                    pending_empty
-                } else {
-                    pending_empty + 1
-                };
+                let separator_lines = super::tree::root_block_separator_count(
+                    previous_was_list_item,
+                    current_is_list_item,
+                    pending_empty,
+                );
                 result.push_str(&"\n".repeat(separator_lines + 1));
             }
             result.push_str(&self.markdown_chunk_for_block(
@@ -1078,6 +1078,58 @@ mod tests {
             }
         });
         cx.quit();
+    }
+
+    #[test]
+    fn copying_list_items_with_empty_roots_preserves_following_blocks() {
+        for empty_count in [0, 1, 2] {
+            let mut cx = TestAppContext::single();
+            init_editor_test_app(&mut cx);
+            let editor = cx.new(|cx| {
+                Editor::from_markdown(
+                    cx,
+                    "- first\n- second\n\n## Heading\n\nParagraph 中文 🦀".to_string(),
+                    None,
+                )
+            });
+
+            editor.update(&mut cx, |editor, cx| {
+                // Model blank roots explicitly so the test exercises the spacing
+                // calculation regardless of how import normalizes loose lists.
+                let blanks = (0..empty_count)
+                    .map(|_| {
+                        Editor::new_block(
+                            cx,
+                            crate::components::BlockRecord::paragraph(String::new()),
+                        )
+                    })
+                    .collect();
+                editor.document.insert_blocks_at(None, 1, blanks, cx);
+
+                let expected = editor.document.markdown_text(cx);
+                assert!(expected.contains("## Heading"));
+                assert!(expected.contains("Paragraph 中文 🦀"));
+                let visible = editor.document.visible_blocks().to_vec();
+                let end_index = visible.len() - 1;
+                let end_len = visible[end_index].entity.read(cx).visible_len();
+                set_selection(editor, 0, 0, end_index, end_len, cx);
+
+                assert_eq!(
+                    editor.cross_block_selected_markdown(cx).as_deref(),
+                    Some(expected.as_str()),
+                    "copy must match export with {empty_count} empty roots between list items",
+                );
+
+                // A selection starting after the list must use the same source
+                // positions, including for UTF-8 text.
+                set_selection(editor, end_index, 0, end_index, end_len, cx);
+                assert_eq!(
+                    editor.cross_block_selected_markdown(cx).as_deref(),
+                    Some("Paragraph 中文 🦀"),
+                );
+            });
+            cx.quit();
+        }
     }
 
     #[test]

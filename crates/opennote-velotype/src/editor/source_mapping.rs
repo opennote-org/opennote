@@ -713,15 +713,11 @@ impl Editor {
             }
 
             if wrote_non_empty_root {
-                let separator_count = if previous_was_list_item && current_is_list_item {
-                    if pending_empty_roots == 0 {
-                        0
-                    } else {
-                        pending_empty_roots + 1
-                    }
-                } else {
-                    pending_empty_roots + 1
-                };
+                let separator_count = super::tree::root_block_separator_count(
+                    previous_was_list_item,
+                    current_is_list_item,
+                    pending_empty_roots,
+                );
                 absolute += separator_count;
             } else if pending_empty_roots > 0 {
                 absolute += pending_empty_roots;

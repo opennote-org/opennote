@@ -13,6 +13,19 @@ use super::Editor;
 use crate::components::serialize_table_markdown_lines;
 use crate::components::{Block, BlockKind, CalloutVariant, parse_standalone_image};
 
+/// Empty lines between root blocks, excluding the newline joining block text.
+/// Source mappings must count the same separators as Markdown serialization.
+pub(super) fn root_block_separator_count(
+    previous_was_list_item: bool,
+    current_is_list_item: bool,
+    pending_empty_roots: usize,
+) -> usize {
+    match (previous_was_list_item, current_is_list_item) {
+        (true, true) => pending_empty_roots,
+        _ => pending_empty_roots + 1,
+    }
+}
+
 /// A block together with its position in the current visible DFS order.
 #[derive(Clone)]
 pub(super) struct VisibleBlock {
@@ -445,11 +458,11 @@ impl DocumentTree {
 
             let current_is_list_item = block_ref.kind().is_list_item();
             if wrote_non_empty_root {
-                let separator_count = if previous_was_list_item && current_is_list_item {
-                    pending_empty_roots
-                } else {
-                    pending_empty_roots + 1
-                };
+                let separator_count = root_block_separator_count(
+                    previous_was_list_item,
+                    current_is_list_item,
+                    pending_empty_roots,
+                );
                 lines.extend(std::iter::repeat_n(String::new(), separator_count));
             } else if pending_empty_roots > 0 {
                 lines.extend(std::iter::repeat_n(String::new(), pending_empty_roots));
