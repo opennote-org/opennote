@@ -2018,16 +2018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chunk"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "113e21f5963090d0191da9d051fd35d93bc771054bf985f386e31a63cba719f9"
-dependencies = [
- "daggrs",
- "memchr",
-]
-
-[[package]]
 name = "cipher"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2795,12 +2785,6 @@ dependencies = [
  "subtle",
  "zeroize",
 ]
-
-[[package]]
-name = "daggrs"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d1092288af9ecfd5378565a17df11a13dbe172d4a71abe9b55a9689f1336b8e"
 
 [[package]]
 name = "darling"
@@ -9730,12 +9714,12 @@ name = "opennote-core-logics"
 version = "0.2.8"
 dependencies = [
  "anyhow",
- "chunk",
  "dirs 6.0.0",
  "futures",
  "opennote-data",
  "opennote-embedder",
  "opennote-models",
+ "pulldown-cmark",
  "serde_json",
  "tokio",
  "tracing",
@@ -10872,9 +10856,9 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark"
-version = "0.13.4"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e"
+checksum = "278e9268c93b9e498a2da46c34d90ba93a3255eb99009646398f34bc73ab36eb"
 dependencies = [
  "bitflags 2.11.0",
  "getopts",

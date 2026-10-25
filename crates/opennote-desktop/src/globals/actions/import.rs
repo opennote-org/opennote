@@ -3,12 +3,13 @@ use std::{cell::Cell, io::Read, rc::Rc};
 use gpui_kit::{App, SharedString, Window};
 use uuid::Uuid;
 
+use opennote_core_logics::block::build_block;
 use opennote_data::Databases;
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::configurations::system::SystemConfigurations;
 
 use crate::globals::{
-    actions::{block::build_block, route_helpers::route_create_blocks},
+    actions::route_helpers::route_create_blocks,
     bootstrap::GlobalApplicationBootStrap,
     helpers::run_async_background,
     language::LanguageProfile,

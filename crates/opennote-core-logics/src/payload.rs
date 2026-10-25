@@ -1,14 +1,13 @@
 use std::io::Read;
 
 use anyhow::{Result, anyhow};
-use chunk::chunk;
+use pulldown_cmark::{Event, Parser, TextMergeStream, TextMergeWithOffset};
 use serde_json::Value;
 use uuid::Uuid;
 
 use opennote_models::{content_type::ContentType, payload::Payload};
 
 pub struct PayloadContentParameters {
-    pub title: Option<String>,
     pub markdown: Option<String>,
     pub image: Option<Vec<u8>>,
     pub json: Option<Value>,
@@ -17,26 +16,11 @@ pub struct PayloadContentParameters {
 impl Default for PayloadContentParameters {
     fn default() -> Self {
         Self {
-            title: None,
             markdown: None,
             image: None,
             json: None,
         }
     }
-}
-
-/// Create payloads without vectors
-/// If one of the payloads failed, it will fail all
-pub fn build_payloads(
-    creation_parameters: impl Iterator<Item = (Uuid, PayloadContentParameters)>,
-) -> Result<Vec<Payload>> {
-    let mut payloads = Vec::new();
-
-    for (block_id, parameters) in creation_parameters {
-        payloads.push(build_payload(block_id, parameters)?);
-    }
-
-    Ok(payloads)
 }
 
 /// Create a payload without vectors
@@ -47,22 +31,6 @@ pub fn build_payload(block_id: Uuid, parameters: PayloadContentParameters) -> Re
 
     if let Some(_image) = parameters.image {
         todo!()
-    }
-
-    if parameters.title.is_some() && parameters.markdown.is_some() {
-        return Err(anyhow!(
-            "You should supply either the title or the markdown, but not both"
-        ));
-    }
-
-    if let Some(title) = parameters.title {
-        return Ok(Payload::new(
-            block_id,
-            ContentType::Title,
-            title,
-            vec![],
-            vec![],
-        ));
     }
 
     if let Some(markdown) = parameters.markdown {
@@ -83,76 +51,60 @@ pub fn build_payload(block_id: Uuid, parameters: PayloadContentParameters) -> Re
 /// Convert a string to payloads but without vectors.
 ///
 /// TODO: need to consider multi-modal support
-pub fn convert_string_to_payloads(
+pub fn build_payloads(
     block_id: Uuid,
     text_chunk_size: Option<usize>,
     string: String,
-    mut default_title: Option<String>, // Use the default title as the title if supplied
+    default_title: Option<String>, // Use the default title as the title if supplied
 ) -> Result<Vec<Payload>> {
     let mut payloads: Vec<Payload> = Vec::new();
 
-    let mut chunker = chunk(string.as_bytes())
-        .consecutive()
-        .patterns(&["。", "！", "，", "？"])
-        .delimiters("\n.?!".as_bytes());
+    if let Some(mut title) = default_title.clone() {
+        title.push('\n');
 
-    // Limit chunk size when specified
-    if let Some(text_chunk_size) = text_chunk_size {
-        chunker = chunker.size(text_chunk_size);
+        payloads.push(build_payload(
+            block_id,
+            PayloadContentParameters {
+                markdown: Some(title),
+                ..Default::default()
+            },
+        )?);
     }
 
-    let raw_chunks: Vec<&[u8]> = chunker.collect();
+    let iterator = TextMergeWithOffset::new(Parser::new(&string).into_offset_iter());
 
-    for (index, mut chunk) in raw_chunks.into_iter().enumerate() {
-        let mut bytes = Vec::new();
-        match chunk.read_to_end(&mut bytes) {
-            Ok(_) => {
-                // The first chunk is always the title
-                if index == 0 {
-                    match std::mem::take(&mut default_title) {
-                        Some(mut title) => {
-                            // The title needs to be on the first line
-                            title.push('\n');
+    let mut depth: usize = 0;
+    let mut cursor: usize = 0;
 
-                            payloads.push(build_payload(
-                                block_id,
-                                PayloadContentParameters {
-                                    title: Some(title),
-                                    ..Default::default()
-                                },
-                            )?);
+    for (index, (event, range)) in iterator.enumerate() {
+        match event {
+            Event::Start(_tag) => {
+                if depth == 0 && range.start > cursor {
+                    payloads.push(build_payload(
+                        block_id,
+                        PayloadContentParameters {
+                            markdown: Some(string[cursor..range.start].to_string()),
+                            ..Default::default()
+                        },
+                    )?);
 
-                            payloads.push(build_payload(
-                                block_id,
-                                PayloadContentParameters {
-                                    markdown: Some(String::from_utf8_lossy(&bytes).to_string()),
-                                    ..Default::default()
-                                },
-                            )?);
-                        }
-                        None => payloads.push(build_payload(
-                            block_id,
-                            PayloadContentParameters {
-                                title: Some(String::from_utf8_lossy(&bytes).to_string()),
-                                ..Default::default()
-                            },
-                        )?),
-                    };
-
-                    continue;
+                    cursor = range.start;
                 }
 
-                payloads.push(build_payload(
-                    block_id,
-                    PayloadContentParameters {
-                        markdown: Some(String::from_utf8_lossy(&bytes).to_string()),
-                        ..Default::default()
-                    },
-                )?);
+                depth += 1;
             }
-            Err(error) => return Err(error.into()),
+            Event::End(_tag) => depth -= 1,
+            _ => continue,
         }
     }
+
+    payloads.push(build_payload(
+        block_id,
+        PayloadContentParameters {
+            markdown: Some(string[cursor..].to_string()),
+            ..Default::default()
+        },
+    )?);
 
     Ok(payloads)
 }

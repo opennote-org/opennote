@@ -4,12 +4,48 @@ use futures::future::join;
 use uuid::Uuid;
 
 use opennote_data::Databases;
+use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
     block::Block,
     configurations::fields::VectorDatabaseConfig,
     payload::Payload,
     query::{BlockQuery, PayloadQuery},
 };
+
+use crate::payload::{PayloadContentParameters, build_payload, build_payloads};
+
+/// Default block title: the title of the block
+pub async fn build_block(
+    parent_block_id: Option<Uuid>,
+    default_block_title: String,
+    embedders: &EmbedderEntry,
+    content: Option<String>,
+    text_chunk_size: Option<usize>,
+) -> Result<Block, anyhow::Error> {
+    let mut block = Block::new(parent_block_id, Vec::new());
+
+    let payloads = match content {
+        Some(content) => build_payloads(
+            block.id,
+            text_chunk_size,
+            content,
+            Some(default_block_title),
+        )?,
+        None => vec![build_payload(
+            block.id,
+            PayloadContentParameters {
+                markdown: Some(default_block_title.to_string()),
+                ..Default::default()
+            },
+        )?],
+    };
+
+    let vectorized_payloads = send_vectorization(payloads, &embedders).await?;
+
+    block.payloads = vectorized_payloads;
+
+    Ok(block)
+}
 
 pub async fn create_blocks(
     vector_database_config: &VectorDatabaseConfig,

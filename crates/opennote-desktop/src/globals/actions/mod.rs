@@ -7,12 +7,12 @@ pub mod search;
 
 use anyhow::Context;
 use gpui_kit::{SharedString, Window};
-use opennote_core_logics::configurations::{
-    ApplicationType, get_configuration_folder_path, get_metadata,
-};
-use opennote_server::{request_reindex_remote_server_blocks, send_reindexed_remote_server_blocks};
 use uuid::Uuid;
 
+use opennote_core_logics::{
+    block::build_block,
+    configurations::{ApplicationType, get_configuration_folder_path, get_metadata},
+};
 use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::vectorize};
 use opennote_models::{
@@ -22,9 +22,14 @@ use opennote_models::{
     query::BlockQuery,
     traits::LoadFromAndSaveToFile,
 };
+use opennote_server::{request_reindex_remote_server_blocks, send_reindexed_remote_server_blocks};
 
 use crate::globals::{
-    actions::block::build_block, bootstrap::GlobalApplicationBootStrap, helpers::run_async_background, language::LanguageProfile, states::{States, server_registry::ServerStates}, tasks::{
+    bootstrap::GlobalApplicationBootStrap,
+    helpers::run_async_background,
+    language::LanguageProfile,
+    states::{States, server_registry::ServerStates},
+    tasks::{
         helpers::start_task,
         task_information::TaskInformation,
         task_result::TaskType,

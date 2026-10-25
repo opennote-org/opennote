@@ -76,6 +76,7 @@ pub(crate) enum ImagePasteBehavior {
     CopyToDocumentFolder,
     CopyToAssetsFolder,
     CopyToNamedAssetsFolder,
+    CopyToOpenNoteAssetsFolder,
 }
 
 impl ImagePasteBehavior {
@@ -85,6 +86,7 @@ impl ImagePasteBehavior {
             Self::CopyToDocumentFolder => "copy_to_document_folder",
             Self::CopyToAssetsFolder => "copy_to_assets_folder",
             Self::CopyToNamedAssetsFolder => "copy_to_named_assets_folder",
+            Self::CopyToOpenNoteAssetsFolder => "copy_to_opennote_assets_folder",
         }
     }
 
@@ -93,6 +95,7 @@ impl ImagePasteBehavior {
             "copy_to_document_folder" => Self::CopyToDocumentFolder,
             "copy_to_assets_folder" => Self::CopyToAssetsFolder,
             "copy_to_named_assets_folder" => Self::CopyToNamedAssetsFolder,
+            "copy_to_opennote_assets_folder" => Self::CopyToOpenNoteAssetsFolder,
             _ => Self::None,
         }
     }
@@ -117,7 +120,7 @@ impl Default for AppPreferences {
             default_language_id: DEFAULT_LANGUAGE_ID.into(),
             default_theme_id: DEFAULT_THEME_ID.into(),
             show_table_headers: true,
-            image_paste_behavior: ImagePasteBehavior::None,
+            image_paste_behavior: ImagePasteBehavior::CopyToOpenNoteAssetsFolder,
             keybindings: BTreeMap::new(),
             status_bar: StatusBarPreferences::default(),
         }

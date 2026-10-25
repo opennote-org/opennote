@@ -22,7 +22,7 @@ pub struct Payload {
     pub last_modified: i64,
     /// Content type presented in which style. For example, text can be P1 or so.
     pub content_type: ContentType,
-    /// Texts stored in payload. When saving jsons, it is recommended to also save a string json for indexing for searching
+    /// Texts stored in payload. When saving jsons, it is recommended to also save a string json for indexing and searching
     pub texts: String,
     /// Bytes stored in payload. Typically, we modalities other than texts, like images and jsons
     pub bytes: Vec<u8>,

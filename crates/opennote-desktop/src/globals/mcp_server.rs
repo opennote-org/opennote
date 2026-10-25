@@ -9,8 +9,8 @@ use regex::Regex;
 use uuid::Uuid;
 
 use opennote_core_logics::{
-    bootstraps::desktop::DesktopBootstrap, helpers::run_async_code,
-    payload::convert_string_to_payloads,
+    block::build_block, bootstraps::desktop::DesktopBootstrap, helpers::run_async_code,
+    payload::build_payloads,
 };
 use opennote_embedder::vectorization::{send_vectorization, vectorize};
 use opennote_mcp_server::{
@@ -30,7 +30,7 @@ use opennote_models::{
 
 use crate::globals::{
     actions::{
-        block::{build_block, get_blocks_from_servers},
+        block::get_blocks_from_servers,
         route_helpers::{
             route_create_blocks, route_delete_blocks, route_read_blocks, route_update_blocks,
         },
@@ -442,7 +442,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             content = regex.replace(&content, &replacement.text).to_string();
         }
 
-        let payloads = convert_string_to_payloads(
+        let payloads = build_payloads(
             block_id,
             Some(configurations.user.search.document_chunk_size),
             content,

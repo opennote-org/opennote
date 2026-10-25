@@ -266,6 +266,10 @@ impl Editor {
         source: &PastedImageSource,
     ) -> anyhow::Result<PathBuf> {
         match behavior {
+            ImagePasteBehavior::CopyToOpenNoteAssetsFolder => {
+                // Define a path to store pasted images
+                todo!()
+            }
             ImagePasteBehavior::None | ImagePasteBehavior::CopyToDocumentFolder => {
                 Ok(root_dir.to_path_buf())
             }

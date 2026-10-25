@@ -24,9 +24,11 @@ base64 = "0.22.1"
 unicode-segmentation = "1.13"
 semver = "1"
 toml = "1"
-chromiumoxide = { version = "0.9.1", default-features = false, features = ["bytes"] }
+chromiumoxide = { version = "0.9.1", default-features = false, features = [
+    "bytes",
+] }
 url = "2"
-pulldown-cmark = "0.13"
+pulldown-cmark.workspace = true
 cssparser = "0.37"
 directories = "6"
 ratex-layout = "0.1.9"

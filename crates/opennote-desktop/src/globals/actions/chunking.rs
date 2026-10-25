@@ -1,6 +1,6 @@
 use gpui_kit::Window;
 
-use opennote_core_logics::payload::convert_string_to_payloads;
+use opennote_core_logics::payload::build_payloads;
 use opennote_models::{block::Block, payload::Payload};
 
 use crate::globals::{
@@ -41,7 +41,7 @@ pub fn chunk_block(
             let payloads: Vec<Payload> = match cx
                 .background_executor()
                 .spawn(async move {
-                    let payloads = match convert_string_to_payloads(
+                    let payloads = match build_payloads(
                         block.id,
                         Some(text_chunk_size),
                         text,
