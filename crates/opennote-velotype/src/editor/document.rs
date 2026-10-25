@@ -758,10 +758,15 @@ fn collect_fenced_code_block(
     // which doubles the buffer 2-3 times for any non-trivial code block.
     let code_lines = lines[start + 1..closing_index].to_vec();
 
-    Some((
-        build_code_block(cx, fence.language.clone(), code_lines.join("\n")),
-        closing_index + 1,
-    ))
+    let block = build_code_block(cx, fence.language.clone(), code_lines.join("\n"));
+    let opening = strip_fence_indent(&lines[start])?;
+    let info = &opening[fence.len..];
+    let prefix_len = info.len() - info.trim_start().len();
+    block.update(cx, |block, _cx| {
+        block.record.code_fence_info_prefix = info[..prefix_len].to_string();
+    });
+
+    Some((block, closing_index + 1))
 }
 
 fn collect_indented_code_block(
@@ -872,24 +877,6 @@ fn starts_with_standalone_image_child_paragraph(lines: &[String]) -> bool {
             || is_root_table_candidate_line(next)
             || is_display_math_start(next)
     })
-}
-
-fn append_markdown_to_block(
-    block: &Entity<super::Block>,
-    separator: &str,
-    markdown: &str,
-    cx: &mut Context<Editor>,
-) {
-    block.update(cx, |block, _cx| {
-        let mut title = block.record.title.clone();
-        if !separator.is_empty() {
-            title.append_tree(InlineTextTree::plain(separator.to_string()));
-        }
-        title.append_tree(InlineTextTree::from_markdown(markdown));
-        block.record.set_title(title);
-        block.sync_edit_mode_from_kind();
-        block.sync_render_cache();
-    });
 }
 
 fn plain_text_paragraph_block(cx: &mut Context<Editor>, text: String) -> Entity<super::Block> {
@@ -1608,7 +1595,8 @@ impl Editor {
             };
 
             let item_end = collect_list_item_region(lines, index, marker.indent_columns);
-            let block = native_block(cx, marker.kind.clone(), marker.text);
+            let mut title_markdown = marker.text;
+            let block = native_block(cx, marker.kind.clone(), String::new());
             let mut body_index = index + 1;
             let mut pending_blank_lines = 0usize;
             let mut fallback_raw = false;
@@ -1781,9 +1769,8 @@ impl Editor {
 
                     let should_promote_plain_child = pending_blank_lines > 0
                         || saw_child
-                        || block.read(cx).display_text().is_empty()
-                        || parse_standalone_image(&block.read(cx).record.title_markdown())
-                            .is_some();
+                        || title_markdown.is_empty()
+                        || parse_standalone_image(&title_markdown).is_some();
                     if should_promote_plain_child {
                         let (paragraph, consumed) =
                             Self::collect_paragraph_block(cx, &anchor_dedented, 0);
@@ -1814,16 +1801,12 @@ impl Editor {
                 }
 
                 let trimmed = line.trim_start_matches([' ', '\t']);
-                append_markdown_to_block(
-                    &block,
-                    if pending_blank_lines > 0 {
-                        "\n\n"
-                    } else {
-                        "\n"
-                    },
-                    trimmed,
-                    cx,
-                );
+                title_markdown.push_str(if pending_blank_lines > 0 {
+                    "\n\n"
+                } else {
+                    "\n"
+                });
+                title_markdown.push_str(trimmed);
                 pending_blank_lines = 0;
                 body_index += 1;
             }
@@ -1831,6 +1814,15 @@ impl Editor {
             if fallback_raw {
                 roots.push(raw_block(cx, lines[index..item_end].join("\n")));
             } else {
+                // Inline syntax can span continuation lines. Parse the complete
+                // title source together rather than joining separately parsed trees.
+                block.update(cx, |block, _cx| {
+                    block
+                        .record
+                        .set_title(InlineTextTree::from_markdown(&title_markdown));
+                    block.sync_edit_mode_from_kind();
+                    block.sync_render_cache();
+                });
                 roots.push(block);
             }
             index = item_end;
@@ -2275,6 +2267,60 @@ mod tests {
             assert_eq!(visible[0].entity.read(cx).display_text(), "alpha  \nbeta");
             assert_eq!(editor.document.markdown_text(cx), "- alpha  \n  beta");
         });
+    }
+
+    #[gpui::test]
+    async fn preserves_code_fence_info_spacing(cx: &mut TestAppContext) {
+        for source in [
+            "``` python\nprint(1)\n```",
+            "```  python\nprint(1)\n```",
+            "```\tpython\nprint(1)\n```",
+            "```python\nprint(1)\n```",
+            "- example\n  ``` python\n  print(1)\n  ```",
+        ] {
+            let editor = cx.new(|cx| Editor::from_markdown(cx, source.to_string(), None));
+            editor.update(cx, |editor, cx| {
+                assert_eq!(editor.document.markdown_text(cx), source);
+            });
+        }
+    }
+
+    #[gpui::test]
+    async fn parses_links_across_list_item_continuation(cx: &mut TestAppContext) {
+        let source = "- [NASA: Why is the sky blue?](https://spaceplace.nasa.gov/blue-sky/en/)\n- [Rayleigh Scattering -\n  Wikipedia](https://en.wikipedia.org/wiki/Rayleigh_scattering)";
+        let editor = cx.new(|cx| Editor::from_markdown(cx, source.to_string(), None));
+
+        editor.update(cx, |editor, cx| {
+            let visible = editor.document.visible_blocks();
+            assert_eq!(visible.len(), 2);
+            let block = visible[1].entity.read(cx);
+            assert_eq!(block.display_text(), "Rayleigh Scattering -\nWikipedia");
+            let cache = block.record.title.render_cache();
+            for offset in [0, "Rayleigh Scattering -\n".len()] {
+                assert_eq!(
+                    cache.link_at(offset),
+                    Some("https://en.wikipedia.org/wiki/Rayleigh_scattering")
+                );
+            }
+            assert_eq!(editor.document.markdown_text(cx), source);
+        });
+    }
+
+    #[gpui::test]
+    async fn parses_emphasis_across_list_item_continuation(cx: &mut TestAppContext) {
+        for source in [
+            "- **oxygen and\n  nitrogen** molecules",
+            "1. *oxygen and\n   nitrogen* molecules",
+            "- parent\n  - **oxygen and\n    nitrogen** molecules",
+        ] {
+            let editor = cx.new(|cx| Editor::from_markdown(cx, source.to_string(), None));
+            editor.update(cx, |editor, cx| {
+                let visible = editor.document.visible_blocks();
+                let block = visible.last().unwrap().entity.read(cx);
+                assert_eq!(block.display_text(), "oxygen and\nnitrogen molecules");
+                assert_eq!(editor.document.markdown_text(cx), source);
+            });
+        }
     }
 
     #[gpui::test]

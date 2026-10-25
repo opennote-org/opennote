@@ -102,6 +102,7 @@ impl Editor {
         content: &str,
         indentation: &str,
         language: Option<&SharedString>,
+        info_prefix: &str,
     ) -> (String, Vec<usize>, Vec<usize>) {
         let fence = self::persistence::safe_code_fence_with_info(
             content,
@@ -113,6 +114,7 @@ impl Editor {
 
         full.push_str(&fence);
         if let Some(language) = language {
+            full.push_str(info_prefix);
             full.push_str(language);
         }
         full.push('\n');
@@ -299,7 +301,12 @@ impl Editor {
                 let prefix = format!("{indentation}    ");
                 Self::build_prefixed_content_mapping(&content, &prefix, &prefix)
             } else {
-                Self::build_code_block_content_mapping(&content, &indentation, language.as_ref())
+                Self::build_code_block_content_mapping(
+                    &content,
+                    &indentation,
+                    language.as_ref(),
+                    &block.read(cx).record.code_fence_info_prefix,
+                )
             };
         let (full_text, content_to_source, source_to_content) =
             Self::wrap_source_mapping_with_quotes(

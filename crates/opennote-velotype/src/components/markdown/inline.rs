@@ -756,6 +756,15 @@ fn serialize_fragment_run_markdown_with_offset_map(
     }
 
     let stacks = choose_fragment_stacks(fragments);
+    let visible_text: String = fragments
+        .iter()
+        .map(|fragment| fragment.text.as_str())
+        .collect();
+    // A literal tilde next to a generated strike/subscript delimiter could
+    // become part of that delimiter, so keep escaping in those runs.
+    let preserve_literal_tildes = fragments.iter().all(|fragment| {
+        !fragment.style.strikethrough && fragment.style.script != InlineScript::Subscript
+    });
     let mut output = String::new();
     let total_visible_len = fragments
         .iter()
@@ -815,6 +824,17 @@ fn serialize_fragment_run_markdown_with_offset_map(
             escape_literal_text_with_offset_map(
                 &fragment.text,
                 escape_final_bang && index + 1 == fragments.len(),
+                |offset| {
+                    let offset = visible_cursor + offset;
+                    let previous = offset
+                        .checked_sub(1)
+                        .and_then(|i| visible_text.as_bytes().get(i));
+                    let next = visible_text.as_bytes().get(offset + 1);
+                    preserve_literal_tildes
+                        && !previous
+                            .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'~')
+                        && next != Some(&b'~')
+                },
             )
         };
         let escaped_start = output.len();
@@ -2674,6 +2694,7 @@ fn escaped_sequence_token_len(tokens: &[CharToken], index: usize) -> Option<usiz
 fn escape_literal_text_with_offset_map(
     text: &str,
     escape_final_bang: bool,
+    tilde_is_literal: impl Fn(usize) -> bool,
 ) -> InlineMarkdownOffsetMap {
     let mut escaped = String::new();
     let mut visible_to_markdown = vec![0; text.len() + 1];
@@ -2787,7 +2808,7 @@ fn escape_literal_text_with_offset_map(
             continue;
         }
 
-        if text[index..].starts_with('~') {
+        if text[index..].starts_with('~') && !tilde_is_literal(index) {
             let start = escaped.len();
             escaped.push_str("\\~");
             markdown_to_visible.resize(escaped.len() + 1, index);
@@ -3473,6 +3494,50 @@ mod tests {
 
         assert_eq!(tree.visible_text(), "**<u>text</u>\\");
         assert_eq!(tree.serialize_markdown(), "\\*\\*\\<u>text\\</u>\\\\");
+    }
+
+    #[test]
+    fn preserves_literal_approximation_tildes_and_offset_maps() {
+        for source in ["~700 nm", "**Red**: ~700 nm", "from ~700 nm to ~450 nm"] {
+            let tree = InlineTextTree::from_markdown(source);
+            let map = tree.markdown_offset_map();
+            assert_eq!(map.markdown(), source);
+            let visible = tree.visible_text();
+            for offset in 0..=visible.len() {
+                assert_eq!(
+                    map.markdown_to_visible_offset(map.visible_to_markdown_offset(offset)),
+                    offset
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn literal_tildes_do_not_become_formatting() {
+        for text in ["H~2~O", "~~literal~~", "~~~", "~700", "中文 ~450 nm"] {
+            let tree = InlineTextTree::plain(text);
+            let serialized = tree.serialize_markdown();
+            let reparsed = InlineTextTree::from_markdown(&serialized);
+            assert_eq!(reparsed.visible_text(), text);
+            assert!(reparsed.fragments.iter().all(|fragment| {
+                !fragment.style.strikethrough && fragment.style.script == InlineScript::Normal
+            }));
+        }
+        for style in [
+            InlineStyle::default().with_strikethrough(),
+            InlineStyle::default().with_subscript(),
+        ] {
+            let mut tree = InlineTextTree::plain("~700");
+            tree.fragments[0].style = style;
+            let reparsed = InlineTextTree::from_markdown(&tree.serialize_markdown());
+            assert_eq!(reparsed.visible_text(), "~700");
+            assert!(
+                reparsed
+                    .fragments
+                    .iter()
+                    .all(|fragment| fragment.style == style)
+            );
+        }
     }
 
     #[test]

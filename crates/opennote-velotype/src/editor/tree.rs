@@ -508,7 +508,11 @@ impl DocumentTree {
                     &block_ref.record.title.visible_text(),
                     language.as_ref().map(|language| language.as_ref()),
                 );
-                lines.push(format!("{indentation}{fence}{lang_str}"));
+                let info_prefix = match language {
+                    Some(_) => block_ref.record.code_fence_info_prefix.as_str(),
+                    None => "",
+                };
+                lines.push(format!("{indentation}{fence}{info_prefix}{lang_str}"));
                 let content = block_ref.record.title.visible_text();
                 for code_line in content.split('\n') {
                     lines.push(format!("{indentation}{code_line}"));

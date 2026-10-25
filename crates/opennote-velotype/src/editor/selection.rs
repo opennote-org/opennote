@@ -944,6 +944,46 @@ mod tests {
     }
 
     #[test]
+    fn copying_approximation_tildes_and_spaced_code_fence_preserves_source() {
+        let mut cx = TestAppContext::single();
+        init_editor_test_app(&mut cx);
+        let source = "# Why is the Sky Blue?\n\n- **Red**: Longest wavelength, ~700 nm\n- **Blue**: Shorter wavelength, ~450 nm\n\n``` python\nprint(\"Blue scattering intensity:\", 1 / 450**4)\n```";
+        let editor = cx.new(|cx| Editor::from_markdown(cx, source.to_string(), None));
+
+        editor.update(&mut cx, |editor, cx| {
+            let visible = editor.document.visible_blocks().to_vec();
+            let end_index = visible.len() - 1;
+            let end_len = visible[end_index].entity.read(cx).visible_len();
+            set_selection(editor, 0, 0, end_index, end_len, cx);
+            assert_eq!(
+                editor.cross_block_selected_markdown(cx).as_deref(),
+                Some(source)
+            );
+        });
+        cx.quit();
+    }
+
+    #[test]
+    fn copying_multiline_list_link_preserves_destination() {
+        let mut cx = TestAppContext::single();
+        init_editor_test_app(&mut cx);
+        let source = "### Resources and Further Reading\n\n- [NASA: Why is the sky blue?](https://spaceplace.nasa.gov/blue-sky/en/)\n- [Rayleigh Scattering -\n  Wikipedia](https://en.wikipedia.org/wiki/Rayleigh_scattering)";
+        let editor = cx.new(|cx| Editor::from_markdown(cx, source.to_string(), None));
+
+        editor.update(&mut cx, |editor, cx| {
+            let visible = editor.document.visible_blocks().to_vec();
+            let end_index = visible.len() - 1;
+            let end_len = visible[end_index].entity.read(cx).visible_len();
+            set_selection(editor, 0, 0, end_index, end_len, cx);
+            assert_eq!(
+                editor.cross_block_selected_markdown(cx).as_deref(),
+                Some(source)
+            );
+        });
+        cx.quit();
+    }
+
+    #[test]
     fn copying_list_items_with_empty_roots_preserves_following_blocks() {
         for empty_count in [0, 1, 2] {
             let mut cx = TestAppContext::single();

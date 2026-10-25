@@ -493,6 +493,8 @@ pub struct BlockRecord {
     pub raw_fallback: Option<String>,
     /// Imported indented code keeps that form while it can represent the content.
     pub(crate) prefer_indented_code: bool,
+    /// Whitespace between an imported opening fence and its language/info string.
+    pub(crate) code_fence_info_prefix: String,
 }
 
 impl BlockRecord {
@@ -507,6 +509,7 @@ impl BlockRecord {
             content: Vec::new(),
             raw_fallback: None,
             prefer_indented_code: false,
+            code_fence_info_prefix: String::new(),
         };
         record.sync_raw_fallback();
         record
