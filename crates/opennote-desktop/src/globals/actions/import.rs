@@ -56,15 +56,14 @@ pub fn import_files(
 
             num_blocks_for_task.set(paths.len());
 
-            let (databases, embedders, document_chunk_size, system_configurations) = cx
-                .read_global::<GlobalApplicationBootStrap, (Databases, EmbedderEntry, usize, SystemConfigurations)>(
+            let (databases, embedders, system_configurations) = cx
+                .read_global::<GlobalApplicationBootStrap, (Databases, EmbedderEntry, SystemConfigurations)>(
                     |this, _cx| {
                         let configurations = this.get_configurations();
 
                         (
                             this.0.databases.clone(),
                             this.0.embedders.clone(),
-                            configurations.user.search.document_chunk_size,
                             configurations.system.clone(),
                         )
                     },
@@ -100,14 +99,7 @@ pub fn import_files(
 
                 // Create blocks for files
                 let result = run_async_background(executor, tokio_handle.clone(), async move {
-                    build_block(
-                        parent_block_id,
-                        raw_file_name,
-                        &embedders,
-                        Some(content),
-                        Some(document_chunk_size),
-                    )
-                    .await
+                    build_block(parent_block_id, raw_file_name, &embedders, Some(content)).await
                 })
                 .await?;
 

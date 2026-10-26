@@ -94,8 +94,7 @@ pub fn create_one_block(
                     this.get_active_server(window_handle.window_id())
                 });
 
-            let block =
-                build_block(parent_block_id, default_block_title, &embedders, None, None).await?;
+            let block = build_block(parent_block_id, default_block_title, &embedders, None).await?;
 
             route_helpers::route_create_blocks(
                 &server_name,

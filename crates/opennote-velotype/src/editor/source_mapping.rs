@@ -36,11 +36,29 @@ impl Editor {
         first_prefix: &str,
         continuation_prefix: &str,
     ) -> (String, Vec<usize>, Vec<usize>) {
+        Self::build_prefixed_content_mapping_with_empty_prefix(
+            content,
+            first_prefix,
+            continuation_prefix,
+            None,
+        )
+    }
+
+    fn build_prefixed_content_mapping_with_empty_prefix(
+        content: &str,
+        first_prefix: &str,
+        continuation_prefix: &str,
+        empty_prefix: Option<&str>,
+    ) -> (String, Vec<usize>, Vec<usize>) {
         let mut full = String::new();
         let mut content_to_source = vec![0; content.len() + 1];
         let mut source_to_content = vec![0];
 
-        full.push_str(first_prefix);
+        full.push_str(if content.is_empty() || content.starts_with('\n') {
+            empty_prefix.unwrap_or(first_prefix)
+        } else {
+            first_prefix
+        });
         source_to_content.resize(full.len() + 1, 0);
 
         let mut content_offset = 0usize;
@@ -59,7 +77,15 @@ impl Editor {
             content_offset += ch.len_utf8();
             if ch == '\n' {
                 let prefix_start = full.len();
-                full.push_str(continuation_prefix);
+                full.push_str(
+                    if content_offset == content.len()
+                        || content[content_offset..].starts_with('\n')
+                    {
+                        empty_prefix.unwrap_or(continuation_prefix)
+                    } else {
+                        continuation_prefix
+                    },
+                );
                 source_to_content.resize(full.len() + 1, content_offset);
                 for index in prefix_start..=full.len() {
                     source_to_content[index] = content_offset;
@@ -76,6 +102,7 @@ impl Editor {
         content: &str,
         indentation: &str,
         language: Option<&SharedString>,
+        info_prefix: &str,
     ) -> (String, Vec<usize>, Vec<usize>) {
         let fence = self::persistence::safe_code_fence_with_info(
             content,
@@ -87,6 +114,7 @@ impl Editor {
 
         full.push_str(&fence);
         if let Some(language) = language {
+            full.push_str(info_prefix);
             full.push_str(language);
         }
         full.push('\n');
@@ -269,7 +297,17 @@ impl Editor {
         };
 
         let (full_text, content_to_source, source_to_content) =
-            Self::build_code_block_content_mapping(&content, &indentation, language.as_ref());
+            if block.read(cx).record.uses_indented_code() {
+                let prefix = format!("{indentation}    ");
+                Self::build_prefixed_content_mapping(&content, &prefix, &prefix)
+            } else {
+                Self::build_code_block_content_mapping(
+                    &content,
+                    &indentation,
+                    language.as_ref(),
+                    &block.read(cx).record.code_fence_info_prefix,
+                )
+            };
         let (full_text, content_to_source, source_to_content) =
             Self::wrap_source_mapping_with_quotes(
                 full_text,
@@ -294,7 +332,12 @@ impl Editor {
     ) -> (String, Vec<usize>, Vec<usize>) {
         for _ in 0..quote_depth {
             let (wrapped_text, inner_to_wrapped, wrapped_to_inner) =
-                Self::build_prefixed_content_mapping(&full_text, "> ", "> ");
+                Self::build_prefixed_content_mapping_with_empty_prefix(
+                    &full_text,
+                    "> ",
+                    "> ",
+                    Some(">"),
+                );
             let max_inner_to_wrapped = inner_to_wrapped.len().saturating_sub(1);
             let max_source_to_content = source_to_content.len().saturating_sub(1);
 

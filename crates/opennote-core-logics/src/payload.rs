@@ -1,7 +1,5 @@
-use std::io::Read;
-
 use anyhow::{Result, anyhow};
-use pulldown_cmark::{Event, Parser, TextMergeStream, TextMergeWithOffset};
+use pulldown_cmark::{Event, Parser, TextMergeWithOffset};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -53,7 +51,6 @@ pub fn build_payload(block_id: Uuid, parameters: PayloadContentParameters) -> Re
 /// TODO: need to consider multi-modal support
 pub fn build_payloads(
     block_id: Uuid,
-    text_chunk_size: Option<usize>,
     string: String,
     default_title: Option<String>, // Use the default title as the title if supplied
 ) -> Result<Vec<Payload>> {

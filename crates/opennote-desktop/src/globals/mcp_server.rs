@@ -442,12 +442,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             content = regex.replace(&content, &replacement.text).to_string();
         }
 
-        let payloads = build_payloads(
-            block_id,
-            Some(configurations.user.search.document_chunk_size),
-            content,
-            None,
-        )?;
+        let payloads = build_payloads(block_id, content, None)?;
 
         // Update the block
         match (server_name, server_states) {
@@ -504,7 +499,6 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             parent_block_id,
             request.title,
             &self.bootstrap.embedders,
-            None,
             None,
         )
         .await?;

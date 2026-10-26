@@ -22,7 +22,6 @@
 ///             raw_file_name,
 ///             &embedders,
 ///             Some(content),
-///             Some(document_chunk_size),
 ///         ).await
 ///     }
 /// ).await;
