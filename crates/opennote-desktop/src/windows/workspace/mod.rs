@@ -103,6 +103,21 @@ impl Workspace {
             }),
         );
 
+        // Prevent the window from being closed when it has ongoing tasks.
+        // Register once here instead of in `render`: under Wayland, the frame
+        // dispatch holds a mutable borrow of the platform window's callbacks,
+        // so registering during a render panics with `RefCell already borrowed`.
+        let window_id = window.window_handle().window_id();
+        window.on_window_should_close(cx, move |this, cx| {
+            let task_tracker: &TaskTracker = cx.global();
+            if task_tracker.has_pending_items(window_id) {
+                this.open_dialog(cx, open_warning_dialogue(PENDING_TASKS_WARNING));
+                return false;
+            }
+
+            true
+        });
+
         Ok(Self {
             focus_handle: focus_handle.clone(),
             sidebar: sidebar.clone(),
@@ -130,18 +145,6 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Prevent the window from being closed when it has ongoing tasks.
-        let window_id = window.window_handle().window_id();
-        window.on_window_should_close(cx, move |this, cx| {
-            let task_tracker: &TaskTracker = cx.global();
-            if task_tracker.has_pending_items(window_id) {
-                this.open_dialog(cx, open_warning_dialogue(PENDING_TASKS_WARNING));
-                return false;
-            }
-
-            true
-        });
-
         div()
             .key_context(WORKSPACE)
             .track_focus(&self.focus_handle) // GPUI needs this to get the focus of this workspace
