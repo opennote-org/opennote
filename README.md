@@ -37,6 +37,8 @@ A minimalistic notebook app built purely in Rust.
 4. Double-click to launch the app.
 5. Enjoy!
 
+For a series of use cases that you may find helpful, please refer to `manuals` folder in this repo. One of my favorites is [AI Driven TODOs](manuals/AI_Driven_TODOs_with_OpenNote.md).
+
 **For mac users**: I don't have an Apple Developer Account yet, so I can't codesign the mac app. You may need to run the following command in Terminal, after pasting the app file to the `Applications` folder:
 
 **For first-time installation**: The app will try downloading `models--sentence-transformers--all-MiniLM-L6-v2` from `https://huggingface.co` by default. However, in case if the official site fails, it will switch to use a mirror site, which is `https://hf-mirror.com`.
