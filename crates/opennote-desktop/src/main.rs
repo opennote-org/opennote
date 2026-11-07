@@ -20,7 +20,7 @@ use opennote_models::constants::{
 };
 
 use crate::{
-    globals::{mcp_server::DesktopMCPServer, states::States, velotype::init_velotype},
+    globals::{mcp_server::DesktopMCPServer, states::States},
     startup::{ResourceLoader, load_frameworks},
     windows::{
         log::{LogWindow, writer::WindowLogWriter},
@@ -82,13 +82,8 @@ async fn main() -> Result<()> {
 
                 States::init(cx);
 
-                match init_velotype(cx) {
-                    Ok(_) => loading_view.set_message("Loading editor...", cx),
-                    Err(error) => loading_view.set_error(error.to_string(), cx),
-                };
-
                 match DesktopMCPServer::init(cx) {
-                    Ok(_) => loading_view.set_message("Loading MCP server...", cx),
+                    Ok(_) => loading_view.set_message("Loading ...", cx),
                     Err(error) => loading_view.set_error(error.to_string(), cx),
                 };
 

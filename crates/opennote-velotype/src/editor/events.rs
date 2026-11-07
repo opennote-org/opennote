@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, anyhow};
 use gpui::*;
+use sha256::{digest, try_digest};
 
 use super::Editor;
 use crate::components::{
@@ -18,7 +19,7 @@ use crate::components::{
     OutdentBlock, PastedImageSource, TableCellPosition, is_table_row_candidate,
     parse_root_table_region, parse_table_body_row,
 };
-use crate::config::preferences::{ImagePasteBehavior, read_app_preferences};
+use crate::config::preferences::EditorSettings;
 
 impl Editor {
     fn focused_block_for_tab_key(
@@ -232,17 +233,8 @@ impl Editor {
         self.focus_block(block.entity_id());
     }
 
-    fn current_image_paste_behavior() -> ImagePasteBehavior {
-        read_app_preferences()
-            .map(|preferences| preferences.image_paste_behavior)
-            .unwrap_or(ImagePasteBehavior::None)
-    }
-
     fn image_paste_root_dir(&self) -> anyhow::Result<PathBuf> {
-        if let Some(parent) = self.file_path.as_ref().and_then(|path| path.parent()) {
-            return Ok(parent.to_path_buf());
-        }
-        std::env::current_dir().context("failed to resolve current working directory")
+        Ok(self.editor_settings.get_assets_storage_path())
     }
 
     fn clipboard_image_extension(format: ImageFormat) -> &'static str {
@@ -256,52 +248,6 @@ impl Editor {
             ImageFormat::Tiff => "tiff",
             ImageFormat::Ico => "ico",
             ImageFormat::Pnm => "pnm",
-        }
-    }
-
-    fn image_target_dir(
-        &self,
-        behavior: ImagePasteBehavior,
-        root_dir: &Path,
-        source: &PastedImageSource,
-    ) -> anyhow::Result<PathBuf> {
-        match behavior {
-            ImagePasteBehavior::CopyToOpenNoteAssetsFolder => {
-                // Define a path to store pasted images
-                todo!()
-            }
-            ImagePasteBehavior::None | ImagePasteBehavior::CopyToDocumentFolder => {
-                Ok(root_dir.to_path_buf())
-            }
-            ImagePasteBehavior::CopyToAssetsFolder => Ok(root_dir.join("assets")),
-            ImagePasteBehavior::CopyToNamedAssetsFolder => {
-                let base = self
-                    .file_path
-                    .as_ref()
-                    .and_then(|path| path.file_stem())
-                    .and_then(|stem| stem.to_str())
-                    .filter(|stem| !stem.trim().is_empty())
-                    .unwrap_or("untitle");
-                if self.file_path.is_some() {
-                    return Ok(root_dir.join(format!("{base}.assets")));
-                }
-
-                for index in 0.. {
-                    let folder = if index == 0 {
-                        "untitle.assets".to_string()
-                    } else {
-                        format!("untitle{index}.assets")
-                    };
-                    let path = root_dir.join(folder);
-                    if !path.exists() {
-                        return Ok(path);
-                    }
-                    if matches!(source, PastedImageSource::LocalPath(_)) {
-                        continue;
-                    }
-                }
-                unreachable!("unbounded search should always return");
-            }
         }
     }
 
@@ -329,44 +275,36 @@ impl Editor {
         unreachable!("unbounded search should always return");
     }
 
-    fn path_parent_eq(left: &Path, right: &Path) -> bool {
-        let Some(parent) = left.parent() else {
-            return false;
-        };
-        let left = parent
-            .canonicalize()
-            .unwrap_or_else(|_| parent.to_path_buf());
-        let right = right.canonicalize().unwrap_or_else(|_| right.to_path_buf());
-        left == right
-    }
-
     fn materialize_pasted_image(
         &self,
         source: &PastedImageSource,
     ) -> anyhow::Result<(PathBuf, bool)> {
-        let behavior = Self::current_image_paste_behavior();
         let root_dir = self.image_paste_root_dir()?;
 
-        if matches!(behavior, ImagePasteBehavior::None)
-            && let PastedImageSource::LocalPath(path) = source
-        {
+        if let PastedImageSource::LocalPath(path) = source {
             return Ok((path.clone(), false));
         }
 
-        let target_dir = self.image_target_dir(behavior, &root_dir, source)?;
+        let sha = match source {
+            PastedImageSource::ClipboardImage(image) => digest(&image.bytes),
+            PastedImageSource::LocalPath(path) => try_digest(path)?,
+        };
+
+        // Save path format: `sha256/filename`
+        let target_dir = root_dir.join(sha);
+
         fs::create_dir_all(&target_dir)
             .with_context(|| format!("failed to create '{}'", target_dir.display()))?;
 
         match source {
             PastedImageSource::LocalPath(path) => {
-                if Self::path_parent_eq(path, &target_dir) {
-                    return Ok((path.clone(), behavior != ImagePasteBehavior::None));
-                }
                 let file_name = path
                     .file_name()
                     .and_then(|name| name.to_str())
                     .unwrap_or("image");
+
                 let target = Self::unique_file_path(&target_dir, file_name);
+
                 fs::copy(path, &target).with_context(|| {
                     format!(
                         "failed to copy '{}' to '{}'",
@@ -374,17 +312,21 @@ impl Editor {
                         target.display()
                     )
                 })?;
-                Ok((target, behavior != ImagePasteBehavior::None))
+
+                Ok((target, false))
             }
             PastedImageSource::ClipboardImage(image) => {
                 let file_name = format!(
                     "pasted-image.{}",
                     Self::clipboard_image_extension(image.format)
                 );
+
                 let target = Self::unique_file_path(&target_dir, &file_name);
+
                 fs::write(&target, &image.bytes)
                     .with_context(|| format!("failed to write '{}'", target.display()))?;
-                Ok((target, behavior != ImagePasteBehavior::None))
+
+                Ok((target, false))
             }
         }
     }
@@ -421,15 +363,18 @@ impl Editor {
         Some(format!("./{}", Self::markdown_path_string(relative)))
     }
 
+    /// TODO: handle the desktop side
     fn pasted_image_markdown(&self, source: &PastedImageSource) -> anyhow::Result<String> {
         let root_dir = self.image_paste_root_dir()?;
         let (path, relative) = self.materialize_pasted_image(source)?;
+
         let path_text = if relative {
             Self::relative_markdown_path(&root_dir, &path)
                 .ok_or_else(|| anyhow!("failed to create a relative image path"))?
         } else {
             Self::markdown_path_string(&path)
         };
+
         Ok(format!(
             "![{}]({})",
             Self::markdown_image_alt(&path),

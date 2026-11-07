@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{
-        DATA_STORAGE_FOLDER_NAME,
+        DATA_STORAGE_FOLDER_NAME, SQLITE_DATABASE_FILENAME,
         env_vars::{DEFAULT_SQLITE_DATA_FOLDER_NAME_ENV_VAR_NAME, load_environment_variable},
     },
     providers::database::DatabaseProvider,
@@ -25,7 +25,7 @@ impl Default for DatabaseConfig {
             let path_to_sqlite = config_dir
                 .join(app_data_folder_name)
                 .join(DATA_STORAGE_FOLDER_NAME)
-                .join("database.sqlite")
+                .join(SQLITE_DATABASE_FILENAME)
                 .to_string_lossy()
                 .to_string();
 

@@ -12,8 +12,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
 use crate::config::{
-    VelotypeConfigDirs, object_without_empty_values, preferences::read_app_preferences,
-    prune_empty_json_values, read_json_or_jsonc, sanitize_config_file_stem,
+    VelotypeConfigDirs, object_without_empty_values, prune_empty_json_values, read_json_or_jsonc,
+    sanitize_config_file_stem,
 };
 
 /// All localisable UI strings for the editor.
@@ -1780,15 +1780,6 @@ impl Default for I18nManager {
 }
 
 impl I18nManager {
-    /// Installs the configured UI language into GPUI's global state.
-    #[allow(dead_code)]
-    pub fn init(cx: &mut App) {
-        let language_id = read_app_preferences()
-            .map(|preferences| preferences.default_language_id)
-            .unwrap_or_else(|_| BUILTIN_LANGUAGE_EN_US_ID.into());
-        Self::init_with_language_id(cx, &language_id);
-    }
-
     /// Installs a specific UI language into GPUI's global state.
     pub fn init_with_language_id(cx: &mut App, language_id: &str) {
         let mut manager = Self::new_with_language_id(BUILTIN_LANGUAGE_EN_US_ID);

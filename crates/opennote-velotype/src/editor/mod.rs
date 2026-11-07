@@ -5,8 +5,8 @@
 //! [`DocumentTree`], which centralizes structural mutations and cached visible
 //! order metadata.
 
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -16,12 +16,16 @@ use self::tree::DocumentTree;
 use crate::components::{
     Block, BlockKind, BlockRecord, FootnoteDefinitionBinding, FootnoteReferenceLocation,
     FootnoteRegistry, FootnoteResolvedOccurrence, ImageReferenceDefinitions, InlineTextTree,
-    LinkReferenceDefinitions, parse_image_reference_definitions, parse_link_reference_definitions,
+    LinkReferenceDefinitions, init_with_keybindings, parse_image_reference_definitions,
+    parse_link_reference_definitions,
 };
 use crate::components::{
     TableAxisHighlight, TableAxisKind, TableAxisMarker, TableCellPosition, TableColumnAlignment,
     TableData, TableRuntime, UndoCaptureKind, serialize_table_cell_markdown,
 };
+use crate::config::preferences::EditorSettings;
+use crate::i18n::I18nManager;
+use crate::net::install_http_client;
 use crate::theme::{BUILTIN_THEME_VELOTYPE_ID, BUILTIN_THEME_VELOTYPE_LIGHT_ID, ThemeManager};
 
 mod document;
@@ -128,6 +132,8 @@ pub struct Editor {
     image_reference_definitions: Arc<ImageReferenceDefinitions>,
     link_reference_definitions: Arc<LinkReferenceDefinitions>,
     footnote_registry: Arc<FootnoteRegistry>,
+    /// Editor settings that can be accessed within self
+    editor_settings: EditorSettings,
 }
 
 /// Runtime binding between a table block and one cell editor.
@@ -325,7 +331,19 @@ impl Editor {
         cx: &mut Context<Self>,
         markdown: String,
         file_path: Option<PathBuf>,
+        default_language_id: &str,
+        default_theme_id: &str,
+        show_table_headers: bool,
+        keybindings: &BTreeMap<String, Vec<String>>,
+        assets_storage_path: &str,
     ) -> Self {
+        // Velotype needs to be initialized first before it can be used.
+        I18nManager::init_with_language_id(cx, default_language_id);
+        ThemeManager::init_with_theme_id(cx, default_theme_id);
+        EditorSettings::init(cx, show_table_headers, assets_storage_path);
+        install_http_client(cx);
+        init_with_keybindings(cx, keybindings);
+
         let normalized = markdown.replace("\r\n", "\n").replace('\r', "\n");
         let mut roots = Self::build_root_blocks_from_markdown(cx, &normalized);
         if roots.is_empty() {
@@ -383,7 +401,9 @@ impl Editor {
             image_reference_definitions: Arc::default(),
             link_reference_definitions: Arc::default(),
             footnote_registry: Arc::default(),
+            editor_settings: EditorSettings::new(show_table_headers, assets_storage_path),
         };
+
         editor.rebuild_table_runtimes(cx);
         editor.rebuild_image_runtimes(cx);
         editor.pending_focus = editor.first_focusable_entity_id(cx);
