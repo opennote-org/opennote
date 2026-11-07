@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::configurations::fields::{
-    language::UserInterfaceLanguage, mcp_server::MCPServerConfig,
+    editor::EditorConfigurations, language::UserInterfaceLanguage, mcp_server::MCPServerConfig,
     remote_server::RemoteServerConfiguration, search::UserSearchConfiguration,
 };
 
@@ -26,6 +26,10 @@ pub struct UserConfigurations {
 
     /// Confugre how the opennote mcp server behaves
     pub mcp_server: MCPServerConfig,
+
+    /// Editor related configurations
+    #[serde(default)]
+    pub editor: EditorConfigurations,
 }
 
 impl Default for UserConfigurations {
@@ -35,6 +39,7 @@ impl Default for UserConfigurations {
             language: UserInterfaceLanguage::default(),
             remote_servers: HashMap::new(),
             mcp_server: MCPServerConfig::default(),
+            editor: EditorConfigurations::default(),
         }
     }
 }

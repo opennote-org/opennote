@@ -14,8 +14,7 @@ use serde_json::{Map, Value};
 
 use crate::config::{
     VelotypeConfigDirs, merge_non_empty_json_values, object_without_empty_values,
-    preferences::read_app_preferences, prune_empty_json_values, read_json_or_jsonc,
-    sanitize_config_file_stem,
+    prune_empty_json_values, read_json_or_jsonc, sanitize_config_file_stem,
 };
 
 /// Serializable font weight that maps to GPUI's [`FontWeight`] constants.
@@ -1514,16 +1513,7 @@ impl Default for ThemeManager {
     }
 }
 
-#[allow(unused)]
 impl ThemeManager {
-    /// Installs the configured theme into GPUI's global state.
-    pub fn init(cx: &mut App) {
-        let theme_id = read_app_preferences()
-            .map(|preferences| preferences.default_theme_id)
-            .unwrap_or_else(|_| BUILTIN_THEME_VELOTYPE_ID.into());
-        Self::init_with_theme_id(cx, &theme_id);
-    }
-
     /// Installs a specific theme into GPUI's global state.
     pub fn init_with_theme_id(cx: &mut App, theme_id: &str) {
         let mut manager = Self::default();

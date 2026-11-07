@@ -8,8 +8,6 @@ use serde_json::{Map, Value};
 
 pub mod preferences;
 
-pub(crate) const RECENT_FILES_LIMIT: usize = 20;
-
 /// Cross-platform configuration directories owned by Velotype.
 #[derive(Debug, Clone)]
 pub(crate) struct VelotypeConfigDirs {
@@ -48,106 +46,8 @@ impl VelotypeConfigDirs {
         self.root.join("themes")
     }
 
-    pub(crate) fn history_file(&self) -> PathBuf {
-        self.root.join(".history")
-    }
-
     pub(crate) fn app_config_file(&self) -> PathBuf {
         self.root.join("editor_configurations.toml")
-    }
-}
-
-pub(crate) fn read_recent_files() -> anyhow::Result<Vec<PathBuf>> {
-    read_recent_files_with_dirs(&VelotypeConfigDirs::from_system()?)
-}
-
-pub(crate) fn read_recent_files_with_dirs(
-    dirs: &VelotypeConfigDirs,
-) -> anyhow::Result<Vec<PathBuf>> {
-    let path = dirs.history_file();
-    let text = match std::fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(err) => {
-            return Err(err).with_context(|| format!("failed to read '{}'", path.display()));
-        }
-    };
-
-    Ok(normalize_recent_files(text.lines().map(PathBuf::from)))
-}
-
-fn normalize_recent_files(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
-    let mut normalized: Vec<PathBuf> = Vec::new();
-    for path in paths {
-        let text = path.to_string_lossy();
-        let trimmed = text.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let path = PathBuf::from(trimmed);
-        if !is_recordable_recent_file_path(&path) {
-            continue;
-        }
-        if normalized
-            .iter()
-            .any(|existing| same_recent_path(existing, &path))
-        {
-            continue;
-        }
-        normalized.push(path);
-        if normalized.len() == RECENT_FILES_LIMIT {
-            break;
-        }
-    }
-    normalized
-}
-
-fn is_recordable_recent_file_path(path: &Path) -> bool {
-    let text = path.to_string_lossy();
-    if text.trim().is_empty() {
-        return false;
-    }
-
-    !(is_inside_system_temp_dir(path) && has_velotype_temp_fixture_name(path))
-}
-
-fn is_inside_system_temp_dir(path: &Path) -> bool {
-    let temp_dir = std::env::temp_dir();
-    if cfg!(windows) {
-        let path_text = normalize_windows_path_text(path);
-        let mut temp_text = normalize_windows_path_text(&temp_dir);
-        if !temp_text.ends_with('\\') {
-            temp_text.push('\\');
-        }
-        return path_text.starts_with(&temp_text);
-    }
-
-    path.starts_with(temp_dir)
-}
-
-fn normalize_windows_path_text(path: &Path) -> String {
-    path.to_string_lossy()
-        .replace('/', "\\")
-        .trim_end_matches('\\')
-        .to_ascii_lowercase()
-}
-
-fn has_velotype_temp_fixture_name(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| {
-            let name = name.to_ascii_lowercase();
-            name.starts_with("velotype-drop-") || name.starts_with("velotypre-drop-")
-        })
-        .unwrap_or(false)
-}
-
-fn same_recent_path(left: &Path, right: &Path) -> bool {
-    if cfg!(windows) {
-        left.to_string_lossy()
-            .eq_ignore_ascii_case(&right.to_string_lossy())
-    } else {
-        left == right
     }
 }
 

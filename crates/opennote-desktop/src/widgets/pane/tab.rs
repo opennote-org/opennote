@@ -10,7 +10,7 @@ use gpui_kit::{
 };
 use uuid::Uuid;
 
-use crate::globals::actions::block::get_block_content;
+use crate::globals::{actions::block::get_block_content, bootstrap::helpers::get_configurations};
 use crate::widgets::pane::subscriptions::subscribe_editor_events;
 use crate::{
     globals::states::helpers::get_states,
@@ -63,9 +63,20 @@ impl TabStates {
         window: &mut Window,
     ) {
         let texts = get_block_content(block_id, cx).unwrap();
+        let configurations = get_configurations(cx).clone();
 
-        let editor =
-            cx.new(|cx| opennote_velotype::editor::Editor::from_markdown(cx, texts.into(), None));
+        let editor = cx.new(|cx| {
+            opennote_velotype::editor::Editor::from_markdown(
+                cx,
+                texts.into(),
+                None,
+                &configurations.user.editor.default_language_id,
+                &configurations.user.editor.default_theme_id,
+                configurations.user.editor.show_table_headers,
+                &configurations.user.editor.keybindings,
+                &configurations.system.assets.assets_storage_path,
+            )
+        });
 
         let owned_block_id = *block_id;
 
