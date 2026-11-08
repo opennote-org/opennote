@@ -1,5 +1,6 @@
 use anyhow::{Error, Result};
 use gpui_kit::{AnyWindowHandle, App, AsyncApp, SharedString, Window};
+use serde_json::Value;
 
 use crate::globals::tasks::{
     task_information::TaskInformation,
@@ -10,11 +11,13 @@ use crate::globals::tasks::{
 /// Start a fire-and-forget task running in the background.
 /// It will send a notification to indicate whether it is still runing.
 /// It will also send a notification in the frontend on completion or failure.
+///
+/// If it needs to return a result, it will be returned in an event.
 pub fn start_task<T>(
     cx: &mut App,
     window: &mut Window,
     task: TaskInformation,
-    business_logics: impl AsyncFnOnce(&mut AsyncApp, AnyWindowHandle) -> Result<()> + 'static,
+    business_logics: impl AsyncFnOnce(&mut AsyncApp, AnyWindowHandle) -> Result<Option<Value>> + 'static,
     refresh_logics: impl Fn(&mut AsyncApp) + 'static,
     message_on_success: impl Fn() -> SharedString + 'static,
     message_on_error: impl Fn(Error) -> SharedString + 'static,
@@ -30,8 +33,9 @@ pub fn start_task<T>(
         // Register task in the tracker
         register_long_running_task::<T>(window, cx, task);
 
-        match business_logics(cx, window).await {
-            Ok(_) => {}
+        // TODO: business logics should be able to return results
+        let data = match business_logics(cx, window).await {
+            Ok(result) => result,
             Err(error) => {
                 tracing::error!("{:#}", error);
 
@@ -43,12 +47,12 @@ pub fn start_task<T>(
 
                 return;
             }
-        }
+        };
 
         register_long_running_completion::<T>(
             window,
             cx,
-            TaskResult::new(task_id, true, message_on_success(), task_type, None),
+            TaskResult::new(task_id, true, message_on_success(), task_type, data),
         );
 
         refresh_logics(cx)

@@ -362,7 +362,6 @@ impl Editor {
         Some(format!("./{}", Self::markdown_path_string(relative)))
     }
 
-    /// TODO: handle the desktop side
     fn pasted_image_markdown(&self, source: &PastedImageSource) -> anyhow::Result<String> {
         let root_dir = self.image_paste_root_dir()?;
         let (path, relative) = self.materialize_pasted_image(source)?;
