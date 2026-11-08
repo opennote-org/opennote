@@ -7,15 +7,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{Context as _, bail};
 use gpui::{App, FontWeight, Global, Hsla, hsla, rgba};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::{Map, Value};
-
-use crate::config::{
-    VelotypeConfigDirs, merge_non_empty_json_values, object_without_empty_values,
-    prune_empty_json_values, read_json_or_jsonc, sanitize_config_file_stem,
-};
 
 /// Serializable font weight that maps to GPUI's [`FontWeight`] constants.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1480,15 +1473,6 @@ fn builtin_theme_catalog() -> Vec<ThemeCatalogEntry> {
     ]
 }
 
-#[derive(Debug, Clone)]
-struct CustomThemeEntry {
-    id: String,
-    name: String,
-    creator: String,
-    base_theme_id: String,
-    theme: Theme,
-}
-
 /// Global singleton that holds the current [`Theme`].
 ///
 /// Registered via [`Global`] so every component can access it through
@@ -1496,7 +1480,6 @@ struct CustomThemeEntry {
 pub struct ThemeManager {
     current: Arc<Theme>,
     current_theme_id: String,
-    custom_themes: Vec<CustomThemeEntry>,
     theme_catalog: Vec<ThemeCatalogEntry>,
 }
 
@@ -1507,7 +1490,6 @@ impl Default for ThemeManager {
         Self {
             current: Arc::new(Theme::default_theme()),
             current_theme_id: BUILTIN_THEME_VELOTYPE_ID.into(),
-            custom_themes: Vec::new(),
             theme_catalog: builtin_theme_catalog(),
         }
     }
@@ -1517,11 +1499,6 @@ impl ThemeManager {
     /// Installs a specific theme into GPUI's global state.
     pub fn init_with_theme_id(cx: &mut App, theme_id: &str) {
         let mut manager = Self::default();
-        if let Ok(dirs) = VelotypeConfigDirs::from_system()
-            && let Err(err) = manager.load_custom_themes_from_dirs(&dirs)
-        {
-            eprintln!("failed to load custom themes: {err}");
-        }
         let _ = manager.set_theme_by_id(theme_id);
         cx.set_global(manager);
     }
@@ -1589,100 +1566,8 @@ impl ThemeManager {
                 self.current_theme_id = BUILTIN_THEME_VELOTYPE_LIGHT_ID.into();
                 true
             }
-            id => {
-                let Some(entry) = self.custom_themes.iter().find(|entry| entry.id == id) else {
-                    return false;
-                };
-                self.current = Arc::new(entry.theme.clone());
-                self.current_theme_id = entry.id.clone();
-                true
-            }
+            _id => true,
         }
-    }
-
-    /// Imports a user theme pack, persists a normalized copy, and activates it.
-    pub fn import_theme_config(&mut self, path: impl AsRef<Path>) -> anyhow::Result<String> {
-        let dirs = VelotypeConfigDirs::from_system()?;
-        self.import_theme_config_with_dirs(path, &dirs)
-    }
-
-    fn import_theme_config_with_dirs(
-        &mut self,
-        path: impl AsRef<Path>,
-        dirs: &VelotypeConfigDirs,
-    ) -> anyhow::Result<String> {
-        let raw = read_json_or_jsonc(path.as_ref())?;
-        let default_base_theme_id = self.theme_import_base_theme_id();
-        let (entry, normalized) =
-            custom_theme_from_value_with_default_base(raw, default_base_theme_id.as_str())?;
-        let file_name = format!(
-            "{}_{}.json",
-            sanitize_config_file_stem(&entry.name),
-            sanitize_config_file_stem(&entry.creator)
-        );
-        let themes_dir = dirs.themes_dir();
-        std::fs::create_dir_all(&themes_dir)?;
-        std::fs::write(
-            themes_dir.join(file_name),
-            serde_json::to_string_pretty(&normalized)?,
-        )?;
-        let imported_id = entry.id.clone();
-        self.upsert_custom_theme(entry);
-        self.set_theme_by_id(&imported_id);
-        Ok(imported_id)
-    }
-
-    fn load_custom_themes_from_dirs(&mut self, dirs: &VelotypeConfigDirs) -> anyhow::Result<()> {
-        let themes_dir = dirs.themes_dir();
-        if !themes_dir.exists() {
-            return Ok(());
-        }
-
-        let mut loaded = Vec::new();
-        for entry in std::fs::read_dir(&themes_dir)? {
-            let path = entry?.path();
-            if path.is_file() {
-                match read_json_or_jsonc(&path)
-                    .and_then(|value| custom_theme_from_value(value).map(|(entry, _)| entry))
-                {
-                    Ok(entry) => loaded.push(entry),
-                    Err(err) => {
-                        eprintln!("skipping custom theme config '{}': {err}", path.display())
-                    }
-                }
-            }
-        }
-        loaded.sort_by(|left, right| {
-            left.name
-                .cmp(&right.name)
-                .then(left.creator.cmp(&right.creator))
-        });
-        for entry in loaded {
-            self.upsert_custom_theme(entry);
-        }
-        Ok(())
-    }
-
-    fn upsert_custom_theme(&mut self, entry: CustomThemeEntry) {
-        if let Some(existing) = self
-            .custom_themes
-            .iter_mut()
-            .find(|existing| existing.id == entry.id)
-        {
-            *existing = entry;
-        } else {
-            self.custom_themes.push(entry);
-        }
-        self.rebuild_theme_catalog();
-    }
-
-    fn rebuild_theme_catalog(&mut self) {
-        let mut catalog = builtin_theme_catalog();
-        catalog.extend(self.custom_themes.iter().map(|entry| ThemeCatalogEntry {
-            id: entry.id.clone(),
-            name: format!("{} - {}", entry.name, entry.creator),
-        }));
-        self.theme_catalog = catalog;
     }
 
     fn theme_id_for_loaded_theme(&self, theme: &Theme) -> String {
@@ -1694,150 +1579,4 @@ impl ThemeManager {
             CUSTOM_THEME_ID.into()
         }
     }
-
-    fn theme_import_base_theme_id(&self) -> String {
-        match self.current_theme_id.as_str() {
-            BUILTIN_THEME_VELOTYPE_LIGHT_ID => BUILTIN_THEME_VELOTYPE_LIGHT_ID.into(),
-            BUILTIN_THEME_VELOTYPE_ID => BUILTIN_THEME_VELOTYPE_ID.into(),
-            id => self
-                .custom_themes
-                .iter()
-                .find(|entry| entry.id == id)
-                .map(|entry| entry.base_theme_id.clone())
-                .unwrap_or_else(|| BUILTIN_THEME_VELOTYPE_ID.into()),
-        }
-    }
-}
-
-fn custom_theme_from_value(value: Value) -> anyhow::Result<(CustomThemeEntry, Value)> {
-    custom_theme_from_value_with_default_base(value, BUILTIN_THEME_VELOTYPE_ID)
-}
-
-fn custom_theme_from_value_with_default_base(
-    mut value: Value,
-    default_base_theme_id: &str,
-) -> anyhow::Result<(CustomThemeEntry, Value)> {
-    prune_empty_json_values(&mut value);
-    let Value::Object(mut object) = value else {
-        bail!("theme config must be a JSON object");
-    };
-    let object = object_without_empty_values(std::mem::take(&mut object));
-    let name = required_string(&object, "name")?;
-    let creator = required_string(&object, "creator")?;
-    let base_theme_id = resolved_custom_theme_base_id(&object, default_base_theme_id);
-    let raw_theme_patch = object
-        .get("theme")
-        .cloned()
-        .unwrap_or_else(|| Value::Object(Map::new()));
-    if !raw_theme_patch.is_object() {
-        bail!("field 'theme' must be a JSON object when present");
-    }
-
-    let base_theme = custom_theme_base_theme(&base_theme_id);
-    let mut merged = serde_json::to_value(base_theme)?;
-    let mut theme_patch = filter_json_by_schema(&raw_theme_patch, &merged);
-    if let Value::Object(theme_patch_object) = &mut theme_patch {
-        theme_patch_object.remove("name");
-    }
-    merge_non_empty_json_values(&mut merged, &theme_patch);
-    if let Value::Object(merged_object) = &mut merged {
-        merged_object.insert("name".into(), Value::String(name.clone()));
-    }
-    let theme: Theme = serde_json::from_value(merged)
-        .with_context(|| format!("failed to construct custom theme '{name}'"))?;
-    let id = format!(
-        "custom:{}_{}",
-        sanitize_config_file_stem(&name),
-        sanitize_config_file_stem(&creator)
-    );
-    let mut normalized_object = Map::new();
-    normalized_object.insert("name".into(), Value::String(name.clone()));
-    normalized_object.insert("creator".into(), Value::String(creator.clone()));
-    normalized_object.insert(
-        "base_theme_id".into(),
-        Value::String(base_theme_id.to_string()),
-    );
-    for key in ["description", "version", "homepage", "license"] {
-        if let Some(value) = object.get(key) {
-            normalized_object.insert(key.into(), value.clone());
-        }
-    }
-    if !theme_patch
-        .as_object()
-        .map(|object| object.is_empty())
-        .unwrap_or(false)
-    {
-        normalized_object.insert("theme".into(), theme_patch);
-    }
-    let normalized = Value::Object(normalized_object);
-
-    Ok((
-        CustomThemeEntry {
-            id,
-            name,
-            creator,
-            base_theme_id: base_theme_id.to_string(),
-            theme,
-        },
-        normalized,
-    ))
-}
-
-fn resolved_custom_theme_base_id<'a>(
-    object: &'a Map<String, Value>,
-    default_base_theme_id: &'a str,
-) -> &'a str {
-    object
-        .get("base_theme_id")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| is_builtin_theme_id(value))
-        .unwrap_or_else(|| {
-            if is_builtin_theme_id(default_base_theme_id) {
-                default_base_theme_id
-            } else {
-                BUILTIN_THEME_VELOTYPE_ID
-            }
-        })
-}
-
-fn is_builtin_theme_id(theme_id: &str) -> bool {
-    theme_id == BUILTIN_THEME_VELOTYPE_ID || theme_id == BUILTIN_THEME_VELOTYPE_LIGHT_ID
-}
-
-fn custom_theme_base_theme(theme_id: &str) -> Theme {
-    if theme_id == BUILTIN_THEME_VELOTYPE_LIGHT_ID {
-        Theme::light_theme()
-    } else {
-        Theme::default_theme()
-    }
-}
-
-fn filter_json_by_schema(value: &Value, schema: &Value) -> Value {
-    match (value, schema) {
-        (Value::Object(value_object), Value::Object(schema_object)) => {
-            let mut filtered = Map::new();
-            for (key, value) in value_object {
-                if let Some(schema_value) = schema_object.get(key) {
-                    filtered.insert(key.clone(), filter_json_by_schema(value, schema_value));
-                }
-            }
-            Value::Object(filtered)
-        }
-        (value, _) => value.clone(),
-    }
-}
-
-fn required_string(object: &Map<String, Value>, key: &str) -> anyhow::Result<String> {
-    let Some(value) = object.get(key) else {
-        bail!("missing required field '{key}'");
-    };
-    let Some(text) = value
-        .as_str()
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-    else {
-        bail!("field '{key}' must be a non-empty string");
-    };
-    Ok(text.to_string())
 }
