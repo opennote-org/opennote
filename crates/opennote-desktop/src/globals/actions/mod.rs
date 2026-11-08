@@ -105,7 +105,7 @@ pub fn create_one_block(
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
             let _ = cx.update_global::<States, ()>(|this, cx| {
@@ -171,7 +171,7 @@ pub fn delete_n_blocks(window: &mut Window, cx: &mut gpui_kit::App, block_ids: V
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
             let _ = cx.update_global::<States, ()>(|this, cx| {
@@ -277,7 +277,7 @@ pub fn update_n_blocks(
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
             let _ = cx.update_global::<States, ()>(|this, cx| {
@@ -364,7 +364,7 @@ pub fn update_parent(
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
             let _ = cx.update_global::<States, ()>(|this, cx| {
@@ -490,7 +490,7 @@ pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
             metadata.update(&system_configurations);
             metadata.save_to_file(&get_configuration_folder_path(ApplicationType::Desktop))?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
             let _ = cx.update_global::<States, ()>(|this, cx| {

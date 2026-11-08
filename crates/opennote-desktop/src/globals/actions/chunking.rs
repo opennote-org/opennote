@@ -3,80 +3,56 @@ use gpui_kit::Window;
 use opennote_core_logics::payload::build_payloads;
 use opennote_models::{block::Block, payload::Payload};
 
-use crate::globals::tasks::{
-    task_information::TaskInformation,
-    task_result::{TaskResult, TaskType},
-    tracker::{register_long_running_result, register_long_running_task},
-    unique_notifications::ChunkBlockNotification,
+use crate::globals::{
+    language::LanguageProfile,
+    tasks::{
+        helpers::start_task, task_information::TaskInformation, task_result::TaskType,
+        unique_notifications::ChunkBlockNotification,
+    },
 };
 
-pub fn chunk_block(
-    window: &mut Window,
-    app_cx: &mut gpui_kit::App,
-    mut block: Block,
-    text: String,
-) {
-    let window = window.window_handle();
+pub fn chunk_block(window: &mut Window, cx: &mut gpui_kit::App, mut block: Block, text: String) {
+    let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
+    let chunking_message = language_profile.get_description("chunking_block").unwrap();
+    let completed_message = language_profile
+        .get_description("chunking_completed")
+        .unwrap();
+    let failed_message = language_profile.get_description("chunking_failed").unwrap();
 
-    app_cx
-        .spawn(async move |cx| {
-            let task = TaskInformation::new(
-                "Chunking a block",
-                TaskType::ChunkBlock { block_id: block.id },
-                true,
-            );
-            let task_id = task.id;
+    let task = TaskInformation::new(
+        chunking_message,
+        TaskType::ChunkBlock { block_id: block.id },
+        true,
+    );
 
-            // Register task in the scheduler.
-            register_long_running_task::<ChunkBlockNotification>(window, cx, task);
-
+    start_task::<ChunkBlockNotification>(
+        cx,
+        window,
+        task,
+        async move |cx, _window_handle| {
             // Chunk in the background
-            let payloads: Vec<Payload> = match cx
+            let payloads: Vec<Payload> = cx
                 .background_executor()
                 .spawn(async move {
                     let payloads = match build_payloads(block.id, text, None) {
                         Ok(results) => results,
                         Err(error) => {
                             tracing::error!("Error when trying to save a document: {}", error);
-                            return Ok(vec![]);
+                            vec![]
                         }
                     };
 
                     Ok::<Vec<Payload>, anyhow::Error>(payloads)
                 })
-                .await
-            {
-                Ok(result) => result,
-                Err(error) => {
-                    register_long_running_result::<ChunkBlockNotification>(
-                        window,
-                        cx,
-                        TaskResult::new(
-                            task_id,
-                            false,
-                            format!("Chunking failed: {}", error),
-                            TaskType::ChunkBlock { block_id: block.id },
-                            None,
-                        ),
-                    );
-                    return;
-                }
-            };
+                .await?;
 
             block.payloads = payloads;
 
             // Scheduler should receive the result at this point
-            register_long_running_result::<ChunkBlockNotification>(
-                window,
-                cx,
-                TaskResult::new(
-                    task_id,
-                    true,
-                    "Chunking completed",
-                    TaskType::ChunkBlock { block_id: block.id },
-                    Some(serde_json::to_value(block).unwrap()),
-                ),
-            );
-        })
-        .detach();
+            Ok(Some(serde_json::to_value(block).unwrap()))
+        },
+        |_cx| {},
+        move || completed_message.clone(),
+        move |error| failed_message.replace("{}", &error.to_string()).into(),
+    );
 }
