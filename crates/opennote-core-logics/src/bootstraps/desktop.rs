@@ -32,7 +32,7 @@ impl DesktopBootstrap {
         let databases = Databases::new(&configurations.system).await?;
 
         Ok(Self {
-            configurations: Arc::new(Mutex::new(configurations)),
+            configurations: Arc::new(Mutex::new(configurations.clone())),
             key_mappings: Arc::new(Mutex::new(key_mappings)),
             databases,
             embedders,

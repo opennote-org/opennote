@@ -53,8 +53,8 @@ pub fn export_files(
             // Get the selected directory path for export
             let path = match prompt.await {
                 Ok(Ok(Some(path))) => path,
-                Ok(Ok(None)) | Err(_) => return Ok(()),
-                Ok(Err(_err)) => return Ok(()),
+                Ok(Ok(None)) | Err(_) => return Ok(None),
+                Ok(Err(_err)) => return Ok(None),
             };
 
             let (databases, system_configurations) = cx
@@ -108,7 +108,7 @@ pub fn export_files(
 
             num_blocks_for_task.set(num_blocks);
 
-            Ok(())
+            Ok(None)
         },
         |_cx| {},
         move || {

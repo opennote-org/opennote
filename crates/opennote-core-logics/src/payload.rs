@@ -73,7 +73,7 @@ pub fn build_payloads(
     let mut depth: usize = 0;
     let mut cursor: usize = 0;
 
-    for (index, (event, range)) in iterator.enumerate() {
+    for (_index, (event, range)) in iterator.enumerate() {
         match event {
             Event::Start(_tag) => {
                 if depth == 0 && range.start > cursor {

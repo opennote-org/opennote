@@ -96,17 +96,17 @@ impl Editor {
     pub(super) fn image_base_dir(&self) -> Option<PathBuf> {
         self.file_path
             .as_ref()
-            .and_then(|path| path.parent().map(Path::to_path_buf))
+            .and_then(|path| path.parent().map(std::path::Path::to_path_buf))
             .or_else(|| std::env::current_dir().ok())
     }
 
     pub(super) fn sync_runtime_context_for_block(
         &self,
         block: &Entity<Block>,
-        base_dir: Option<&Path>,
+        base_dir: Option<&std::path::Path>,
         cx: &mut Context<Self>,
     ) {
-        let next_base_dir = base_dir.map(Path::to_path_buf);
+        let next_base_dir = base_dir.map(std::path::Path::to_path_buf);
         let image_reference_definitions = self.image_reference_definitions.clone();
         let link_reference_definitions = self.link_reference_definitions.clone();
         let footnote_registry = self.footnote_registry.clone();

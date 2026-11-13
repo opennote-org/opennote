@@ -50,8 +50,8 @@ pub fn import_files(
         async move |cx, window_handle| {
             let paths = match prompt.await {
                 Ok(Ok(Some(path))) => path,
-                Ok(Ok(None)) | Err(_) => return Ok(()),
-                Ok(Err(_error)) => return Ok(()),
+                Ok(Ok(None)) | Err(_) => return Ok(None),
+                Ok(Err(_err)) => return Ok(None),
             };
 
             num_blocks_for_task.set(paths.len());
@@ -121,7 +121,7 @@ pub fn import_files(
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
             // Refresh the sidebar

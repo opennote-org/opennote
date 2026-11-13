@@ -155,27 +155,7 @@ pub fn register_long_running_task<T: 'static>(
     });
 }
 
-/// It will remove the task information, then register the result
-pub fn register_long_running_result<T: Sized + 'static>(
-    window: AnyWindowHandle,
-    cx: &mut AsyncApp,
-    task_result: TaskResult,
-) {
-    let notification_type = get_notification_type(task_result.status);
-    let message = task_result.message.clone();
-    let window_id = window.window_id();
-
-    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
-        this.register_result(window_id, task_result);
-    });
-
-    let _ = cx.update_window(window, |_view, window, cx| {
-        window.remove_notification::<T>(cx);
-        window.push_notification((notification_type, message), cx);
-    });
-}
-
-/// It will remove the task information, but never register the result.
+/// It will remove the task information, return the result in an event if any.
 pub fn register_long_running_completion<T: Sized + 'static>(
     window: AnyWindowHandle,
     cx: &mut AsyncApp,
@@ -188,7 +168,12 @@ pub fn register_long_running_completion<T: Sized + 'static>(
     let task_id = task_result.id;
 
     let _ = cx.update_global::<TaskTracker, ()>(|tracker, _cx| {
-        tracker.complete(window_id, task_id);
+        match &task_result.data {
+            Some(_data) => tracker.register_result(window_id, task_result),
+            None => {
+                tracker.complete(window_id, task_id);
+            }
+        };
     });
 
     let _ = cx.update_window(window, |_view, window, cx| {

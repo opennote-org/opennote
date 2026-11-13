@@ -8,7 +8,9 @@ pub const CONFIGURATIONS_FILE_NAME: &str = "configurations.json";
 pub const DATA_STORAGE_FOLDER_NAME: &str = "data";
 pub const VECTOR_DATABASE_FILENAME: &str = "vector_database";
 pub const SQLITE_VECTOR_DATABASE_FILE_EXTENSION: &str = "sqlite";
+pub const SQLITE_DATABASE_FILENAME: &str = "database.sqlite";
 pub const METADATA_FILENAME: &str = "metadata.json";
+pub const ASSETS_DIRECTORY_NAME: &str = "assets";
 
 /*
  * Desktop Only
@@ -24,6 +26,7 @@ pub const LOADING_WINDOW_HEIGHT: f32 = 240.;
 pub const DEFAULT_BLOCK_STATES_FILE_NAME: &str = "block_states.json";
 pub const LOG_WINDOW_CAPACITY: usize = 2000;
 pub const DEFAULT_MESSAGE_CHANNEL_CAPACITY: usize = 32;
+pub const DEFAULT_ASSETS_FOLDER_NAME: &str = "assets";
 
 /*
  * Server Only
