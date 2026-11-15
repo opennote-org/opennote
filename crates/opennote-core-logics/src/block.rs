@@ -8,11 +8,12 @@ use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization}
 use opennote_models::{
     block::Block,
     configurations::fields::VectorDatabaseConfig,
+    content_type::ContentType,
     payload::Payload,
     query::{BlockQuery, PayloadQuery},
 };
 
-use crate::payload::{PayloadContentParameters, build_payload, build_payloads};
+use crate::payload::build_payloads;
 
 /// Default block title: the title of the block
 pub async fn build_block(
@@ -25,13 +26,13 @@ pub async fn build_block(
 
     let payloads = match content {
         Some(content) => build_payloads(block.id, content, Some(default_block_title))?,
-        None => vec![build_payload(
+        None => vec![Payload::new(
             block.id,
-            PayloadContentParameters {
-                markdown: Some(default_block_title.to_string()),
-                ..Default::default()
-            },
-        )?],
+            ContentType::Markdown,
+            default_block_title,
+            vec![],
+            vec![],
+        )],
     };
 
     let vectorized_payloads = send_vectorization(payloads, &embedders).await?;
