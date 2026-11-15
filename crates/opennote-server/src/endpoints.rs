@@ -7,6 +7,7 @@ use actix_web::{
 use anyhow::anyhow;
 
 use opennote_core_logics::{
+    assets::create_asset_save_path,
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
     bootstraps::server::ServerBootstrap,
     search::{search_by_keyword, search_by_semantics},
@@ -17,14 +18,17 @@ use opennote_models::{
     search::RawSearchResult,
     server::{
         requests::{
-            CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
-            ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
-            SearchBlocksInWorkspaceRequest, SendReindexedBlocksRequest,
-            UpdateBlocksInWorkspaceRequest,
+            BufferAssetsFromServerRequest, CreateBlocksInWorkspaceRequest,
+            DeleteBlocksInWorkspaceRequest, ListServerAssetsRequest, ReadBlocksInWorkspaceRequest,
+            RequestReindexBlocksRequest, SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest,
+            SendReindexedBlocksRequest, UpdateBlocksInWorkspaceRequest,
         },
         responses::{
             create_bad_response, create_base_response, create_error_response,
-            reindex::{RequestReindexBlocksResponse, SendReindexedBlocksResponse},
+            reindex::{
+                RequestReindexBlocksResponse, SendAssetsToServerResponse,
+                SendReindexedBlocksResponse,
+            },
         },
     },
 };
@@ -343,4 +347,86 @@ pub async fn send_reindexed_blocks_to_workspace(
         }),
         &configurations.shared_key,
     )
+}
+
+/// The desktop app uses to upload new assets to the server
+pub async fn send_assets_to_server(data: Data<ServerBootstrap>, request: Bytes) -> HttpResponse {
+    let configurations = data.configurations.lock().await;
+
+    let request = match perform_pre_request_validations::<SendAssetsToServerRequest>(
+        &configurations,
+        None,
+        request,
+    ) {
+        Ok(value) => value,
+        Err(value) => return value,
+    };
+
+    tracing::info!(
+        "Received the following asset: {:?}",
+        &request.storage_reference
+    );
+
+    // Skip duplicated assets
+    if data
+        .assets_storage
+        .look_up_asset(request.storage_reference.clone())
+    {
+        return create_base_response(Ok(()), &configurations.shared_key);
+    }
+
+    // Iterate the assets
+    // Reference looks like this: `<sha256>/<filename>.<extension>`
+    let path = data
+        .assets_storage
+        .create_asset_save_path(request.storage_reference);
+
+    match std::fs::write(path, request.bytes) {
+        Ok(_) => create_base_response(Ok(()), &configurations.shared_key),
+        Err(error) => create_error_response(error.to_string(), &configurations.shared_key),
+    }
+}
+
+/// The desktop app uses this to buffer the assets to the local assets storage.
+pub async fn buffer_assets_from_server(
+    data: Data<ServerBootstrap>,
+    request: Bytes,
+) -> HttpResponse {
+    let configurations = data.configurations.lock().await;
+
+    let request = match perform_pre_request_validations::<BufferAssetsFromServerRequest>(
+        &configurations,
+        None,
+        request,
+    ) {
+        Ok(value) => value,
+        Err(value) => return value,
+    };
+
+    tracing::info!(
+        "A client has requested the following asset: {:?}",
+        &request.storage_reference
+    );
+
+    // Return error if the asset is missing.
+    if !data
+        .assets_storage
+        .look_up_asset(&request.storage_reference)
+    {
+        return create_error_response(
+            format!(
+                "Asset {} is missing on the server",
+                request.storage_reference
+            ),
+            &configurations.shared_key,
+        );
+    }
+
+    match data
+        .assets_storage
+        .load_asset_as_bytes(request.storage_reference)
+    {
+        Ok(result) => create_base_response(Ok(result), &configurations.shared_key),
+        Err(error) => create_error_response(error.to_string(), &configurations.shared_key),
+    }
 }
