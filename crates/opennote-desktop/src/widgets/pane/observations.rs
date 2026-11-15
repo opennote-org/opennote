@@ -82,6 +82,8 @@ pub fn observe_chunk_block(
         let states = get_states(cx);
         let servers = states.get_servers_by_block_ids(&vec![*block_id]).remove(0);
 
+        // TODO: Send the images to the remote server from here.
+
         update_n_blocks(window, cx, vec![block], servers.0, servers.1, true);
     }
 
