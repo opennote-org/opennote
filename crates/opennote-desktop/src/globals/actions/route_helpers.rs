@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use reqwest::Client;
 use uuid::Uuid;
 
@@ -6,7 +6,7 @@ use opennote_core_logics::{
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
     search::{search_by_keyword, search_by_semantics},
 };
-use opennote_data::Databases;
+use opennote_data::{Databases, assets::AssetsStorage};
 use opennote_models::{
     block::Block,
     configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
@@ -15,8 +15,9 @@ use opennote_models::{
     search::RawSearchResult,
 };
 use opennote_server::{
-    create_remote_server_blocks, delete_remote_server_blocks, read_remote_server_blocks,
-    search_remote_server_blocks, update_remote_server_blocks,
+    buffer_assets_from_remote_server, create_remote_server_blocks, delete_remote_server_blocks,
+    read_remote_server_blocks, search_remote_server_blocks, send_assets_to_remote_server,
+    update_remote_server_blocks,
 };
 
 use crate::globals::states::server_registry::ServerStates;
@@ -160,4 +161,79 @@ pub async fn route_search_blocks(
         )
         .await
     }
+}
+
+/// Upload managed assets referenced by the blocks to the remote server.
+pub async fn route_sending_assets(
+    server_name: &str,
+    server_states: &ServerStates,
+    assets_storage: &AssetsStorage,
+    system_configurations: SystemConfigurations,
+    blocks: Vec<Block>,
+) -> Result<()> {
+    if server_name == LOCAL_SERVER_NAME {
+        return Ok(());
+    }
+
+    let client = Client::new();
+
+    for storage_reference in blocks.iter().flat_map(Block::get_assets_references) {
+        let bytes = assets_storage.load_asset_as_bytes(&storage_reference)?;
+
+        send_assets_to_remote_server(
+            &client,
+            &server_states.connection_string,
+            &server_states.password,
+            storage_reference,
+            bytes,
+            &server_states.shared_key,
+            system_configurations.clone(),
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+/// Cache missing managed assets referenced by the blocks from the remote server.
+pub async fn route_buffering_assets(
+    server_name: &str,
+    server_states: &ServerStates,
+    assets_storage: &AssetsStorage,
+    system_configurations: SystemConfigurations,
+    blocks: Vec<Block>,
+) -> Result<()> {
+    if server_name == LOCAL_SERVER_NAME {
+        return Ok(());
+    }
+
+    let client = Client::new();
+
+    for storage_reference in blocks.iter().flat_map(Block::get_assets_references) {
+        let path = assets_storage.create_asset_save_path(&storage_reference);
+
+        // Skip caching if the asset has already existed.
+        if tokio::fs::try_exists(&path).await? {
+            continue;
+        }
+
+        let bytes = buffer_assets_from_remote_server(
+            &client,
+            &server_states.connection_string,
+            &server_states.password,
+            storage_reference,
+            &server_states.shared_key,
+            system_configurations.clone(),
+        )
+        .await?;
+
+        let parent = match path.parent() {
+            Some(parent) => parent,
+            None => return Err(anyhow!("Managed asset path has no parent")),
+        };
+        tokio::fs::create_dir_all(parent).await?;
+        tokio::fs::write(path, bytes).await?;
+    }
+
+    Ok(())
 }

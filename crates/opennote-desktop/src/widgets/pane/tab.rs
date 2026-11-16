@@ -62,8 +62,8 @@ impl TabStates {
         cx: &mut Context<'_, Pane>,
         window: &mut Window,
     ) {
-        // TODO: fetch images from the server here.
-        let texts = get_block_content(block_id, cx).unwrap();
+        let texts = get_block_content(block_id, cx, window).unwrap();
+
         let configurations = get_configurations(cx).clone();
 
         let editor = cx.new(|cx| {

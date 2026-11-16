@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod block;
 pub mod configurations;
 pub mod constants;

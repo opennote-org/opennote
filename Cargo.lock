@@ -9847,6 +9847,7 @@ dependencies = [
  "dirs 6.0.0",
  "opennote-derive",
  "opennote-entities",
+ "pulldown-cmark",
  "reqwest 0.12.28",
  "schemars 1.2.1",
  "sea-orm",

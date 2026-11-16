@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod block;
 pub mod chunking;
 pub mod export;

@@ -1,20 +1,21 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use futures::future::try_join_all;
-use gpui_kit::{App, SharedString};
+use gpui_kit::{App, SharedString, Window};
 use uuid::Uuid;
 
 use opennote_core_logics::helpers::run_async_code;
 use opennote_data::Databases;
 use opennote_models::{
-    block::Block, configurations::system::SystemConfigurations, query::BlockQuery,
+    block::Block, configurations::system::SystemConfigurations, constants::LOCAL_SERVER_NAME,
+    query::BlockQuery,
 };
 
-use crate::globals::states::server_registry::ServerStates;
 use crate::globals::{
-    actions::route_helpers::route_read_blocks, bootstrap::helpers::get_bootstrap,
-    states::helpers::get_states,
+    actions::{assets::download_block_assets, route_helpers::route_read_blocks},
+    bootstrap::helpers::get_bootstrap,
+    states::{helpers::get_states, server_registry::ServerStates},
 };
 
 /// Get the full content of the specified block from the originated server.
@@ -23,31 +24,60 @@ use crate::globals::{
 /// Since in the desktop app we treat each block as a reference,
 /// each block won't reserve the full payloads in the cache.
 /// Therefore, we will need to use this method to retreive the actual full content of a block.
-pub fn get_block_content(block_id: &Uuid, cx: &mut App) -> Result<String> {
+pub fn get_block_content(block_id: &Uuid, cx: &mut App, window: &mut Window) -> Result<String> {
     let block_ids = vec![*block_id];
 
     let states = get_states(cx);
-    let (server_name, server_states) = states.get_servers_by_block_ids(&block_ids).remove(0);
+    let (server_name, server_states) = match states
+        .get_servers_by_block_ids(&block_ids)
+        .into_iter()
+        .next()
+    {
+        Some(server) => server,
+        None => return Err(anyhow!("No server found for block {block_id}")),
+    };
 
     let bootstrap = get_bootstrap(cx);
+    let assets_storage = bootstrap.0.assets_storage.clone();
 
-    let block = run_async_code(async {
+    let (block, system_configurations) = run_async_code(async {
         let system_configurations = bootstrap.0.configurations.lock().await.system.clone();
-        route_read_blocks(
+
+        let blocks = route_read_blocks(
             &server_name,
             &server_states,
             &bootstrap.0.databases,
             &BlockQuery::ByIds(block_ids),
             false,
             true,
-            system_configurations,
+            system_configurations.clone(),
         )
-        .await
-        .unwrap()
-        .remove(0)
-    });
+        .await?;
 
-    Ok(block.get_text_content())
+        let block = match blocks.into_iter().next() {
+            Some(block) => block,
+            None => return Err(anyhow!("Block {block_id} not found")),
+        };
+
+        Ok((block, system_configurations))
+    })?;
+
+    let texts = block.get_text_content();
+    if server_name == LOCAL_SERVER_NAME || block.get_assets_references().is_empty() {
+        return Ok(texts);
+    }
+
+    download_block_assets(
+        cx,
+        window,
+        server_name,
+        server_states,
+        assets_storage,
+        block,
+        system_configurations,
+    )?;
+
+    Ok(texts)
 }
 
 /// Use this function to get blocks from servers.

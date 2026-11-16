@@ -8,19 +8,20 @@ use opennote_models::{
     block::Block,
     configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::{
-        CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
-        READ_WORKSPACE_BLOCKS_ENDPOINT, REQUEST_REINDEX_WORKSPACE_ENDPOINT, ROOT_ENDPOINT,
-        SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT, SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
+        BUFFER_ASSETS_FROM_SERVER_ENDPOINT, CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT, READ_WORKSPACE_BLOCKS_ENDPOINT,
+        REQUEST_REINDEX_WORKSPACE_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        SEND_ASSETS_TO_SERVER_ENDPOINT, SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
         UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
     },
     query::BlockQuery,
     search::RawSearchResult,
     server::{
         requests::{
-            CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
-            ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
-            SearchBlocksInWorkspaceRequest, SendReindexedBlocksRequest,
-            UpdateBlocksInWorkspaceRequest, create_request,
+            BufferAssetsFromServerRequest, CreateBlocksInWorkspaceRequest,
+            DeleteBlocksInWorkspaceRequest, ReadBlocksInWorkspaceRequest,
+            RequestReindexBlocksRequest, SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest,
+            SendReindexedBlocksRequest, UpdateBlocksInWorkspaceRequest, create_request,
         },
         responses::{parse_base_response, reindex::SendReindexedBlocksResponse},
     },
@@ -226,6 +227,60 @@ pub async fn send_reindexed_remote_server_blocks(
         .send()
         .await
         .context("Failed to send reindexed blocks")?;
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Upload an asset to the remote server.
+pub async fn send_assets_to_remote_server(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    storage_reference: String,
+    bytes: Vec<u8>,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<()> {
+    let payload = SendAssetsToServerRequest {
+        system_configurations,
+        storage_reference,
+        bytes,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(base_url, SEND_ASSETS_TO_SERVER_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to send asset to remote server")?;
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Retrieve an asset from the remote server for local buffering.
+pub async fn buffer_assets_from_remote_server(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    storage_reference: String,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<Vec<u8>> {
+    let payload = BufferAssetsFromServerRequest {
+        system_configurations,
+        storage_reference,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(base_url, BUFFER_ASSETS_FROM_SERVER_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to buffer asset from remote server")?;
 
     parse_base_response(response, shared_key).await
 }

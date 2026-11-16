@@ -13,3 +13,5 @@ pub struct RebuildIndexNotifications;
 pub struct ImportNBlocksNotification;
 
 pub struct ExportNBlocksNotification;
+
+pub struct DownloadAssetsNotification;
