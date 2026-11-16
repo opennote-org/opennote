@@ -20,11 +20,17 @@ use crate::globals::{
 
 /// Get the full content of the specified block from the originated server.
 ///
+/// This function will also schedule an assets download in the background.
+///
 /// The get method provided by the block is only able to get the content that it caches.
 /// Since in the desktop app we treat each block as a reference,
 /// each block won't reserve the full payloads in the cache.
 /// Therefore, we will need to use this method to retreive the actual full content of a block.
-pub fn get_block_content(block_id: &Uuid, cx: &mut App, window: &mut Window) -> Result<String> {
+pub fn parepare_block_content(
+    block_id: &Uuid,
+    cx: &mut App,
+    window: &mut Window,
+) -> Result<String> {
     let block_ids = vec![*block_id];
 
     let states = get_states(cx);

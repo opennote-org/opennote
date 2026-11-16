@@ -10,14 +10,17 @@ use gpui_kit::{
 };
 use uuid::Uuid;
 
-use crate::globals::{actions::block::get_block_content, bootstrap::helpers::get_configurations};
+use opennote_velotype::editor::Editor;
+
+use crate::globals::{
+    actions::block::parepare_block_content, bootstrap::helpers::get_configurations,
+};
 use crate::widgets::pane::subscriptions::subscribe_editor_events;
 use crate::{
     globals::states::helpers::get_states,
     libs::tabs::{drag::DraggedItem, tab::Tab, tab_bar::TabBar},
     widgets::pane::Pane,
 };
-use opennote_velotype::editor::Editor;
 
 pub struct TabState {
     /// It is saved when a document has just opened.
@@ -62,7 +65,7 @@ impl TabStates {
         cx: &mut Context<'_, Pane>,
         window: &mut Window,
     ) {
-        let texts = get_block_content(block_id, cx, window).unwrap();
+        let texts = parepare_block_content(block_id, cx, window).unwrap();
 
         let configurations = get_configurations(cx).clone();
 
