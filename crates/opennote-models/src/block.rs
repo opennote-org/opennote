@@ -6,7 +6,7 @@ use uuid::Uuid;
 use opennote_entities::blocks::{ActiveModel, Model};
 
 use crate::{
-    assets::decompose_save_path, content_type::ContentType, payload::Payload,
+    assets::is_asset_reference, content_type::ContentType, payload::Payload,
     traits::summarization::Summarization,
 };
 
@@ -128,8 +128,8 @@ impl Block {
 
             for event in Parser::new(&payload.texts) {
                 match event {
-                    Event::Start(Tag::Image { dest_url, .. }) => {
-                        references.push(decompose_save_path(dest_url.into_string()));
+                    Event::Start(Tag::Image { dest_url, .. }) if is_asset_reference(&dest_url) => {
+                        references.push(dest_url.into_string());
                     }
                     _ => continue,
                 }

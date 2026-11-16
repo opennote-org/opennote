@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use gpui::{SharedUri, http_client::Uri};
+use opennote_models::assets::is_asset_reference;
 
 use crate::net;
 
@@ -99,9 +100,21 @@ impl ImageSyntax {
     }
 }
 
-pub(crate) fn resolve_image_source(source: &str, base_dir: Option<&Path>) -> ImageResolvedSource {
+pub(crate) fn resolve_image_source(
+    source: &str,
+    base_dir: Option<&Path>,
+    assets_root: Option<&Path>,
+) -> ImageResolvedSource {
     if net::is_remote_image_source(source) {
         return ImageResolvedSource::Remote(SharedUri::from(source.to_string()));
+    }
+
+    if is_asset_reference(source) {
+        let path = match assets_root {
+            Some(root) => root.join(source),
+            None => PathBuf::from(source),
+        };
+        return ImageResolvedSource::Local(path);
     }
 
     let path = Path::new(source);
@@ -984,13 +997,13 @@ mod tests {
 
     #[test]
     fn resolves_relative_and_remote_sources() {
-        let local = resolve_image_source("images/pic.png", Some(Path::new("D:/docs")));
+        let local = resolve_image_source("images/pic.png", Some(Path::new("D:/docs")), None);
         assert_eq!(
             local,
             ImageResolvedSource::Local(Path::new("D:/docs").join("images/pic.png"))
         );
 
-        let remote = resolve_image_source("https://example.com/img.gif", None);
+        let remote = resolve_image_source("https://example.com/img.gif", None, None);
         match remote {
             ImageResolvedSource::Remote(uri) => {
                 assert_eq!(uri.to_string(), "https://example.com/img.gif");

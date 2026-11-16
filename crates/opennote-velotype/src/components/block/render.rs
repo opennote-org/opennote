@@ -1433,7 +1433,11 @@ impl Block {
             alt,
             src: src.to_string(),
             title: None,
-            resolved_source: resolve_image_source(src, self.image_base_dir()),
+            resolved_source: resolve_image_source(
+                src,
+                self.image_base_dir(),
+                self.image_assets_root(),
+            ),
         };
         let strings = cx.global::<I18nManager>().strings_arc();
         let content = self.render_image_content(

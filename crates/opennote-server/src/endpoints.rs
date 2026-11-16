@@ -7,7 +7,6 @@ use actix_web::{
 use anyhow::anyhow;
 
 use opennote_core_logics::{
-    assets::create_asset_save_path,
     block::{create_blocks, delete_blocks, read_blocks, update_blocks},
     bootstraps::server::ServerBootstrap,
     search::{search_by_keyword, search_by_semantics},
@@ -19,16 +18,13 @@ use opennote_models::{
     server::{
         requests::{
             BufferAssetsFromServerRequest, CreateBlocksInWorkspaceRequest,
-            DeleteBlocksInWorkspaceRequest, ListServerAssetsRequest, ReadBlocksInWorkspaceRequest,
+            DeleteBlocksInWorkspaceRequest, ReadBlocksInWorkspaceRequest,
             RequestReindexBlocksRequest, SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest,
             SendReindexedBlocksRequest, UpdateBlocksInWorkspaceRequest,
         },
         responses::{
             create_bad_response, create_base_response, create_error_response,
-            reindex::{
-                RequestReindexBlocksResponse, SendAssetsToServerResponse,
-                SendReindexedBlocksResponse,
-            },
+            reindex::{RequestReindexBlocksResponse, SendReindexedBlocksResponse},
         },
     },
 };
@@ -375,13 +371,27 @@ pub async fn send_assets_to_server(data: Data<ServerBootstrap>, request: Bytes) 
         return create_base_response(Ok(()), &configurations.shared_key);
     }
 
-    // Iterate the assets
     // Reference looks like this: `<sha256>/<filename>.<extension>`
     let path = data
         .assets_storage
         .create_asset_save_path(request.storage_reference);
 
-    match std::fs::write(path, request.bytes) {
+    let parent = match path.parent() {
+        Some(parent) => parent,
+        None => {
+            return create_error_response(
+                "Asset save path has no parent".to_string(),
+                &configurations.shared_key,
+            );
+        }
+    };
+
+    match tokio::fs::create_dir_all(parent).await {
+        Ok(_) => {}
+        Err(error) => return create_error_response(error.to_string(), &configurations.shared_key),
+    }
+
+    match tokio::fs::write(path, request.bytes).await {
         Ok(_) => create_base_response(Ok(()), &configurations.shared_key),
         Err(error) => create_error_response(error.to_string(), &configurations.shared_key),
     }

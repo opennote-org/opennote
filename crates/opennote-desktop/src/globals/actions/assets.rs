@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use gpui_kit::{App, AppContext, SharedString, Window};
+use gpui_kit::{App, AppContext, ImageSource, SharedString, Window};
 
 use opennote_models::{
     block::Block, configurations::system::SystemConfigurations, constants::LOCAL_SERVER_NAME,
@@ -41,6 +41,11 @@ pub fn download_block_assets(
 
     let tokio_handle = tokio::runtime::Handle::current();
     let window_handle = window.window_handle();
+    let asset_paths: Vec<_> = block
+        .get_assets_references()
+        .into_iter()
+        .map(|reference| assets_storage.create_asset_save_path(reference))
+        .collect();
 
     start_task::<DownloadAssetsNotification>(
         cx,
@@ -62,7 +67,10 @@ pub fn download_block_assets(
             Ok(None)
         },
         move |cx| {
-            let _ = cx.update_window(window_handle, |_view, window, _cx| {
+            let _ = cx.update_window(window_handle, |_view, window, cx| {
+                for path in &asset_paths {
+                    ImageSource::from(path.as_path()).remove_asset(cx);
+                }
                 window.refresh();
             });
         },

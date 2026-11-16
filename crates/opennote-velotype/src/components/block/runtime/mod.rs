@@ -171,6 +171,7 @@ pub struct Block {
     image_expand_requested: bool,
     pub(crate) html_details_open: bool,
     image_base_dir: Option<PathBuf>,
+    image_assets_root: Option<PathBuf>,
     image_reference_definitions: Arc<ImageReferenceDefinitions>,
     link_reference_definitions: Arc<LinkReferenceDefinitions>,
     footnote_registry: Arc<FootnoteRegistry>,
@@ -266,6 +267,7 @@ impl Block {
             image_expand_requested: false,
             html_details_open: false,
             image_base_dir: None,
+            image_assets_root: None,
             image_reference_definitions: Arc::default(),
             link_reference_definitions: Arc::default(),
             footnote_registry: Arc::default(),
@@ -305,12 +307,16 @@ impl Block {
     pub(crate) fn set_runtime_context(
         &mut self,
         base_dir: Option<PathBuf>,
+        assets_root: Option<PathBuf>,
         image_reference_definitions: Arc<ImageReferenceDefinitions>,
         link_reference_definitions: Arc<LinkReferenceDefinitions>,
         footnote_registry: Arc<FootnoteRegistry>,
     ) {
         if self.image_base_dir != base_dir {
             self.image_base_dir = base_dir;
+        }
+        if self.image_assets_root != assets_root {
+            self.image_assets_root = assets_root;
         }
         if self.image_reference_definitions != image_reference_definitions {
             self.image_reference_definitions = image_reference_definitions;

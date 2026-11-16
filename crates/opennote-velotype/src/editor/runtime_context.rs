@@ -107,12 +107,14 @@ impl Editor {
         cx: &mut Context<Self>,
     ) {
         let next_base_dir = base_dir.map(std::path::Path::to_path_buf);
+        let assets_root = self.editor_settings.get_assets_storage_path();
         let image_reference_definitions = self.image_reference_definitions.clone();
         let link_reference_definitions = self.link_reference_definitions.clone();
         let footnote_registry = self.footnote_registry.clone();
         block.update(cx, move |block, cx| {
             block.set_runtime_context(
                 next_base_dir.clone(),
+                Some(assets_root.clone()),
                 image_reference_definitions.clone(),
                 link_reference_definitions.clone(),
                 footnote_registry.clone(),

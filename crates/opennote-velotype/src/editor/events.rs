@@ -9,8 +9,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context as _, anyhow};
+use anyhow::Context as _;
 use gpui::*;
+use opennote_models::assets::{decompose_save_path, is_asset_reference};
 use sha256::{digest, try_digest};
 
 use super::Editor;
@@ -281,7 +282,11 @@ impl Editor {
         let root_dir = self.image_paste_root_dir()?;
 
         if let PastedImageSource::LocalPath(path) = source {
-            return Ok((path.clone(), false));
+            let managed = match path.strip_prefix(&root_dir) {
+                Ok(reference) => is_asset_reference(&Self::markdown_path_string(reference)),
+                Err(_) => false,
+            };
+            return Ok((path.clone(), managed));
         }
 
         let sha = match source {
@@ -312,7 +317,7 @@ impl Editor {
                     )
                 })?;
 
-                Ok((target, false))
+                Ok((target, true))
             }
             PastedImageSource::ClipboardImage(image) => {
                 let file_name = format!(
@@ -325,7 +330,7 @@ impl Editor {
                 fs::write(&target, &image.bytes)
                     .with_context(|| format!("failed to write '{}'", target.display()))?;
 
-                Ok((target, false))
+                Ok((target, true))
             }
         }
     }
@@ -357,18 +362,11 @@ impl Editor {
             .collect()
     }
 
-    fn relative_markdown_path(root_dir: &Path, path: &Path) -> Option<String> {
-        let relative = path.strip_prefix(root_dir).ok()?;
-        Some(format!("./{}", Self::markdown_path_string(relative)))
-    }
-
     fn pasted_image_markdown(&self, source: &PastedImageSource) -> anyhow::Result<String> {
-        let root_dir = self.image_paste_root_dir()?;
-        let (path, relative) = self.materialize_pasted_image(source)?;
+        let (path, managed) = self.materialize_pasted_image(source)?;
 
-        let path_text = if relative {
-            Self::relative_markdown_path(&root_dir, &path)
-                .ok_or_else(|| anyhow!("failed to create a relative image path"))?
+        let path_text = if managed {
+            decompose_save_path(&path)
         } else {
             Self::markdown_path_string(&path)
         };
