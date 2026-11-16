@@ -7,7 +7,8 @@ use opennote_models::block::Block;
 
 use crate::{
     globals::{
-        actions::update_n_blocks,
+        actions::{assets::upload_block_assets, update_n_blocks},
+        bootstrap::helpers::{get_bootstrap, get_configurations},
         states::helpers::get_states,
         tasks::{
             task_result::{TaskResult, TaskType},
@@ -82,7 +83,19 @@ pub fn observe_chunk_block(
         let states = get_states(cx);
         let servers = states.get_servers_by_block_ids(&vec![*block_id]).remove(0);
 
-        // TODO: Send the images to the remote server from here.
+        let assets_storage = get_bootstrap(cx).0.assets_storage.clone();
+        let configurations = get_configurations(cx).clone();
+
+        upload_block_assets(
+            cx,
+            window,
+            servers.0.clone(),
+            servers.1.clone(),
+            assets_storage,
+            block.clone(),
+            configurations.system.clone(),
+        )
+        .unwrap();
 
         update_n_blocks(window, cx, vec![block], servers.0, servers.1, true);
     }
