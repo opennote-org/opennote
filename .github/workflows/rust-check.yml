@@ -1,48 +1,60 @@
-name: Quality Check - Backend
+name: Rust Quality Check
 
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "backend/**"
   push:
-    branches: [ main ]
-    paths:
-      - "backend/**"
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-
   rust-check:
     name: Rust Check
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
         with:
-          workspaces: backend
+          components: rustfmt, clippy
 
       - name: Check format
-        working-directory: crates
         run: cargo fmt --all -- --check
 
-      - name: Clippy lint
-        working-directory: backend
-        run: cargo clippy --all-targets --all-features -- -A warnings  # Allow warnings for now
-
-      - name: Compile check
-        working-directory: backend
-        run: cargo check --all --all-features
-
-      - name: Run tests (optional)
-      # Optional: just show test results, do not fail CI yet
-        working-directory: backend
-        continue-on-error: true
+      - name: Install system dependencies
         run: |
-          cargo test --all --all-features
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libxkbcommon-x11-dev \
+            patchelf
+
+      - name: Set up protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ github.token }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # Check production targets only; unit and smoke tests are intentionally omitted.
+      - name: Compile check
+        run: cargo check --workspace --lib --bins --locked
+
+      - name: Clippy lint
+        run: cargo clippy --workspace --lib --bins --locked -- -D warnings
