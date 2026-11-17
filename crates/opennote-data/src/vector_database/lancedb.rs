@@ -133,11 +133,7 @@ impl VectorDatabase for LanceDB {
             .await?;
         let rows: usize = table.count_rows(None).await?;
         // Vector database should never have zero records when they are in normal use
-        if rows == 0 {
-            return Ok(false);
-        }
-
-        Ok(true)
+        Ok(rows != 0)
     }
 
     async fn create_entries(&self, index: &str, payloads: Vec<Payload>) -> Result<()> {
