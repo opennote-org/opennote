@@ -177,6 +177,8 @@ impl Pane {
 
     /// Open a new tab in this Pane.
     /// Activate an existing one if that tab exists already.
+    ///
+    /// This is used inside pane. For external calls, use `open_block` instead.
     pub fn open_or_activate_tab(
         &mut self,
         block_id: Uuid,
