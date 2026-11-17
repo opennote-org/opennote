@@ -176,7 +176,12 @@ impl Editor {
     }
 
     /// DEPRECATED
-    fn open_workspace_file(&mut self, path: PathBuf, _window: &mut Window, _cx: &mut Context<Self>) {
+    fn open_workspace_file(
+        &mut self,
+        path: PathBuf,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
         self.workspace.selected = Some(WorkspaceSelection::File(path.clone()));
         // self.request_dropped_markdown_replace(path, window, cx);
     }

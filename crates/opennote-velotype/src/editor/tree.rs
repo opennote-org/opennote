@@ -694,4 +694,3 @@ impl DocumentTree {
         }
     }
 }
-
