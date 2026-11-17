@@ -276,9 +276,8 @@ pub(crate) fn mermaid_display_scale(
     let viewport_width = viewport_width.max(available_width);
     let extra_lines = line_count.saturating_sub(SIMPLE_MERMAID_LINE_LIMIT) as f32;
 
-    let complexity_scale = (1.0 + extra_lines * MERMAID_SCALE_PER_EXTRA_LINE)
-        .max(1.0)
-        .min(MERMAID_MAX_SCALE);
+    let complexity_scale =
+        (1.0 + extra_lines * MERMAID_SCALE_PER_EXTRA_LINE).clamp(1.0, MERMAID_MAX_SCALE);
     let target_column_width = available_width * MERMAID_COMPLEX_TARGET_WIDTH_RATIO;
     let column_fit_scale = if intrinsic_width < target_column_width {
         target_column_width / intrinsic_width
@@ -294,8 +293,7 @@ pub(crate) fn mermaid_display_scale(
         .max(column_fit_scale)
         .min(viewport_limit_scale)
         .min(height_sanity_scale)
-        .min(MERMAID_MAX_SCALE)
-        .max(1.0)
+        .clamp(1.0, MERMAID_MAX_SCALE)
 }
 
 fn strip_fence_indent(line: &str) -> Option<&str> {

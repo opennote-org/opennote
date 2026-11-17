@@ -574,11 +574,11 @@ impl Editor {
         // whose visible index falls inside the selection so it is removed whole.
         for index in selection.start_index..=selection.end_index {
             let entity = visible.get(index)?.entity.clone();
-            if entity.read(cx).visible_len() == 0 {
-                if let Some(range) = block_ranges.get(&entity.entity_id()) {
-                    lo = lo.min(range.start);
-                    hi = hi.max(range.end);
-                }
+            if entity.read(cx).visible_len() == 0
+                && let Some(range) = block_ranges.get(&entity.entity_id())
+            {
+                lo = lo.min(range.start);
+                hi = hi.max(range.end);
             }
         }
         Some(lo..hi)
@@ -737,10 +737,10 @@ impl Editor {
     /// or within a single block. Returns `None` when nothing is selected.
     pub fn selected_markdown_text(&self, cx: &App) -> Option<String> {
         // Prefer cross-block selection when present.
-        if let Some(text) = self.cross_block_selected_markdown(cx) {
-            if !text.is_empty() {
-                return Some(text);
-            }
+        if let Some(text) = self.cross_block_selected_markdown(cx)
+            && !text.is_empty()
+        {
+            return Some(text);
         }
 
         // Fall back to a single block with a non-collapsed selection range.

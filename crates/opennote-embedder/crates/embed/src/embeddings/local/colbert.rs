@@ -147,11 +147,11 @@ impl ColbertEmbed for OrtColbertEmbedder {
     ) -> Result<Vec<EmbeddingResult>, E> {
         let mut tokenizer = self.tokenizer.clone();
 
-        if !is_doc && self.mask_token.is_some() && self.pad_id.is_some() {
+        if !is_doc && let (Some(mask_token), Some(pad_id)) = (&self.mask_token, self.pad_id) {
             let pp = PaddingParams {
                 strategy: tokenizers::PaddingStrategy::Fixed(32),
-                pad_token: self.mask_token.clone().unwrap(),
-                pad_id: self.pad_id.unwrap() as u32,
+                pad_token: mask_token.clone(),
+                pad_id: pad_id as u32,
                 ..Default::default()
             };
             tokenizer.with_padding(Some(pp));
@@ -187,7 +187,7 @@ impl ColbertEmbed for OrtColbertEmbedder {
                 } else {
                     self.query_marker_token_id
                 } {
-                    for (mut row, mut mask_row) in input_ids.rows_mut().into_iter().zip(attention_mask.rows_mut().into_iter()) {
+                    for (mut row, mut mask_row) in input_ids.rows_mut().into_iter().zip(attention_mask.rows_mut()) {
                         // Shift all tokens after position 0 one position to the right
                         for i in (2..row.len()).rev() {
                             row[i] = row[i - 1];

@@ -19,5 +19,5 @@ pub trait Payloads {
 
     async fn delete_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>>;
 
-    async fn search(&self, query: &str, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>>;
+    async fn search(&self, query: &str, payload_ids: &[Uuid]) -> Result<Vec<Payload>>;
 }

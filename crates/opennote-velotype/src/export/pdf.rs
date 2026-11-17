@@ -108,16 +108,17 @@ async fn render_pdf_from_html_file_async(html_path: PathBuf) -> anyhow::Result<V
 }
 
 fn chromium_pdf_params() -> PrintToPdfParams {
-    let mut params = PrintToPdfParams::default();
-    params.print_background = Some(true);
-    params.prefer_css_page_size = Some(true);
-    params.paper_width = Some(8.27);
-    params.paper_height = Some(11.69);
-    params.margin_top = Some(0.0);
-    params.margin_bottom = Some(0.0);
-    params.margin_left = Some(0.0);
-    params.margin_right = Some(0.0);
-    params
+    PrintToPdfParams {
+        print_background: Some(true),
+        prefer_css_page_size: Some(true),
+        paper_width: Some(8.27),
+        paper_height: Some(11.69),
+        margin_top: Some(0.0),
+        margin_bottom: Some(0.0),
+        margin_left: Some(0.0),
+        margin_right: Some(0.0),
+        ..Default::default()
+    }
 }
 
 fn file_url_from_path(path: &Path) -> anyhow::Result<url::Url> {

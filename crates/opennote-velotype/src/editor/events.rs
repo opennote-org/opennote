@@ -386,7 +386,7 @@ impl Editor {
             let detail = err.to_string();
             let _ = window.update(cx, |_view, window, cx| {
                 let buttons = [ok.as_str()];
-                let _ = window.prompt(PromptLevel::Critical, &title, Some(&detail), &buttons, cx);
+                drop(window.prompt(PromptLevel::Critical, &title, Some(&detail), &buttons, cx));
             });
         } else {
             eprintln!("{}: {err}", strings.image_paste_failed_title);
@@ -1398,11 +1398,8 @@ impl Editor {
             return None;
         }
 
-        let Some((variant, title)) =
-            crate::components::CalloutVariant::parse_header_line(&title_markdown)
-        else {
-            return None;
-        };
+        let (variant, title) =
+            crate::components::CalloutVariant::parse_header_line(&title_markdown)?;
 
         block.update(cx, |block, cx| {
             block.record.kind = BlockKind::Callout(variant);
@@ -1864,10 +1861,10 @@ impl Editor {
 
                 // Quote normalization rebuilds roots from Markdown, so resolve the
                 // landing block from the live tree rather than the pasted handles.
-                if inserted_at_doc_end {
-                    if let Some(last_root) = self.document.root_blocks().last().cloned() {
-                        self.ensure_trailing_paragraph_after_structural(&last_root, cx);
-                    }
+                if inserted_at_doc_end
+                    && let Some(last_root) = self.document.root_blocks().last().cloned()
+                {
+                    self.ensure_trailing_paragraph_after_structural(&last_root, cx);
                 }
                 self.mark_dirty(cx);
                 self.finalize_pending_undo_capture(cx);

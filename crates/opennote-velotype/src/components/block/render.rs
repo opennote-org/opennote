@@ -648,6 +648,10 @@ impl Block {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep per-render appearance inputs explicit without changing the rendering API."
+    )]
     fn render_text_or_mixed_inline_visuals(
         &self,
         theme: &Theme,
@@ -810,6 +814,10 @@ impl Block {
     /// per whitespace-delimited word lets the row break between words and keeps
     /// adjacent visuals on the same visual line. Inline code and background
     /// highlights stay a single element so their pill/background is continuous.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Inline rendering shares explicit typography and theme inputs with its caller."
+    )]
     fn render_inline_text_word_segments(
         &self,
         text: &str,
@@ -838,6 +846,10 @@ impl Block {
         segments
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Inline rendering shares explicit typography and theme inputs with its caller."
+    )]
     fn render_inline_text_segment(
         &self,
         text: &str,
@@ -1563,6 +1575,10 @@ impl Block {
         container.into_any_element()
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Shell layout keeps its independent appearance and sizing inputs explicit."
+    )]
     fn render_shell(
         &self,
         block_id: ElementId,

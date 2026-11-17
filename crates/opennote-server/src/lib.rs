@@ -36,6 +36,10 @@ fn build_url(base_url: &str, endpoint: &str) -> String {
     )
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve the public transport API's explicit connection, authentication and query inputs."
+)]
 pub async fn read_remote_server_blocks(
     client: &Client,
     base_url: &str,
@@ -62,7 +66,7 @@ pub async fn read_remote_server_blocks(
         .await
         .context("Failed to send read request")?;
 
-    parse_base_response(response, &shared_key).await
+    parse_base_response(response, shared_key).await
 }
 
 pub async fn create_remote_server_blocks(
@@ -140,6 +144,10 @@ pub async fn update_remote_server_blocks(
     parse_base_response(response, shared_key).await
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve the public transport API's explicit connection, authentication and search inputs."
+)]
 pub async fn search_remote_server_blocks(
     client: &Client,
     base_url: &str,

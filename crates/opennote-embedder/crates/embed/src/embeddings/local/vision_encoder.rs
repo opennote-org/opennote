@@ -109,12 +109,7 @@ impl VisionEncoderEmbedder {
                         );
 
                         VisionEncoderModel::Dino(DinoVisionTransformer::new(
-                            vb,
-                            depth as usize,
-                            embed_dim as usize,
-                            num_heads as usize,
-                            img_size as usize,
-                            patch_size as usize,
+                            vb, depth, embed_dim, num_heads, img_size, patch_size,
                         )?)
                     }
                     _ => return Err(anyhow::Error::msg("Unsupported model architecture")),

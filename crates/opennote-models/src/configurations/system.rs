@@ -9,7 +9,7 @@ use crate::configurations::fields::{
     assets::AssetsConfigurations,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct SystemConfigurations {
     /// Logging settings
     pub logging: LoggingConfig,
@@ -26,16 +26,4 @@ pub struct SystemConfigurations {
 
     /// Configure the embedder to use
     pub embedder: EmbedderConfig,
-}
-
-impl Default for SystemConfigurations {
-    fn default() -> Self {
-        Self {
-            logging: LoggingConfig::default(),
-            database: DatabaseConfig::default(),
-            vector_database: VectorDatabaseConfig::default(),
-            assets: AssetsConfigurations::default(),
-            embedder: EmbedderConfig::default(),
-        }
-    }
 }

@@ -28,6 +28,12 @@ pub struct TaskTracker {
 
 impl Global for TaskTracker {}
 
+impl Default for TaskTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TaskTracker {
     pub fn new() -> Self {
         Self {
@@ -146,7 +152,7 @@ pub fn register_long_running_task<T: 'static>(
     let message = task.message.clone();
     let window_id = window.window_id();
 
-    let _ = cx.update_global::<TaskTracker, ()>(|this, _cx| {
+    cx.update_global::<TaskTracker, ()>(|this, _cx| {
         this.register(window_id, task);
     });
 
@@ -167,7 +173,7 @@ pub fn register_long_running_completion<T: Sized + 'static>(
     let window_id = window.window_id();
     let task_id = task_result.id;
 
-    let _ = cx.update_global::<TaskTracker, ()>(|tracker, _cx| {
+    cx.update_global::<TaskTracker, ()>(|tracker, _cx| {
         match &task_result.data {
             Some(_data) => tracker.register_result(window_id, task_result),
             None => {

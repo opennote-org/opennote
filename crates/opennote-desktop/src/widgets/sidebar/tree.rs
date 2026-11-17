@@ -118,6 +118,10 @@ pub fn create_root_tree_list_item(
         )
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Tree item rendering receives its shared handles and per-item interaction state explicitly."
+)]
 pub fn create_tree_list_item(
     cx: &mut App,
     index: usize,
@@ -293,7 +297,6 @@ fn handle_sidebar_item_right_click(
         });
 
         cx.notify();
-        return;
     });
 }
 
@@ -336,7 +339,6 @@ fn handle_sidebar_item_click(
             }
 
             cx.notify();
-            return;
         });
     }
 }
@@ -357,10 +359,8 @@ fn handle_sidebar_delete_item(
                     this.selected_blocks.clear();
                 }
 
-                if !is_multi_selected {
-                    if let Some(block) = this.selected_block.take() {
-                        to_delete.push(block);
-                    }
+                if !is_multi_selected && let Some(block) = this.selected_block.take() {
+                    to_delete.push(block);
                 }
             });
 

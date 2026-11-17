@@ -25,14 +25,9 @@ pub struct VectorDatabaseConfig {
 
 impl CompareNecessaryChanges<VectorDatabaseConfig> for VectorDatabaseConfig {
     fn compare_necessary_changes(&self, another: &VectorDatabaseConfig) -> bool {
-        if another.provider != self.provider
+        another.provider != self.provider
             || another.index != self.index
             || another.base_url != self.base_url
-        {
-            return true;
-        }
-
-        false
     }
 }
 

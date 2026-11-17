@@ -248,21 +248,15 @@ impl ExpandedInlineProjection {
                         link_group: None,
                         kind: ExpandedInlineSegmentKind::FootnoteIdText,
                     });
+                    // Empty fragments were skipped above, so fragment_len is nonzero.
                     for offset in 0..=fragment_len {
-                        let mapped = if fragment_len == 0 {
-                            0
-                        } else {
-                            (id_len * offset) / fragment_len
-                        };
+                        let mapped = (id_len * offset) / fragment_len;
                         clean_to_display_cursor[clean_range.start + offset] =
                             display_cursor + mapped;
                     }
+                    // This range is empty when id_len is zero.
                     for offset in 1..=id_len {
-                        let mapped = if id_len == 0 {
-                            0
-                        } else {
-                            (fragment_len * offset) / id_len
-                        };
+                        let mapped = (fragment_len * offset) / id_len;
                         display_to_clean.push(clean_range.start + mapped);
                     }
                     display_cursor += id_len;

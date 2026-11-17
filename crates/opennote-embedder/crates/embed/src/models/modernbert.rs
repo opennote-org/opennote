@@ -13,7 +13,6 @@ use candle_nn::{
 };
 use serde::Deserialize;
 
-use core::f32;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]

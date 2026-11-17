@@ -70,10 +70,10 @@ impl DesktopBootstrap {
             });
         }
 
-        return Ok(MetaChangesHandling {
+        Ok(MetaChangesHandling {
             reset_vector_database: false,
             reindex_vector_database: false,
-        });
+        })
     }
 
     /// Handle the cases when reindex is needed

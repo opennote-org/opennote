@@ -72,11 +72,7 @@ impl States {
 
     /// Get window handles of all existing workspaces
     pub fn get_workspace_window_handles(&self, cx: &App) -> Vec<AnyWindowHandle> {
-        let window_ids: Vec<WindowId> = self
-            .active_panes
-            .iter()
-            .map(|(window_id, _entity)| window_id.clone())
-            .collect();
+        let window_ids: Vec<WindowId> = self.active_panes.keys().copied().collect();
 
         cx.windows()
             .into_iter()
@@ -85,9 +81,7 @@ impl States {
     }
 
     pub fn get_active_pane(&self, cx: &App) -> Option<WeakEntity<Pane>> {
-        let Some(active_window_handle) = cx.active_window() else {
-            return None;
-        };
+        let active_window_handle = cx.active_window()?;
 
         self.active_panes
             .get(&active_window_handle.window_id())
@@ -144,9 +138,13 @@ impl States {
         }
     }
 
+    #[expect(
+        clippy::single_match,
+        reason = "Project style prefers explicit match arms."
+    )]
     pub fn get_block(&self, block_id: &Uuid) -> Option<Block> {
-        for (_name, server) in self.get_servers().iter() {
-            match server.blocks.get(&block_id) {
+        for server in self.get_servers().values() {
+            match server.blocks.get(block_id) {
                 Some(block) => return Some(block.clone()),
                 _ => {}
             }
@@ -159,14 +157,8 @@ impl States {
     pub fn get_all_blocks_ids(&self) -> Vec<Uuid> {
         let mut block_ids = Vec::new();
 
-        for (_name, server) in self.get_servers().iter() {
-            block_ids.extend(
-                server
-                    .blocks
-                    .iter()
-                    .map(|(block_id, _)| *block_id)
-                    .collect::<Vec<Uuid>>(),
-            );
+        for server in self.get_servers().values() {
+            block_ids.extend(server.blocks.keys().copied().collect::<Vec<Uuid>>());
         }
 
         block_ids
@@ -176,11 +168,7 @@ impl States {
     pub fn get_all_blocks_by_server(&self, server_name: &SharedString) -> Vec<Block> {
         for (name, server) in self.get_servers().iter() {
             if server_name == name {
-                return server
-                    .blocks
-                    .iter()
-                    .map(|(_id, item)| item.clone())
-                    .collect();
+                return server.blocks.values().cloned().collect();
             }
         }
 
@@ -190,12 +178,12 @@ impl States {
     pub fn find_block_children_ids(&self, block_id: Uuid) -> Vec<Uuid> {
         let mut blocks = Vec::new();
 
-        for (_name, server) in self.get_servers().iter() {
+        for server in self.get_servers().values() {
             blocks.extend(
                 server
                     .blocks
-                    .iter()
-                    .filter_map(|(_, block)| {
+                    .values()
+                    .filter_map(|block| {
                         if block.parent_id == Some(block_id) {
                             Some(block.id)
                         } else {
@@ -223,7 +211,7 @@ impl States {
     /// Default to return the local server only.
     pub fn get_servers_by_block_ids(
         &self,
-        block_ids: &Vec<Uuid>,
+        block_ids: &[Uuid],
     ) -> Vec<(SharedString, ServerStates)> {
         let mut involved_servers = Vec::new();
 

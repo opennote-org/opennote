@@ -485,8 +485,12 @@ pub(super) fn range_segment_bounds(
     let (end_line, end_offset) = line_index_for_offset(&ranges, range.end);
     let mut segments = Vec::new();
 
-    for line_idx in start_line..=end_line {
-        let hard_range = &ranges[line_idx];
+    for (line_idx, hard_range) in ranges
+        .iter()
+        .enumerate()
+        .take(end_line + 1)
+        .skip(start_line)
+    {
         let line_start = if line_idx == start_line {
             start_offset
         } else {
@@ -943,9 +947,11 @@ impl Element for BlockTextElement {
 
         let font_size = style.font_size.to_pixels(window.rem_size());
         let line_height = window.line_height();
-        let source_line_number_gutter_width = show_source_line_numbers
-            .then(|| source_line_number_gutter_width(source_line_count, font_size))
-            .unwrap_or(px(0.0));
+        let source_line_number_gutter_width = if show_source_line_numbers {
+            source_line_number_gutter_width(source_line_count, font_size)
+        } else {
+            px(0.0)
+        };
 
         let shared_lines = Rc::new(RefCell::new(None));
         let shared_lines_clone = shared_lines.clone();
@@ -1021,9 +1027,11 @@ impl Element for BlockTextElement {
 
         let lines = request_layout.borrow_mut().take().unwrap_or_default();
         let hitbox = window.insert_hitbox(bounds, HitboxBehavior::Normal);
-        let source_line_number_gutter_width = show_source_line_numbers
-            .then(|| source_line_number_gutter_width(lines.len().max(1), font_size))
-            .unwrap_or(px(0.0));
+        let source_line_number_gutter_width = if show_source_line_numbers {
+            source_line_number_gutter_width(lines.len().max(1), font_size)
+        } else {
+            px(0.0)
+        };
         let text_bounds = source_text_bounds(bounds, source_line_number_gutter_width);
         let source_line_numbers = if show_source_line_numbers {
             let run_color = theme.colors.text_placeholder;

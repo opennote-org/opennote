@@ -267,30 +267,38 @@ pub async fn send_reindexed_blocks_to_workspace(
 
     tracing::info!("{} vectorized blocks received", request.blocks.len());
 
-    let mut reindex_session_manager = reindex_session_manager.write().unwrap();
+    // Do not hold the synchronous session lock during database I/O. The
+    // configurations guard still serializes this work with other workspace requests.
+    let (blocks, has_session_finished) = {
+        let mut reindex_session_manager = reindex_session_manager.write().unwrap();
+        let session = match reindex_session_manager.get_session_mut() {
+            Some(session) => session,
+            None => return create_bad_response("No active reindex session".to_string()),
+        };
 
-    // Record the received the blocks into the state
-    let session = match reindex_session_manager.get_session_mut() {
-        Some(session) => session,
-        None => return create_bad_response("No active reindex session".to_string()),
+        session.add_blocks(request.blocks);
+
+        if session.has_session_finished() {
+            let blocks = session.get_session_contents();
+
+            // As before, end the session before replacing its database contents.
+            reindex_session_manager.end_session();
+            (blocks, true)
+        } else {
+            let blocks = session.take_unfinished_blocks(
+                configurations
+                    .system
+                    .vector_database
+                    .reindex_batch_size
+                    .into(),
+            );
+            (blocks, false)
+        }
     };
-
-    session.add_blocks(request.blocks);
-
-    let has_session_finished = session.has_session_finished();
 
     // Proceed to overwrite when the state is complete.
     // At this point, we assume the user had made a backup copy of the original databases.
     if has_session_finished {
-        let blocks = reindex_session_manager
-            .get_session_mut()
-            .expect("Should have a session")
-            .get_session_contents();
-
-        // Since we had assumed the user should have made a backup copy at this point,
-        // we terminate the session without leaving it stale.
-        reindex_session_manager.end_session();
-
         // Delete existing blocks
         match delete_blocks(
             &data.databases,
@@ -326,13 +334,7 @@ pub async fn send_reindexed_blocks_to_workspace(
     }
 
     // Return the next batch of blocks to reindex
-    let unfinished_blocks = session.take_unfinished_blocks(
-        configurations
-            .system
-            .vector_database
-            .reindex_batch_size
-            .into(),
-    );
+    let unfinished_blocks = blocks;
 
     tracing::info!("{} unfinished blocks sent", unfinished_blocks.len());
 

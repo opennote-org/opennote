@@ -82,17 +82,17 @@ impl From<Model> for Payload {
     }
 }
 
-impl Into<Model> for Payload {
-    fn into(self) -> Model {
-        Model {
-            id: self.id,
-            block_id: self.block_id,
-            created_at: self.created_at,
-            last_modified: self.last_modified,
-            texts: self.texts,
-            bytes: self.bytes,
-            vector: serde_json::to_value(self.vector).unwrap(),
-            content_type: serde_json::to_string(&self.content_type).unwrap(),
+impl From<Payload> for Model {
+    fn from(value: Payload) -> Self {
+        Self {
+            id: value.id,
+            block_id: value.block_id,
+            created_at: value.created_at,
+            last_modified: value.last_modified,
+            texts: value.texts,
+            bytes: value.bytes,
+            vector: serde_json::to_value(value.vector).unwrap(),
+            content_type: serde_json::to_string(&value.content_type).unwrap(),
         }
     }
 }

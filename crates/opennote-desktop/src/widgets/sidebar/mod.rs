@@ -74,9 +74,7 @@ impl OpenNoteSidebar {
             cx.notify();
         }));
 
-        _subscriptions.push(
-            cx.on_app_quit(|this, cx| observe_on_app_quit_for_block_states_persistence(this, cx)),
-        );
+        _subscriptions.push(cx.on_app_quit(observe_on_app_quit_for_block_states_persistence));
 
         Self {
             focus_handle: cx.focus_handle(), // obtain a new focus from the global pool for this view
@@ -148,7 +146,7 @@ impl OpenNoteSidebar {
         let sidebar = cx.entity();
         let tree_state_clone = tree_state.clone();
 
-        let tree = tree(&tree_state_clone, move |index, entry, _window, cx| {
+        tree(&tree_state_clone, move |index, entry, _window, cx| {
             let id = entry.item().id.clone(); // This is a stringified uuid of a block
             let label = entry.item().label.clone();
             let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
@@ -206,9 +204,7 @@ impl OpenNoteSidebar {
                 dragged_block,
                 has_children,
             )
-        });
-
-        tree
+        })
     }
 
     fn create_new_block_button(entity_id: EntityId) -> Button {
@@ -255,7 +251,6 @@ impl OpenNoteSidebar {
         });
 
         cx.notify();
-        return;
     }
 
     fn create_tree_states(
@@ -269,8 +264,8 @@ impl OpenNoteSidebar {
             cx.new(|cx| TreeState::new(cx)),
         );
 
-        let _ = cx.update_global::<States, ()>(|states, cx| {
-            for (name, _remote_server_states) in states.get_servers().iter() {
+        cx.update_global::<States, ()>(|states, cx| {
+            for name in states.get_servers().keys() {
                 tree_states.insert(name.clone(), cx.new(|cx| TreeState::new(cx)));
             }
         });
@@ -306,10 +301,8 @@ impl Render for OpenNoteSidebar {
         let (active_server_name, blocks, remote_server_tab_bar) =
             cx.read_global::<States, (SharedString, Vec<Block>, TabBar)>(|states, _cx| {
                 let active_server_name = states.get_active_server_name(window_id);
-                let remote_server_tab_bar = create_sidebar_tabbar(
-                    active_server_name.clone(),
-                    &states.get_servers().to_owned(),
-                );
+                let remote_server_tab_bar =
+                    create_sidebar_tabbar(active_server_name.clone(), &states.get_servers());
                 let blocks = states.get_all_blocks_by_server(&active_server_name);
 
                 (active_server_name, blocks, remote_server_tab_bar)

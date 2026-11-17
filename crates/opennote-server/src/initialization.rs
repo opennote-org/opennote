@@ -29,10 +29,7 @@ pub fn load_configurations() -> Result<ServerConfigurations> {
 
     tracing::info!(
         "Configuration at `{}` loaded successfully",
-        std::path::PathBuf::from(config_path)
-            .canonicalize()
-            .unwrap()
-            .to_string_lossy()
+        config_path.canonicalize().unwrap().to_string_lossy()
     );
 
     Ok(configurations)
@@ -70,7 +67,7 @@ pub async fn initialize_backend_api_service(
         .workers(workers)
         .bind(&bind_address)
         .with_context(|| format!("Failed to bind to {}", bind_address))
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
+        .map_err(std::io::Error::other)?
         .run()
         .await?;
 

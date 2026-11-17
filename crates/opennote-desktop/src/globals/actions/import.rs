@@ -125,7 +125,7 @@ pub fn import_files(
         },
         |cx| {
             // Refresh the sidebar
-            let _ = cx.update_global::<States, ()>(|this, cx| {
+            cx.update_global::<States, ()>(|this, cx| {
                 this.refresh_blocks_list(cx);
             });
         },

@@ -119,6 +119,10 @@ pub async fn route_update_blocks(
 
 /// A higher level api for searching across all servers,
 /// including the local.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Routing forwards the same explicit search inputs to local and remote implementations."
+)]
 pub async fn route_search_blocks(
     server_name: &str,
     server_states: &ServerStates,

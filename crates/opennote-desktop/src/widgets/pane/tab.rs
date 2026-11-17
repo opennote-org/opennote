@@ -42,6 +42,12 @@ pub struct TabState {
 /// Value: TabState
 pub struct TabStates(HashMap<Uuid, TabState>);
 
+impl Default for TabStates {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TabStates {
     pub fn new() -> Self {
         Self(HashMap::new())
@@ -72,7 +78,7 @@ impl TabStates {
         let editor = cx.new(|cx| {
             opennote_velotype::editor::Editor::from_markdown(
                 cx,
-                texts.into(),
+                texts,
                 None,
                 &configurations.user.editor.default_language_id,
                 &configurations.user.editor.default_theme_id,
@@ -149,12 +155,12 @@ pub fn create_tab_bar_for_blocks(
     cx: &mut Context<'_, Pane>,
     pane_reference: WeakEntity<Pane>,
     pane_id: Uuid,
-    opened_block_ids: &Vec<Uuid>,
+    opened_block_ids: &[Uuid],
     selected_block_id: Option<Uuid>,
     openned_tab_states: &TabStates,
 ) -> TabBar {
-    let tabs = TabBar::new("tabs").children(opened_block_ids.iter().map(|id| {
-        let id = id.clone();
+    TabBar::new("tabs").children(opened_block_ids.iter().map(|id| {
+        let id = *id;
         let mut selected = false;
 
         // If we can't get the tab state, that means the application is not synced.
@@ -164,10 +170,10 @@ pub fn create_tab_bar_for_blocks(
         }
 
         // The active block is the focused block
-        if let Some(selected_block_id) = &selected_block_id {
-            if *selected_block_id == id {
-                selected = true;
-            }
+        if let Some(selected_block_id) = &selected_block_id
+            && *selected_block_id == id
+        {
+            selected = true;
         }
 
         // Get the title of the block
@@ -217,7 +223,5 @@ pub fn create_tab_bar_for_blocks(
         }
 
         tab
-    }));
-
-    tabs
+    }))
 }

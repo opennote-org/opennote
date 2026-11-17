@@ -161,8 +161,7 @@ fn find_matching_closing_fence(
     start_index: usize,
     opener: &FenceInfo,
 ) -> Option<usize> {
-    for index in (start_index + 1)..lines.len() {
-        let line = &lines[index];
+    for (index, line) in lines.iter().enumerate().skip(start_index + 1) {
         // A fenced block closes at its first matching fence, as in CommonMark.
         // Scanning for a later fence (the previous behavior) let any opener
         // swallow the following blocks whose closing fences are bare, merging
@@ -972,13 +971,12 @@ impl Editor {
                 let next_root_is_list_item = lines
                     .get(index)
                     .is_some_and(|line| parse_list_marker(line).is_some());
-                let preserved_empty_blocks = if roots.is_empty() {
-                    blank_run_len
-                } else if previous_root_is_list_item && next_root_is_list_item {
-                    blank_run_len
-                } else {
-                    blank_run_len.saturating_sub(1)
-                };
+                let preserved_empty_blocks =
+                    if roots.is_empty() || (previous_root_is_list_item && next_root_is_list_item) {
+                        blank_run_len
+                    } else {
+                        blank_run_len.saturating_sub(1)
+                    };
 
                 for _ in 0..preserved_empty_blocks {
                     roots.push(native_block(cx, BlockKind::Paragraph, String::new()));

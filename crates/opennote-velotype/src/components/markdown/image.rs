@@ -142,8 +142,8 @@ pub(crate) fn parse_standalone_image(markdown: &str) -> Option<ImageSyntax> {
 
     let bytes = markdown.as_bytes();
     let mut alt_end = None;
-    for index in 2..bytes.len() {
-        if bytes[index] == b']' && !is_escaped(markdown, index) {
+    for (index, byte) in bytes.iter().enumerate().skip(2) {
+        if *byte == b']' && !is_escaped(markdown, index) {
             alt_end = Some(index);
             break;
         }

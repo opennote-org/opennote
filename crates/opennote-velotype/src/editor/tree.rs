@@ -293,6 +293,10 @@ impl DocumentTree {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Tree traversal passes inherited list, quote, callout and footnote context explicitly."
+    )]
     fn sync_block_list(
         blocks: &[Entity<Block>],
         parent_entity: Option<Entity<Block>>,

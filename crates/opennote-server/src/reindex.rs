@@ -7,6 +7,12 @@ use opennote_models::block::Block;
 #[derive(Debug)]
 pub struct ReindexSessionManager(Option<ReindexSession>);
 
+impl Default for ReindexSessionManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReindexSessionManager {
     pub fn new() -> Self {
         Self(None)

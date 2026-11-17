@@ -135,18 +135,12 @@ impl BertEmbedder {
 
             let token_ids = tokens
                 .iter()
-                .map(|tokens| {
-                    let tokens = tokens.get_ids().to_vec();
-                    tokens
-                })
+                .map(|tokens| tokens.get_ids().to_vec())
                 .collect::<Vec<_>>();
 
             let attention_mask = tokens
                 .iter()
-                .map(|tokens| {
-                    let tokens = tokens.get_attention_mask().to_vec();
-                    tokens
-                })
+                .map(|tokens| tokens.get_attention_mask().to_vec())
                 .collect::<Vec<_>>();
 
             // Keep track of original sequence lengths for later splitting

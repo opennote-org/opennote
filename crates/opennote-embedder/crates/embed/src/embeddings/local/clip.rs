@@ -147,10 +147,7 @@ impl ClipEmbedder {
                         );
                         (
                             VisionModel::Dino(DinoVisionTransformer::new(
-                                vb,
-                                depth as usize,
-                                embed_dim as usize,
-                                num_heads as usize,
+                                vb, depth, embed_dim, num_heads,
                             )?),
                             0,
                             0,

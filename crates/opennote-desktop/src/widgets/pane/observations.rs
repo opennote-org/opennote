@@ -81,7 +81,7 @@ pub fn observe_chunk_block(
         };
 
         let states = get_states(cx);
-        let servers = states.get_servers_by_block_ids(&vec![*block_id]).remove(0);
+        let servers = states.get_servers_by_block_ids(&[*block_id]).remove(0);
 
         let assets_storage = get_bootstrap(cx).0.assets_storage.clone();
         let configurations = get_configurations(cx).clone();
@@ -102,5 +102,5 @@ pub fn observe_chunk_block(
 
     // Alter the tab's save state to true
     this.opened_tab_states
-        .update_tab_save_state(window, &block_id, true);
+        .update_tab_save_state(window, block_id, true);
 }

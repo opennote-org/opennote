@@ -188,18 +188,12 @@ impl OrtJinaEmbedder {
 
             let token_ids = tokens
                 .iter()
-                .map(|tokens| {
-                    let tokens = tokens.get_ids().to_vec();
-                    tokens
-                })
+                .map(|tokens| tokens.get_ids().to_vec())
                 .collect::<Vec<_>>();
 
             let attention_mask = tokens
                 .iter()
-                .map(|tokens| {
-                    let tokens = tokens.get_attention_mask().to_vec();
-                    tokens
-                })
+                .map(|tokens| tokens.get_attention_mask().to_vec())
                 .collect::<Vec<_>>();
 
             // Keep track of original sequence lengths for later splitting
@@ -254,12 +248,11 @@ impl OrtJinaEmbedder {
                 let attention_mask_tensor =
                     ort::value::TensorRef::from_array_view(&attention_mask_ndarray)?;
                 let token_type_tensor = ort::value::TensorRef::from_array_view(&token_type_ids)?;
-                let outputs = session_guard.run(ort::inputs! {
+                session_guard.run(ort::inputs! {
                     "input_ids" => token_ids_tensor,
                     "token_type_ids" => token_type_tensor,
                     "attention_mask" => attention_mask_tensor
-                })?;
-                outputs
+                })?
             };
 
             let embeddings = match self.version.as_str() {
@@ -324,24 +317,22 @@ impl JinaEmbed for OrtJinaEmbedder {
                             ort::value::TensorRef::from_array_view(&attention_mask)?;
                         let task_id = Array1::<i64>::from_vec(vec![4]);
                         let task_id_tensor = ort::value::TensorRef::from_array_view(&task_id)?;
-                        let outputs = session_guard.run(ort::inputs! {
+                        session_guard.run(ort::inputs! {
                             "input_ids" => token_ids_tensor,
                             "attention_mask" => attention_mask_tensor,
                             "task_id" => task_id_tensor
-                        })?;
-                        outputs
+                        })?
                     } else {
                         let token_ids_tensor = ort::value::TensorRef::from_array_view(&token_ids)?;
                         let attention_mask_tensor =
                             ort::value::TensorRef::from_array_view(&attention_mask)?;
                         let token_type_tensor =
                             ort::value::TensorRef::from_array_view(&token_type_ids)?;
-                        let outputs = session_guard.run(ort::inputs! {
+                        session_guard.run(ort::inputs! {
                             "input_ids" => token_ids_tensor,
                             "token_type_ids" => token_type_tensor,
                             "attention_mask" => attention_mask_tensor
-                        })?;
-                        outputs
+                        })?
                     };
 
                     let embeddings = embeddings[output_name.as_str()]

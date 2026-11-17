@@ -37,10 +37,10 @@ impl SQLiteDatabase {
     /// It will load the existing database, otherwise it will create a new one
     pub async fn new(connection_url: &str) -> Result<Self> {
         // Ensure that the directory exists
-        if let Some(path) = connection_url.strip_prefix("sqlite://") {
-            if let Some(parent) = std::path::Path::new(path).parent() {
-                std::fs::create_dir_all(parent)?;
-            }
+        if let Some(path) = connection_url.strip_prefix("sqlite://")
+            && let Some(parent) = std::path::Path::new(path).parent()
+        {
+            std::fs::create_dir_all(parent)?;
         }
 
         // sea-orm will create file when it does not exist,
@@ -59,6 +59,10 @@ impl SQLiteDatabase {
         Ok(Self { pool })
     }
 
+    #[expect(
+        clippy::manual_unwrap_or_default,
+        reason = "Project style prefers an explicit match for filesystem errors."
+    )]
     pub async fn is_database_exist(connection_string: &str) -> bool {
         let mode_trimed = match connection_string.rfind("?") {
             Some(result) => &connection_string[..result],
@@ -76,18 +80,18 @@ impl SQLiteDatabase {
     /// Check if the blocks are good for update.
     /// It will report errors if it cannot resolve the issues.
     /// Return ids of the blocks
-    pub fn check_blocks(blocks: &Vec<Block>) -> Result<Vec<Uuid>> {
+    pub fn check_blocks(blocks: &[Block]) -> Result<Vec<Uuid>> {
         let mut block_ids: Vec<Uuid> = Vec::new();
 
         for block in blocks.iter() {
             block_ids.push(block.id);
 
-            if let Some(parent_id) = block.parent_id {
-                if block.id == parent_id {
-                    return Err(anyhow!(
-                        "Block id matches its parent. Blocks cannot be their own parent"
-                    ));
-                }
+            if let Some(parent_id) = block.parent_id
+                && block.id == parent_id
+            {
+                return Err(anyhow!(
+                    "Block id matches its parent. Blocks cannot be their own parent"
+                ));
             }
         }
 
@@ -133,10 +137,7 @@ impl Payloads for SQLiteDatabase {
             .all(&self.pool)
             .await?;
 
-        Ok(payload_models
-            .into_iter()
-            .map(|item| Payload::from(item))
-            .collect())
+        Ok(payload_models.into_iter().map(Payload::from).collect())
     }
 
     async fn delete_payloads(&self, filter: &PayloadQuery) -> Result<Vec<Payload>> {
@@ -152,13 +153,10 @@ impl Payloads for SQLiteDatabase {
             .exec_with_returning(&self.pool)
             .await?;
 
-        Ok(payload_models
-            .into_iter()
-            .map(|item| Payload::from(item))
-            .collect())
+        Ok(payload_models.into_iter().map(Payload::from).collect())
     }
 
-    async fn search(&self, query: &str, payload_ids: &Vec<Uuid>) -> Result<Vec<Payload>> {
+    async fn search(&self, query: &str, payload_ids: &[Uuid]) -> Result<Vec<Payload>> {
         use opennote_entities::payloads;
 
         let result = payloads::Entity::find()
@@ -205,6 +203,10 @@ impl Blocks for SQLiteDatabase {
         Ok(blocks)
     }
 
+    #[expect(
+        clippy::while_let_loop,
+        reason = "Project style keeps traversal states explicit in a match."
+    )]
     async fn read_block_path(&self, block_id: Uuid) -> Result<Vec<Block>> {
         let mut path = Vec::new();
         let mut block_id = Some(block_id);

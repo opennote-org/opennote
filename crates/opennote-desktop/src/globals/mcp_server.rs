@@ -347,12 +347,12 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         )
         .await?;
 
-        match blocks.get(0) {
+        match blocks.first() {
             Some(block) => {
                 self.send_notification("mcp_read_block_details_completed", 1, false);
                 Ok(block.get_text_content())
             }
-            None => Err(anyhow!("Block {} missing", &request.block_id)),
+            None => Err(anyhow!("Block {} missing", request.block_id)),
         }
     }
 
@@ -487,7 +487,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             .mcp_server
             .validate_scopes(server_name.clone().into())
         {
-            return Err(anyhow!("Server {} is not allowed for access", &server_name));
+            return Err(anyhow!("Server {} is not allowed for access", server_name));
         }
 
         let parent_block_id = match request.parent_block_id {
@@ -514,7 +514,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 )
                 .await?
             }
-            None => return Err(anyhow!("Missing server: {}", &server_name)),
+            None => return Err(anyhow!("Missing server: {}", server_name)),
         };
 
         self.send_notification("mcp_create_block_completed", 1, true);
@@ -554,7 +554,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 )
                 .await?
             }
-            None => return Err(anyhow!("Missing server: {}", &server_name)),
+            None => return Err(anyhow!("Missing server: {}", server_name)),
         };
 
         self.send_notification("mcp_delete_blocks_completed", num_blocks, true);

@@ -60,7 +60,7 @@ pub async fn parse_base_response<T: serde::de::DeserializeOwned>(
         .context("Failed to deserialize BaseResponse")?;
 
     let encrypted_message: EncryptedMessage = EncryptedMessage::deserialize(bytes.to_vec())?;
-    let base: BaseResponse = BaseResponse::decrypt_owned(&encrypted_message, &shared_key)?;
+    let base: BaseResponse = BaseResponse::decrypt_owned(&encrypted_message, shared_key)?;
 
     if base.status {
         serde_json::from_slice(&base.data.unwrap_or_default())

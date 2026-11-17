@@ -125,7 +125,7 @@ impl Render for LogWindow {
                             .get_highlights()
                             .iter()
                             .map(|(range, style)| {
-                                let mut style = style.clone();
+                                let mut style = *style;
                                 // ANSI dim text follows the app's muted foreground in
                                 // both light and dark themes; level colors stay intact.
                                 if style.color == Some(rgb(0xa0a6ad).into()) {

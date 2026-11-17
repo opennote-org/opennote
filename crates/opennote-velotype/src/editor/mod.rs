@@ -282,7 +282,7 @@ impl Editor {
             false => BUILTIN_THEME_VELOTYPE_LIGHT_ID,
         };
 
-        let _ = cx.update_global::<ThemeManager, _>(|theme_manager, _cx| {
+        cx.update_global::<ThemeManager, _>(|theme_manager, _cx| {
             theme_manager.set_theme_by_id(theme_id);
         });
     }
@@ -327,6 +327,10 @@ impl Editor {
         self.refresh_stable_document_snapshot(cx);
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Preserve the public editor constructor and its existing configuration inputs."
+    )]
     pub fn from_markdown(
         cx: &mut Context<Self>,
         markdown: String,

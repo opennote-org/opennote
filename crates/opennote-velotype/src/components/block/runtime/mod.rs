@@ -1542,6 +1542,10 @@ impl Block {
     /// Apply a new title to the block, running shortcut detection and
     /// updating the render cache, cursor, and selection state.  Emits
     /// [`BlockEvent::Changed`] if the kind or title actually changed.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Apply title, caret, selection and IME state together in one edit operation."
+    )]
     pub(super) fn apply_title_edit(
         &mut self,
         next_title: InlineTextTree,

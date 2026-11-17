@@ -1,6 +1,6 @@
 pub mod summarization;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde::{Serialize, de::DeserializeOwned};
@@ -22,7 +22,7 @@ pub trait MigrateConfigurationFileStructure
 where
     Self: LoadFromAndSaveToFile,
 {
-    fn migrate(self, configuration_folder_path: &PathBuf) -> Result<Self> {
+    fn migrate(self, configuration_folder_path: &Path) -> Result<Self> {
         // load the default
         let default = serde_json::to_value(Self::default())?;
         let mut current = serde_json::to_value(&self)?;
@@ -74,10 +74,10 @@ where
             path.to_path_buf()
         };
 
-        if let Some(parent) = path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent)?;
-            }
+        if let Some(parent) = path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent)?;
         }
 
         let default_settings = Self::default();
@@ -95,7 +95,7 @@ where
             .context(format!("Failed to parse config file: {}", path.display()))
     }
 
-    fn save_to_file(&self, configuration_folder_path: &PathBuf) -> Result<()> {
+    fn save_to_file(&self, configuration_folder_path: &Path) -> Result<()> {
         write_to_file(
             &self,
             &configuration_folder_path.join(Self::get_configuration_filename()),
@@ -104,7 +104,7 @@ where
     }
 }
 
-fn write_to_file<T: Sized + Serialize>(content: &T, path: &PathBuf) -> Result<()> {
+fn write_to_file<T: Sized + Serialize>(content: &T, path: &Path) -> Result<()> {
     let content = serde_json::to_string_pretty(content).context("Failed to serialize config")?;
 
     std::fs::write(path, content)

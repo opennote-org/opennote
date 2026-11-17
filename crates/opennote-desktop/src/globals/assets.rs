@@ -30,18 +30,18 @@ impl AssetsCollection {
         let mut language_profiles = HashMap::new();
 
         for file in Assets::iter() {
-            if file.contains("languages/") {
-                if let Some(embedded_file) = Assets::get(&file) {
-                    let language_profile: HashMap<String, String> =
-                        serde_json::from_slice(&embedded_file.data.as_ref())?;
+            if file.contains("languages/")
+                && let Some(embedded_file) = Assets::get(&file)
+            {
+                let language_profile: HashMap<String, String> =
+                    serde_json::from_slice(embedded_file.data.as_ref())?;
 
-                    let language = file
-                        .trim_start_matches("languages/")
-                        .trim_end_matches(".json")
-                        .to_string();
+                let language = file
+                    .trim_start_matches("languages/")
+                    .trim_end_matches(".json")
+                    .to_string();
 
-                    language_profiles.insert(language, language_profile);
-                }
+                language_profiles.insert(language, language_profile);
             }
         }
 

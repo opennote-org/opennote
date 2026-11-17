@@ -11,7 +11,7 @@ use crate::configurations::fields::{
     remote_server::RemoteServerConfiguration, search::UserSearchConfiguration,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UserConfigurations {
     /// Configurations for search functionality
     #[serde(default)]
@@ -30,16 +30,4 @@ pub struct UserConfigurations {
     /// Editor related configurations
     #[serde(default)]
     pub editor: EditorConfigurations,
-}
-
-impl Default for UserConfigurations {
-    fn default() -> Self {
-        Self {
-            search: UserSearchConfiguration::default(),
-            language: UserInterfaceLanguage::default(),
-            remote_servers: HashMap::new(),
-            mcp_server: MCPServerConfig::default(),
-            editor: EditorConfigurations::default(),
-        }
-    }
 }

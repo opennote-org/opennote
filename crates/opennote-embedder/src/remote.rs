@@ -25,7 +25,7 @@ impl Remote {
 
 #[async_trait]
 impl Embedder for Remote {
-    async fn vectorize(&self, queries: &Vec<Payload>) -> Result<Vec<Vec<f32>>> {
+    async fn vectorize(&self, queries: &[Payload]) -> Result<Vec<Vec<f32>>> {
         let client = reqwest::Client::new();
 
         let response = client
@@ -60,12 +60,12 @@ impl Embedder for Remote {
         let vectors: Vec<Vec<f32>> = json_response["data"]
             .as_array()
             .unwrap()
-            .into_iter()
+            .iter()
             .map(|item| {
                 item.as_object().unwrap()["embedding"]
                     .as_array()
                     .unwrap()
-                    .into_iter()
+                    .iter()
                     .map(|item| item.as_f64().unwrap() as f32)
                     .collect()
             })

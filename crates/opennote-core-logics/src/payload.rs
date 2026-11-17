@@ -28,7 +28,7 @@ pub fn build_payloads(
 
     let mut cursor: usize = 0;
 
-    for (_index, (event, range)) in iterator.enumerate() {
+    for (event, range) in iterator {
         if cursor > range.start {
             continue;
         }

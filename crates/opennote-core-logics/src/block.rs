@@ -35,7 +35,7 @@ pub async fn build_block(
         )],
     };
 
-    let vectorized_payloads = send_vectorization(payloads, &embedders).await?;
+    let vectorized_payloads = send_vectorization(payloads, embedders).await?;
 
     block.payloads = vectorized_payloads;
 
@@ -60,7 +60,7 @@ pub async fn create_blocks(
     )
     .await;
 
-    Ok(blocks?)
+    blocks
 }
 
 /// Read blocks from the database.
@@ -97,8 +97,7 @@ pub async fn update_blocks(
         )
         .await?
         .into_iter()
-        .map(|item| item.payloads.into_iter().map(|item| item.id))
-        .flatten()
+        .flat_map(|item| item.payloads.into_iter().map(|item| item.id))
         .collect();
 
     if !old_payload_ids.is_empty() {
@@ -136,7 +135,7 @@ pub async fn delete_blocks(
         databases.database.delete_blocks(block_ids),
         databases.vector_database.delete_entries(
             vector_database_config,
-            &payloads.into_iter().map(|item| item.id).collect(),
+            &payloads.into_iter().map(|item| item.id).collect::<Vec<_>>(),
         ),
     )
     .await;

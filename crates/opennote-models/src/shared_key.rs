@@ -47,7 +47,7 @@ fn decode_hex(encoded: &str) -> Result<[u8; KEY_LENGTH], String> {
 
     let mut decoded = [0; KEY_LENGTH];
 
-    for (index, pair) in encoded.as_bytes().chunks_exact(2).enumerate() {
+    for (index, pair) in encoded.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let high = decode_nibble(pair[0])
             .ok_or_else(|| format!("invalid hexadecimal character at position {}", index * 2))?;
         let low = decode_nibble(pair[1]).ok_or_else(|| {
