@@ -43,3 +43,4 @@ pub const REQUEST_REINDEX_WORKSPACE_ENDPOINT: &str = "/request_reindex_workspace
 pub const SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT: &str = "/send_reindexed_blocks_to_workspace";
 pub const SEND_ASSETS_TO_SERVER_ENDPOINT: &str = "/send_assets_to_server";
 pub const BUFFER_ASSETS_FROM_SERVER_ENDPOINT: &str = "/buffer_assets_from_server";
+pub const QUERY_SERVER_ASSETS_AVAILABILITY_ENDPOINT: &str = "/query_server_assets_availability";

@@ -16,8 +16,8 @@ use opennote_models::{
 };
 use opennote_server::{
     buffer_assets_from_remote_server, create_remote_server_blocks, delete_remote_server_blocks,
-    read_remote_server_blocks, search_remote_server_blocks, send_assets_to_remote_server,
-    update_remote_server_blocks,
+    query_remote_server_assets_availability, read_remote_server_blocks,
+    search_remote_server_blocks, send_assets_to_remote_server, update_remote_server_blocks,
 };
 
 use crate::globals::states::server_registry::ServerStates;
@@ -167,7 +167,41 @@ pub async fn route_search_blocks(
     }
 }
 
+/// Return the requested asset references that are missing on the selected server.
+pub async fn route_query_assets_availability(
+    server_name: &str,
+    server_states: &ServerStates,
+    assets_storage: &AssetsStorage,
+    system_configurations: SystemConfigurations,
+    storage_references: Vec<String>,
+) -> Result<Vec<String>> {
+    if server_name == LOCAL_SERVER_NAME {
+        let mut missing_assets = Vec::new();
+
+        for storage_reference in storage_references {
+            let path = assets_storage.create_asset_save_path(&storage_reference);
+            if !tokio::fs::try_exists(path).await? {
+                missing_assets.push(storage_reference);
+            }
+        }
+
+        Ok(missing_assets)
+    } else {
+        query_remote_server_assets_availability(
+            &Client::new(),
+            &server_states.connection_string,
+            &server_states.password,
+            storage_references,
+            &server_states.shared_key,
+            system_configurations,
+        )
+        .await
+    }
+}
+
 /// Upload managed assets referenced by the blocks to the remote server.
+///
+/// Get missing assets from `route_query_assets_availability`.
 pub async fn route_sending_assets(
     server_name: &str,
     server_states: &ServerStates,
@@ -181,7 +215,22 @@ pub async fn route_sending_assets(
 
     let client = Client::new();
 
-    for storage_reference in blocks.iter().flat_map(Block::get_assets_references) {
+    let assets_references = blocks
+        .iter()
+        .flat_map(Block::get_assets_references)
+        .collect();
+
+    // Only missing assets need an upload.
+    let missing_assets_references = route_query_assets_availability(
+        server_name,
+        server_states,
+        assets_storage,
+        system_configurations.clone(),
+        assets_references,
+    )
+    .await?;
+
+    for storage_reference in missing_assets_references {
         let bytes = assets_storage.load_asset_as_bytes(&storage_reference)?;
 
         send_assets_to_remote_server(

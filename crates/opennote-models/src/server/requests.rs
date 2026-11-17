@@ -117,3 +117,12 @@ pub struct BufferAssetsFromServerRequest {
     /// The `storage_reference` looks like this: `<sha256>/<filename>.<extension>`.
     pub storage_reference: String,
 }
+
+/// Buffer assets from the remote server's assets storage to the local.
+#[derive(Debug, Clone, Serialize, Deserialize, GetSystemConfigurations)]
+pub struct QueryServerAssetsAvailabilityRequest {
+    pub system_configurations: SystemConfigurations,
+
+    /// File references.
+    pub storage_references: Vec<String>,
+}

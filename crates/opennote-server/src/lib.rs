@@ -9,19 +9,20 @@ use opennote_models::{
     configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::{
         BUFFER_ASSETS_FROM_SERVER_ENDPOINT, CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
-        DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT, READ_WORKSPACE_BLOCKS_ENDPOINT,
-        REQUEST_REINDEX_WORKSPACE_ENDPOINT, ROOT_ENDPOINT, SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT,
-        SEND_ASSETS_TO_SERVER_ENDPOINT, SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
-        UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT, QUERY_SERVER_ASSETS_AVAILABILITY_ENDPOINT,
+        READ_WORKSPACE_BLOCKS_ENDPOINT, REQUEST_REINDEX_WORKSPACE_ENDPOINT, ROOT_ENDPOINT,
+        SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT, SEND_ASSETS_TO_SERVER_ENDPOINT,
+        SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT, UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
     },
     query::BlockQuery,
     search::RawSearchResult,
     server::{
         requests::{
             BufferAssetsFromServerRequest, CreateBlocksInWorkspaceRequest,
-            DeleteBlocksInWorkspaceRequest, ReadBlocksInWorkspaceRequest,
-            RequestReindexBlocksRequest, SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest,
-            SendReindexedBlocksRequest, UpdateBlocksInWorkspaceRequest, create_request,
+            DeleteBlocksInWorkspaceRequest, QueryServerAssetsAvailabilityRequest,
+            ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
+            SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest, SendReindexedBlocksRequest,
+            UpdateBlocksInWorkspaceRequest, create_request,
         },
         responses::{parse_base_response, reindex::SendReindexedBlocksResponse},
     },
@@ -289,6 +290,35 @@ pub async fn buffer_assets_from_remote_server(
         .send()
         .await
         .context("Failed to buffer asset from remote server")?;
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Return the requested asset references that are missing on the remote server.
+pub async fn query_remote_server_assets_availability(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    storage_references: Vec<String>,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<Vec<String>> {
+    let payload = QueryServerAssetsAvailabilityRequest {
+        system_configurations,
+        storage_references,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(
+            base_url,
+            QUERY_SERVER_ASSETS_AVAILABILITY_ENDPOINT,
+        ))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to query asset availability on remote server")?;
 
     parse_base_response(response, shared_key).await
 }

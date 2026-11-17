@@ -18,9 +18,10 @@ use opennote_models::{
     server::{
         requests::{
             BufferAssetsFromServerRequest, CreateBlocksInWorkspaceRequest,
-            DeleteBlocksInWorkspaceRequest, ReadBlocksInWorkspaceRequest,
-            RequestReindexBlocksRequest, SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest,
-            SendReindexedBlocksRequest, UpdateBlocksInWorkspaceRequest,
+            DeleteBlocksInWorkspaceRequest, QueryServerAssetsAvailabilityRequest,
+            ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
+            SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest, SendReindexedBlocksRequest,
+            UpdateBlocksInWorkspaceRequest,
         },
         responses::{
             create_bad_response, create_base_response, create_error_response,
@@ -441,4 +442,35 @@ pub async fn buffer_assets_from_server(
         Ok(result) => create_base_response(Ok(result), &configurations.shared_key),
         Err(error) => create_error_response(error.to_string(), &configurations.shared_key),
     }
+}
+
+/// The desktop app uses this to check if the assets had already stored on the server.
+/// Return missing assets.
+pub async fn query_server_assets_availability(
+    data: Data<ServerBootstrap>,
+    request: Bytes,
+) -> HttpResponse {
+    let configurations = data.configurations.lock().await;
+
+    let request = match perform_pre_request_validations::<QueryServerAssetsAvailabilityRequest>(
+        &configurations,
+        None,
+        request,
+    ) {
+        Ok(value) => value,
+        Err(value) => return value,
+    };
+
+    tracing::info!(
+        "A client is querying the availability of the following assets: {:?}",
+        &request.storage_references
+    );
+
+    let missing_assets: Vec<String> = request
+        .storage_references
+        .into_iter()
+        .filter(|item| !data.assets_storage.look_up_asset(item))
+        .collect();
+
+    create_base_response(Ok(missing_assets), &configurations.shared_key)
 }
