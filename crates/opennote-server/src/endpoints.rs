@@ -146,10 +146,7 @@ pub async fn update_blocks_in_workspace(
         Err(value) => return value,
     };
 
-    tracing::info!(
-        "Update blocks with the following parameters: {:?}",
-        &request
-    );
+    tracing::info!("Will update {} blocks", &request.blocks.len());
 
     create_base_response(
         update_blocks(

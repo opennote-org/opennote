@@ -230,6 +230,11 @@ pub async fn route_sending_assets(
     )
     .await?;
 
+    // Not to continue when nothing is missing.
+    if missing_assets_references.is_empty() {
+        return Ok(());
+    }
+
     for storage_reference in missing_assets_references {
         let bytes = assets_storage.load_asset_as_bytes(&storage_reference)?;
 
