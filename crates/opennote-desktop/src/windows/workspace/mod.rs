@@ -144,7 +144,7 @@ impl Workspace {
 }
 
 impl Render for Workspace {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .key_context(WORKSPACE)
             .track_focus(&self.focus_handle) // GPUI needs this to get the focus of this workspace

@@ -177,6 +177,8 @@ impl Pane {
 
     /// Open a new tab in this Pane.
     /// Activate an existing one if that tab exists already.
+    ///
+    /// This is used inside pane. For external calls, use `open_block` instead.
     pub fn open_or_activate_tab(
         &mut self,
         block_id: Uuid,
@@ -254,16 +256,12 @@ impl Pane {
     }
 
     fn acquire_block_index(&mut self) -> Option<usize> {
-        let Some(selected_block_id) = self.selected_block_id else {
-            return None;
-        };
+        let selected_block_id = self.selected_block_id?;
         let current_index = self
             .opened_block_ids
             .iter()
             .position(|id| *id == selected_block_id);
-        let Some(current_index) = current_index else {
-            return None;
-        };
+        let current_index = current_index?;
         Some(current_index)
     }
 

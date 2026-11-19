@@ -11,6 +11,8 @@ use gpui_kit::{
 
 use crate::libs::tabs::tab_variant::TabVariant;
 
+type TabClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
+
 /// A Tab element for the [`super::TabBar`].
 #[derive(IntoElement)]
 pub struct Tab {
@@ -25,7 +27,7 @@ pub struct Tab {
     size: Size,
     pub(super) disabled: bool,
     pub(super) selected: bool,
-    on_click: Option<Rc<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+    on_click: Option<TabClickHandler>,
 }
 
 impl From<&'static str> for Tab {

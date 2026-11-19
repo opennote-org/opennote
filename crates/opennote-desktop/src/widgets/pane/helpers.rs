@@ -3,7 +3,9 @@ use uuid::Uuid;
 
 use crate::globals::states::helpers::get_states;
 
-/// Open a block to the active pane
+/// Open a block to the active pane.
+///
+/// This is an API for external call to open a block.
 pub fn open_block(
     cx: &mut App,
     window: &mut Window,

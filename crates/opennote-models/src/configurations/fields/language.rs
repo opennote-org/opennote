@@ -2,10 +2,11 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum UserInterfaceLanguage {
     Chinese,
+    #[default]
     English,
 }
 
@@ -15,11 +16,5 @@ impl Display for UserInterfaceLanguage {
             UserInterfaceLanguage::Chinese => f.write_str("chinese"),
             UserInterfaceLanguage::English => f.write_str("english"),
         }
-    }
-}
-
-impl Default for UserInterfaceLanguage {
-    fn default() -> Self {
-        UserInterfaceLanguage::English
     }
 }

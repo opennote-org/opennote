@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod database;
 pub mod search;
 pub mod vector_database;

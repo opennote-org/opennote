@@ -1,7 +1,7 @@
+pub mod instructions;
 pub mod requests;
 pub mod responses;
 pub mod traits;
-pub mod instructions;
 
 mod service;
 

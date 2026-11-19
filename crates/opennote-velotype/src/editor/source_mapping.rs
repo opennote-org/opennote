@@ -71,9 +71,7 @@ impl Editor {
             let start = full.len();
             full.push(ch);
             source_to_content.resize(full.len() + 1, content_offset);
-            for index in start..=full.len() {
-                source_to_content[index] = content_offset;
-            }
+            source_to_content[start..=full.len()].fill(content_offset);
             content_offset += ch.len_utf8();
             if ch == '\n' {
                 let prefix_start = full.len();
@@ -87,9 +85,7 @@ impl Editor {
                     },
                 );
                 source_to_content.resize(full.len() + 1, content_offset);
-                for index in prefix_start..=full.len() {
-                    source_to_content[index] = content_offset;
-                }
+                source_to_content[prefix_start..=full.len()].fill(content_offset);
             }
         }
         content_to_source[content.len()] = full.len();
@@ -123,9 +119,7 @@ impl Editor {
         let prefix_start = full.len();
         full.push_str(indentation);
         source_to_content.resize(full.len() + 1, 0);
-        for index in prefix_start..=full.len() {
-            source_to_content[index] = 0;
-        }
+        source_to_content[prefix_start..=full.len()].fill(0);
 
         let mut content_offset = 0usize;
         while content_offset < content.len() {
@@ -137,17 +131,13 @@ impl Editor {
             let start = full.len();
             full.push(ch);
             source_to_content.resize(full.len() + 1, content_offset);
-            for index in start..=full.len() {
-                source_to_content[index] = content_offset;
-            }
+            source_to_content[start..=full.len()].fill(content_offset);
             content_offset += ch.len_utf8();
             if ch == '\n' {
                 let line_prefix_start = full.len();
                 full.push_str(indentation);
                 source_to_content.resize(full.len() + 1, content_offset);
-                for index in line_prefix_start..=full.len() {
-                    source_to_content[index] = content_offset;
-                }
+                source_to_content[line_prefix_start..=full.len()].fill(content_offset);
             }
         }
         content_to_source[content.len()] = full.len();
@@ -162,6 +152,10 @@ impl Editor {
         (full, content_to_source, source_to_content)
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep prefix, nesting, offset and output mapping inputs explicit."
+    )]
     pub(super) fn push_inline_block_mapping(
         &self,
         block: &Entity<Block>,
@@ -210,11 +204,11 @@ impl Editor {
         let mut content_to_source = vec![0; footnote_id.len() + 1];
         let mut source_to_content = vec![0; full_text.len() + 1];
         let id_start = 2usize;
-        for offset in 0..=footnote_id.len() {
-            content_to_source[offset] = id_start + offset;
+        for (offset, source_offset) in content_to_source.iter_mut().enumerate() {
+            *source_offset = id_start + offset;
         }
-        for source_offset in 0..=full_text.len() {
-            source_to_content[source_offset] = if source_offset <= id_start {
+        for (source_offset, content_offset) in source_to_content.iter_mut().enumerate() {
+            *content_offset = if source_offset <= id_start {
                 0
             } else if source_offset >= id_start + footnote_id.len() {
                 footnote_id.len()
@@ -438,6 +432,10 @@ impl Editor {
             + lines.len().saturating_sub(1)
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Recursive source mapping carries nesting and both output collections together."
+    )]
     pub(super) fn collect_single_block_source_mappings(
         &self,
         block: &Entity<Block>,
@@ -664,9 +662,7 @@ impl Editor {
             for child in children.iter().skip(child_index) {
                 let current_kind = child.read(cx).kind();
                 if total_len > 0 {
-                    total_len += if previous_kind.is_none() {
-                        1
-                    } else if previous_kind.as_ref().is_some_and(|previous| {
+                    total_len += if previous_kind.as_ref().is_none_or(|previous| {
                         previous.is_list_item() && current_kind.is_list_item()
                     }) {
                         1

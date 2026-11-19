@@ -65,90 +65,90 @@ impl KeyMappings {
             // Workspace
             KeyMapping {
                 sequence: vec![" ".to_string(), "".to_string(), "b".to_string()],
-                action: format!("ToggleSidebar"),
+                action: "ToggleSidebar".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec!["/".to_string()],
-                action: format!("ToggleSearchBar"),
+                action: "ToggleSearchBar".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![":".to_string()],
-                action: format!("ToggleCommandBar"),
+                action: "ToggleCommandBar".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![" ".to_string(), "".to_string(), ";".to_string()],
-                action: format!("ToggleSettingsPanel"),
+                action: "ToggleSettingsPanel".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![" ".to_string(), "".to_string(), "n".to_string()],
-                action: format!("CreateOneBlock"),
+                action: "CreateOneBlock".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![" ".to_string(), "".to_string(), "O".to_string()],
-                action: format!("OpenNewWindow"),
+                action: "OpenNewWindow".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec!["shift".to_string(), "-".to_string(), "k".to_string()],
-                action: format!("NextTab"),
+                action: "NextTab".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec!["shift".to_string(), "-".to_string(), "j".to_string()],
-                action: format!("PreviousTab"),
+                action: "PreviousTab".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![" ".to_string(), "".to_string(), "x".to_string()],
-                action: format!("CloseActiveTab"),
+                action: "CloseActiveTab".to_string(),
                 context: "workspace".to_string(),
             },
             // Workspace Sidebar
             KeyMapping {
                 sequence: vec!["d".to_string(), "".to_string(), "d".to_string()],
-                action: format!("DeleteBlocks"),
+                action: "DeleteBlocks".to_string(),
                 context: "workspace_sidebar".to_string(),
             },
             // Editor
             KeyMapping {
                 sequence: vec!["ctrl".to_string(), "-".to_string(), "s".to_string()],
-                action: format!("SaveDocument"),
+                action: "SaveDocument".to_string(),
                 context: "editor".to_string(),
             },
             // General
             KeyMapping {
                 sequence: vec!["k".to_string()],
-                action: format!("MoveUp"),
+                action: "MoveUp".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["j".to_string()],
-                action: format!("MoveDown"),
+                action: "MoveDown".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["h".to_string()],
-                action: format!("MoveLeft"),
+                action: "MoveLeft".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["l".to_string()],
-                action: format!("MoveRight"),
+                action: "MoveRight".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["space".to_string()],
-                action: format!("Open"),
+                action: "Open".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["x".to_string()],
-                action: format!("Delete"),
+                action: "Delete".to_string(),
                 context: "general".to_string(),
             },
         ])
@@ -159,7 +159,7 @@ impl KeyMappings {
             // Workspace
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), "b".to_string()],
-                action: format!("ToggleSidebar"),
+                action: "ToggleSidebar".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
@@ -170,32 +170,32 @@ impl KeyMappings {
                     "-".to_string(),
                     "f".to_string(),
                 ],
-                action: format!("ToggleSearchBar"),
+                action: "ToggleSearchBar".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), ":".to_string()],
-                action: format!("ToggleCommandBar"),
+                action: "ToggleCommandBar".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), ";".to_string()],
-                action: format!("ToggleSettingsPanel"),
+                action: "ToggleSettingsPanel".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), "n".to_string()],
-                action: format!("CreateOneBlock"),
+                action: "CreateOneBlock".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), "o".to_string()],
-                action: format!("OpenNewWindow"),
+                action: "OpenNewWindow".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec!["ctrl".to_string(), "-".to_string(), "tab".to_string()],
-                action: format!("NextTab"),
+                action: "NextTab".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
@@ -206,55 +206,55 @@ impl KeyMappings {
                     "-".to_string(),
                     "tab".to_string(),
                 ],
-                action: format!("PreviousTab"),
+                action: "PreviousTab".to_string(),
                 context: "workspace".to_string(),
             },
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), "w".to_string()],
-                action: format!("CloseActiveTab"),
+                action: "CloseActiveTab".to_string(),
                 context: "workspace".to_string(),
             },
             // Workspace Sidebar
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), "d".to_string()],
-                action: format!("DeleteBlocks"),
+                action: "DeleteBlocks".to_string(),
                 context: "workspace_sidebar".to_string(),
             },
             // Editor
             KeyMapping {
                 sequence: vec![get_platform_meta_key(), "-".to_string(), "s".to_string()],
-                action: format!("SaveDocument"),
+                action: "SaveDocument".to_string(),
                 context: "editor".to_string(),
             },
             // General
             KeyMapping {
                 sequence: vec!["up".to_string()],
-                action: format!("MoveUp"),
+                action: "MoveUp".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["down".to_string()],
-                action: format!("MoveDown"),
+                action: "MoveDown".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["left".to_string()],
-                action: format!("MoveLeft"),
+                action: "MoveLeft".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["right".to_string()],
-                action: format!("MoveRight"),
+                action: "MoveRight".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["enter".to_string()],
-                action: format!("Open"),
+                action: "Open".to_string(),
                 context: "general".to_string(),
             },
             KeyMapping {
                 sequence: vec!["backspace".to_string()],
-                action: format!("Delete"),
+                action: "Delete".to_string(),
                 context: "general".to_string(),
             },
         ])

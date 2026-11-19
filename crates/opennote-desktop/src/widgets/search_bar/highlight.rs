@@ -21,11 +21,11 @@ pub fn highlight_keyword_text(text: SharedString, query: &str, cx: &App) -> Styl
 
     let mut merged: Vec<Range<usize>> = Vec::new();
     for range in ranges {
-        if let Some(previous) = merged.last_mut() {
-            if range.start <= previous.end {
-                previous.end = previous.end.max(range.end);
-                continue;
-            }
+        if let Some(previous) = merged.last_mut()
+            && range.start <= previous.end
+        {
+            previous.end = previous.end.max(range.end);
+            continue;
         }
         merged.push(range);
     }

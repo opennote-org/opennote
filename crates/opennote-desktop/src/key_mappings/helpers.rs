@@ -8,9 +8,7 @@ pub fn get_keystrokes_as_shared_string(cx: &App, action: Box<dyn Action>) -> Opt
     let keymap = cx.key_bindings();
     let keymap_ref = keymap.borrow();
 
-    let Some(binding) = keymap_ref.bindings_for_action(action.as_ref()).last() else {
-        return None;
-    };
+    let binding = keymap_ref.bindings_for_action(action.as_ref()).last()?;
 
     Some(
         binding
@@ -25,7 +23,7 @@ pub fn get_keystrokes_as_shared_string(cx: &App, action: Box<dyn Action>) -> Opt
 
 pub fn match_action_to_language(
     language_profile: LanguageProfile,
-    action: &Box<dyn Action>,
+    action: &dyn Action,
 ) -> SharedString {
     let action_name = action.name();
 

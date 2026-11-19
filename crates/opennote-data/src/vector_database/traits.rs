@@ -30,7 +30,7 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
     async fn delete_entries(
         &self,
         vector_database_config: &VectorDatabaseConfig,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &[Uuid],
     ) -> Result<()>;
 
     /// Implement this to get `reindex_documents` automatically implemented

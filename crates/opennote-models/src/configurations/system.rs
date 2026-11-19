@@ -6,9 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::configurations::fields::{
     DatabaseConfig, EmbedderConfig, LoggingConfig, VectorDatabaseConfig,
+    assets::AssetsConfigurations,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct SystemConfigurations {
     /// Logging settings
     pub logging: LoggingConfig,
@@ -19,17 +20,10 @@ pub struct SystemConfigurations {
     /// Configure the vector database
     pub vector_database: VectorDatabaseConfig,
 
+    /// Configure the assets like the pasted images etc
+    #[serde(default)]
+    pub assets: AssetsConfigurations,
+
     /// Configure the embedder to use
     pub embedder: EmbedderConfig,
-}
-
-impl Default for SystemConfigurations {
-    fn default() -> Self {
-        Self {
-            logging: LoggingConfig::default(),
-            database: DatabaseConfig::default(),
-            vector_database: VectorDatabaseConfig::default(),
-            embedder: EmbedderConfig::default(),
-        }
-    }
 }

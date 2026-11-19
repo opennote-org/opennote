@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use tokio::sync::Mutex;
 
-use opennote_data::Databases;
+use opennote_data::{Databases, assets::AssetsStorage};
 use opennote_embedder::entry::EmbedderEntry;
 use opennote_models::{
     configurations::desktop::DesktopConfigurations, key_mappings::KeyMappingConfigurations,
@@ -18,6 +18,7 @@ pub struct DesktopBootstrap {
     pub key_mappings: Arc<Mutex<KeyMappingConfigurations>>,
     pub databases: Databases,
     pub embedders: EmbedderEntry,
+    pub assets_storage: AssetsStorage,
 }
 
 impl DesktopBootstrap {
@@ -31,11 +32,15 @@ impl DesktopBootstrap {
 
         let databases = Databases::new(&configurations.system).await?;
 
+        let assets_storage =
+            AssetsStorage::new(configurations.system.assets.assets_storage_path.clone());
+
         Ok(Self {
-            configurations: Arc::new(Mutex::new(configurations)),
+            configurations: Arc::new(Mutex::new(configurations.clone())),
             key_mappings: Arc::new(Mutex::new(key_mappings)),
             databases,
             embedders,
+            assets_storage,
         })
     }
 
@@ -65,10 +70,10 @@ impl DesktopBootstrap {
             });
         }
 
-        return Ok(MetaChangesHandling {
+        Ok(MetaChangesHandling {
             reset_vector_database: false,
             reindex_vector_database: false,
-        });
+        })
     }
 
     /// Handle the cases when reindex is needed

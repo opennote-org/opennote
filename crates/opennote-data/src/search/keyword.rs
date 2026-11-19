@@ -14,7 +14,7 @@ pub trait KeywordSearch {
     async fn search_documents(
         &self,
         database: &Arc<dyn Database>,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &[Uuid],
         query: &str,
         _top_n: usize,
     ) -> Result<Vec<RawSearchResult>> {

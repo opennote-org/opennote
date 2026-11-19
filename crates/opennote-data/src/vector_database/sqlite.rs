@@ -120,7 +120,7 @@ impl VectorDatabase for SQLiteVectorDatabase {
     async fn delete_entries(
         &self,
         vector_database_config: &VectorDatabaseConfig,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &[Uuid],
     ) -> Result<()> {
         if payload_ids.is_empty() {
             return Ok(());
@@ -128,7 +128,7 @@ impl VectorDatabase for SQLiteVectorDatabase {
 
         let placeholders = payload_ids
             .iter()
-            .map(|item| format!("'{}'", item.to_string()))
+            .map(|item| format!("'{item}'"))
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -148,7 +148,7 @@ impl VectorDatabase for SQLiteVectorDatabase {
 impl SemanticSearch for SQLiteVectorDatabase {
     async fn search_documents_semantically(
         &self,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &[Uuid],
         query: &[f32],
         top_n: usize,
     ) -> Result<Vec<RawSearchResult>> {
@@ -167,7 +167,7 @@ impl SemanticSearch for SQLiteVectorDatabase {
         // Build IN filter for payload_ids
         let placeholders = payload_ids
             .iter()
-            .map(|item| format!("'{}'", item.to_string()))
+            .map(|item| format!("'{item}'"))
             .collect::<Vec<_>>()
             .join(", ");
 

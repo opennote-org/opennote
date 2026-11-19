@@ -275,7 +275,7 @@ impl ColPaliEmbed for OrtColPaliEmbedder {
             // zip the embeddings with the page numbers
             let embed_data_batch = image_embeddings
                 .into_iter()
-                .zip(page_numbers.into_iter())
+                .zip(page_numbers)
                 .zip(batch.iter())
                 .map(|((embedding, page_number), page_image)| {
                     let mut metadata = HashMap::new();

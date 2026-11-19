@@ -47,6 +47,10 @@ impl Embedder {
             .as_str()
             .ok_or(anyhow!("Architecture not found"))?;
 
+        #[expect(
+            clippy::single_match,
+            reason = "Project style prefers explicit match arms."
+        )]
         match is_onnx {
             true => {
                 return Ok(Self::Text(TextEmbedder::from_pretrained_ort(

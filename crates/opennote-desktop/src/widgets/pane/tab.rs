@@ -10,14 +10,17 @@ use gpui_kit::{
 };
 use uuid::Uuid;
 
-use crate::globals::actions::block::get_block_content;
+use opennote_velotype::editor::Editor;
+
+use crate::globals::{
+    actions::block::parepare_block_content, bootstrap::helpers::get_configurations,
+};
 use crate::widgets::pane::subscriptions::subscribe_editor_events;
 use crate::{
     globals::states::helpers::get_states,
     libs::tabs::{drag::DraggedItem, tab::Tab, tab_bar::TabBar},
     widgets::pane::Pane,
 };
-use opennote_velotype::editor::Editor;
 
 pub struct TabState {
     /// It is saved when a document has just opened.
@@ -38,6 +41,12 @@ pub struct TabState {
 /// Key: block_id
 /// Value: TabState
 pub struct TabStates(HashMap<Uuid, TabState>);
+
+impl Default for TabStates {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TabStates {
     pub fn new() -> Self {
@@ -62,10 +71,22 @@ impl TabStates {
         cx: &mut Context<'_, Pane>,
         window: &mut Window,
     ) {
-        let texts = get_block_content(block_id, cx).unwrap();
+        let texts = parepare_block_content(block_id, cx, window).unwrap();
 
-        let editor =
-            cx.new(|cx| opennote_velotype::editor::Editor::from_markdown(cx, texts.into(), None));
+        let configurations = get_configurations(cx).clone();
+
+        let editor = cx.new(|cx| {
+            opennote_velotype::editor::Editor::from_markdown(
+                cx,
+                texts,
+                None,
+                &configurations.user.editor.default_language_id,
+                &configurations.user.editor.default_theme_id,
+                configurations.user.editor.show_table_headers,
+                &configurations.user.editor.keybindings,
+                &configurations.system.assets.assets_storage_path,
+            )
+        });
 
         let owned_block_id = *block_id;
 
@@ -134,12 +155,12 @@ pub fn create_tab_bar_for_blocks(
     cx: &mut Context<'_, Pane>,
     pane_reference: WeakEntity<Pane>,
     pane_id: Uuid,
-    opened_block_ids: &Vec<Uuid>,
+    opened_block_ids: &[Uuid],
     selected_block_id: Option<Uuid>,
     openned_tab_states: &TabStates,
 ) -> TabBar {
-    let tabs = TabBar::new("tabs").children(opened_block_ids.iter().map(|id| {
-        let id = id.clone();
+    TabBar::new("tabs").children(opened_block_ids.iter().map(|id| {
+        let id = *id;
         let mut selected = false;
 
         // If we can't get the tab state, that means the application is not synced.
@@ -149,10 +170,10 @@ pub fn create_tab_bar_for_blocks(
         }
 
         // The active block is the focused block
-        if let Some(selected_block_id) = &selected_block_id {
-            if *selected_block_id == id {
-                selected = true;
-            }
+        if let Some(selected_block_id) = &selected_block_id
+            && *selected_block_id == id
+        {
+            selected = true;
         }
 
         // Get the title of the block
@@ -202,7 +223,5 @@ pub fn create_tab_bar_for_blocks(
         }
 
         tab
-    }));
-
-    tabs
+    }))
 }

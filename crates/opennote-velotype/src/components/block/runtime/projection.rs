@@ -1,14 +1,14 @@
 //! Inline projection engine for editable Markdown delimiters.
 
+use crate::components::{
+    CollapsedCaretAffinity, InlineTextTree, can_use_markdown_script_delimiters,
+};
 use std::ops::Range;
 
-use crate::components::InlineFootnoteReference;
 use crate::components::markdown::inline::{
-    InlineFragment, InlineLink, InlineRenderCache, InlineScript, InlineStyle, InlineTextTree,
-    StyleFlag, can_use_markdown_script_delimiters,
+    InlineLink, InlineRenderCache, InlineScript, InlineStyle, StyleFlag,
 };
-
-use super::CollapsedCaretAffinity;
+use crate::components::{InlineFootnoteReference, InlineFragment};
 
 /// One displayed segment in an expanded inline projection.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -167,88 +167,6 @@ pub(crate) struct ExpandedInlineProjection {
     pub(super) footnote_runs: Vec<ExpandedFootnoteRun>,
 }
 
-#[cfg(test)]
-pub(super) fn expanded_display_offset_for_clean(
-    fragments: &[InlineFragment],
-    clean: usize,
-) -> usize {
-    let mut display = 0usize;
-    let mut clean_cursor = 0usize;
-    for fragment in fragments {
-        let clean_len = fragment.text.len();
-        let clean_end = clean_cursor + clean_len;
-        if clean <= clean_end {
-            let off = clean.saturating_sub(clean_cursor);
-            if fragment.style.code && clean_len > 0 {
-                if off == clean_len {
-                    return display + clean_len + 2;
-                }
-                return display + 1 + off;
-            }
-            if fragment.style.script != InlineScript::Normal && clean_len > 0 {
-                if off == clean_len {
-                    return display + clean_len + 2;
-                }
-                return display + 1 + off;
-            }
-            return display + off;
-        }
-        clean_cursor = clean_end;
-        display += if fragment.style.code && clean_len > 0 {
-            clean_len + 2
-        } else if fragment.style.script != InlineScript::Normal && clean_len > 0 {
-            clean_len + 2
-        } else {
-            clean_len
-        };
-    }
-    display
-}
-
-#[cfg(test)]
-pub(super) fn expanded_display_cursor_offset_for_clean(
-    fragments: &[InlineFragment],
-    clean: usize,
-) -> usize {
-    let mut display = 0usize;
-    let mut clean_cursor = 0usize;
-    for fragment in fragments {
-        let clean_len = fragment.text.len();
-        let clean_end = clean_cursor + clean_len;
-        if clean <= clean_end {
-            let off = clean.saturating_sub(clean_cursor);
-            if fragment.style.code && clean_len > 0 {
-                if off == 0 {
-                    return display + 1;
-                }
-                if off >= clean_len {
-                    return display + clean_len + 1;
-                }
-                return display + 1 + off;
-            }
-            if fragment.style.script != InlineScript::Normal && clean_len > 0 {
-                if off == 0 {
-                    return display + 1;
-                }
-                if off >= clean_len {
-                    return display + clean_len + 1;
-                }
-                return display + 1 + off;
-            }
-            return display + off;
-        }
-        clean_cursor = clean_end;
-        display += if fragment.style.code && clean_len > 0 {
-            clean_len + 2
-        } else if fragment.style.script != InlineScript::Normal && clean_len > 0 {
-            clean_len + 2
-        } else {
-            clean_len
-        };
-    }
-    display
-}
-
 impl ExpandedInlineProjection {
     // Projection is a temporary editing view over clean inline fragments. It
     // exposes delimiters only for the fragment touched by the caret, selection,
@@ -330,21 +248,15 @@ impl ExpandedInlineProjection {
                         link_group: None,
                         kind: ExpandedInlineSegmentKind::FootnoteIdText,
                     });
+                    // Empty fragments were skipped above, so fragment_len is nonzero.
                     for offset in 0..=fragment_len {
-                        let mapped = if fragment_len == 0 {
-                            0
-                        } else {
-                            (id_len * offset) / fragment_len
-                        };
+                        let mapped = (id_len * offset) / fragment_len;
                         clean_to_display_cursor[clean_range.start + offset] =
                             display_cursor + mapped;
                     }
+                    // This range is empty when id_len is zero.
                     for offset in 1..=id_len {
-                        let mapped = if id_len == 0 {
-                            0
-                        } else {
-                            (fragment_len * offset) / id_len
-                        };
+                        let mapped = (fragment_len * offset) / id_len;
                         display_to_clean.push(clean_range.start + mapped);
                     }
                     display_cursor += id_len;

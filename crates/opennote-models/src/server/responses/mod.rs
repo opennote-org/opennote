@@ -1,7 +1,7 @@
 pub mod reindex;
 
 use actix_web::HttpResponse;
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     EncryptedMessage, serialize::impls::BincodeSerializer, shared_key::SharedKey,
@@ -54,13 +54,21 @@ pub async fn parse_base_response<T: serde::de::DeserializeOwned>(
     response: reqwest::Response,
     shared_key: &SharedKey,
 ) -> Result<T> {
+    // Errors are returned in plain texts
+    if !response.status().is_success() {
+        return Err(anyhow!(
+            "Server returned an error: {}",
+            response.text().await?
+        ));
+    }
+
     let bytes: actix_web::web::Bytes = response
         .bytes()
         .await
         .context("Failed to deserialize BaseResponse")?;
 
     let encrypted_message: EncryptedMessage = EncryptedMessage::deserialize(bytes.to_vec())?;
-    let base: BaseResponse = BaseResponse::decrypt_owned(&encrypted_message, &shared_key)?;
+    let base: BaseResponse = BaseResponse::decrypt_owned(&encrypted_message, shared_key)?;
 
     if base.status {
         serde_json::from_slice(&base.data.unwrap_or_default())

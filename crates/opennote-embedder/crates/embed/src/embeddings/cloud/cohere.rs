@@ -274,10 +274,8 @@ impl CohereEmbedder {
                 .map(|embedding| EmbeddingResult::DenseVector(embedding.clone()));
 
             // zip the embeddings with the page numbers
-            let embed_data_batch = image_embeddings
-                .zip(page_numbers.into_iter())
-                .zip(batch.iter())
-                .map(|((embedding, page_number), page_image)| {
+            let embed_data_batch = image_embeddings.zip(page_numbers).zip(batch.iter()).map(
+                |((embedding, page_number), page_image)| {
                     let mut metadata = HashMap::new();
 
                     metadata.insert("page_number".to_string(), page_number.to_string());
@@ -287,7 +285,8 @@ impl CohereEmbedder {
                     );
                     metadata.insert("image".to_string(), page_image.clone());
                     EmbedData::new(embedding, None, Some(metadata))
-                });
+                },
+            );
             embed_data.extend(embed_data_batch);
         }
         Ok(embed_data)

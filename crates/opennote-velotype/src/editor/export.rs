@@ -174,11 +174,11 @@ impl Editor {
 fn show_export_error(window: &mut Window, cx: &mut App, detail: &str) {
     let strings = cx.global::<I18nManager>().strings().clone();
     let buttons = [strings.info_dialog_ok.as_str()];
-    let _ = window.prompt(
+    drop(window.prompt(
         PromptLevel::Critical,
         &strings.export_failed_title,
         Some(detail),
         &buttons,
         cx,
-    );
+    ));
 }

@@ -24,7 +24,7 @@ impl Other {
 
 #[async_trait]
 impl Embedder for Other {
-    async fn vectorize(&self, queries: &Vec<Payload>) -> Result<Vec<Vec<f32>>> {
+    async fn vectorize(&self, queries: &[Payload]) -> Result<Vec<Vec<f32>>> {
         let mut api_keys = HashMap::new();
         api_keys.insert(
             self.embedder_config.provider.to_string(),
@@ -41,7 +41,7 @@ impl Embedder for Other {
                 queries.iter().map(|item| item.texts.clone()).collect(),
                 None,
                 Some(self.embedder_config.dimensions as u32),
-                Some(&self.embedder_config.provider.to_string().as_str()),
+                Some(self.embedder_config.provider.to_string().as_str()),
                 Some(self.embedder_config.api_key.to_owned()),
             )
             .await?;

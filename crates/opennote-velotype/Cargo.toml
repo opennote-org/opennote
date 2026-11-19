@@ -8,8 +8,10 @@ license.workspace = true
 
 # Internal dependencies
 opennote-core-logics = { workspace = true }
+opennote-models.workspace = true
 
 # External dependencies
+sha256.workspace = true
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -18,7 +20,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 schemars = { workspace = true }
 gpui = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
 futures.workspace = true
 base64 = "0.22.1"
 unicode-segmentation = "1.13"

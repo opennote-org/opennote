@@ -1,0 +1,135 @@
+name: Comment PR package downloads
+
+on:
+  workflow_run:
+    workflows: [Build PR packages]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+concurrency:
+  group: pr-build-comment-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # This privileged workflow uses API metadata only. Never check out PR code
+      # or download/execute its artifacts here, including for fork PRs.
+      - name: Post or update package links
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const run = context.payload.workflow_run;
+            const marker = '<!-- opennote-pr-build-downloads -->';
+
+            let candidates = run.pull_requests;
+            // workflow_run may omit pull_requests for fork builds. Resolve the
+            // association through GitHub rather than trusting an artifact file.
+            if (!candidates?.length) {
+              candidates = await github.paginate(
+                github.rest.repos.listPullRequestsAssociatedWithCommit,
+                { owner, repo, commit_sha: run.head_sha, per_page: 100 },
+              );
+            }
+
+            const matches = [];
+            for (const candidate of candidates) {
+              const { data: pr } = await github.rest.pulls.get({
+                owner, repo, pull_number: candidate.number,
+              });
+              if (
+                pr.state === 'open' &&
+                pr.base.repo.full_name === `${owner}/${repo}` &&
+                pr.head.repo?.id === run.head_repository.id &&
+                pr.head.ref === run.head_branch &&
+                pr.head.sha === run.head_sha
+              ) {
+                matches.push(pr);
+              }
+            }
+            if (matches.length !== 1) {
+              core.info('Skipping: no unambiguous open PR at this run’s head commit.');
+              return;
+            }
+            const pr = matches[0];
+
+            // Ignore superseded runs, including a rerun of an older build.
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner, repo, workflow_id: run.workflow_id,
+              event: 'pull_request', branch: run.head_branch,
+              head_sha: run.head_sha, per_page: 100,
+            });
+            if (runs.some(other =>
+              other.head_repository?.id === run.head_repository.id &&
+              other.id > run.id
+            )) {
+              core.info('Skipping: a newer PR package build exists.');
+              return;
+            }
+
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              { owner, repo, run_id: run.id, per_page: 100 },
+            );
+            const platforms = [
+              ['macOS', 'macos'],
+              ['Windows x86_64', 'windows-x86_64'],
+              ['Linux x86_64', 'linux-x86_64'],
+            ];
+            const rows = platforms.map(([label, platform]) => {
+              const artifact = artifacts.find(item =>
+                item.name === `opennote-${platform}-${pr.head.sha}` && !item.expired
+              );
+              if (!artifact) {
+                return `| ${label} | Unavailable — see workflow logs |`;
+              }
+              const url = `${context.serverUrl}/${owner}/${repo}/actions/runs/${run.id}/artifacts/${artifact.id}`;
+              return `| ${label} | [Download](${url}) |`;
+            });
+            const body = [
+              marker,
+              '### PR test builds',
+              '',
+              `Commit: \`${pr.head.sha}\` · [Build ${run.run_number}, attempt ${run.run_attempt}](${run.html_url}) · Status: **${run.conclusion}**`,
+              '',
+              '| Platform | Package |',
+              '| --- | --- |',
+              ...rows,
+              '',
+              'Sign in to GitHub to download. Extract the downloaded ZIP to get the package.',
+              'Artifacts expire 7 days after upload. These are unreviewed PR builds, not official releases.',
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pr.number, per_page: 100,
+            });
+            const existing = comments.find(comment =>
+              comment.user?.login === 'github-actions[bot]' &&
+              comment.body?.startsWith(marker)
+            );
+
+            // Recheck after the API lookups in case the contributor pushed again.
+            const { data: current } = await github.rest.pulls.get({
+              owner, repo, pull_number: pr.number,
+            });
+            if (current.state !== 'open' || current.head.sha !== run.head_sha) {
+              core.info('Skipping: the PR changed while preparing the comment.');
+              return;
+            }
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body,
+              });
+              return;
+            }
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: pr.number, body,
+            });

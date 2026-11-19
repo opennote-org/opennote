@@ -74,6 +74,10 @@ impl SearchStatus {
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Keep routing context and search options aligned with route_search_blocks."
+)]
 pub async fn search(
     server_name: &SharedString,
     server_states: &ServerStates,
@@ -86,9 +90,9 @@ pub async fn search(
     top_n: usize,
 ) -> Result<Vec<SearchResult>> {
     let raw = route_search_blocks(
-        &server_name,
-        &server_states,
-        &databases,
+        server_name,
+        server_states,
+        databases,
         system_configurations.clone(),
         method,
         block_ids,
@@ -104,9 +108,9 @@ pub async fn search(
 
     let ids = raw.iter().map(|r| r.block_id).collect::<HashSet<_>>();
     let blocks = route_read_blocks(
-        &server_name,
-        &server_states,
-        &databases,
+        server_name,
+        server_states,
+        databases,
         &BlockQuery::ByIds(ids.into_iter().collect()),
         false,
         true,
@@ -127,7 +131,7 @@ pub async fn search(
         };
 
         results.push(SearchResult {
-            breadcrumb: get_breadcrumb(&server_name, block, &server_states.blocks),
+            breadcrumb: get_breadcrumb(server_name, block, &server_states.blocks),
             block: block.clone(),
             payload: payload.clone(),
             raw,

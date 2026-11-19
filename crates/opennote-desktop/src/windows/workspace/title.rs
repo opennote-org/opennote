@@ -6,6 +6,10 @@ use crate::{
     windows::{helpers::format_window_title, workspace::Workspace},
 };
 
+#[expect(
+    clippy::manual_map,
+    reason = "Project style prefers explicit match arms for optional title components."
+)]
 pub fn construct_workspace_window_title(
     pane: Entity<Pane>,
     window: &mut Window,
@@ -25,7 +29,7 @@ pub fn construct_workspace_window_title(
 
     let server_name = match pane.selected_block_id {
         Some(block_id) => Some(
-            states.get_servers_by_block_ids(&vec![block_id])[0]
+            states.get_servers_by_block_ids(&[block_id])[0]
                 .0
                 .to_string(),
         ),

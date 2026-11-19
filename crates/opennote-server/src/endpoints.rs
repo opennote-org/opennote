@@ -17,9 +17,10 @@ use opennote_models::{
     search::RawSearchResult,
     server::{
         requests::{
-            CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
+            BufferAssetsFromServerRequest, CreateBlocksInWorkspaceRequest,
+            DeleteBlocksInWorkspaceRequest, QueryServerAssetsAvailabilityRequest,
             ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
-            SearchBlocksInWorkspaceRequest, SendReindexedBlocksRequest,
+            SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest, SendReindexedBlocksRequest,
             UpdateBlocksInWorkspaceRequest,
         },
         responses::{
@@ -145,10 +146,7 @@ pub async fn update_blocks_in_workspace(
         Err(value) => return value,
     };
 
-    tracing::info!(
-        "Update blocks with the following parameters: {:?}",
-        &request
-    );
+    tracing::info!("Will update {} blocks", &request.blocks.len());
 
     create_base_response(
         update_blocks(
@@ -267,30 +265,38 @@ pub async fn send_reindexed_blocks_to_workspace(
 
     tracing::info!("{} vectorized blocks received", request.blocks.len());
 
-    let mut reindex_session_manager = reindex_session_manager.write().unwrap();
+    // Do not hold the synchronous session lock during database I/O. The
+    // configurations guard still serializes this work with other workspace requests.
+    let (blocks, has_session_finished) = {
+        let mut reindex_session_manager = reindex_session_manager.write().unwrap();
+        let session = match reindex_session_manager.get_session_mut() {
+            Some(session) => session,
+            None => return create_bad_response("No active reindex session".to_string()),
+        };
 
-    // Record the received the blocks into the state
-    let session = match reindex_session_manager.get_session_mut() {
-        Some(session) => session,
-        None => return create_bad_response("No active reindex session".to_string()),
+        session.add_blocks(request.blocks);
+
+        if session.has_session_finished() {
+            let blocks = session.get_session_contents();
+
+            // As before, end the session before replacing its database contents.
+            reindex_session_manager.end_session();
+            (blocks, true)
+        } else {
+            let blocks = session.take_unfinished_blocks(
+                configurations
+                    .system
+                    .vector_database
+                    .reindex_batch_size
+                    .into(),
+            );
+            (blocks, false)
+        }
     };
-
-    session.add_blocks(request.blocks);
-
-    let has_session_finished = session.has_session_finished();
 
     // Proceed to overwrite when the state is complete.
     // At this point, we assume the user had made a backup copy of the original databases.
     if has_session_finished {
-        let blocks = reindex_session_manager
-            .get_session_mut()
-            .expect("Should have a session")
-            .get_session_contents();
-
-        // Since we had assumed the user should have made a backup copy at this point,
-        // we terminate the session without leaving it stale.
-        reindex_session_manager.end_session();
-
         // Delete existing blocks
         match delete_blocks(
             &data.databases,
@@ -326,13 +332,7 @@ pub async fn send_reindexed_blocks_to_workspace(
     }
 
     // Return the next batch of blocks to reindex
-    let unfinished_blocks = session.take_unfinished_blocks(
-        configurations
-            .system
-            .vector_database
-            .reindex_batch_size
-            .into(),
-    );
+    let unfinished_blocks = blocks;
 
     tracing::info!("{} unfinished blocks sent", unfinished_blocks.len());
 
@@ -343,4 +343,131 @@ pub async fn send_reindexed_blocks_to_workspace(
         }),
         &configurations.shared_key,
     )
+}
+
+/// The desktop app uses to upload new assets to the server
+pub async fn send_assets_to_server(data: Data<ServerBootstrap>, request: Bytes) -> HttpResponse {
+    let configurations = data.configurations.lock().await;
+
+    let request = match perform_pre_request_validations::<SendAssetsToServerRequest>(
+        &configurations,
+        None,
+        request,
+    ) {
+        Ok(value) => value,
+        Err(value) => return value,
+    };
+
+    tracing::info!(
+        "Received the following asset: {:?}",
+        &request.storage_reference
+    );
+
+    // Skip duplicated assets
+    if data
+        .assets_storage
+        .look_up_asset(request.storage_reference.clone())
+    {
+        return create_base_response(Ok(()), &configurations.shared_key);
+    }
+
+    // Reference looks like this: `<sha256>/<filename>.<extension>`
+    let path = data
+        .assets_storage
+        .create_asset_save_path(request.storage_reference);
+
+    let parent = match path.parent() {
+        Some(parent) => parent,
+        None => {
+            return create_error_response(
+                "Asset save path has no parent".to_string(),
+                &configurations.shared_key,
+            );
+        }
+    };
+
+    match tokio::fs::create_dir_all(parent).await {
+        Ok(_) => {}
+        Err(error) => return create_error_response(error.to_string(), &configurations.shared_key),
+    }
+
+    match tokio::fs::write(path, request.bytes).await {
+        Ok(_) => create_base_response(Ok(()), &configurations.shared_key),
+        Err(error) => create_error_response(error.to_string(), &configurations.shared_key),
+    }
+}
+
+/// The desktop app uses this to buffer the assets to the local assets storage.
+pub async fn buffer_assets_from_server(
+    data: Data<ServerBootstrap>,
+    request: Bytes,
+) -> HttpResponse {
+    let configurations = data.configurations.lock().await;
+
+    let request = match perform_pre_request_validations::<BufferAssetsFromServerRequest>(
+        &configurations,
+        None,
+        request,
+    ) {
+        Ok(value) => value,
+        Err(value) => return value,
+    };
+
+    tracing::info!(
+        "A client has requested the following asset: {:?}",
+        &request.storage_reference
+    );
+
+    // Return error if the asset is missing.
+    if !data
+        .assets_storage
+        .look_up_asset(&request.storage_reference)
+    {
+        return create_error_response(
+            format!(
+                "Asset {} is missing on the server",
+                request.storage_reference
+            ),
+            &configurations.shared_key,
+        );
+    }
+
+    match data
+        .assets_storage
+        .load_asset_as_bytes(request.storage_reference)
+    {
+        Ok(result) => create_base_response(Ok(result), &configurations.shared_key),
+        Err(error) => create_error_response(error.to_string(), &configurations.shared_key),
+    }
+}
+
+/// The desktop app uses this to check if the assets had already stored on the server.
+/// Return missing assets.
+pub async fn query_server_assets_availability(
+    data: Data<ServerBootstrap>,
+    request: Bytes,
+) -> HttpResponse {
+    let configurations = data.configurations.lock().await;
+
+    let request = match perform_pre_request_validations::<QueryServerAssetsAvailabilityRequest>(
+        &configurations,
+        None,
+        request,
+    ) {
+        Ok(value) => value,
+        Err(value) => return value,
+    };
+
+    tracing::info!(
+        "A client is querying the availability of the following assets: {:?}",
+        &request.storage_references
+    );
+
+    let missing_assets: Vec<String> = request
+        .storage_references
+        .into_iter()
+        .filter(|item| !data.assets_storage.look_up_asset(item))
+        .collect();
+
+    create_base_response(Ok(missing_assets), &configurations.shared_key)
 }

@@ -22,7 +22,7 @@ pub struct MetaChangesHandling {
     pub reindex_vector_database: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Metadata {
     pub last_used_vector_database_configuration: Option<VectorDatabaseConfig>,
     pub last_used_database_configuration: Option<DatabaseConfig>,
@@ -89,16 +89,6 @@ impl Default for MetadataChanges {
             vector_database_changed: true,
             database_changed: true,
             embedding_model_changed: true,
-        }
-    }
-}
-
-impl Default for Metadata {
-    fn default() -> Self {
-        Self {
-            last_used_database_configuration: None,
-            last_used_embedder_configuration: None,
-            last_used_vector_database_configuration: None,
         }
     }
 }

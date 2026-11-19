@@ -133,11 +133,7 @@ impl VectorDatabase for LanceDB {
             .await?;
         let rows: usize = table.count_rows(None).await?;
         // Vector database should never have zero records when they are in normal use
-        if rows == 0 {
-            return Ok(false);
-        }
-
-        Ok(true)
+        Ok(rows != 0)
     }
 
     async fn create_entries(&self, index: &str, payloads: Vec<Payload>) -> Result<()> {
@@ -160,7 +156,7 @@ impl VectorDatabase for LanceDB {
     async fn delete_entries(
         &self,
         vector_database_config: &VectorDatabaseConfig,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &[Uuid],
     ) -> Result<()> {
         let predicate: String = format!(
             "id IN ({})",
@@ -187,7 +183,7 @@ impl VectorDatabase for LanceDB {
 impl SemanticSearch for LanceDB {
     async fn search_documents_semantically(
         &self,
-        payload_ids: &Vec<Uuid>, // payload ids
+        payload_ids: &[Uuid], // payload ids
         query: &[f32],
         _top_n: usize,
     ) -> Result<Vec<RawSearchResult>> {
@@ -220,7 +216,7 @@ impl KeywordSearch for LanceDB {
     async fn search_documents(
         &self,
         _database: &Arc<dyn Database>,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &[Uuid],
         query: &str,
         top_n: usize,
     ) -> Result<Vec<RawSearchResult>> {
@@ -294,7 +290,7 @@ impl LanceDB {
         Ok(vector_database)
     }
 
-    pub fn convert_payloads_to_record_batch(&self, chunks: &Vec<Payload>) -> Result<RecordBatch> {
+    pub fn convert_payloads_to_record_batch(&self, chunks: &[Payload]) -> Result<RecordBatch> {
         let chunks: Vec<PayloadLanceDB> = chunks
             .iter()
             .map(|item| PayloadLanceDB::from(item.clone()))

@@ -4,5 +4,5 @@ use opennote_models::payload::Payload;
 
 #[async_trait]
 pub trait Embedder: Send + Sync {
-    async fn vectorize(&self, queries: &Vec<Payload>) -> anyhow::Result<Vec<Vec<f32>>>;
+    async fn vectorize(&self, queries: &[Payload]) -> anyhow::Result<Vec<Vec<f32>>>;
 }

@@ -8,18 +8,20 @@ use opennote_models::{
     block::Block,
     configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::{
-        CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT, DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        BUFFER_ASSETS_FROM_SERVER_ENDPOINT, CREATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        DELETE_BLOCKS_IN_WORKSPACE_ENDPOINT, QUERY_SERVER_ASSETS_AVAILABILITY_ENDPOINT,
         READ_WORKSPACE_BLOCKS_ENDPOINT, REQUEST_REINDEX_WORKSPACE_ENDPOINT, ROOT_ENDPOINT,
-        SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT, SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT,
-        UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
+        SEARCH_BLOCKS_IN_WORKSPACE_ENDPOINT, SEND_ASSETS_TO_SERVER_ENDPOINT,
+        SEND_REINDEXED_BLOCKS_TO_WORKSPACE_ENDPOINT, UPDATE_BLOCKS_IN_WORKSPACE_ENDPOINT,
     },
     query::BlockQuery,
     search::RawSearchResult,
     server::{
         requests::{
-            CreateBlocksInWorkspaceRequest, DeleteBlocksInWorkspaceRequest,
+            BufferAssetsFromServerRequest, CreateBlocksInWorkspaceRequest,
+            DeleteBlocksInWorkspaceRequest, QueryServerAssetsAvailabilityRequest,
             ReadBlocksInWorkspaceRequest, RequestReindexBlocksRequest,
-            SearchBlocksInWorkspaceRequest, SendReindexedBlocksRequest,
+            SearchBlocksInWorkspaceRequest, SendAssetsToServerRequest, SendReindexedBlocksRequest,
             UpdateBlocksInWorkspaceRequest, create_request,
         },
         responses::{parse_base_response, reindex::SendReindexedBlocksResponse},
@@ -35,6 +37,10 @@ fn build_url(base_url: &str, endpoint: &str) -> String {
     )
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve the public transport API's explicit connection, authentication and query inputs."
+)]
 pub async fn read_remote_server_blocks(
     client: &Client,
     base_url: &str,
@@ -61,7 +67,7 @@ pub async fn read_remote_server_blocks(
         .await
         .context("Failed to send read request")?;
 
-    parse_base_response(response, &shared_key).await
+    parse_base_response(response, shared_key).await
 }
 
 pub async fn create_remote_server_blocks(
@@ -139,6 +145,10 @@ pub async fn update_remote_server_blocks(
     parse_base_response(response, shared_key).await
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Preserve the public transport API's explicit connection, authentication and search inputs."
+)]
 pub async fn search_remote_server_blocks(
     client: &Client,
     base_url: &str,
@@ -226,6 +236,89 @@ pub async fn send_reindexed_remote_server_blocks(
         .send()
         .await
         .context("Failed to send reindexed blocks")?;
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Upload an asset to the remote server.
+pub async fn send_assets_to_remote_server(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    storage_reference: String,
+    bytes: Vec<u8>,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<()> {
+    let payload = SendAssetsToServerRequest {
+        system_configurations,
+        storage_reference,
+        bytes,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(base_url, SEND_ASSETS_TO_SERVER_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to send asset to remote server")?;
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Retrieve an asset from the remote server for local buffering.
+pub async fn buffer_assets_from_remote_server(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    storage_reference: String,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<Vec<u8>> {
+    let payload = BufferAssetsFromServerRequest {
+        system_configurations,
+        storage_reference,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(base_url, BUFFER_ASSETS_FROM_SERVER_ENDPOINT))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to buffer asset from remote server")?;
+
+    parse_base_response(response, shared_key).await
+}
+
+/// Return the requested asset references that are missing on the remote server.
+pub async fn query_remote_server_assets_availability(
+    client: &Client,
+    base_url: &str,
+    password: &str,
+    storage_references: Vec<String>,
+    shared_key: &SharedKey,
+    system_configurations: SystemConfigurations,
+) -> Result<Vec<String>> {
+    let payload = QueryServerAssetsAvailabilityRequest {
+        system_configurations,
+        storage_references,
+    };
+    let body = create_request(payload, shared_key)?.serialize();
+
+    let response = client
+        .post(build_url(
+            base_url,
+            QUERY_SERVER_ASSETS_AVAILABILITY_ENDPOINT,
+        ))
+        .header(AUTHORIZATION.as_str(), password)
+        .body(body)
+        .send()
+        .await
+        .context("Failed to query asset availability on remote server")?;
 
     parse_base_response(response, shared_key).await
 }

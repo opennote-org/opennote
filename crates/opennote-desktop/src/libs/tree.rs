@@ -154,7 +154,7 @@ impl TreeItem {
     /// Whether this item is a folder (has children).
     #[inline]
     pub fn is_folder(&self) -> bool {
-        self.children.len() > 0
+        !self.children.is_empty()
     }
 
     /// Return true if the item is disabled.
@@ -169,12 +169,14 @@ impl TreeItem {
     }
 }
 
+type TreeItemRenderer = Rc<dyn Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem>;
+
 /// State for managing tree items.
 pub struct TreeState {
     focus_handle: FocusHandle,
     entries: Vec<TreeEntry>,
     scroll_handle: UniformListScrollHandle,
-    render_item: Rc<dyn Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem>,
+    render_item: TreeItemRenderer,
 
     selected_index: Option<usize>,
     pub selected_block: Option<Uuid>,
@@ -245,10 +247,10 @@ impl TreeState {
         let mut is_single_selected = false;
 
         // Check against the single selection
-        if let Some(block) = self.selected_block {
-            if block == item_id {
-                is_single_selected = true;
-            }
+        if let Some(block) = self.selected_block
+            && block == item_id
+        {
+            is_single_selected = true;
         }
 
         is_single_selected
@@ -328,7 +330,7 @@ impl TreeState {
         let mut selected_ix = self.selected_index.unwrap_or(0);
 
         if selected_ix > 0 {
-            selected_ix = selected_ix - 1;
+            selected_ix -= 1;
         } else {
             selected_ix = self.entries.len().saturating_sub(1);
         }
@@ -342,7 +344,7 @@ impl TreeState {
     fn on_action_down(&mut self, _: &MoveDown, _: &mut Window, cx: &mut Context<Self>) {
         let mut selected_ix = self.selected_index.unwrap_or(0);
         if selected_ix + 1 < self.entries.len() {
-            selected_ix = selected_ix + 1;
+            selected_ix += 1;
         } else {
             selected_ix = 0;
         }
@@ -416,11 +418,11 @@ impl Render for TreeState {
                         let item = (render_item)(ix, entry, window, cx)
                             .disabled(entry.item().is_disabled());
 
-                        if let Some(selected) = state.selected_index {
-                            if selected == ix {
-                                items.push(item.selected(true));
-                                continue;
-                            }
+                        if let Some(selected) = state.selected_index
+                            && selected == ix
+                        {
+                            items.push(item.selected(true));
+                            continue;
                         }
 
                         items.push(item);
@@ -444,7 +446,7 @@ pub struct Tree {
     id: ElementId,
     state: Entity<TreeState>,
     style: StyleRefinement,
-    render_item: Rc<dyn Fn(usize, &TreeEntry, &mut Window, &mut App) -> ListItem>,
+    render_item: TreeItemRenderer,
 }
 
 impl Tree {

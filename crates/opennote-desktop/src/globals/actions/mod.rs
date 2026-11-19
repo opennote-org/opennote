@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod block;
 pub mod chunking;
 pub mod export;
@@ -105,14 +106,14 @@ pub fn create_one_block(
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
-            let _ = cx.update_global::<States, ()>(|this, cx| {
+            cx.update_global::<States, ()>(|this, cx| {
                 this.refresh_blocks_list(cx);
             });
         },
-        move || created_message.clone().into(),
+        move || created_message.clone(),
         move |error| {
             creation_failed_message
                 .replace("{}", &error.to_string())
@@ -171,10 +172,10 @@ pub fn delete_n_blocks(window: &mut Window, cx: &mut gpui_kit::App, block_ids: V
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
-            let _ = cx.update_global::<States, ()>(|this, cx| {
+            cx.update_global::<States, ()>(|this, cx| {
                 this.refresh_blocks_list(cx);
             });
         },
@@ -277,20 +278,22 @@ pub fn update_n_blocks(
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
-            let _ = cx.update_global::<States, ()>(|this, cx| {
+            cx.update_global::<States, ()>(|this, cx| {
                 this.refresh_blocks_list(cx);
             });
         },
-        move || format!("{}", updated_message.replace("{}", &num_blocks.to_string())).into(),
+        move || {
+            updated_message
+                .replace("{}", &num_blocks.to_string())
+                .into()
+        },
         move |error| {
-            format!(
-                "{}",
-                update_failed_message.replace("{}", &error.to_string())
-            )
-            .into()
+            update_failed_message
+                .replace("{}", &error.to_string())
+                .into()
         },
     );
 }
@@ -364,20 +367,22 @@ pub fn update_parent(
             )
             .await?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
-            let _ = cx.update_global::<States, ()>(|this, cx| {
+            cx.update_global::<States, ()>(|this, cx| {
                 this.refresh_blocks_list(cx);
             });
         },
-        move || format!("{}", updated_message.replace("{}", &num_blocks.to_string())).into(),
+        move || {
+            updated_message
+                .replace("{}", &num_blocks.to_string())
+                .into()
+        },
         move |error| {
-            format!(
-                "{}",
-                update_failed_message.replace("{}", &error.to_string())
-            )
-            .into()
+            update_failed_message
+                .replace("{}", &error.to_string())
+                .into()
         },
     );
 }
@@ -490,14 +495,14 @@ pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
             metadata.update(&system_configurations);
             metadata.save_to_file(&get_configuration_folder_path(ApplicationType::Desktop))?;
 
-            Ok(())
+            Ok(None)
         },
         |cx| {
-            let _ = cx.update_global::<States, ()>(|this, cx| {
+            cx.update_global::<States, ()>(|this, cx| {
                 this.refresh_blocks_list(cx);
             });
         },
-        move || reindexed_message.clone().into(),
+        move || reindexed_message.clone(),
         move |error| {
             reindex_failed_message
                 .replace("{}", &error.to_string())

@@ -553,22 +553,27 @@ impl Render for Editor {
         // adjacent tops differ by exactly one row's footprint whatever the row
         // holds. Caching those differences, not raw positions, keeps the window
         // stable while scrolling.
-        if !structural_change && !width_changed {
-            if let Some(prev) = self
+        if !structural_change
+            && !width_changed
+            && let Some(prev) = self
                 .prev_mounted_run
                 .filter(|prev| self.mounted_run_is_addressable(*prev))
+        {
+            let prev_end = prev.row_end.min(row_first_ids.len());
+            for (row, first_id) in row_first_ids
+                .iter()
+                .enumerate()
+                .take(prev_end.saturating_sub(1))
+                .skip(prev.row_start)
             {
-                let prev_end = prev.row_end.min(row_first_ids.len());
-                for row in prev.row_start..prev_end.saturating_sub(1) {
-                    let child = prev.child_base + row - prev.row_start;
-                    if let (Some(bounds), Some(next_bounds)) = (
-                        self.scroll_handle.bounds_for_item(child),
-                        self.scroll_handle.bounds_for_item(child + 1),
-                    ) {
-                        let stride = f32::from(next_bounds.top() - bounds.top());
-                        if stride > 0.0 && stride.is_finite() {
-                            self.row_stride_cache.insert(row_first_ids[row], stride);
-                        }
+                let child = prev.child_base + row - prev.row_start;
+                if let (Some(bounds), Some(next_bounds)) = (
+                    self.scroll_handle.bounds_for_item(child),
+                    self.scroll_handle.bounds_for_item(child + 1),
+                ) {
+                    let stride = f32::from(next_bounds.top() - bounds.top());
+                    if stride > 0.0 && stride.is_finite() {
+                        self.row_stride_cache.insert(*first_id, stride);
                     }
                 }
             }
@@ -803,8 +808,6 @@ impl Render for Editor {
         } else {
             main_content
         };
-        let base = base.child(main_content.child(content_area));
-
-        base
+        base.child(main_content.child(content_area))
     }
 }

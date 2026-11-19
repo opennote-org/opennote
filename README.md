@@ -10,11 +10,11 @@ A minimalistic notebook app built purely in Rust.
 
 ## Features
 
-- **Keyword and semantic search** — find notes instantly, or let your documents answer your questions.
-- **Fully local** — everything runs on your machine. Your data stays private.
-- **Self-host server** — you can opt to run a self-hosted server to sync data across all of your devices with encrypted communications.
-- **WYSIWYG Markdown Editor** — editor and render your markdown in real-time.
-- **Blazing fast** — built for performance from the ground up.
+- **Keyword and semantic search** — find notes by exact terms or meaning.
+- **Local-first** — store notes and run the default embedding model on your machine, without a hosted AI service.
+- **Self-hosted server** — optionally run your own server to sync notes across devices with encrypted communications.
+- **WYSIWYG Markdown editor** — edit and render Markdown in real time.
+- **MCP integration** — connect an AI client to your notebooks, with configurable read/write permissions and access scopes.
 
 ## Roadmap
 
@@ -23,65 +23,96 @@ A minimalistic notebook app built purely in Rust.
 - [ ] Advanced NLP features to simplify document management (e.g., automatic categorization by semantic similarity)
   - [x] Support both semantic and keyword search
 - [x] MCP server support
-  - [x] Allow controling wheter the AI can read or write your notes
-  - [x] Allow AI agents operate your notebooks for you
-  - [x] Allow restricting the AI agents for what they can see and change
+  - [x] Control whether AI agents can read or write your notes
+  - [x] Allow AI agents to operate your notebooks
+  - [x] Restrict which notebooks AI agents can access
 - [x] Import files
+  - [x] Markdown
+  - [ ] PDF
 - [ ] Multi-modal support
+  - [x] Display and store pasted images and web images.
+  - [ ] Vectorize images for semantic searches.
+- [ ] Fully keyboard control support.
+  - [ ] Vim mode
 
 ## Getting Started
 
-1. Visit the [Releases page](https://github.com/opennote-org/opennote/releases).
-2. Download the archive for your operating system.
-3. Unzip the archive.
-4. Double-click to launch the app.
-5. Enjoy!
+Download the release for your operating system from the [Releases page](https://github.com/opennote-org/opennote/releases), then follow the instructions below.
 
-For a series of use cases that you may find helpful, please refer to `manuals` folder in this repo. One of my favorites is [AI Driven TODOs](manuals/AI_Driven_TODOs_with_OpenNote.md).
+### macOS
 
-**For mac users**: I don't have an Apple Developer Account yet, so I can't codesign the mac app. You may need to run the following command in Terminal, after pasting the app file to the `Applications` folder:
+1. Download and open `opennote-macos.dmg`.
+2. Copy `opennote.app` to your `Applications` folder.
+3. Open the app from `Applications`.
 
-**For first-time installation**: The app will try downloading `models--sentence-transformers--all-MiniLM-L6-v2` from `https://huggingface.co` by default. However, in case if the official site fails, it will switch to use a mirror site, which is `https://hf-mirror.com`.
+The macOS app is not code-signed. If macOS blocks it, and you trust the downloaded release, you may need to remove its quarantine attribute in Terminal:
 
 ```bash
 sudo xattr -r -d com.apple.quarantine /Applications/opennote.app
 ```
 
+### Windows
+
+1. Download `opennote-windows-x86_64.zip`.
+2. Extract the archive.
+3. Double-click `opennote-desktop.exe` in the extracted folder.
+
+### Linux
+
+1. Download `opennote-linux-x86_64.tar.gz`.
+2. Extract the archive.
+3. Run `./linux-package/opennote-desktop` from the extraction directory.
+
+### First Launch
+
+On first launch, OpenNote downloads the default embedding model, `sentence-transformers/all-MiniLM-L6-v2`, from [Hugging Face](https://huggingface.co). If a network request fails, it tries [hf-mirror.com](https://hf-mirror.com). An internet connection is required for this initial download; cached model files are reused afterward.
+
+For example workflows, see the [manuals](manuals), including [AI-Driven TODOs](manuals/AI_Driven_TODOs_with_OpenNote.md).
+
 ### Configure the Desktop App
 
-You can configure OpenNote with its `configurations.json`. It can be found here:
+Open the configuration editor with `Cmd + ;` on macOS or `Ctrl + ;` on Windows and Linux. You can also edit `configurations.json` directly at the following locations:
 
-```bash
-# on macOS
-"/Users/yourusername/Library/Application Support/opennote/configurations.json"
+| Platform | Path |
+| -------- | ---- |
+| macOS | `~/Library/Application Support/opennote/configurations.json` |
+| Linux | `~/.config/opennote/configurations.json` |
+| Windows | `%APPDATA%\opennote\configurations.json` |
 
-# on Linux
-"/home/yourusername/.config/opennote/configurations.json"
+### Set Up a Remote Server
 
-# on Windows
-"C:\Users\Alice\AppData\Roaming\opennote\configurations.json"
-```
-
-However, you may also open the configuration editor by pressing `CMD + ;` on macOS, or `Ctrl + ;` on Windows and Linux.
-
-### Setup Remote Server
-
-You may host a remote server for syncing across different computers securely. To achieve this, refer to [README.md of opennote-server](crates/opennote-server/README.md).
+To host a server for syncing notes across devices, follow the [OpenNote Server README](crates/opennote-server/README.md), including its password and shared-key configuration instructions.
 
 ### Use the MCP Server
 
-The MCP server is **enabled by default** and listens on `http://localhost:8080/`. Toggle it and change its address in `configurations.json` under `user.mcp_server`, or open the configuration editor with `Cmd + ;` on macOS / `Ctrl + ;` on Windows and Linux:
+The MCP server is **enabled by default** and listens on `http://localhost:8080/`. Configure it under `user.mcp_server` in the configuration editor or in `configurations.json`.
+
+Merge the following settings into your existing configuration; this is a partial example, not a replacement for the whole file. These values match the defaults:
 
 ```json
 {
-  "mcp_server": {
-    "enabled": true, // start the MCP server when the app launches (default `true`)
-    "host": "localhost", // address the server binds to (default `localhost:8080`)
-    "port": 8080,
-    "workers": 2 // number of actix-web worker threads (default `2`)
+  "user": {
+    "mcp_server": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 8080,
+      "workers": 2,
+      "scopes": [],
+      "allow_read": true,
+      "allow_write": false
+    }
   }
 }
 ```
+
+| Setting | Purpose |
+| ------- | ------- |
+| `enabled` | Start the MCP server when the app launches. Set to `false` to disable it. |
+| `host` / `port` | Bind address and port. Keep `host` set to `localhost` for local use. |
+| `workers` | Number of Actix Web worker threads. |
+| `scopes` | Allowed server names. An empty list allows all configured servers, including local notes. Use `["local"]` to allow only local notes, or list names from `user.remote_servers`. |
+| `allow_read` | Allow AI clients to read and search notes. |
+| `allow_write` | Allow AI clients to create, update, and delete notes. Enable only if you want editing workflows such as AI-managed TODOs. |
 
 Point any MCP client that supports the Streamable HTTP transport at the server's URL. For example, add this to your client's MCP configuration:
 
@@ -95,23 +126,32 @@ Point any MCP client that supports the Streamable HTTP transport at the server's
 }
 ```
 
-The server is loopback-only by default: it accepts requests whose `Host` header is a loopback address, which protects the locally running server from DNS-rebinding attacks. It is intended to be used from the same machine that runs OpenNote. The desktop MCP server does not require authentication.
+**Security:** The desktop MCP server binds to `localhost` by default and is intended for clients on the same machine. It does not require authentication, and its current configuration disables `Host`-header validation, so it does **not** provide DNS-rebinding protection. Do not expose it to the network or through a public proxy. Disable it when not needed, restrict `scopes`, and leave write access disabled unless required. Notes read by an AI client may be sent to that client's model provider; check the client's privacy settings before connecting.
 
 ### Reindex After Switching the Embedding Model
 
-Once in a while, you may find a model that better suits your needs. Then you will need to re-vectorize all notes across your desktop and servers.
+Switching embedding models requires rebuilding the vector indexes for your local notes and connected servers.
 
-The app will reindex both the desktop and servers for you on app restart, if you switched to a new embedding model in your desktop configuration. However, in case if you encountered errors during the reindex, you will always be able to trigger a reindex in the command bar.
+After you change the embedding model in the desktop configuration, restart the app to trigger reindexing. If reindexing fails, you can retry it using the Reindex action in the command bar.
 
-For a successful reindex, you need to sync both the configurations on the remote servers and the desktop. If the remote servers see your configurations mismatched between the server and the desktop, it will fail the reindex for safe.
+Before reindexing connected servers, make sure their embedding configurations match the desktop configuration. Servers refuse reindexing when the relevant configurations do not match, to prevent incompatible indexes.
 
 ## Contributing
 
 OpenNote is in active development and welcomes contributions of all kinds — bug reports, feature ideas, code, documentation, and design.
 
-- Open issues and pull requests on GitHub
-- Explore the crate documentation in the source
-- Reach out with questions or ideas
+- Open issues and pull requests on [GitHub](https://github.com/opennote-org/opennote).
+- Read the [development manual](docs/DEV_MANUAL.md) for the codebase layout, logging, and performance tips.
+- Follow the [coding style guidelines](docs/CODING_STYLE.md).
+- Explore the crate documentation in the source, or reach out with questions and ideas.
+
+With Rust and the platform dependencies installed, run the desktop app from the repository root:
+
+```bash
+cargo run --release --package opennote-desktop
+```
+
+Use a release build when evaluating embedding performance; debug builds are significantly slower. See the [release workflow](.github/workflows/release.yml) for the toolchains and build dependencies used by CI.
 
 ## Credits
 
@@ -119,11 +159,11 @@ Kudos to all the libraries used in this project. See the full list in [Cargo.tom
 
 Thanks to [appify](https://github.com/akx/appify) for bundling the executable as a macOS app.
 
-Thanks to [sqlite](https://sqlite.org) for localizing relational database.
+Thanks to [SQLite](https://sqlite.org) for local relational storage.
 
-Thanks to [sqlite-vector](https://github.com/sqliteai/sqlite-vector) for localizing vector storages.
+Thanks to [sqlite-vector](https://github.com/sqliteai/sqlite-vector) for local vector storage.
 
-Thanks to [velotype](https://github.com/manyougz/velotype) for WYSIWYG markdown editor.
+Thanks to [velotype](https://github.com/manyougz/velotype) for the WYSIWYG Markdown editor.
 
 Thanks to [gpui-kit](https://github.com/longbridge/gpui-kit) for UI components.
 

@@ -10,7 +10,7 @@ pub struct BlockState {
     pub has_expanded: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct BlockStates(HashMap<Uuid, BlockState>);
 
 impl BlockStates {
@@ -25,12 +25,6 @@ impl BlockStates {
 
     pub fn get_block_state(&self, uuid: Uuid) -> Option<&BlockState> {
         self.0.get(&uuid)
-    }
-}
-
-impl Default for BlockStates {
-    fn default() -> Self {
-        Self(HashMap::new())
     }
 }
 

@@ -2,8 +2,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum ContentType {
-    Title,     // Only the first payload of a block has title
-    Image,     // ![alt text](image_url)
-    JSONValue, // A non-typed json value
-    Markdown,  // Markdown contents
+    Title,    // Legacy type
+    Markdown, // Markdown contents that are not specified here
+    Image,    // ![alt text](image_url)
+    Heading,
+    Link,
+    ListItem,
+    CodeBlock,
+    HtmlBlock,
+    BlockQuote,
 }

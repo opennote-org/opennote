@@ -71,9 +71,9 @@ impl KeysList {
     ) -> Option<ListItem> {
         let language_profile = LanguageProfile::get_language_profile(cx).unwrap();
 
-        return items.get(ix.row).map(|(action, key_binding)| {
+        items.get(ix.row).map(|(action, key_binding)| {
             let action: Box<dyn Action + 'static> = action.boxed_clone();
-            let action_name = match_action_to_language(language_profile, &action);
+            let action_name = match_action_to_language(language_profile, action.as_ref());
 
             let content = h_flex()
                 .items_center()
@@ -89,7 +89,7 @@ impl KeysList {
                 .on_click(cx.listener(move |_this, _, window, cx| {
                     window.dispatch_action(action.boxed_clone(), cx);
                 }))
-        });
+        })
     }
 }
 

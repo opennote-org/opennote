@@ -8,7 +8,7 @@ use opennote_models::search::RawSearchResult;
 pub trait SemanticSearch {
     async fn search_documents_semantically(
         &self,
-        payload_ids: &Vec<Uuid>,
+        payload_ids: &[Uuid],
         query: &[f32],
         top_n: usize,
     ) -> Result<Vec<RawSearchResult>>;

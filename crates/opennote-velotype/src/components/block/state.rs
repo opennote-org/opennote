@@ -275,14 +275,8 @@ impl BlockKind {
     pub fn newline_sibling_kind(&self) -> Self {
         if matches!(self, Self::TaskListItem { .. }) {
             Self::TaskListItem { checked: false }
-        } else if self.is_list_item() {
+        } else if self.is_list_item() || self.is_quote_container() {
             self.clone()
-        } else if self.is_quote_container() {
-            self.clone()
-        } else if self.is_footnote_definition() {
-            Self::Paragraph
-        } else if self.is_code_block() || self.is_separator() {
-            Self::Paragraph
         } else {
             Self::Paragraph
         }
@@ -306,9 +300,7 @@ impl BlockKind {
             Some((Self::Heading { level: 1 }, 2))
         } else if let Some((checked, prefix_len)) = Self::parse_task_list_shortcut(value) {
             Some((Self::TaskListItem { checked }, prefix_len))
-        } else if value.starts_with("* ") || value.starts_with("+ ") {
-            Some((Self::BulletedListItem, 2))
-        } else if value.starts_with("- ") {
+        } else if value.starts_with("* ") || value.starts_with("+ ") || value.starts_with("- ") {
             Some((Self::BulletedListItem, 2))
         } else if let Some(prefix_len) = Self::numbered_list_shortcut_prefix_len(value) {
             Some((Self::NumberedListItem, prefix_len))

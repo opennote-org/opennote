@@ -431,11 +431,7 @@ fn parse_nodes(
     let mut nodes = Vec::new();
     while index < raw.len() {
         let Some(tag_start_relative) = raw[index..].find('<') else {
-            if closing_tag.is_some() {
-                push_text_node(raw, index..raw.len(), &mut nodes);
-            } else {
-                push_text_node(raw, index..raw.len(), &mut nodes);
-            }
+            push_text_node(raw, index..raw.len(), &mut nodes);
             return (nodes, raw.len(), closing_tag.is_none());
         };
 

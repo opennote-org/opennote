@@ -8,6 +8,7 @@ license.workspace = true
 # Internal dependencies
 opennote-entities = { workspace = true }
 actix-web = { workspace = true }
+opennote-derive.workspace = true
 
 # External dependencies
 sea-orm = { workspace = true }
@@ -20,3 +21,4 @@ dirs = { workspace = true }
 chrono = "0.4.44"
 serde-encrypt = { workspace = true }
 reqwest = { workspace = true }
+pulldown-cmark.workspace = true

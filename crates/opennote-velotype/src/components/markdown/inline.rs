@@ -602,21 +602,17 @@ impl InlineTextTree {
                 let run_end = output.len();
 
                 for local_visible in 0..=run_visible_len {
-                    let mapped = if run_visible_len == 0 {
-                        0
-                    } else {
-                        (raw_len * local_visible) / run_visible_len
-                    };
+                    let mapped = (raw_len * local_visible)
+                        .checked_div(run_visible_len)
+                        .unwrap_or(0);
                     visible_to_markdown[visible_cursor + local_visible] = run_start + mapped;
                 }
 
                 markdown_to_visible.resize(run_end + 1, visible_cursor);
                 for local_markdown in 0..=raw_len {
-                    let mapped = if raw_len == 0 {
-                        0
-                    } else {
-                        (run_visible_len * local_markdown) / raw_len
-                    };
+                    let mapped = (run_visible_len * local_markdown)
+                        .checked_div(raw_len)
+                        .unwrap_or(0);
                     markdown_to_visible[run_start + local_markdown] = visible_cursor + mapped;
                 }
 
@@ -1530,6 +1526,10 @@ fn flatten_tokens(fragments: &[InlineFragment]) -> Vec<CharToken> {
 /// the normalized inline tree.  Matching delimiters are consumed (dropped);
 /// unmatched ones are emitted as literal text.  Nested styles are handled by
 /// recursive calls that accumulate `extra_style`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Recursive inline parsing carries delimiter, style and reference context explicitly."
+)]
 fn parse_until(
     tokens: &[CharToken],
     mut index: usize,
@@ -2669,9 +2669,9 @@ fn escaped_sequence_token_len(tokens: &[CharToken], index: usize) -> Option<usiz
         Some(8)
     } else if matches_sequence(tokens, next_index, "</em>") {
         Some(5)
-    } else if matches_sequence(tokens, next_index, "<em>") {
-        Some(4)
-    } else if matches_sequence(tokens, next_index, "</u>") {
+    } else if matches_sequence(tokens, next_index, "<em>")
+        || matches_sequence(tokens, next_index, "</u>")
+    {
         Some(4)
     } else if matches_sequence(tokens, next_index, "<u>") {
         Some(3)

@@ -11,7 +11,7 @@ use crate::widgets::pane::Pane;
 // - sidebar tabs can be dragged to open and split
 
 /// When rendering, if label is available, num selections will be ignored.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DraggedItem {
     /// The block id this item may carry.
     /// None means no block id is carried.
@@ -29,18 +29,6 @@ pub struct DraggedItem {
 
     /// Owner pane's uuid, for convenience access.
     pub owner_pane_id: Option<Uuid>,
-}
-
-impl Default for DraggedItem {
-    fn default() -> Self {
-        Self {
-            block_id: None,
-            selections: Vec::new(),
-            label: None,
-            owner_pane: None,
-            owner_pane_id: None,
-        }
-    }
 }
 
 impl Render for DraggedItem {

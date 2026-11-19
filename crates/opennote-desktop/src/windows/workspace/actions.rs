@@ -67,7 +67,7 @@ impl Workspace {
 
                 let _ = this.pane.update(cx, |this, cx| {
                     if let Some(editor) = &this.editor {
-                        let _ = editor.update(cx, |this, cx| {
+                        editor.update(cx, |this, cx| {
                             selected_text = this.selected_markdown_text(cx);
                         });
                     }

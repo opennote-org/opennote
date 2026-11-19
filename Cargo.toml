@@ -17,6 +17,7 @@ members = [
     "crates/opennote-core-logics",
     "crates/opennote-velotype",
     "crates/opennote-mcp-server",
+    "crates/opennote-derive",
 ]
 
 [workspace.dependencies]
@@ -28,6 +29,7 @@ opennote-models = { path = "crates/opennote-models" }
 opennote-entities = { path = "crates/opennote-entities" }
 opennote-core-logics = { path = "crates/opennote-core-logics" }
 opennote-velotype = { path = "crates/opennote-velotype" }
+opennote-derive = { path = "crates/opennote-derive" }
 
 # External dependencies
 sea-orm = { version = "2.0.0-rc.32", features = [
@@ -52,6 +54,7 @@ actix-web = "4.14.0"
 serde-encrypt = "0.7.0"
 tracing-subscriber = "0.3.23"
 pulldown-cmark = "0.13.5"
+sha256 = "1.6.0"
 
 # Shared editor dependencies
 tree-sitter = "0.26.9"

@@ -28,7 +28,7 @@ impl Native {
 
 #[async_trait]
 impl Embedder for Native {
-    async fn vectorize(&self, queries: &Vec<Payload>) -> Result<Vec<Vec<f32>>> {
+    async fn vectorize(&self, queries: &[Payload]) -> Result<Vec<Vec<f32>>> {
         if queries.is_empty() {
             return Ok(Vec::new());
         }
