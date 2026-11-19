@@ -27,7 +27,13 @@ A minimalistic notebook app built purely in Rust.
   - [x] Allow AI agents to operate your notebooks
   - [x] Restrict which notebooks AI agents can access
 - [x] Import files
+  - [x] Markdown
+  - [ ] PDF
 - [ ] Multi-modal support
+  - [x] Display and store pasted images and web images.
+  - [ ] Vectorize images for semantic searches.
+- [ ] Fully keyboard control support.
+  - [ ] Vim mode
 
 ## Getting Started
 
