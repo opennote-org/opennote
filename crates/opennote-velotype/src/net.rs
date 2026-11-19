@@ -9,11 +9,10 @@ use futures::FutureExt;
 use futures::channel::oneshot;
 use gpui::App;
 use gpui::http_client::{self, AsyncBody, HttpClient};
+use reqwest::blocking::{Client, RequestBuilder};
 use reqwest::header::{
     ACCEPT, ACCEPT_LANGUAGE, CACHE_CONTROL, HeaderMap, HeaderValue, PRAGMA, USER_AGENT,
 };
-
-use opennote_core_logics::helpers::run_async_code;
 
 const DEFAULT_IMAGE_ACCEPT: &str =
     "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8";
@@ -21,9 +20,16 @@ const DEFAULT_ACCEPT_LANGUAGE: &str = "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7";
 const DEFAULT_CACHE_CONTROL: &str = "no-cache";
 
 pub fn install_http_client(cx: &mut App) {
-    match ReqwestTransportHttpClient::new(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-    ) {
+    // The desktop app starts inside Tokio; reqwest's blocking client must be built outside it.
+    let client = std::thread::spawn(|| {
+        ReqwestTransportHttpClient::new(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+        )
+    })
+    .join()
+    .map_err(|_| anyhow::anyhow!("image HTTP client initialization thread panicked"))
+    .and_then(|client| client);
+    match client {
         Ok(client) => cx.set_http_client(Arc::new(client)),
         Err(error) => eprintln!("failed to install HTTP client for image loading: {error}"),
     }
@@ -42,7 +48,7 @@ pub(crate) fn is_remote_image_source(source: &str) -> bool {
 /// needs simple HTTP(S) fetches. Requests are executed on a short-lived thread
 /// and returned as `AsyncBody` values to match GPUI's contract.
 struct ReqwestTransportHttpClient {
-    client: reqwest::Client,
+    client: Client,
     user_agent: HeaderValue,
     default_headers: HeaderMap,
 }
@@ -50,7 +56,7 @@ struct ReqwestTransportHttpClient {
 impl ReqwestTransportHttpClient {
     fn new(user_agent: &str) -> anyhow::Result<Self> {
         let default_headers = default_image_request_headers(user_agent)?;
-        let client = reqwest::Client::builder()
+        let client = Client::builder()
             .redirect(reqwest::redirect::Policy::limited(10))
             .user_agent(user_agent)
             .default_headers(default_headers.clone())
@@ -63,7 +69,7 @@ impl ReqwestTransportHttpClient {
     }
 
     fn execute_request(
-        client: reqwest::Client,
+        client: Client,
         default_headers: HeaderMap,
         request: http_client::Request<AsyncBody>,
     ) -> anyhow::Result<http_client::Response<AsyncBody>> {
@@ -85,11 +91,11 @@ impl ReqwestTransportHttpClient {
             builder = builder.body(body_bytes);
         }
 
-        let response = run_async_code(async { builder.send().await.unwrap() });
+        let response = builder.send()?;
         let status = response.status();
         let version = response.version();
         let headers = response.headers().clone();
-        let bytes = run_async_code(async { response.bytes().await.unwrap() });
+        let bytes = response.bytes()?;
 
         let mut response_builder = http_client::Response::builder()
             .status(status)
@@ -118,10 +124,10 @@ fn default_image_request_headers(user_agent: &str) -> anyhow::Result<HeaderMap> 
 }
 
 fn apply_missing_default_headers(
-    builder: reqwest::RequestBuilder,
+    builder: RequestBuilder,
     request_headers: &HeaderMap,
     default_headers: &HeaderMap,
-) -> reqwest::RequestBuilder {
+) -> RequestBuilder {
     let mut headers = request_headers.clone();
     for (name, value) in default_headers {
         if !headers.contains_key(name) {
@@ -203,7 +209,7 @@ mod tests {
         request_headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-GB"));
 
         let request = apply_missing_default_headers(
-            reqwest::Client::new().get("https://example.com/image.png"),
+            reqwest::blocking::Client::new().get("https://example.com/image.png"),
             &request_headers,
             &defaults,
         )

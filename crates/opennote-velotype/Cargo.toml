@@ -20,7 +20,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 schemars = { workspace = true }
 gpui = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
 futures.workspace = true
 base64 = "0.22.1"
 unicode-segmentation = "1.13"
