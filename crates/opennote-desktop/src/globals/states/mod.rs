@@ -123,7 +123,12 @@ impl States {
                 {
                     Ok(results) => (name, Ok(results)),
                     Err(error) => {
-                        tracing::error!("{}", error);
+                        tracing::error!(
+                            server = %name,
+                            error = %format_args!("{error:#}"),
+                            "Failed to refresh block list"
+                        );
+
                         (name, Err(error))
                     }
                 };
