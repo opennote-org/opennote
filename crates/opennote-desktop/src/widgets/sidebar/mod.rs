@@ -20,7 +20,11 @@ use uuid::Uuid;
 use opennote_models::{block::Block, constants::LOCAL_SERVER_NAME};
 
 use crate::{
-    globals::{actions::create_one_block, language::LanguageProfile, states::States},
+    globals::{
+        actions::create_one_block,
+        language::LanguageProfile,
+        states::{States, helpers::get_states},
+    },
     key_mappings::key_contexts::SIDEBAR,
     libs::{
         tabs::{drag::DraggedItem, tab_bar::TabBar},
@@ -70,7 +74,17 @@ impl OpenNoteSidebar {
         //
         // Please avoid using update_global method as much as possible,
         // otherwise, GPUI will keep refreshing because update_global will trigger the observer.
-        _subscriptions.push(cx.observe_global::<States>(|_this, cx| {
+        _subscriptions.push(cx.observe_global::<States>(|this, cx| {
+            let states = get_states(cx);
+
+            if states
+                .get_server_registry()
+                .are_servers_ready_for_cache_access()
+            {
+                // Remove block states that no longer exist.
+                this.block_states.prune(&states.get_all_blocks_ids());
+            }
+
             cx.notify();
         }));
 

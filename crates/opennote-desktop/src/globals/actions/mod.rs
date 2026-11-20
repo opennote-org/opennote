@@ -424,6 +424,7 @@ pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
             let tokio_handle = tokio::runtime::Handle::current();
             let local_configurations = system_configurations.clone();
 
+            // TODO: create a route helper for reindex.
             // Reindex the local database
             run_async_background(executor, tokio_handle.clone(), async move {
                 bootstrap

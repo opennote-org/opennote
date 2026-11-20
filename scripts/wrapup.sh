@@ -1,19 +1,17 @@
 #!/usr/bin/env sh
 
 main() {
-    # Run this script before PR.
-    # It will help you reformat your project to meet the CI requirements
-    echo "Formatting the project..."
-    cargo fmt --all
+    set -e
 
-    echo "Running clippy lint..."
-    cargo clippy --all-targets --all-features -- -A warnings
+    # Mirror the Rust PR checks in .github/workflows/rust-check.yml.
+    echo "Checking formatting..."
+    cargo fmt --all -- --check
 
-    echo "Checking compilations..."
-    cargo check --all --all-features
+    echo "Checking workspace libraries and binaries..."
+    cargo check --workspace --lib --bins --locked
 
-    echo "Running unit-tests..."
-    cargo test --all --all-features
+    echo "Running Clippy..."
+    cargo clippy --workspace --lib --bins --locked -- -D warnings
 }
 
 main "$@"

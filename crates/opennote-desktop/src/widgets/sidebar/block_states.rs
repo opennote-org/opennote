@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 use uuid::Uuid;
 
 use opennote_models::{constants::DEFAULT_BLOCK_STATES_FILE_NAME, traits::LoadFromAndSaveToFile};
@@ -25,6 +26,15 @@ impl BlockStates {
 
     pub fn get_block_state(&self, uuid: Uuid) -> Option<&BlockState> {
         self.0.get(&uuid)
+    }
+
+    /// Prune the blocks that are no longer existed away from the block states.
+    pub fn prune(&mut self, existing_block_ids: &[Uuid]) {
+        debug!("Number of block states before pruning: {}", self.0.len());
+
+        self.0.retain(|item, _| existing_block_ids.contains(item));
+
+        debug!("Number of block states after pruning: {}", self.0.len());
     }
 }
 
