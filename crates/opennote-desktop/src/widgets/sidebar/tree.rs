@@ -193,7 +193,9 @@ pub fn create_tree_list_item(
                     )
                 })
                 .when(!has_children, |this| {
-                    render_non_parent_button(has_expanded, &id, this)
+                    // Non parent buttons are always not expanded.
+                    // This is reserved for future indications on whether the file has opened.
+                    render_non_parent_button(false, &id, this)
                 })
                 .id(id.clone())
                 .gap_2()
