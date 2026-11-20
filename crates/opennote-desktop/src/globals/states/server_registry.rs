@@ -27,7 +27,7 @@ impl ServerRegistry {
                         connection_string: config.connection_string.into(),
                         password: config.password.into(),
                         shared_key: config.shared_key.clone(),
-                        blocks: HashMap::new(),
+                        ..Default::default()
                     },
                 )
             })
@@ -35,12 +35,7 @@ impl ServerRegistry {
 
         servers.insert(
             SharedString::new(LOCAL_SERVER_NAME),
-            ServerStates {
-                connection_string: SharedString::new(""),
-                password: SharedString::new(""),
-                shared_key: SharedKey::new([0u8; 32]),
-                blocks: HashMap::new(),
-            },
+            ServerStates::default(),
         );
 
         Self(Arc::new(RwLock::new(servers)))
@@ -59,7 +54,7 @@ impl ServerRegistry {
                         connection_string: state.connection_string.clone(),
                         password: state.password.clone(),
                         shared_key: state.shared_key.clone(),
-                        blocks: HashMap::new(),
+                        ..Default::default()
                     },
                 )
             })
@@ -72,17 +67,75 @@ impl ServerRegistry {
         self.0.read().unwrap()
     }
 
-    pub fn get_servers_mut(
+    fn get_servers_mut(
         &self,
     ) -> std::sync::RwLockWriteGuard<'_, HashMap<SharedString, ServerStates>> {
         self.0.write().unwrap()
     }
+
+    /// Set the servers to not ready for cache access for updates.
+    pub fn schedule_servers_cache_update(&mut self) {
+        self.get_servers_mut()
+            .iter_mut()
+            .for_each(|(_, item)| item.start_update_cache());
+    }
+
+    /// Update a specified server.
+    pub fn update_server(
+        &mut self,
+        server_name: &SharedString,
+        closure: impl FnOnce(&mut ServerStates),
+    ) {
+        if let Some(server) = self.get_servers_mut().get_mut(server_name) {
+            closure(server);
+        }
+    }
+
+    /// If servers are still refreshing,
+    /// then they will not be ready for access.
+    ///
+    /// TODO: we current don't enforce checking the cache readiness when accessing cache.
+    /// should any issue occur, we need to enforce the readiness check.
+    pub fn are_servers_ready_for_cache_access(&self) -> bool {
+        self.get_servers()
+            .iter()
+            .all(|(_, item)| item.is_cache_ready)
+    }
 }
 
+/// This stores individual server's live state info.
 #[derive(Debug, Clone)]
 pub struct ServerStates {
     pub connection_string: SharedString,
+
     pub password: SharedString,
+
     pub shared_key: SharedKey,
+
     pub blocks: HashMap<Uuid, Block>,
+
+    /// Is this server's cache ready for access?
+    pub is_cache_ready: bool,
+}
+
+impl Default for ServerStates {
+    fn default() -> Self {
+        Self {
+            connection_string: SharedString::new(""),
+            password: SharedString::new(""),
+            shared_key: SharedKey::new([0u8; 32]),
+            blocks: HashMap::new(),
+            is_cache_ready: false,
+        }
+    }
+}
+
+impl ServerStates {
+    pub fn start_update_cache(&mut self) {
+        self.is_cache_ready = false;
+    }
+
+    pub fn finish_update_cache(&mut self) {
+        self.is_cache_ready = true;
+    }
 }

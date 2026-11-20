@@ -64,7 +64,7 @@ impl States {
                 .clone()
         });
 
-        let states = States::new(remote_server_configs);
+        let mut states = States::new(remote_server_configs);
         states.refresh_blocks_list(cx);
 
         cx.set_global(states);
@@ -90,13 +90,17 @@ impl States {
 
     /// Overwrite the existing blocks of a server in the states with the new blocks
     pub fn hard_update_blocks(&mut self, server_name: &SharedString, blocks: Vec<Block>) {
-        if let Some(server) = self.servers.get_servers_mut().get_mut(server_name) {
-            server.blocks = HashMap::from_iter(blocks.into_iter().map(|item| (item.id, item)));
-        }
+        self.servers.update_server(server_name, |server_states| {
+            server_states.blocks =
+                HashMap::from_iter(blocks.into_iter().map(|item| (item.id, item)));
+
+            // Mark the update state of this server back to ready.
+            server_states.finish_update_cache();
+        });
     }
 
     /// It will refresh blocks across all servers
-    pub fn refresh_blocks_list(&self, cx: &mut App) {
+    pub fn refresh_blocks_list(&mut self, cx: &mut App) {
         let servers = self.get_servers().to_owned();
         let (databases, system_configurations) =
             cx.read_global::<GlobalApplicationBootStrap, _>(|this, _cx| {
@@ -106,9 +110,12 @@ impl States {
                 )
             });
 
+        self.servers.schedule_servers_cache_update();
+
         for (name, server) in servers {
             let databases = databases.clone();
             let system_configurations = system_configurations.clone();
+
             cx.spawn(async move |cx| {
                 let (server_name, results) = match route_read_blocks(
                     &name,
