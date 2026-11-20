@@ -7,6 +7,7 @@ use gpui_kit::{
         h_flex,
         list::ListItem,
         menu::ContextMenuExt,
+        separator::Separator,
     },
     div,
     prelude::FluentBuilder,
@@ -73,14 +74,19 @@ pub fn create_root_tree_list_item(
     let tree_state_on_drag_move = tree_state.clone();
 
     ListItem::new(index)
+        .w_full() // Let the background highlights take over the entire row
         .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
-        .check_icon(IconName::Check)
         .cursor_move()
         .child(
             h_flex()
                 .id(id.clone())
+                .w_full() // Let the drag target span the entire row
                 .gap_2()
-                .child("--------------------------")
+                // The dashed line is painted across the Separator's bounds, so the
+                // divider follows the sidebar's width instead of a fixed dash string.
+                // The explicit height keeps the row tall enough to be a drop target,
+                // because the 1px line is absolutely positioned and adds no height.
+                .child(Separator::horizontal_dashed().flex_1().h_5())
                 .when(is_dragged_over, |this| {
                     this.border_b_2().border_color(gpui_kit::blue())
                 })
