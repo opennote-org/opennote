@@ -74,8 +74,10 @@ pub fn create_root_tree_list_item(
     let tree_state_on_drag_move = tree_state.clone();
 
     ListItem::new(index)
+        .separator() // Not a real row: no hover highlight or selection styling
         .w_full() // Let the background highlights take over the entire row
         .pl(px(16.) * entry.depth() + px(12.)) // Indent based on depth
+        .pb_3() // Center the divider between the header and the first item
         .cursor_move()
         .child(
             h_flex()
