@@ -260,7 +260,13 @@ pub fn update_n_blocks(
                     // TODO: improve the inference speed
                     let vectorized_payloads =
                         run_async_background(executor, tokio_handle.clone(), async move {
-                            vectorize(&embedders, &embedders_config, payloads).await
+                            vectorize(
+                                &embedders,
+                                &embedders_config,
+                                &system_configurations.assets,
+                                payloads,
+                            )
+                            .await
                         })
                         .await;
 
@@ -482,7 +488,13 @@ pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
                         let embedder_config = system_configurations.embedder.clone();
                         block.payloads =
                             run_async_background(executor, tokio_handle.clone(), async move {
-                                vectorize(&embedders, &embedder_config, payloads).await
+                                vectorize(
+                                    &embedders,
+                                    &embedder_config,
+                                    &system_configurations.assets,
+                                    payloads,
+                                )
+                                .await
                             })
                             .await
                             .with_context(|| {

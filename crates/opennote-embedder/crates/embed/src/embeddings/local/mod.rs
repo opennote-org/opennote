@@ -18,6 +18,8 @@ pub mod modernbert;
 #[cfg(feature = "ort")]
 pub mod ort_bert;
 #[cfg(feature = "ort")]
+pub mod ort_embeddinggemma2;
+#[cfg(feature = "ort")]
 pub mod ort_jina;
 pub mod pooling;
 pub mod qwen3;

@@ -122,17 +122,9 @@ impl Block {
         let mut references = Vec::new();
 
         for payload in &self.payloads {
-            if payload.content_type != ContentType::Image {
-                continue;
-            }
-
-            for event in Parser::new(&payload.texts) {
-                match event {
-                    Event::Start(Tag::Image { dest_url, .. }) if is_asset_reference(&dest_url) => {
-                        references.push(dest_url.into_string());
-                    }
-                    _ => continue,
-                }
+            match payload.get_asset_reference() {
+                None => continue,
+                Some(reference) => references.push(reference),
             }
         }
 

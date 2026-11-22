@@ -2,6 +2,7 @@ use crate::Dtype;
 use crate::embeddings::hub::HubClient;
 use anyhow::{Result, anyhow};
 
+use super::multimodal::MultiModalEmbedder;
 use super::text::{TextEmbed, TextEmbedder};
 use super::types::{EmbedData, EmbeddingResult};
 use super::vision::{EmbedImage, VisionEmbedder};
@@ -9,6 +10,7 @@ use super::vision::{EmbedImage, VisionEmbedder};
 pub enum Embedder {
     Text(TextEmbedder),
     Vision(Box<VisionEmbedder>),
+    MultiModal(MultiModalEmbedder),
 }
 
 impl Embedder {
@@ -21,6 +23,7 @@ impl Embedder {
         match self {
             Self::Text(embedder) => embedder.embed(text_batch, batch_size, late_chunking).await,
             Self::Vision(embedder) => embedder.embed(text_batch, batch_size).await,
+            Self::MultiModal(embedder) => embedder.embed_text(text_batch, batch_size).await,
         }
     }
 
@@ -47,25 +50,32 @@ impl Embedder {
             .as_str()
             .ok_or(anyhow!("Architecture not found"))?;
 
-        #[expect(
-            clippy::single_match,
-            reason = "Project style prefers explicit match arms."
-        )]
-        match is_onnx {
-            true => {
-                return Ok(Self::Text(TextEmbedder::from_pretrained_ort(
+        if is_onnx {
+            if architecture == "EmbeddingGemma2Model" {
+                return Ok(Self::MultiModal(MultiModalEmbedder::from_pretrained_ort(
                     architecture,
-                    None,
                     revision,
                     Some(model_id),
-                    None,
+                    dtype,
                     None,
                 )?));
             }
-            false => {}
-        };
+
+            return Ok(Self::Text(TextEmbedder::from_pretrained_ort(
+                architecture,
+                None,
+                revision,
+                Some(model_id),
+                None,
+                None,
+            )?));
+        }
 
         match architecture {
+            "EmbeddingGemma2Model" => Err(anyhow!(
+                "EmbeddingGemma2Model requires an ONNX checkpoint; {} has no ONNX weights",
+                model_id
+            )),
             "CLIPModel" | "SiglipModel" => Ok(Self::Vision(Box::new(
                 VisionEmbedder::from_pretrained_hf(architecture, model_id, revision, token)?,
             ))),
@@ -215,6 +225,7 @@ impl EmbedImage for Embedder {
     ) -> anyhow::Result<EmbedData> {
         match self {
             Self::Vision(embedder) => embedder.embed_image(image_path, metadata).await,
+            Self::MultiModal(embedder) => embedder.embed_image(image_path, metadata).await,
             _ => Err(anyhow!("Model not supported for vision embedding")),
         }
     }
@@ -226,6 +237,13 @@ impl EmbedImage for Embedder {
     ) -> anyhow::Result<Vec<EmbedData>> {
         match self {
             Self::Vision(embedder) => embedder.embed_image_batch(image_paths, batch_size).await,
+            Self::MultiModal(embedder) => {
+                let paths: Vec<std::path::PathBuf> = image_paths
+                    .iter()
+                    .map(|path| std::path::PathBuf::from(path.as_ref()))
+                    .collect();
+                embedder.embed_image_batch(&paths, batch_size).await
+            }
             _ => Err(anyhow!("Model not supported for vision embedding")),
         }
     }
@@ -237,6 +255,7 @@ impl EmbedImage for Embedder {
     ) -> anyhow::Result<Vec<EmbedData>> {
         match self {
             Self::Vision(embedder) => embedder.embed_pdf(pdf_path, batch_size).await,
+            Self::MultiModal(embedder) => embedder.embed_pdf(pdf_path, batch_size).await,
             _ => Err(anyhow!("Model not supported for PDF embedding")),
         }
     }

@@ -1,13 +1,17 @@
 use anyhow::Result;
 use futures::future::join_all;
 
-use opennote_models::{configurations::fields::EmbedderConfig, payload::Payload};
+use opennote_models::{
+    configurations::fields::{EmbedderConfig, assets::AssetsConfigurations},
+    payload::Payload,
+};
 
 use crate::entry::EmbedderEntry;
 
 pub async fn vectorize(
     embedder_entry: &EmbedderEntry,
     embedder_config: &EmbedderConfig,
+    assets_storage_configurations: &AssetsConfigurations,
     payloads: Vec<Payload>,
 ) -> Result<Vec<Payload>> {
     let mut batches: Vec<Vec<Payload>> = Vec::new();
@@ -28,7 +32,11 @@ pub async fn vectorize(
     // Record the data entries
     let mut tasks = Vec::new();
     for batch in batches.into_iter() {
-        tasks.push(send_vectorization(batch, embedder_entry));
+        tasks.push(send_vectorization(
+            batch,
+            assets_storage_configurations.clone(),
+            embedder_entry,
+        ));
     }
 
     let results = join_all(tasks).await;
@@ -44,9 +52,16 @@ pub async fn vectorize(
 /// It will parallelize the vectorization.
 pub async fn send_vectorization(
     mut queries: Vec<Payload>,
+    assets_storage_configurations: AssetsConfigurations,
     embedder_entry: &EmbedderEntry,
 ) -> Result<Vec<Payload>> {
-    let vectors = embedder_entry.embedder.vectorize(&queries).await?;
+    let vectors = embedder_entry
+        .embedder
+        .vectorize(
+            Some(assets_storage_configurations.assets_storage_path.into()),
+            &queries,
+        )
+        .await?;
 
     for (vector, chunk) in vectors.into_iter().zip(&mut queries) {
         chunk.vector = vector;

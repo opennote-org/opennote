@@ -1,5 +1,6 @@
 pub mod builder;
 pub mod embedder;
+pub mod multimodal;
 pub mod text;
 pub mod types;
 pub mod vision;

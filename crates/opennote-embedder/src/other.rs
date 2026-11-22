@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -24,7 +24,11 @@ impl Other {
 
 #[async_trait]
 impl Embedder for Other {
-    async fn vectorize(&self, queries: &[Payload]) -> Result<Vec<Vec<f32>>> {
+    async fn vectorize(
+        &self,
+        _assets_storage_path: Option<PathBuf>,
+        queries: &[Payload],
+    ) -> Result<Vec<Vec<f32>>> {
         let mut api_keys = HashMap::new();
         api_keys.insert(
             self.embedder_config.provider.to_string(),

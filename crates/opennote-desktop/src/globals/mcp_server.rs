@@ -450,6 +450,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 block.payloads = vectorize(
                     &self.bootstrap.embedders,
                     &configurations.system.embedder,
+                    &configurations.system.assets,
                     payloads,
                 )
                 .await?;
