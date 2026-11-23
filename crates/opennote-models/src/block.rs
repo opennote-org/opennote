@@ -1,14 +1,10 @@
-use pulldown_cmark::{Event, Parser, Tag};
 use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use opennote_entities::blocks::{ActiveModel, Model};
 
-use crate::{
-    assets::is_asset_reference, content_type::ContentType, payload::Payload,
-    traits::summarization::Summarization,
-};
+use crate::{payload::Payload, traits::summarization::Summarization};
 
 /// Everything in OpenNote is a block. All data operations MUST be performed on `Block`s for simplicity
 /// and efficiency.
@@ -118,6 +114,7 @@ impl Block {
     }
 
     /// Retrieve assets references in this format: `sha256/filename.extension`.
+    /// Return a path or an url when the stored asset is not managed.
     pub fn get_assets_references(&self) -> Vec<String> {
         let mut references = Vec::new();
 

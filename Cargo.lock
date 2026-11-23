@@ -9804,12 +9804,16 @@ version = "0.2.8"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "catsu",
  "embed",
  "futures",
+ "image",
  "opennote-models",
  "reqwest 0.12.28",
+ "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

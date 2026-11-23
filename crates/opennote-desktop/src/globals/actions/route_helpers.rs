@@ -8,6 +8,7 @@ use opennote_core_logics::{
 };
 use opennote_data::{Databases, assets::AssetsStorage};
 use opennote_models::{
+    assets::is_asset_reference,
     block::Block,
     configurations::{fields::search::SupportedSearchMethod, system::SystemConfigurations},
     constants::LOCAL_SERVER_NAME,
@@ -218,6 +219,7 @@ pub async fn route_sending_assets(
     let assets_references = blocks
         .iter()
         .flat_map(Block::get_assets_references)
+        .filter(|item| is_asset_reference(item)) // Omit external assets
         .collect();
 
     // Only missing assets need an upload.
@@ -268,6 +270,11 @@ pub async fn route_buffering_assets(
     let client = Client::new();
 
     for storage_reference in blocks.iter().flat_map(Block::get_assets_references) {
+        // Skip the not managed assets
+        if !is_asset_reference(&storage_reference) {
+            continue;
+        }
+
         let path = assets_storage.create_asset_save_path(&storage_reference);
 
         // Skip caching if the asset has already existed.

@@ -6,13 +6,15 @@ use opennote_models::{
     configurations::system::SystemConfigurations, providers::embedder::EmbedderProvider,
 };
 
-use crate::{native::Native, other::Other, remote::Remote, traits::Embedder};
+use crate::{
+    local::Local, openai_compatible::OpenAICompatible, third_party::ThirdParty, traits::Embedder,
+};
 
 pub async fn create_embedder(config: &SystemConfigurations) -> Result<Arc<dyn Embedder>> {
     let embedder: Arc<dyn Embedder> = match &config.embedder.provider {
-        EmbedderProvider::Native => Arc::new(Native::new(config).await?),
-        EmbedderProvider::Remote => Arc::new(Remote::new(config).await?),
-        _ => Arc::new(Other::new(config).await?),
+        EmbedderProvider::Local => Arc::new(Local::new(config).await?),
+        EmbedderProvider::OpenAICompatible => Arc::new(OpenAICompatible::new(config).await?),
+        EmbedderProvider::ThirdParty(_) => Arc::new(ThirdParty::new(config).await?),
     };
 
     Ok(embedder)

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use opennote_models::assets::construct_asset_save_path;
 
 #[derive(Debug, Clone)]
 pub struct AssetsStorage {
@@ -16,8 +17,13 @@ impl AssetsStorage {
 
     /// Create a path that can be directly used to save the asset to the assets storage.
     /// The `storage_reference` looks like this: `<sha256>/<filename>.<extension>`.
+    ///
+    /// Return the reference as is, when the asset is not a managed asset.
     pub fn create_asset_save_path(&self, storage_reference: impl AsRef<Path>) -> PathBuf {
-        self.assets_storage_path.join(storage_reference)
+        construct_asset_save_path(
+            self.assets_storage_path.clone(),
+            &storage_reference.as_ref().to_string_lossy().to_string(),
+        )
     }
 
     /// Look up for whether the asset exists.

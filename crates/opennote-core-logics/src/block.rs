@@ -7,7 +7,7 @@ use opennote_data::Databases;
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
     block::Block,
-    configurations::fields::VectorDatabaseConfig,
+    configurations::fields::{VectorDatabaseConfig, assets::AssetsConfigurations},
     content_type::ContentType,
     payload::Payload,
     query::{BlockQuery, PayloadQuery},
@@ -20,6 +20,7 @@ pub async fn build_block(
     parent_block_id: Option<Uuid>,
     default_block_title: String,
     embedders: &EmbedderEntry,
+    assets_storage_configurations: &AssetsConfigurations,
     content: Option<String>,
 ) -> Result<Block, anyhow::Error> {
     let mut block = Block::new(parent_block_id, Vec::new());
@@ -35,7 +36,8 @@ pub async fn build_block(
         )],
     };
 
-    let vectorized_payloads = send_vectorization(payloads, embedders).await?;
+    let vectorized_payloads =
+        send_vectorization(payloads, assets_storage_configurations.clone(), embedders).await?;
 
     block.payloads = vectorized_payloads;
 

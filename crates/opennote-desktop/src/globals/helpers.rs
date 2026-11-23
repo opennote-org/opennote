@@ -8,7 +8,7 @@
 /// ```
 /// let vectorized_payloads =
 ///     run_async_background(executor, tokio_handle.clone(), async move {
-///         vectorize(&embedders, &embedders_config, payloads).await
+///         vectorize(&embedders, &embedders_config, &assets_storage_configurations, payloads).await
 ///     })
 ///     .await;
 /// ```
@@ -21,6 +21,7 @@
 ///             parent_block_id,
 ///             raw_file_name,
 ///             &embedders,
+///             &assets_storage_configurations,
 ///             Some(content),
 ///         ).await
 ///     }

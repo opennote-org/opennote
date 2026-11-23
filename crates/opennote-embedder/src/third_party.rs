@@ -10,11 +10,11 @@ use opennote_models::{
 
 use crate::traits::Embedder;
 
-pub struct Other {
+pub struct ThirdParty {
     embedder_config: EmbedderConfig,
 }
 
-impl Other {
+impl ThirdParty {
     pub async fn new(config: &SystemConfigurations) -> Result<Self> {
         Ok(Self {
             embedder_config: config.embedder.clone(),
@@ -23,7 +23,7 @@ impl Other {
 }
 
 #[async_trait]
-impl Embedder for Other {
+impl Embedder for ThirdParty {
     async fn vectorize(
         &self,
         _assets_storage_path: Option<PathBuf>,

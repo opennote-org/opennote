@@ -17,7 +17,7 @@ pub fn is_asset_reference(reference: &str) -> bool {
 
 /// Get a storage reference out of a save path in this format:
 /// `sha256/filename.extension`
-pub fn decompose_save_path(path: impl Into<PathBuf>) -> String {
+pub fn decompose_asset_save_path(path: impl Into<PathBuf>) -> String {
     let path = path.into();
 
     match (path.parent().and_then(Path::file_name), path.file_name()) {
@@ -26,4 +26,19 @@ pub fn decompose_save_path(path: impl Into<PathBuf>) -> String {
         }
         _ => String::new(),
     }
+}
+
+/// Construct an asset's save path.
+/// Return a full path for both a managed or external path.
+///
+/// TODO: resolve the online assets
+pub fn construct_asset_save_path(
+    assets_storage_path: impl Into<PathBuf>,
+    reference: &str,
+) -> PathBuf {
+    if is_asset_reference(reference) {
+        return assets_storage_path.into().join(reference);
+    }
+
+    reference.into()
 }

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use opennote_entities::payloads::{ActiveModel, Model};
 
-use crate::{assets::is_asset_reference, content_type::ContentType};
+use crate::content_type::ContentType;
 
 /// TODO: do we store dynamic data? like hashmap?
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
@@ -80,7 +80,7 @@ impl Payload {
 
         for event in Parser::new(&self.texts) {
             match event {
-                Event::Start(Tag::Image { dest_url, .. }) if is_asset_reference(&dest_url) => {
+                Event::Start(Tag::Image { dest_url, .. }) => {
                     return Some(dest_url.into_string());
                 }
                 _ => continue,

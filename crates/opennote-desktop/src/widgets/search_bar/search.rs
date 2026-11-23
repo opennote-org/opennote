@@ -4,7 +4,8 @@ use uuid::Uuid;
 
 use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
 use opennote_models::{
-    configurations::fields::search::SupportedSearchMethod, payload::create_query,
+    configurations::fields::{assets::AssetsConfigurations, search::SupportedSearchMethod},
+    payload::create_query,
 };
 
 use crate::{
@@ -28,8 +29,15 @@ pub struct SearchRequest {
 pub(super) async fn create_query_vector(
     embedding_query: &str,
     embedders: &EmbedderEntry,
+    assets_storage_configurations: &AssetsConfigurations,
 ) -> anyhow::Result<Vec<f32>> {
-    let payloads = send_vectorization(vec![create_query(embedding_query)], embedders).await?;
+    let payloads = send_vectorization(
+        vec![create_query(embedding_query)],
+        assets_storage_configurations.clone(),
+        embedders,
+    )
+    .await?;
+
     payloads
         .into_iter()
         .next()
@@ -78,9 +86,15 @@ pub fn spawn_search(
             SupportedSearchMethod::Keyword => None,
             SupportedSearchMethod::Semantic => {
                 let embedding_query = query.clone();
+                let assets_storage_configurations = system_configurations.assets.clone();
 
                 let result = run_async_background(&executor, tokio_handle.clone(), async move {
-                    create_query_vector(&embedding_query, &embedders).await
+                    create_query_vector(
+                        &embedding_query,
+                        &embedders,
+                        &assets_storage_configurations,
+                    )
+                    .await
                 })
                 .await;
 

@@ -95,7 +95,14 @@ pub fn create_one_block(
                     this.get_active_server(window_handle.window_id())
                 });
 
-            let block = build_block(parent_block_id, default_block_title, &embedders, None).await?;
+            let block = build_block(
+                parent_block_id,
+                default_block_title,
+                &embedders,
+                &system_configurations.assets,
+                None,
+            )
+            .await?;
 
             route_helpers::route_create_blocks(
                 &server_name,
@@ -256,6 +263,7 @@ pub fn update_n_blocks(
                     // Cheap clone
                     let embedders = embedders.clone();
                     let embedders_config = embedders_config.clone();
+                    let assets_storage_configurations = system_configurations.assets.clone();
 
                     // TODO: improve the inference speed
                     let vectorized_payloads =
@@ -263,7 +271,7 @@ pub fn update_n_blocks(
                             vectorize(
                                 &embedders,
                                 &embedders_config,
-                                &system_configurations.assets,
+                                &assets_storage_configurations,
                                 payloads,
                             )
                             .await
@@ -486,12 +494,13 @@ pub fn reindex(window: &mut Window, cx: &mut gpui_kit::App) {
                         let payloads = std::mem::take(&mut block.payloads);
                         let embedders = embedders.clone();
                         let embedder_config = system_configurations.embedder.clone();
+                        let assets_storage_configurations = system_configurations.assets.clone();
                         block.payloads =
                             run_async_background(executor, tokio_handle.clone(), async move {
                                 vectorize(
                                     &embedders,
                                     &embedder_config,
-                                    &system_configurations.assets,
+                                    &assets_storage_configurations,
                                     payloads,
                                 )
                                 .await
