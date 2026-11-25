@@ -9,6 +9,7 @@ use opennote_models::{
     assets::construct_asset_save_path, configurations::system::SystemConfigurations,
     content_type::ContentType, payload::Payload,
 };
+use reqwest::Url;
 
 use crate::traits::Embedder;
 
@@ -58,9 +59,17 @@ impl Local {
         queries: &[Payload],
         assets_storage_path: PathBuf,
     ) -> Result<Vec<Vec<f32>>> {
+        // Local multi modal assets.
+        //
+        // The indices are used to maintain the position of each input.
         let mut multi_modal_inputs = Vec::new();
         let mut multi_modal_inputs_indices = Vec::new();
 
+        // Url assets that need to be downloaded first
+        let mut multi_modal_bytes_inputs = Vec::new();
+        let mut multi_modal_bytes_inputs_indices = Vec::new();
+
+        // Texts
         let mut inputs = Vec::new();
         let mut inputs_indices = Vec::new();
 
@@ -68,6 +77,24 @@ impl Local {
             match query.content_type {
                 ContentType::Image => {
                     if let Some(reference) = query.get_asset_reference() {
+                        match Url::parse(&reference) {
+                            Ok(url) => {
+                                let handle = tokio::spawn(async move {
+                                    let bytes = reqwest::get(url)
+                                        .await?
+                                        .error_for_status()?
+                                        .bytes()
+                                        .await?;
+                                    Ok::<Vec<u8>, reqwest::Error>(bytes.to_vec())
+                                });
+
+                                multi_modal_bytes_inputs.push(handle);
+                                multi_modal_bytes_inputs_indices.push(index);
+                                continue;
+                            }
+                            Err(_) => {}
+                        }
+
                         multi_modal_inputs.push(construct_asset_save_path(
                             assets_storage_path.clone(),
                             &reference,
@@ -82,6 +109,21 @@ impl Local {
                 }
             }
         }
+
+        let multi_modal_bytes_results = match multi_modal_bytes_inputs.is_empty() {
+            true => Vec::new(),
+            false => {
+                let mut image_bytes = Vec::new();
+                for handle in multi_modal_bytes_inputs.into_iter() {
+                    // Fail all to let users retry
+                    image_bytes.push(handle.await??);
+                }
+
+                self.anything_embedder
+                    .embed_image_bytes(&image_bytes, None)
+                    .await?
+            }
+        };
 
         let results = self.anything_embedder.embed(&inputs, None, None).await?;
 
@@ -105,6 +147,18 @@ impl Local {
         }
 
         for (index, result) in multi_modal_results.into_iter().enumerate() {
+            match result.embedding {
+                EmbeddingResult::DenseVector(vec) => {
+                    let original_index = multi_modal_inputs_indices[index];
+                    vectors[original_index] = vec;
+                }
+                EmbeddingResult::MultiVector(_) => {
+                    return Err(anyhow!("Multi-vector embeddings are not supported"));
+                }
+            }
+        }
+
+        for (index, result) in multi_modal_bytes_results.into_iter().enumerate() {
             match result.embedding {
                 EmbeddingResult::DenseVector(vec) => {
                     let original_index = multi_modal_inputs_indices[index];

@@ -148,6 +148,7 @@ async fn construct_multimodal_input(
     for (query, reference) in queries.iter().zip(references) {
         let part = match reference {
             Some(reference) => {
+                // TODO: handle urls
                 let path = construct_asset_save_path(root.clone(), &reference);
 
                 let bytes = tokio::fs::read(path).await?;
