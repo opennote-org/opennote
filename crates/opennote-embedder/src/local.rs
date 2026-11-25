@@ -6,10 +6,8 @@ use async_trait::async_trait;
 use embed::embeddings::embed::{EmbedImage, Embedder as AnythingEmbedder, EmbeddingResult};
 
 use opennote_models::{
-    assets::{construct_asset_save_path, is_asset_reference},
-    configurations::system::SystemConfigurations,
-    content_type::ContentType,
-    payload::Payload,
+    assets::construct_asset_save_path, configurations::system::SystemConfigurations,
+    content_type::ContentType, payload::Payload,
 };
 
 use crate::traits::Embedder;
@@ -70,13 +68,10 @@ impl Local {
             match query.content_type {
                 ContentType::Image => {
                     if let Some(reference) = query.get_asset_reference() {
-                        match is_asset_reference(&reference) {
-                            true => multi_modal_inputs.push(construct_asset_save_path(
-                                assets_storage_path.clone(),
-                                &reference,
-                            )),
-                            false => multi_modal_inputs.push(reference.into()),
-                        }
+                        multi_modal_inputs.push(construct_asset_save_path(
+                            assets_storage_path.clone(),
+                            &reference,
+                        ));
 
                         multi_modal_inputs_indices.push(index);
                     }

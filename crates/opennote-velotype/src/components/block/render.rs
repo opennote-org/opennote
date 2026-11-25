@@ -1447,7 +1447,6 @@ impl Block {
             title: None,
             resolved_source: resolve_image_source(
                 src,
-                self.image_base_dir(),
                 self.image_assets_root(),
             ),
         };

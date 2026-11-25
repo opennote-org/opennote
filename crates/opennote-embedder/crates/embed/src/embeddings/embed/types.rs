@@ -59,13 +59,4 @@ impl EmbedData {
             metadata,
         }
     }
-
-    pub fn __str__(&self) -> String {
-        format!(
-            "EmbedData(embedding: {:?}, text: {:?}, metadata: {:?})",
-            self.embedding,
-            self.text,
-            self.metadata.clone()
-        )
-    }
 }

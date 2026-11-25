@@ -105,6 +105,28 @@ impl MultiModalEmbedder {
         }
     }
 
+    /// Decodes and embeds encoded image bytes in input order.
+    pub async fn embed_image_bytes(
+        &self,
+        image_bytes: &[Vec<u8>],
+        batch_size: Option<usize>,
+    ) -> Result<Vec<EmbedData>> {
+        let images = image_bytes
+            .iter()
+            .map(|bytes| image::load_from_memory(bytes))
+            .collect::<image::ImageResult<Vec<_>>>()?;
+
+        match self {
+            Self::EmbeddingGemma2(embedder) => {
+                let vectors = embedder.embed_images(&images, batch_size)?;
+                Ok(vectors
+                    .into_iter()
+                    .map(|vector| EmbedData::new(EmbeddingResult::DenseVector(vector), None, None))
+                    .collect())
+            }
+        }
+    }
+
     /// Embeds every page of a PDF as a separate image vector.
     pub async fn embed_pdf(
         &self,

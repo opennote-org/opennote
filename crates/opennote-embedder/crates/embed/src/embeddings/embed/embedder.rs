@@ -248,6 +248,20 @@ impl EmbedImage for Embedder {
         }
     }
 
+    async fn embed_image_bytes(
+        &self,
+        image_bytes: &[Vec<u8>],
+        batch_size: Option<usize>,
+    ) -> anyhow::Result<Vec<EmbedData>> {
+        match self {
+            Self::Vision(embedder) => embedder.embed_image_bytes(image_bytes, batch_size).await,
+            Self::MultiModal(embedder) => embedder.embed_image_bytes(image_bytes, batch_size).await,
+            Self::Text(_) => {
+                return Err(anyhow!("Model does not support image byte embeddings"));
+            }
+        }
+    }
+
     async fn embed_pdf<T: AsRef<std::path::Path>>(
         &self,
         pdf_path: T,
