@@ -3,15 +3,13 @@ use std::sync::RwLock;
 use anyhow::{Error as E, Result};
 use candle_core::{Device, Tensor};
 use ndarray::Array2;
-use ort::{
-    execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
-    session::{Session, builder::GraphOptimizationLevel},
-};
+use ort::session::Session;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use crate::Dtype;
 use crate::{
     embeddings::{hub::HubModelRepo, local::bert::TokenizerConfig},
+    ort_session::load_session,
     reranker::qwen3,
 };
 use serde::Serialize;
@@ -103,31 +101,7 @@ impl Reranker {
             .with_truncation(Some(trunc))
             .unwrap();
 
-        let cuda = CUDAExecutionProvider::default();
-
-        if !cuda.is_available()? {
-            eprintln!("CUDAExecutionProvider is not available");
-        } else {
-            println!("Session is using CUDAExecutionProvider");
-        }
-
-        // Get physical core count (excluding hyperthreading)
-        let threads = std::thread::available_parallelism()
-            .map(|p| p.get())
-            .unwrap_or(1);
-        // For CPU-bound workloads like ONNX inference, it's often better to use
-        // physical cores rather than logical cores to avoid context switching overhead
-        let optimal_threads = std::cmp::max(1, threads / 2);
-
-        let model = Session::builder()?
-            .with_execution_providers([
-                CUDAExecutionProvider::default().build(),
-                CoreMLExecutionProvider::default().build(),
-            ])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(optimal_threads)? // Use optimal thread count
-            .with_inter_threads(1)? // Set inter-op parallelism to 1 when using GPU
-            .commit_from_file(weights_filename)?;
+        let model = load_session(weights_filename)?;
 
         Ok(Reranker {
             model: RwLock::new(model),
@@ -183,9 +157,9 @@ impl Reranker {
             let input_ids_tensor = ort::value::TensorRef::from_array_view(&input_ids)?;
             let attention_mask_tensor = ort::value::TensorRef::from_array_view(&attention_mask)?;
             let model_inputs = model_guard
-                .inputs
+                .inputs()
                 .iter()
-                .map(|i| i.name.clone())
+                .map(|i| i.name().to_owned())
                 .collect::<Vec<_>>();
 
             let seq_len = input_ids.shape()[1];

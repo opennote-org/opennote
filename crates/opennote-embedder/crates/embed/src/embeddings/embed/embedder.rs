@@ -40,8 +40,6 @@ impl Embedder {
         let config = std::fs::read_to_string(config_filename)?;
         let config: serde_json::Value = serde_json::from_str(&config)?;
 
-        let is_onnx = repo.is_onnx()?;
-
         let architecture = config["architectures"]
             .as_array()
             .ok_or(anyhow!("Architecture not found"))?
@@ -50,17 +48,18 @@ impl Embedder {
             .as_str()
             .ok_or(anyhow!("Architecture not found"))?;
 
-        if is_onnx {
-            if architecture == "EmbeddingGemma2Model" {
-                return Ok(Self::MultiModal(MultiModalEmbedder::from_pretrained_ort(
-                    architecture,
-                    revision,
-                    Some(model_id),
-                    dtype,
-                    None,
-                )?));
-            }
+        // Gemma 2 uses its own ONNX loader and doesn't need a Hub tree lookup.
+        if architecture == "EmbeddingGemma2Model" {
+            return Ok(Self::MultiModal(MultiModalEmbedder::from_pretrained_ort(
+                architecture,
+                revision,
+                Some(model_id),
+                dtype,
+                None,
+            )?));
+        }
 
+        if repo.is_onnx()? {
             return Ok(Self::Text(TextEmbedder::from_pretrained_ort(
                 architecture,
                 None,
@@ -72,10 +71,6 @@ impl Embedder {
         }
 
         match architecture {
-            "EmbeddingGemma2Model" => Err(anyhow!(
-                "EmbeddingGemma2Model requires an ONNX checkpoint; {} has no ONNX weights",
-                model_id
-            )),
             "CLIPModel" | "SiglipModel" => Ok(Self::Vision(Box::new(
                 VisionEmbedder::from_pretrained_hf(architecture, model_id, revision, token)?,
             ))),

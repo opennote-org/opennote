@@ -6,16 +6,13 @@ use crate::Dtype;
 use crate::embeddings::embed::EmbeddingResult;
 use crate::embeddings::hub::HubModelRepo;
 use crate::embeddings::utils::tokenize_batch_ndarray;
+use crate::ort_session::load_session;
 use anyhow::Error as E;
 use ndarray::prelude::*;
+use ort::session::Session;
 use std::sync::RwLock;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
-use {
-    ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
-    ort::session::Session,
-    ort::session::builder::GraphOptimizationLevel,
-};
 #[derive(Debug)]
 pub struct OrtJinaEmbedder {
     pub session: RwLock<Session>,
@@ -131,31 +128,7 @@ impl OrtJinaEmbedder {
             .with_truncation(Some(trunc))
             .unwrap();
 
-        let cuda = CUDAExecutionProvider::default();
-
-        if !cuda.is_available()? {
-            eprintln!("CUDAExecutionProvider is not available");
-        } else {
-            println!("Session is using CUDAExecutionProvider");
-        }
-
-        // Get physical core count (excluding hyperthreading)
-        let threads = std::thread::available_parallelism()
-            .map(|p| p.get())
-            .unwrap_or(1);
-        // For CPU-bound workloads like ONNX inference, it's often better to use
-        // physical cores rather than logical cores to avoid context switching overhead
-        let optimal_threads = std::cmp::max(1, threads / 2);
-
-        let model = Session::builder()?
-            .with_execution_providers([
-                CUDAExecutionProvider::default().build(),
-                CoreMLExecutionProvider::default().build(),
-            ])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(optimal_threads)? // Use optimal thread count
-            .with_inter_threads(1)? // Set inter-op parallelism to 1 when using GPU
-            .commit_from_file(weights_filename)?;
+        let model = load_session(weights_filename)?;
 
         let version = match (model_name, model_id) {
             (Some(ONNXModel::JINAV3), _) => "v3",
@@ -303,7 +276,7 @@ impl JinaEmbed for OrtJinaEmbedder {
         } else {
             let batch_size: usize = batch_size.unwrap_or(32);
             let mut session_guard = self.session.write().unwrap();
-            let output_name = session_guard.outputs.first().unwrap().name.to_string();
+            let output_name = session_guard.outputs().first().unwrap().name().to_owned();
             let encodings = text_batch
                 .chunks(batch_size)
                 .flat_map(|mini_text_batch| -> Result<Vec<Vec<f32>>, E> {

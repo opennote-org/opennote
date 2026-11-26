@@ -13,15 +13,15 @@ use anyhow::{Result, anyhow};
 use image::DynamicImage;
 use image::imageops::FilterType;
 use ndarray::prelude::*;
-use ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider};
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::value::TensorRef;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
 use crate::Dtype;
 use crate::embeddings::embed::EmbeddingResult;
 use crate::embeddings::hub::HubModelRepo;
+use crate::ort_files::{OnnxGraph, stage_onnx_graphs};
+use crate::ort_session::load_session;
 
 /// Native embedding width reported by the model config.
 const DEFAULT_EMBEDDING_DIM: usize = 768;
@@ -107,8 +107,8 @@ impl OrtEmbeddingGemma2Embedder {
             None => "onnx/".to_string(),
         };
 
-        let text_weights = resolve_onnx(&repo, &base, "model", suffix)?;
-        let vision_weights = resolve_onnx(&repo, &base, "vision_encoder", suffix)?;
+        let text_graph = resolve_onnx(&repo, &base, "model", suffix)?;
+        let vision_graph = resolve_onnx(&repo, &base, "vision_encoder", suffix)?;
 
         let config = read_json(&repo.get("config.json")?)?;
         let text_config = &config["text_config"];
@@ -133,9 +133,10 @@ impl OrtEmbeddingGemma2Embedder {
             }))
             .map_err(E::msg)?;
 
+        let [text_weights, vision_weights] = stage_onnx_graphs([text_graph, vision_graph])?;
         Ok(Self {
-            text: RwLock::new(session_from_file(&text_weights)?),
-            vision: RwLock::new(session_from_file(&vision_weights)?),
+            text: RwLock::new(load_session(&text_weights)?),
+            vision: RwLock::new(load_session(&vision_weights)?),
             tokenizer,
             image_processor,
             embedding_dim,
@@ -607,7 +608,7 @@ fn image_processor_config(repo: &HubModelRepo) -> Result<ImageProcessor> {
     Ok(config)
 }
 
-fn resolve_onnx(repo: &HubModelRepo, base: &str, stem: &str, suffix: &str) -> Result<PathBuf> {
+fn resolve_onnx(repo: &HubModelRepo, base: &str, stem: &str, suffix: &str) -> Result<OnnxGraph> {
     let mut candidates = Vec::with_capacity(2);
     if !base.is_empty() {
         candidates.push(format!("{base}{stem}{suffix}.onnx"));
@@ -616,10 +617,9 @@ fn resolve_onnx(repo: &HubModelRepo, base: &str, stem: &str, suffix: &str) -> Re
 
     for candidate in candidates {
         match repo.optional(&candidate)? {
-            Some(path) => {
-                // ONNX Runtime resolves external weights next to the graph.
-                repo.optional(&format!("{candidate}_data"))?;
-                return Ok(path);
+            Some(model) => {
+                let external_data = repo.optional(&format!("{candidate}_data"))?;
+                return Ok(OnnxGraph { model, external_data });
             }
             None => continue,
         }
@@ -628,30 +628,6 @@ fn resolve_onnx(repo: &HubModelRepo, base: &str, stem: &str, suffix: &str) -> Re
     Err(anyhow!(
         "Could not find {stem}{suffix}.onnx in the model repository"
     ))
-}
-
-fn session_from_file(path: &Path) -> Result<Session> {
-    let cuda = CUDAExecutionProvider::default();
-    if !cuda.is_available()? {
-        eprintln!("CUDAExecutionProvider is not available");
-    } else {
-        println!("Session is using CUDAExecutionProvider");
-    }
-
-    let threads = std::thread::available_parallelism()
-        .map(|count| count.get())
-        .unwrap_or(1);
-    let optimal_threads = std::cmp::max(1, threads / 2);
-
-    Ok(Session::builder()?
-        .with_execution_providers([
-            CUDAExecutionProvider::default().build(),
-            CoreMLExecutionProvider::default().build(),
-        ])?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
-        .with_intra_threads(optimal_threads)?
-        .with_inter_threads(1)?
-        .commit_from_file(path)?)
 }
 
 #[cfg(test)]
