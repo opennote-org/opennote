@@ -1,3 +1,5 @@
+use gpui_kit::{Window, component::ThemeMode};
+
 /// Run async codes in the background without freezing the foreground UI.
 /// This is for running async functions that require a tokio runtime
 /// and also require direct value returning.
@@ -87,4 +89,14 @@ pub async fn run_async_background_detached<F, V>(
     executor
         .spawn(async move { tokio_handle.spawn(closure).await.unwrap() })
         .detach();
+}
+
+/// Get a bool of whether the systgem theme is dark now
+pub fn is_current_theme_dark(window: &mut Window) -> bool {
+    let theme_mode = ThemeMode::from(window.appearance());
+
+    match theme_mode {
+        ThemeMode::Dark => true,
+        ThemeMode::Light => false,
+    }
 }

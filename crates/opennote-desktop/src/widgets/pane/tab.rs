@@ -10,10 +10,14 @@ use gpui_kit::{
 };
 use uuid::Uuid;
 
-use opennote_velotype::editor::Editor;
+use opennote_velotype::{
+    editor::Editor,
+    theme::{BUILTIN_THEME_VELOTYPE_ID, BUILTIN_THEME_VELOTYPE_LIGHT_ID},
+};
 
 use crate::globals::{
     actions::block::parepare_block_content, bootstrap::helpers::get_configurations,
+    helpers::is_current_theme_dark,
 };
 use crate::widgets::pane::subscriptions::subscribe_editor_events;
 use crate::{
@@ -75,13 +79,18 @@ impl TabStates {
 
         let configurations = get_configurations(cx).clone();
 
+        let theme_id = match is_current_theme_dark(window) {
+            true => BUILTIN_THEME_VELOTYPE_ID,
+            false => BUILTIN_THEME_VELOTYPE_LIGHT_ID,
+        };
+
         let editor = cx.new(|cx| {
             opennote_velotype::editor::Editor::from_markdown(
                 cx,
                 texts,
                 None,
                 &configurations.user.editor.default_language_id,
-                &configurations.user.editor.default_theme_id,
+                &theme_id,
                 configurations.user.editor.show_table_headers,
                 &configurations.user.editor.keybindings,
                 &configurations.system.assets.assets_storage_path,
