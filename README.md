@@ -65,7 +65,7 @@ sudo xattr -r -d com.apple.quarantine /Applications/opennote.app
 
 ### First Launch
 
-On first launch, OpenNote downloads the default embedding model, `sentence-transformers/all-MiniLM-L6-v2`, from [Hugging Face](https://huggingface.co). If a network request fails, it tries [hf-mirror.com](https://hf-mirror.com). An internet connection is required for this initial download; cached model files are reused afterward.
+On first launch, OpenNote downloads the default embedding model, `sentence-transformers/all-MiniLM-L6-v2`, from [Hugging Face](https://huggingface.co). If a network request fails, it tries [hf-mirror.com](https://hf-mirror.com). An internet connection is required for this initial download; cached model files are reused afterward. To enable image search, see [Enable Multimodal (Image) Search](#enable-multimodal-image-search).
 
 For example workflows, see the [manuals](manuals), including [AI-Driven TODOs](manuals/AI_Driven_TODOs_with_OpenNote.md).
 
@@ -135,6 +135,28 @@ Switching embedding models requires rebuilding the vector indexes for your local
 After you change the embedding model in the desktop configuration, restart the app to trigger reindexing. If reindexing fails, you can retry it using the Reindex action in the command bar.
 
 Before reindexing connected servers, make sure their embedding configurations match the desktop configuration. Servers refuse reindexing when the relevant configurations do not match, to prevent incompatible indexes.
+
+### Enable Multimodal (Image) Search
+
+OpenNote can embed images as well as text, so you can find images in your notes with text queries. This is **off by default** because the default model, `sentence-transformers/all-MiniLM-L6-v2`, only handles text.
+
+To turn it on, switch the local embedder to a multimodal model. Open the configuration editor (`Cmd + ;` on macOS or `Ctrl + ;` on Windows and Linux) or edit `configurations.json`, then set `system.embedder`:
+
+```json
+{
+  "system": {
+    "embedder": {
+      "provider": "local",
+      "model": "onnx-community/embeddinggemma-2-ONNX",
+      "dimensions": 768
+    }
+  }
+}
+```
+
+This is a partial example; merge it into your existing configuration. Currently, `onnx-community/embeddinggemma-2-ONNX` is the only supported multimodal model. It is larger than the default model and is downloaded on the next launch.
+
+Changing the model requires a reindex (see [Reindex After Switching the Embedding Model](#reindex-after-switching-the-embedding-model)). Connected servers must use the same embedder configuration.
 
 ## Contributing
 

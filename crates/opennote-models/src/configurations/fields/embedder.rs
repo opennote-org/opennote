@@ -41,9 +41,9 @@ impl Default for EmbedderConfig {
         Self {
             provider: EmbedderProvider::Local,
             base_url: "".to_string(),
-            model: "onnx-community/embeddinggemma-2-ONNX".to_string(),
+            model: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
             vectorization_batch_size: 100, // How many vectorization tasks at a time
-            dimensions: 768,               // `onnx-community/embeddinggemma-2-ONNX`'s dimension
+            dimensions: 384,               // `sentence-transformers/all-MiniLM-L6-v2`'s dimension
             encoding_format: "float".to_string(),
             api_key: "".to_string(),
         }
