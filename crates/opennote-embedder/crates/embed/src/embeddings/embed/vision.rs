@@ -90,6 +90,15 @@ pub trait EmbedImage {
         pdf_path: T,
         batch_size: Option<usize>,
     ) -> impl Future<Output = anyhow::Result<Vec<EmbedData>>>;
+
+    /// Embed a batch of encoded images in input order without reading from disk.
+    fn embed_image_bytes(
+        &self,
+        _image_bytes: &[Vec<u8>],
+        _batch_size: Option<usize>,
+    ) -> impl Future<Output = anyhow::Result<Vec<EmbedData>>> {
+        std::future::ready(Err(anyhow!("Model does not support image byte embeddings")))
+    }
 }
 
 impl EmbedImage for VisionEmbedder {

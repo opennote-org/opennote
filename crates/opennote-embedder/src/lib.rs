@@ -1,7 +1,7 @@
 pub mod entry;
-pub mod native;
-pub mod other;
-pub mod remote;
+pub mod local;
+pub mod openai_compatible;
 pub mod shared;
+pub mod third_party;
 pub mod traits;
 pub mod vectorization;

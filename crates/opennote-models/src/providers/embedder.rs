@@ -5,20 +5,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[serde(from = "String", into = "String")]
 pub enum EmbedderProvider {
-    /// The embedder model embedded by this app
-    Native,
-    /// Self-hosted remote embedder model
-    Remote,
+    /// An embedding model that runs within the app
+    Local,
+    /// An OpenAI-compatible embeddings endpoint
+    OpenAICompatible,
     /// Models from third-party providers
-    Other(String),
+    ThirdParty(String),
 }
 
 impl From<String> for EmbedderProvider {
     fn from(provider: String) -> Self {
         match provider.as_str() {
-            "native" => Self::Native,
-            "remote" => Self::Remote,
-            _ => Self::Other(provider),
+            "local" | "Local" | "native" => Self::Local,
+            "openai_compatible" | "OpenAICompatible" | "remote" => Self::OpenAICompatible,
+            _ => Self::ThirdParty(provider),
         }
     }
 }
@@ -26,9 +26,9 @@ impl From<String> for EmbedderProvider {
 impl From<EmbedderProvider> for String {
     fn from(value: EmbedderProvider) -> Self {
         match value {
-            EmbedderProvider::Native => "native".into(),
-            EmbedderProvider::Remote => "remote".into(),
-            EmbedderProvider::Other(provider) => provider,
+            EmbedderProvider::Local => "local".into(),
+            EmbedderProvider::OpenAICompatible => "openai_compatible".into(),
+            EmbedderProvider::ThirdParty(provider) => provider,
         }
     }
 }
@@ -36,9 +36,9 @@ impl From<EmbedderProvider> for String {
 impl Display for EmbedderProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EmbedderProvider::Native => "native",
-            EmbedderProvider::Remote => "remote",
-            EmbedderProvider::Other(provider) => provider,
+            EmbedderProvider::Local => "local",
+            EmbedderProvider::OpenAICompatible => "openai_compatible",
+            EmbedderProvider::ThirdParty(provider) => provider,
         }
         .fmt(f)
     }

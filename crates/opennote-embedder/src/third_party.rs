@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -10,11 +10,11 @@ use opennote_models::{
 
 use crate::traits::Embedder;
 
-pub struct Other {
+pub struct ThirdParty {
     embedder_config: EmbedderConfig,
 }
 
-impl Other {
+impl ThirdParty {
     pub async fn new(config: &SystemConfigurations) -> Result<Self> {
         Ok(Self {
             embedder_config: config.embedder.clone(),
@@ -23,8 +23,12 @@ impl Other {
 }
 
 #[async_trait]
-impl Embedder for Other {
-    async fn vectorize(&self, queries: &[Payload]) -> Result<Vec<Vec<f32>>> {
+impl Embedder for ThirdParty {
+    async fn vectorize(
+        &self,
+        _assets_storage_path: Option<PathBuf>,
+        queries: &[Payload],
+    ) -> Result<Vec<Vec<f32>>> {
         let mut api_keys = HashMap::new();
         api_keys.insert(
             self.embedder_config.provider.to_string(),

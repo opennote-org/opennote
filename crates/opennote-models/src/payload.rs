@@ -1,4 +1,5 @@
 use chrono::Local;
+use pulldown_cmark::{Event, Parser, Tag};
 use sea_orm::{ActiveValue::Set, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -64,6 +65,29 @@ impl Payload {
         active_model.content_type = Set(model.content_type);
 
         active_model
+    }
+
+    /// Get the asset reference from this payload.
+    /// Return None when this payload does not store any asset.
+    ///
+    /// This method would only treat the first image as the asset to return.
+    /// But in most cases, it should only store one image per payload.
+    pub fn get_asset_reference(&self) -> Option<String> {
+        // For now, only image payloads store assets.
+        if self.content_type != ContentType::Image {
+            return None;
+        }
+
+        for event in Parser::new(&self.texts) {
+            match event {
+                Event::Start(Tag::Image { dest_url, .. }) => {
+                    return Some(dest_url.into_string());
+                }
+                _ => continue,
+            }
+        }
+
+        None
     }
 }
 

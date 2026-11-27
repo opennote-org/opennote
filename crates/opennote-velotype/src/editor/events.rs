@@ -11,8 +11,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use gpui::*;
-use opennote_models::assets::{decompose_save_path, is_asset_reference};
 use sha256::{digest, try_digest};
+
+use opennote_models::assets::{decompose_asset_save_path, is_asset_reference};
 
 use super::Editor;
 use crate::components::{
@@ -366,7 +367,7 @@ impl Editor {
         let (path, managed) = self.materialize_pasted_image(source)?;
 
         let path_text = if managed {
-            decompose_save_path(&path)
+            decompose_asset_save_path(&path)
         } else {
             Self::markdown_path_string(&path)
         };

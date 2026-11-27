@@ -81,6 +81,7 @@ pub fn import_files(
 
             for path in paths {
                 let embedders = embedders.clone();
+                let assets_storage_configurations = system_configurations.assets.clone();
 
                 let Some(raw_file_name) = path.file_name() else {
                     continue;
@@ -99,7 +100,14 @@ pub fn import_files(
 
                 // Create blocks for files
                 let result = run_async_background(executor, tokio_handle.clone(), async move {
-                    build_block(parent_block_id, raw_file_name, &embedders, Some(content)).await
+                    build_block(
+                        parent_block_id,
+                        raw_file_name,
+                        &embedders,
+                        &assets_storage_configurations,
+                        Some(content),
+                    )
+                    .await
                 })
                 .await?;
 

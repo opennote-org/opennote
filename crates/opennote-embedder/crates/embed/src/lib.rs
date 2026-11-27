@@ -98,6 +98,10 @@
 pub mod embeddings;
 pub mod models;
 #[cfg(feature = "ort")]
+mod ort_files;
+#[cfg(feature = "ort")]
+mod ort_session;
+#[cfg(feature = "ort")]
 pub mod reranker;
 
 extern crate anyhow;

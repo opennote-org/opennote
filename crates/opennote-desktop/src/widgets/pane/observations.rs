@@ -1,7 +1,4 @@
-use gpui_kit::{
-    BorrowAppContext, Context,
-    component::{ThemeMode, WindowExt},
-};
+use gpui_kit::{BorrowAppContext, Context, component::WindowExt};
 
 use opennote_models::block::Block;
 
@@ -9,6 +6,7 @@ use crate::{
     globals::{
         actions::{assets::upload_block_assets, update_n_blocks},
         bootstrap::helpers::{get_bootstrap, get_configurations},
+        helpers::is_current_theme_dark,
         states::helpers::get_states,
         tasks::{
             task_result::{TaskResult, TaskType},
@@ -24,16 +22,9 @@ pub fn observe_theme_change(
     window: &mut gpui_kit::Window,
     cx: &mut Context<'_, Pane>,
 ) {
-    let theme_mode = ThemeMode::from(window.appearance());
-
-    let switch_to_dark_mode = match theme_mode {
-        ThemeMode::Dark => true,
-        ThemeMode::Light => false,
-    };
-
     if let Some(editor) = &this.editor {
         editor.update(cx, |_this, cx| {
-            opennote_velotype::editor::Editor::switch_theme(cx, switch_to_dark_mode);
+            opennote_velotype::editor::Editor::switch_theme(cx, is_current_theme_dark(window));
         });
     }
 }

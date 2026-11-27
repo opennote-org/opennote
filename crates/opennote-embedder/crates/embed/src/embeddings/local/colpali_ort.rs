@@ -7,14 +7,13 @@ use base64::Engine;
 use half::f16;
 use image::{DynamicImage, ImageFormat};
 use ndarray::prelude::*;
-use ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider};
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use rayon::prelude::*;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use crate::embeddings::embed::{EmbedData, EmbeddingResult};
 use crate::embeddings::hub::HubModelRepo;
+use crate::ort_session::load_session;
 
 use super::colpali::{ColPaliEmbed, get_images_from_pdf};
 
@@ -69,31 +68,7 @@ impl OrtColPaliEmbedder {
 
         tokenizer.set_encode_special_tokens(true);
 
-        let cuda = CUDAExecutionProvider::default();
-
-        if !cuda.is_available()? {
-            eprintln!("CUDAExecutionProvider is not available");
-        } else {
-            println!("Session is using CUDAExecutionProvider");
-        }
-
-        // Get physical core count (excluding hyperthreading)
-        let threads = std::thread::available_parallelism()
-            .map(|p| p.get())
-            .unwrap_or(1);
-        // For CPU-bound workloads like ONNX inference, it's often better to use
-        // physical cores rather than logical cores to avoid context switching overhead
-        let optimal_threads = std::cmp::max(1, threads / 2);
-
-        let model = Session::builder()?
-            .with_execution_providers([
-                CUDAExecutionProvider::default().build(),
-                CoreMLExecutionProvider::default().build(),
-            ])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(optimal_threads)? // Use optimal thread count
-            .with_inter_threads(1)? // Set inter-op parallelism to 1 when using GPU
-            .commit_from_file(weights_filename)?;
+        let model = load_session(weights_filename)?;
 
         let dummy_prompt: &str = "Describe the image.\n";
         let dummy_input = tokenize(&tokenizer, dummy_prompt.to_string())?;
@@ -174,7 +149,7 @@ impl OrtColPaliEmbedder {
         pixel_values: Array4<f32>,
     ) -> Result<Vec<EmbeddingResult>, E> {
         let mut model_guard = self.model.write().unwrap();
-        let output_name = model_guard.outputs.first().unwrap().name.to_string();
+        let output_name = model_guard.outputs().first().unwrap().name().to_owned();
 
         let token_ids_tensor = ort::value::Value::from_array(token_ids)?;
         let pixel_values_tensor = ort::value::Value::from_array(pixel_values)?;

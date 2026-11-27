@@ -8,14 +8,11 @@ use std::{ops::Mul, sync::RwLock};
 
 use anyhow::{Error as E, Result};
 use ndarray::{Array2, Axis};
-use ort::{
-    execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider},
-    session::{Session, builder::GraphOptimizationLevel},
-    value::Value,
-};
+use ort::{session::Session, value::Value};
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 use crate::embeddings::{embed::EmbeddingResult, hub::HubModelRepo, utils::tokenize_batch_ndarray};
+use crate::ort_session::load_session_with_threads;
 
 use super::bert::{BertEmbed, TokenizerConfig};
 
@@ -109,23 +106,8 @@ impl OrtColbertEmbedder {
             .with_truncation(Some(trunc))
             .unwrap();
 
-        let cuda = CUDAExecutionProvider::default();
-
-        if !cuda.is_available()? {
-            eprintln!("CUDAExecutionProvider is not available");
-        } else {
-            println!("Session is using CUDAExecutionProvider");
-        }
-
         let threads = std::thread::available_parallelism().unwrap().get();
-        let model = Session::builder()?
-            .with_execution_providers([
-                CUDAExecutionProvider::default().build(),
-                CoreMLExecutionProvider::default().build(),
-            ])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(threads)?
-            .commit_from_file(weights_filename)?;
+        let model = load_session_with_threads(weights_filename, threads, None)?;
 
         Ok(OrtColbertEmbedder {
             tokenizer,
@@ -162,11 +144,11 @@ impl ColbertEmbed for OrtColbertEmbedder {
         let model_guard = self.model.read().unwrap();
         let (input_names, output_name) = {
             let names = model_guard
-                .inputs
+                .inputs()
                 .iter()
-                .map(|input| input.name.to_string())
+                .map(|input| input.name().to_owned())
                 .collect::<Vec<_>>();
-            let out_name = model_guard.outputs.first().unwrap().name.to_string();
+            let out_name = model_guard.outputs().first().unwrap().name().to_owned();
             (names, out_name)
         };
 
@@ -255,11 +237,11 @@ impl BertEmbed for OrtColbertEmbedder {
 
         let (input_names, output_name) = {
             let names = model_guard
-                .inputs
+                .inputs()
                 .iter()
-                .map(|input| input.name.to_string())
+                .map(|input| input.name().to_owned())
                 .collect::<Vec<_>>();
-            let out_name = model_guard.outputs.first().unwrap().name.to_string();
+            let out_name = model_guard.outputs().first().unwrap().name().to_owned();
             (names, out_name)
         };
         let encodings = text_batch

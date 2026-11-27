@@ -26,11 +26,7 @@ impl Block {
         self.can_present_as_image() && self.standalone_image_markdown_for_runtime().is_some()
     }
 
-    pub(super) fn compute_image_runtime(
-        &self,
-        base_dir: Option<&Path>,
-        syntax: ImageSyntax,
-    ) -> Option<ImageRuntime> {
+    pub(super) fn compute_image_runtime(&self, syntax: ImageSyntax) -> Option<ImageRuntime> {
         let resolved_target = syntax.resolve_target(&self.image_reference_definitions)?;
         self.can_present_as_image().then(|| ImageRuntime {
             alt: syntax.alt.clone(),
@@ -38,18 +34,13 @@ impl Block {
             title: resolved_target.title.clone(),
             resolved_source: resolve_image_source(
                 &resolved_target.src,
-                base_dir,
                 self.image_assets_root.as_deref(),
             ),
         })
     }
 
     pub(crate) fn image_runtime_for_syntax(&self, syntax: ImageSyntax) -> Option<ImageRuntime> {
-        self.compute_image_runtime(self.image_base_dir.as_deref(), syntax)
-    }
-
-    pub(crate) fn image_base_dir(&self) -> Option<&Path> {
-        self.image_base_dir.as_deref()
+        self.compute_image_runtime(syntax)
     }
 
     pub(crate) fn image_assets_root(&self) -> Option<&Path> {
@@ -60,9 +51,7 @@ impl Block {
         let next_runtime = if self.can_present_as_image() {
             self.standalone_image_markdown_for_runtime()
                 .and_then(|markdown| parse_standalone_image(&markdown))
-                .and_then(|syntax| {
-                    self.compute_image_runtime(self.image_base_dir.as_deref(), syntax)
-                })
+                .and_then(|syntax| self.compute_image_runtime(syntax))
         } else {
             None
         };

@@ -2,6 +2,7 @@ use crate::Dtype;
 use crate::embeddings::hub::HubClient;
 use anyhow::{Result, anyhow};
 
+use super::multimodal::MultiModalEmbedder;
 use super::text::{TextEmbed, TextEmbedder};
 use super::types::{EmbedData, EmbeddingResult};
 use super::vision::{EmbedImage, VisionEmbedder};
@@ -9,6 +10,7 @@ use super::vision::{EmbedImage, VisionEmbedder};
 pub enum Embedder {
     Text(TextEmbedder),
     Vision(Box<VisionEmbedder>),
+    MultiModal(MultiModalEmbedder),
 }
 
 impl Embedder {
@@ -21,6 +23,7 @@ impl Embedder {
         match self {
             Self::Text(embedder) => embedder.embed(text_batch, batch_size, late_chunking).await,
             Self::Vision(embedder) => embedder.embed(text_batch, batch_size).await,
+            Self::MultiModal(embedder) => embedder.embed_text(text_batch, batch_size).await,
         }
     }
 
@@ -37,8 +40,6 @@ impl Embedder {
         let config = std::fs::read_to_string(config_filename)?;
         let config: serde_json::Value = serde_json::from_str(&config)?;
 
-        let is_onnx = repo.is_onnx()?;
-
         let architecture = config["architectures"]
             .as_array()
             .ok_or(anyhow!("Architecture not found"))?
@@ -47,23 +48,27 @@ impl Embedder {
             .as_str()
             .ok_or(anyhow!("Architecture not found"))?;
 
-        #[expect(
-            clippy::single_match,
-            reason = "Project style prefers explicit match arms."
-        )]
-        match is_onnx {
-            true => {
-                return Ok(Self::Text(TextEmbedder::from_pretrained_ort(
-                    architecture,
-                    None,
-                    revision,
-                    Some(model_id),
-                    None,
-                    None,
-                )?));
-            }
-            false => {}
-        };
+        // Gemma 2 uses its own ONNX loader and doesn't need a Hub tree lookup.
+        if architecture == "EmbeddingGemma2Model" {
+            return Ok(Self::MultiModal(MultiModalEmbedder::from_pretrained_ort(
+                architecture,
+                revision,
+                Some(model_id),
+                dtype,
+                None,
+            )?));
+        }
+
+        if repo.is_onnx()? {
+            return Ok(Self::Text(TextEmbedder::from_pretrained_ort(
+                architecture,
+                None,
+                revision,
+                Some(model_id),
+                None,
+                None,
+            )?));
+        }
 
         match architecture {
             "CLIPModel" | "SiglipModel" => Ok(Self::Vision(Box::new(
@@ -215,6 +220,7 @@ impl EmbedImage for Embedder {
     ) -> anyhow::Result<EmbedData> {
         match self {
             Self::Vision(embedder) => embedder.embed_image(image_path, metadata).await,
+            Self::MultiModal(embedder) => embedder.embed_image(image_path, metadata).await,
             _ => Err(anyhow!("Model not supported for vision embedding")),
         }
     }
@@ -226,7 +232,28 @@ impl EmbedImage for Embedder {
     ) -> anyhow::Result<Vec<EmbedData>> {
         match self {
             Self::Vision(embedder) => embedder.embed_image_batch(image_paths, batch_size).await,
+            Self::MultiModal(embedder) => {
+                let paths: Vec<std::path::PathBuf> = image_paths
+                    .iter()
+                    .map(|path| std::path::PathBuf::from(path.as_ref()))
+                    .collect();
+                embedder.embed_image_batch(&paths, batch_size).await
+            }
             _ => Err(anyhow!("Model not supported for vision embedding")),
+        }
+    }
+
+    async fn embed_image_bytes(
+        &self,
+        image_bytes: &[Vec<u8>],
+        batch_size: Option<usize>,
+    ) -> anyhow::Result<Vec<EmbedData>> {
+        match self {
+            Self::Vision(embedder) => embedder.embed_image_bytes(image_bytes, batch_size).await,
+            Self::MultiModal(embedder) => embedder.embed_image_bytes(image_bytes, batch_size).await,
+            Self::Text(_) => {
+                return Err(anyhow!("Model does not support image byte embeddings"));
+            }
         }
     }
 
@@ -237,6 +264,7 @@ impl EmbedImage for Embedder {
     ) -> anyhow::Result<Vec<EmbedData>> {
         match self {
             Self::Vision(embedder) => embedder.embed_pdf(pdf_path, batch_size).await,
+            Self::MultiModal(embedder) => embedder.embed_pdf(pdf_path, batch_size).await,
             _ => Err(anyhow!("Model not supported for PDF embedding")),
         }
     }

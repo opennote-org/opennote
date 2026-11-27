@@ -7,13 +7,12 @@ use crate::embeddings::embed::EmbeddingResult;
 use crate::embeddings::hub::HubModelRepo;
 use crate::embeddings::local::text_embedding::models_map;
 use crate::embeddings::utils::{get_type_ids_ndarray, tokenize_batch_ndarray};
+use crate::ort_session::load_session;
 
 use crate::Dtype;
 use anyhow::Error as E;
 use ndarray::prelude::*;
-use ort::execution_providers::{CUDAExecutionProvider, CoreMLExecutionProvider, ExecutionProvider};
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use tokenizers::{PaddingParams, Tokenizer, TruncationParams};
 
 #[derive(Debug)]
@@ -128,31 +127,7 @@ impl OrtBertEmbedder {
             .with_truncation(Some(trunc))
             .unwrap();
 
-        let cuda = CUDAExecutionProvider::default();
-
-        if !cuda.is_available()? {
-            eprintln!("CUDAExecutionProvider is not available");
-        } else {
-            println!("Session is using CUDAExecutionProvider");
-        }
-
-        // Get physical core count (excluding hyperthreading)
-        let threads = std::thread::available_parallelism()
-            .map(|p| p.get())
-            .unwrap_or(1);
-        // For CPU-bound workloads like ONNX inference, it's often better to use
-        // physical cores rather than logical cores to avoid context switching overhead
-        let optimal_threads = std::cmp::max(1, threads / 2);
-
-        let model = Session::builder()?
-            .with_execution_providers([
-                CUDAExecutionProvider::default().build(),
-                CoreMLExecutionProvider::default().build(),
-            ])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(optimal_threads)? // Use optimal thread count
-            .with_inter_threads(1)? // Set inter-op parallelism to 1 when using GPU
-            .commit_from_file(weights_filename)?;
+        let model = load_session(weights_filename)?;
 
         Ok(OrtBertEmbedder {
             tokenizer,
@@ -171,11 +146,11 @@ impl OrtBertEmbedder {
         // Pre-compute input names once
         let mut model_guard = self.model.write().unwrap();
         let input_names: Vec<_> = model_guard
-            .inputs
+            .inputs()
             .iter()
-            .map(|input| input.name.as_str())
+            .map(|input| input.name())
             .collect();
-        let output_name = model_guard.outputs.first().unwrap().name.to_string();
+        let output_name = model_guard.outputs().first().unwrap().name().to_owned();
         let needs_token_type = input_names.contains(&"token_type_ids");
 
         // Run model and extract embeddings
@@ -249,12 +224,12 @@ impl OrtBertEmbedder {
         // Pre-compute input names once
         let mut model_guard = self.model.write().unwrap();
         let input_names: Vec<_> = model_guard
-            .inputs
+            .inputs()
             .iter()
-            .map(|input| input.name.as_str())
+            .map(|input| input.name())
             .collect();
         let needs_token_type = input_names.contains(&"token_type_ids");
-        let output_name = model_guard.outputs.first().unwrap().name.to_string();
+        let output_name = model_guard.outputs().first().unwrap().name().to_owned();
 
         for mini_text_batch in text_batch.chunks(batch_size) {
             let tokens = self
@@ -438,30 +413,7 @@ impl OrtSparseBertEmbedder {
             .with_truncation(Some(trunc))
             .unwrap();
 
-        let cuda = CUDAExecutionProvider::default();
-        if !cuda.is_available()? {
-            eprintln!("CUDAExecutionProvider is not available");
-        } else {
-            println!("Session is using CUDAExecutionProvider");
-        }
-
-        // Get physical core count (excluding hyperthreading)
-        let threads = std::thread::available_parallelism()
-            .map(|p| p.get())
-            .unwrap_or(1);
-        // For CPU-bound workloads like ONNX inference, it's often better to use
-        // physical cores rather than logical cores to avoid context switching overhead
-        let optimal_threads = std::cmp::max(1, threads / 2);
-
-        let model = Session::builder()?
-            .with_execution_providers([
-                CUDAExecutionProvider::default().build(),
-                CoreMLExecutionProvider::default().build(),
-            ])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(optimal_threads)? // Use optimal thread count
-            .with_inter_threads(1)? // Set inter-op parallelism to 1 when using GPU
-            .commit_from_file(weights_filename)?;
+        let model = load_session(weights_filename)?;
 
         Ok(OrtSparseBertEmbedder {
             tokenizer,

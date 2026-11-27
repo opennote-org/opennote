@@ -61,7 +61,12 @@ pub trait VectorDatabase: Send + Sync + SemanticSearch + KeywordSearch {
                 &configuration.vector_database.index,
                 configuration.embedder.dimensions,
             ),
-            vectorize(embedder_entry, &configuration.embedder, payloads),
+            vectorize(
+                embedder_entry,
+                &configuration.embedder,
+                &configuration.assets,
+                payloads,
+            ),
         )
         .await;
 

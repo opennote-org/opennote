@@ -227,12 +227,15 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
         let query_vector = match search_method {
             SupportedSearchMethod::Keyword => None,
             SupportedSearchMethod::Semantic => {
-                let vectorized_query =
-                    send_vectorization(vec![create_query(&query)], &self.bootstrap.embedders)
-                        .await?
-                        .into_iter()
-                        .next()
-                        .ok_or_else(|| anyhow!("Embedder returned no query vector"))?;
+                let vectorized_query = send_vectorization(
+                    vec![create_query(&query)],
+                    configurations.system.assets.clone(),
+                    &self.bootstrap.embedders,
+                )
+                .await?
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("Embedder returned no query vector"))?;
 
                 Some(vectorized_query.vector)
             }
@@ -450,6 +453,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
                 block.payloads = vectorize(
                     &self.bootstrap.embedders,
                     &configurations.system.embedder,
+                    &configurations.system.assets,
                     payloads,
                 )
                 .await?;
@@ -499,6 +503,7 @@ impl OpenNoteMCPServiceImplementation for DesktopMCPServer {
             parent_block_id,
             request.title,
             &self.bootstrap.embedders,
+            &configurations.system.assets,
             None,
         )
         .await?;

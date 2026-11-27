@@ -14,6 +14,10 @@ embed = { path = "crates/embed", features = ["ort"] }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+base64 = "0.22.1"
 futures = { workspace = true }
+image = { version = "0.25.6", default-features = false }
+serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { workspace = true }
+tokio = { workspace = true }
