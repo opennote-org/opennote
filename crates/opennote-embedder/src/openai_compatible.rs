@@ -15,7 +15,10 @@ use opennote_models::{
     payload::Payload,
 };
 
-use crate::traits::Embedder;
+use crate::{
+    shared::url::{UrlAssetsDownloader, parse_remote_asset_url},
+    traits::Embedder,
+};
 
 pub struct OpenAICompatible {
     embedder_config: EmbedderConfig,
@@ -62,10 +65,10 @@ impl Embedder for OpenAICompatible {
         let has_images = references.iter().any(Option::is_some);
 
         let input = match has_images {
-            true => match assets_storage_path {
-                None => return Err(anyhow!("No assets storage when embedding assets")),
-                Some(root) => construct_multimodal_input(&root, queries, references).await?,
-            },
+            true => {
+                construct_multimodal_input(assets_storage_path.as_deref(), queries, references)
+                    .await?
+            }
             false => {
                 json!(
                     queries
@@ -136,36 +139,68 @@ impl Embedder for OpenAICompatible {
 }
 
 async fn construct_multimodal_input(
-    root: &Path,
+    root: Option<&Path>,
     queries: &[Payload],
     references: Vec<Option<String>>,
 ) -> Result<Value> {
-    let root = tokio::fs::canonicalize(root).await?;
+    // Dispatch url downloads first so they run while local assets are read.
+    let mut downloader = UrlAssetsDownloader::new();
+    let mut url_indices = Vec::new();
 
-    let mut inputs = Vec::with_capacity(queries.len());
+    let mut local_references = Vec::new();
+    let mut parts = vec![Value::Null; queries.len()];
 
-    // OpenRouter-style input: each payload gets its own content object and embedding.
-    for (query, reference) in queries.iter().zip(references) {
-        let part = match reference {
-            Some(reference) => {
-                // TODO: handle urls
-                let path = construct_asset_save_path(root.clone(), &reference);
-
-                let bytes = tokio::fs::read(path).await?;
-                let format = image::guess_format(&bytes)?;
-
-                let url = format!(
-                    "data:{};base64,{}",
-                    format.to_mime_type(),
-                    STANDARD.encode(bytes)
-                );
-
-                json!({"type": "image_url", "image_url": {"url": url}})
-            }
-            None => json!({"type": "text", "text": query.texts}),
-        };
-        inputs.push(json!({"content": [part]}));
+    for (index, (query, reference)) in queries.iter().zip(references).enumerate() {
+        match reference {
+            None => parts[index] = json!({"type": "text", "text": query.texts}),
+            Some(reference) => match parse_remote_asset_url(&reference) {
+                Some(url) => {
+                    downloader.start_download_url_asset_task(url).await;
+                    url_indices.push(index);
+                }
+                None => local_references.push((index, reference)),
+            },
+        }
     }
 
+    if !local_references.is_empty() {
+        let root = match root {
+            Some(root) => tokio::fs::canonicalize(root).await?,
+            None => return Err(anyhow!("No assets storage when embedding local assets")),
+        };
+
+        for (index, reference) in local_references {
+            let bytes =
+                tokio::fs::read(construct_asset_save_path(root.clone(), &reference)).await?;
+            parts[index] = encode_image_part(&bytes)?;
+        }
+    }
+
+    if downloader.has_tasks() {
+        let downloaded = downloader.fetch_downloaded_tasks().await?;
+
+        for (index, bytes) in url_indices.into_iter().zip(downloaded) {
+            parts[index] = encode_image_part(&bytes)?;
+        }
+    }
+
+    // OpenRouter-style input: each payload gets its own content object and embedding.
+    let inputs = parts
+        .into_iter()
+        .map(|part| json!({"content": [part]}))
+        .collect();
+
     Ok(Value::Array(inputs))
+}
+
+fn encode_image_part(bytes: &[u8]) -> Result<Value> {
+    let format = image::guess_format(bytes)?;
+
+    let url = format!(
+        "data:{};base64,{}",
+        format.to_mime_type(),
+        STANDARD.encode(bytes)
+    );
+
+    Ok(json!({"type": "image_url", "image_url": {"url": url}}))
 }

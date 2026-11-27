@@ -2,7 +2,7 @@ use futures::{StreamExt, stream::FuturesUnordered};
 use gpui_kit::{Context, SharedString, Task, component::list::ListState};
 use uuid::Uuid;
 
-use opennote_embedder::{entry::EmbedderEntry, vectorization::send_vectorization};
+use opennote_embedder::{entry::EmbedderEntry, vectorization::send_query_vectorization};
 use opennote_models::{
     configurations::fields::{assets::AssetsConfigurations, search::SupportedSearchMethod},
     payload::create_query,
@@ -31,7 +31,7 @@ pub(super) async fn create_query_vector(
     embedders: &EmbedderEntry,
     assets_storage_configurations: &AssetsConfigurations,
 ) -> anyhow::Result<Vec<f32>> {
-    let payloads = send_vectorization(
+    let payloads = send_query_vectorization(
         vec![create_query(embedding_query)],
         assets_storage_configurations.clone(),
         embedders,

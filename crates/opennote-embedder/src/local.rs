@@ -5,13 +5,14 @@ use async_trait::async_trait;
 
 use embed::embeddings::embed::{EmbedImage, Embedder as AnythingEmbedder, EmbeddingResult};
 
+use crate::{
+    shared::url::{UrlAssetsDownloader, parse_remote_asset_url},
+    traits::Embedder,
+};
 use opennote_models::{
     assets::construct_asset_save_path, configurations::system::SystemConfigurations,
     content_type::ContentType, payload::Payload,
 };
-use reqwest::Url;
-
-use crate::traits::Embedder;
 
 pub struct Local {
     anything_embedder: AnythingEmbedder,
@@ -54,6 +55,10 @@ impl Local {
         Ok(vectors)
     }
 
+    /// Since we currently only have embeddinggemma for multimodal embedding,
+    /// this function now only works for that model specifically.
+    ///
+    /// For future models, we need to adapt them differently.
     async fn vectorize_local_multimodal(
         &self,
         queries: &[Payload],
@@ -66,7 +71,7 @@ impl Local {
         let mut multi_modal_inputs_indices = Vec::new();
 
         // Url assets that need to be downloaded first
-        let mut multi_modal_bytes_inputs = Vec::new();
+        let mut multi_modal_bytes_inputs = UrlAssetsDownloader::new();
         let mut multi_modal_bytes_inputs_indices = Vec::new();
 
         // Texts
@@ -77,22 +82,15 @@ impl Local {
             match query.content_type {
                 ContentType::Image => {
                     if let Some(reference) = query.get_asset_reference() {
-                        match Url::parse(&reference) {
-                            Ok(url) => {
-                                let handle = tokio::spawn(async move {
-                                    let bytes = reqwest::get(url)
-                                        .await?
-                                        .error_for_status()?
-                                        .bytes()
-                                        .await?;
-                                    Ok::<Vec<u8>, reqwest::Error>(bytes.to_vec())
-                                });
-
-                                multi_modal_bytes_inputs.push(handle);
+                        match parse_remote_asset_url(&reference) {
+                            Some(url) => {
+                                multi_modal_bytes_inputs
+                                    .start_download_url_asset_task(url)
+                                    .await;
                                 multi_modal_bytes_inputs_indices.push(index);
                                 continue;
                             }
-                            Err(_) => {}
+                            None => {}
                         }
 
                         multi_modal_inputs.push(construct_asset_save_path(
@@ -104,27 +102,25 @@ impl Local {
                     }
                 }
                 _ => {
-                    inputs.push(query.texts.as_str());
+                    inputs.push(format!("title: none | text: {}", query.texts));
                     inputs_indices.push(index);
                 }
             }
         }
 
-        let multi_modal_bytes_results = match multi_modal_bytes_inputs.is_empty() {
-            true => Vec::new(),
-            false => {
-                let mut image_bytes = Vec::new();
-                for handle in multi_modal_bytes_inputs.into_iter() {
-                    // Fail all to let users retry
-                    image_bytes.push(handle.await??);
-                }
-
+        let multi_modal_bytes_results = match multi_modal_bytes_inputs.has_tasks() {
+            false => Vec::new(),
+            true => {
                 self.anything_embedder
-                    .embed_image_bytes(&image_bytes, None)
+                    .embed_image_bytes(
+                        &multi_modal_bytes_inputs.fetch_downloaded_tasks().await?,
+                        None,
+                    )
                     .await?
             }
         };
 
+        let inputs: Vec<&str> = inputs.iter().map(|item| item.as_str()).collect();
         let results = self.anything_embedder.embed(&inputs, None, None).await?;
 
         let multi_modal_results = self
@@ -161,7 +157,7 @@ impl Local {
         for (index, result) in multi_modal_bytes_results.into_iter().enumerate() {
             match result.embedding {
                 EmbeddingResult::DenseVector(vec) => {
-                    let original_index = multi_modal_inputs_indices[index];
+                    let original_index = multi_modal_bytes_inputs_indices[index];
                     vectors[original_index] = vec;
                 }
                 EmbeddingResult::MultiVector(_) => {
@@ -197,5 +193,19 @@ impl Embedder for Local {
             },
             _ => return Err(anyhow!("Can't embed texts with a visual embedder")),
         }
+    }
+
+    async fn vectorize_query(
+        &self,
+        _assets_storage_path: Option<PathBuf>,
+        queries: &[Payload],
+    ) -> anyhow::Result<Vec<Vec<f32>>> {
+        let mut queries = queries.to_owned();
+
+        for query in queries.iter_mut() {
+            query.texts = format!("{}{}", "task: search result | query: ", query.texts)
+        }
+
+        self.vectorize_local_text(&queries).await
     }
 }

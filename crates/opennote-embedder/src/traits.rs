@@ -13,4 +13,14 @@ pub trait Embedder: Send + Sync {
         assets_storage_path: Option<PathBuf>,
         queries: &[Payload],
     ) -> anyhow::Result<Vec<Vec<f32>>>;
+
+    /// This needs to be implemented when the model requires a specific format for queries.
+    /// For example, gemma requires a template for queries for better multimodal searches.
+    async fn vectorize_query(
+        &self,
+        assets_storage_path: Option<PathBuf>,
+        queries: &[Payload],
+    ) -> anyhow::Result<Vec<Vec<f32>>> {
+        self.vectorize(assets_storage_path, queries).await
+    }
 }

@@ -49,6 +49,13 @@ pub async fn vectorize(
     Ok(chunks)
 }
 
+/// Swap the vectors into the payloads.
+fn swap_vectors_in(vectors: Vec<Vec<f32>>, queries: &mut Vec<Payload>) {
+    for (vector, chunk) in vectors.into_iter().zip(queries) {
+        chunk.vector = vector;
+    }
+}
+
 /// It will parallelize the vectorization.
 pub async fn send_vectorization(
     mut queries: Vec<Payload>,
@@ -63,9 +70,26 @@ pub async fn send_vectorization(
         )
         .await?;
 
-    for (vector, chunk) in vectors.into_iter().zip(&mut queries) {
-        chunk.vector = vector;
-    }
+    swap_vectors_in(vectors, &mut queries);
+
+    Ok(queries)
+}
+
+/// It will vectorize the input as queires.
+pub async fn send_query_vectorization(
+    mut queries: Vec<Payload>,
+    assets_storage_configurations: AssetsConfigurations,
+    embedder_entry: &EmbedderEntry,
+) -> Result<Vec<Payload>> {
+    let vectors = embedder_entry
+        .embedder
+        .vectorize_query(
+            Some(assets_storage_configurations.assets_storage_path.into()),
+            &queries,
+        )
+        .await?;
+
+    swap_vectors_in(vectors, &mut queries);
 
     Ok(queries)
 }
